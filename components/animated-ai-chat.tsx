@@ -253,38 +253,36 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     }
   }
 
-  const handleSendMessage = () => {
-    if (value.trim()) {
-      // Check if it's a video learning request
-      if (
-        value.startsWith("/video") ||
-        value.toLowerCase().includes("video") ||
-        value.toLowerCase().includes("explain")
-      ) {
-        const question = value.replace("/video", "").trim() || "What would you like to learn?"
-        onNavigateToVideoLearning?.(question)
-        return
-      }
+// inside AnimatedAIChat
+const handleSendMessage = async () => {
+  if (!value.trim()) return;
 
-      startTransition(() => {
-        setIsTyping(true)
-        setTimeout(() => {
-          setIsTyping(false)
-          setValue("")
-          adjustHeight(true)
-        }, 3000)
-      })
-    }
+  setIsTyping(true);
+  try {
+    const res = await fetch("http://localhost:8000/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: value }),
+    });
+    const data = await res.json(); // { text, video_url }
+    onNavigateToVideoLearning?.(data.text);
+  } catch (e) {
+    console.error(e);
+  } finally {
+    setIsTyping(false);
+    setValue("");
+    adjustHeight(true);
   }
+};          // ← end handleSendMessage
 
-  const handleAttachFile = () => {
-    const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`
-    setAttachments((prev) => [...prev, mockFileName])
-  }
+const handleAttachFile = () => {
+  const mockFileName = `file-${Math.floor(Math.random() * 1000)}.pdf`;
+  setAttachments((prev) => [...prev, mockFileName]);
+};
 
-  const removeAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index))
-  }
+const removeAttachment = (index: number) => {
+  setAttachments((prev) => prev.filter((_, i) => i !== index));
+};
 
   const selectCommandSuggestion = (index: number) => {
     const selectedCommand = commandSuggestions[index]
