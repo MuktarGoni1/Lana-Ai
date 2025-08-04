@@ -255,25 +255,13 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
   const handleSendMessage = () => {
     if (value.trim()) {
-      // Check if it's a video learning request
-      if (
-        value.startsWith("/video") ||
-        value.toLowerCase().includes("video") ||
-        value.toLowerCase().includes("explain")
-      ) {
-        const question = value.replace("/video", "").trim() || "What would you like to learn?"
-        onNavigateToVideoLearning?.(question)
-        return
-      }
+      // Always navigate to video learning page with the user's question
+      const question = value.replace("/video", "").trim() || value.trim()
+      onNavigateToVideoLearning?.(question)
 
-      startTransition(() => {
-        setIsTyping(true)
-        setTimeout(() => {
-          setIsTyping(false)
-          setValue("")
-          adjustHeight(true)
-        }, 3000)
-      })
+      // Clear the input
+      setValue("")
+      adjustHeight(true)
     }
   }
 
