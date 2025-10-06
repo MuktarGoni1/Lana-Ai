@@ -1,4 +1,16 @@
 fastapi
-uvicorn
+uvicorn[standard]
 pydantic
 python-multipart
+groq
+google-genai
+supabase
+orjson
+cachetools
+httpx
+python-dotenv
+asyncpg
+aiohttp
+redis
+aiocache
+sympy>=1.13
