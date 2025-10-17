@@ -1609,6 +1609,11 @@ async def solve_math(body: MathProblemRequest):
         )
 
 # ---------- Health check endpoint ----------
+@app.get("/health")
+async def health():
+    ok = bool(GROQ_API_KEY and GOOGLE_API_KEY and SUPABASE_URL and SUPABASE_KEY)
+    return {"status": "ok" if ok else "degraded", "cache": cache_stats}
+
 # ---------- TTS endpoint (Gemini) with streaming and compression ----------
 @app.post("/api/tts")
 async def tts(req: TTSRequest):
