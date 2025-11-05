@@ -1,10 +1,11 @@
 "use client"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/db"
+import { createClient } from '@/lib/supabase/client'
 
 export default function ChildLoginPage() {
   const router = useRouter()
+  const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

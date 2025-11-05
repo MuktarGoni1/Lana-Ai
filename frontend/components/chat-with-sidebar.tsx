@@ -95,7 +95,7 @@ function ChatWithSidebarContent() {
     try {
       // Use cached data if available, bypass cache every 30 seconds
       const bypassCache = Date.now() % 30000 < 100; // Bypass cache ~every 30 seconds
-      const data = await api.get<ChatHistory[]>(`${API_BASE}/history?sid=${sid}`, undefined, bypassCache);
+      const data = await api.get<ChatHistory[]>(`${API_BASE}/api/history?sid=${sid}`, undefined, bypassCache);
       setHistory(data);
     } catch (error: unknown) {
       console.error('Failed to fetch history:', error);

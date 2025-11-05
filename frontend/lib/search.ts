@@ -1,4 +1,4 @@
-import { supabase } from './db'
+import { createClient } from './supabase/client'
 import { searchSchema } from './validation'
 import { sanitizeContent } from './sanitization'
 
@@ -11,6 +11,7 @@ export async function saveSearch(title: string) {
     const sanitizedTitle = sanitizeContent(validatedTitle);
     
     // Get the current user's session
+    const supabase = createClient();
     const { data: sessionData } = await supabase.auth.getSession()
     const uid = sessionData.session?.user?.id
     

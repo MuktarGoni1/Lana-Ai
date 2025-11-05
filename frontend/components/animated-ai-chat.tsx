@@ -21,7 +21,7 @@ import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
-import { supabase } from '@/lib/db';
+import { createClient } from '@/lib/supabase/client';
 
 // Centralized API base for both components in this file
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
@@ -595,6 +595,7 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const getUserAge = async () => {
       try {
+        const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
         
         // Only proceed if user is properly authenticated

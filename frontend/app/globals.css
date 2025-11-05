@@ -1,7 +1,3 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
 /* ---------- LIGHT (default) theme ---------- */
 :root {
   --background: 0 0% 100%;

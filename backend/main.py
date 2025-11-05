@@ -44,7 +44,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
 
 # Pydantic models with validation (A-3: Enforced Data Contracts)
-from pydantic import BaseModel, Field, validator, root_validator
+from pydantic import BaseModel, Field, validator, root_validator, field_validator
 from pydantic_settings import BaseSettings
 
 # External libraries
@@ -1198,7 +1198,7 @@ Show clear, correct steps. Output only valid JSON."""
         """Extract JSON from content."""
         content = content.strip()
 
-        if "```json" in content:
+        if "``json" in content:
             start = content.find("```json") + 7
             end = content.find("```", start)
             if end != -1:

@@ -266,34 +266,6 @@ return (
 )
 }
 
-/* ---------- CTA ---------- */
-function CtaSection() {
-return (
-<section id="get-started" className="py-20 md:py-32">
-<div className="mx-auto max-w-4xl px-4 text-center">
-<h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-Give Your Child the Gift of Personalized Learning — While You Stay Connected
-</h2>
-<p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today.
-</p>
-<div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-<Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:opacity-90" >
-Start Free Trial
-<ArrowRight className="h-5 w-5" />
-</Link>
-<Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
-Login to Your Account
-</Link>
-<Link href="#contact" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
-Contact Sales
-</Link>
-</div>
-</div>
-</section>
-)
-}
-
 /* ---------- FOOTER ---------- */
 function Footer() {
 const footerLinks = {
@@ -356,7 +328,35 @@ return (
 )
 }
 
-/* ---------- CONTACT ---------- */
+/* ---------- CTA ---------- */
+function CtaSection() {
+return (
+<section id="get-started" className="py-20 md:py-32">
+<div className="mx-auto max-w-4xl px-4 text-center">
+<h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
+Give Your Child the Gift of Personalized Learning — While You Stay Connected
+</h2>
+<p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
+Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today.
+</p>
+<div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+<Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:opacity-90" >
+Start Free Trial
+<ArrowRight className="h-5 w-5" />
+</Link>
+<Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
+Login to Your Account
+</Link>
+<Link href="#contact" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
+Contact Sales
+</Link>
+</div>
+</div>
+</section>
+)
+}
+
+/* ---------- PAGE ---------- */
 function ContactSection() {
 return (
 <section id="contact" className="py-20 md:py-32 bg-muted/30">
