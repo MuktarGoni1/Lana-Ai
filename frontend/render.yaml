@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: lana-frontend
+    env: node
+    plan: free
+    buildCommand: npm run build
+    startCommand: npm start
+    publishDir: ./
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 18
