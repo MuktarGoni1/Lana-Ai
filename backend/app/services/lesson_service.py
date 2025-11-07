@@ -1,7 +1,8 @@
 from typing import List, Dict, Any, Optional
 
-from backend.main import logger
-from backend.app.repositories.interfaces import ICacheRepository, ILessonRepository
+import logging
+logger = logging.getLogger(__name__)
+from app.repositories.interfaces import ICacheRepository, ILessonRepository
 
 
 class LessonService:

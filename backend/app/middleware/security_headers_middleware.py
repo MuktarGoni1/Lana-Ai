@@ -3,7 +3,9 @@ from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp
 
-from core.config import settings
+from app.settings import load_settings
+
+_settings = load_settings()
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -23,7 +25,8 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Content Security Policy
-        if settings.environment == "production":
+        # Use production CSP when not in debug mode
+        if not _settings.api_debug:
             csp_policy = (
                 "default-src 'self'; "
                 "script-src 'self'; "

@@ -58,3 +58,17 @@ class ILessonRepository(ABC):
     async def get_popular_topics(self, limit: int = 10) -> List[str]:
         """Get most popular topics."""
         pass
+
+
+class IChatRepository(ABC):
+    """Abstract chat repository interface for storing conversation history."""
+
+    @abstractmethod
+    async def append_message(self, sid: str, role: str, content: str) -> bool:
+        """Append a message to a chat session."""
+        pass
+
+    @abstractmethod
+    async def get_history(self, sid: str, limit: int = 100) -> List[Dict[str, Any]]:
+        """Retrieve ordered chat history for a session."""
+        pass

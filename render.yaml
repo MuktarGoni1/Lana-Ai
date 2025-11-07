@@ -1,0 +1,41 @@
+services:
+  # Frontend: Next.js Web Service
+  - type: web
+    name: lana-frontend
+    env: node
+    plan: free
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start -- -p $PORT -H 0.0.0.0
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 18
+      - key: NEXT_PUBLIC_API_BASE
+        value: https://lana-ai.onrender.com
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+
+  # Backend: FastAPI with Gunicorn+Uvicorn workers
+  - type: web
+    name: lana-backend
+    env: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -k uvicorn.workers.UvicornWorker backend.main:app -b 0.0.0.0:$PORT --workers 2
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: CORS_ORIGINS
+        value: https://lanamind.onrender.com
+      - key: GROQ_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: API_SECRET_KEY
+        sync: false

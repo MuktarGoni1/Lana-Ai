@@ -81,3 +81,20 @@ class SupabaseRepository(ILessonRepository):
         except Exception as e:
             logger.error(f"Failed to delete lesson by ID {lesson_id}: {e}")
             return False
+
+    async def get_popular_topics(self, limit: int = 10) -> List[str]:
+        """Get most popular topics by frequency in searches table."""
+        try:
+            result = (
+                self.client.table("searches").select("title").limit(1000).execute()
+            )
+            titles = [row.get("title") for row in (result.data or []) if row.get("title")]
+            freq: Dict[str, int] = {}
+            for t in titles:
+                freq[t] = freq.get(t, 0) + 1
+            # Sort by frequency desc
+            popular = sorted(freq.items(), key=lambda x: x[1], reverse=True)
+            return [t for t, _ in popular[:limit]]
+        except Exception as e:
+            logger.error(f"Failed to compute popular topics: {e}")
+            return []
