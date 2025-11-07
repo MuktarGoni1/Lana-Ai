@@ -1,17 +1,24 @@
 "use client"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from "@/lib/db"
 
 export default function ChildLoginPage() {
   const router = useRouter()
-  const supabase = createClient()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return router.push("/login")
       const role = session.user.user_metadata?.role
-      if (role === "child") router.push("/") // already onboarded
+      if (role === "child") {
+        // Check if this is the user's first time
+        const firstTime = localStorage.getItem('lana_first_time_term_plan');
+        if (firstTime === 'true') {
+          router.push("/term-plan")
+        } else {
+          router.push("/") // already onboarded
+        }
+      }
       else router.push("/onboarding")        // parent → setup
     })
   }, [router])

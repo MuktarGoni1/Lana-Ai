@@ -56,7 +56,11 @@ export default function OnboardingPage() {
       }
 
       toast({ title: "Success", description: "Child linked to your account." })
-      router.push("/guardian")
+      
+      // Mark user as needing term plan onboarding
+      localStorage.setItem('lana_first_time_term_plan', 'true');
+      
+      router.push("/term-plan")
     } catch (err: unknown) {
       toast({
         title: "Error",

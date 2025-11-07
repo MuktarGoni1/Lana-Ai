@@ -4,7 +4,6 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { ClientProviders } from './providers'
 import { ThemeProvider } from 'next-themes'
-import ErrorBoundary from '@/components/error-boundary'
 
 export const metadata: Metadata = {
   title: 'lana-ai',
@@ -15,13 +14,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
-        <style dangerouslySetInnerHTML={{ __html: `html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}` }} />
+        <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <ErrorBoundary>
-            <ClientProviders>{children}</ClientProviders>
-          </ErrorBoundary>
+          <ClientProviders>{children}</ClientProviders>
         </ThemeProvider>
       </body>
     </html>

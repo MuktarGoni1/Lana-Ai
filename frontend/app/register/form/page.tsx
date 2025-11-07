@@ -177,7 +177,7 @@ function RegisterFormContent() {
 
     setIsLoading(true);
     try {
-      await authService.registerChild(nickname, age, grade);
+      await authService.registerChild(nickname, Number(age), grade);
       router.push("/onboarding"); // child can add parent later
     } catch {
       toast({

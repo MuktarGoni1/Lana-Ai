@@ -21,10 +21,10 @@ import { Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
-import { createClient } from '@/lib/supabase/client';
+import { supabase } from '@/lib/db';
 
 // Centralized API base for both components in this file
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -595,7 +595,6 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const getUserAge = async () => {
       try {
-        const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
         
         // Only proceed if user is properly authenticated
@@ -707,6 +706,10 @@ interface AnimatedAIChatProps {
 
     // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
     try {
+      // Debug: surface API base and outgoing topic
+      if (process.env.NODE_ENV === 'development') {
+        console.info('[lesson-stream] request', { API_BASE, topic: q, age: userAge })
+      }
       const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -759,6 +762,10 @@ interface AnimatedAIChatProps {
                 setLessonJson(finalLesson);
                 setShowVideoButton(true);
                 setIsTyping(false);
+                if (process.env.NODE_ENV === 'development') {
+                  const introPreview = (finalLesson?.introduction || '').slice(0, 120)
+                  console.info('[lesson-stream] done', { topicSent: q, introPreview })
+                }
                 
                 // Ensure save completes
                 await savePromise;
@@ -767,6 +774,9 @@ interface AnimatedAIChatProps {
               case "error":
                 setError(msg.message);
                 setIsTyping(false);
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('[lesson-stream] error', msg)
+                }
                 return;
             }
           } catch (e) {
@@ -777,6 +787,9 @@ interface AnimatedAIChatProps {
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") console.log("aborted");
       else setError(e instanceof Error ? e.message : "Streaming failed");
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[lesson-stream] catch', e)
+      }
       
       if (retryCount < MAX_RETRIES) {
         setTimeout(() => {

@@ -178,7 +178,10 @@ function ParentFlow() {
         console.warn('[ParentFlow] Failed to create guardian record:', upsertError);
         // Continue as auth was successful
       }
-
+      
+      // Mark user as needing term plan onboarding
+      localStorage.setItem('lana_first_time_term_plan', 'true');
+      
       setSent(true);
     } catch (error: unknown) {
       toast({ 
@@ -302,6 +305,10 @@ function ChildFlow() {
       }
       
       localStorage.setItem('lana_sid', child_uid);
+      
+      // Mark user as needing term plan onboarding
+      localStorage.setItem('lana_first_time_term_plan', 'true');
+      
       router.push("/onboarding");
     } catch (error: unknown) {
       toast({ 

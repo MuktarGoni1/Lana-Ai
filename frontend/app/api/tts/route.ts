@@ -14,8 +14,9 @@ export async function POST(req: Request) {
 
     // Try to proxy the request to your backend service
     // Use the URL with trailing slash to avoid redirects
+    const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE || 'https://lana-ai.onrender.com';
     try {
-      const backendResponse = await fetch('http://localhost:8000/api/tts/', {
+      const backendResponse = await fetch(`${BACKEND_URL}/api/tts/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -15,25 +16,19 @@ const nextConfig = {
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production',
   },
-  // Enable SWC minification to prevent conflicts with next/font
-  // swcMinify: true,
   // Disable production browser source maps for performance
   productionBrowserSourceMaps: false,
   allowedDevOrigins: ['192.168.0.187', 'localhost'],
   // Bundle optimization: disable optimizePackageImports for dev stability
   experimental: {
     // optimizePackageImports disabled due to HMR/runtime issues
-    // Add missing configuration to fix webpack module resolution issues
-    serverComponentsExternalPackages: ['@supabase/supabase-js', '@supabase/auth-helpers-nextjs'],
-    // Add this line to help with module resolution
-    optimizePackageImports: [],
-    // Enable SWC minify to prevent SWC helper modules from being deleted during HMR updates
-    swcMinify: true,
   },
-  // Remove Turbopack block to avoid dev runtime mismatches
-  // turbopack: {
-  //   resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
-  // },
+  // Disable React compiler to prevent conflicts
+  reactCompiler: false,
+  // Turbopack configuration to fix HMR issues
+  turbopack: {
+    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+  },
   // Turbopack is stable; remove deprecated experimental.turbo config
   // If you need custom SVG handling, prefer using React components or next/image.
   
@@ -95,12 +90,14 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300',
+            value: isProd ? 'public, max-age=300, s-maxage=300' : 'no-store',
           },
         ],
       },
     ]
   },
+  // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
+  // outputFileTracingRoot: undefined,
 };
 
 export default nextConfig;

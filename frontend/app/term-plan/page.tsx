@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, SkipForward, Save } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -28,17 +28,24 @@ export default function TermPlanPage() {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
+  const [isFirstTime, setIsFirstTime] = useState(false);
 
-  // Removed authentication check to make page public
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     const { data: { session } } = await supabase.auth.getSession();
-  //     if (!session) {
-  //       router.push("/login");
-  //     }
-  //   };
-  //   checkAuth();
-  // }, [router]);
+  useEffect(() => {
+    // Check if this is the user's first time (onboarding)
+    const firstTime = localStorage.getItem('lana_first_time_term_plan');
+    if (firstTime === 'true') {
+      setIsFirstTime(true);
+    }
+    
+    // Check authentication
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push("/login");
+      }
+    };
+    checkAuth();
+  }, [router]);
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -102,6 +109,22 @@ export default function TermPlanPage() {
     ));
   };
 
+  const handleSaveAndContinue = () => {
+    // Mark that first-time onboarding is complete
+    if (isFirstTime) {
+      localStorage.removeItem('lana_first_time_term_plan');
+    }
+    router.push("/homepage");
+  };
+
+  const handleSkip = () => {
+    // Mark that first-time onboarding is complete
+    if (isFirstTime) {
+      localStorage.removeItem('lana_first_time_term_plan');
+    }
+    router.push("/homepage");
+  };
+
   return (
     <div className="min-h-screen bg-black text-white">
       {/* header with logo */}
@@ -110,12 +133,14 @@ export default function TermPlanPage() {
           <Logo className="w-10 h-10 md:w-12 md:h-12" />
           <h1 className="text-xl font-semibold">Term Planner</h1>
         </div>
-        <button
-          onClick={() => router.back()}
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        {!isFirstTime && (
+          <button
+            onClick={() => router.back()}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </header>
 
       {/* body */}
@@ -285,6 +310,28 @@ export default function TermPlanPage() {
           )}
         </motion.div>
       </main>
+
+      {/* First-time onboarding buttons */}
+      {isFirstTime && (
+        <div className="fixed bottom-6 left-6 right-6 flex justify-between items-center max-w-4xl mx-auto">
+          <button
+            onClick={handleSkip}
+            className="px-6 py-3 bg-white/10 text-white rounded-lg font-medium 
+                     flex items-center gap-2 hover:bg-white/20 transition-all border border-white/20"
+          >
+            <SkipForward className="w-4 h-4" />
+            Skip for now
+          </button>
+          <button
+            onClick={handleSaveAndContinue}
+            className="px-6 py-3 bg-white text-black rounded-lg font-medium 
+                     flex items-center gap-2 hover:bg-white/90 transition-all"
+          >
+            <Save className="w-4 h-4" />
+            Save and continue
+          </button>
+        </div>
+      )}
     </div>
   );
 }

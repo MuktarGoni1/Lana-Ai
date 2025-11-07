@@ -20,8 +20,8 @@ import { useApi } from "@/hooks/use-api"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 
-// Centralized API base for this component
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Centralized API base for this component - with better fallback handling
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
 
 // Lazy load heavy components
 const AnimatedAIChat = dynamic(() => import("@/components/animated-ai-chat").then(mod => mod.AnimatedAIChat), {
@@ -71,6 +71,7 @@ function ChatWithSidebarContent() {
   
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
+    console.log(`API_BASE value: ${API_BASE}`);
     const id = localStorage.getItem("lana_sid") || uuid()
     localStorage.setItem("lana_sid", id)
     setSid(id)
@@ -95,7 +96,11 @@ function ChatWithSidebarContent() {
     try {
       // Use cached data if available, bypass cache every 30 seconds
       const bypassCache = Date.now() % 30000 < 100; // Bypass cache ~every 30 seconds
-      const data = await api.get<ChatHistory[]>(`${API_BASE}/api/history?sid=${sid}`, undefined, bypassCache);
+      console.log(`API_BASE value:`, API_BASE); // Debug log
+      console.log(`Constructing URL with: ${API_BASE}/api/history?sid=${sid}`);
+      const url = `${API_BASE}/api/history?sid=${sid}`;
+      console.log(`Final URL:`, url); // Debug log
+      const data = await api.get<ChatHistory[]>(url, undefined, bypassCache);
       setHistory(data);
     } catch (error: unknown) {
       console.error('Failed to fetch history:', error);
@@ -138,7 +143,6 @@ function ChatWithSidebarContent() {
   const handleNewChat = async () => {
     if (!sid) return
     try {
-      await api.post(`${API_BASE}/reset`, { sid });
       // Clear any cached history data
       apiClient.clearCache();
       await fetchHistory();

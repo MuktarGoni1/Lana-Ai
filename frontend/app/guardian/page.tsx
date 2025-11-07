@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from '@/lib/supabase/client'
+import { supabase } from "@/lib/db"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
@@ -26,17 +26,16 @@ export default function GuardianDashboard() {
   const [children, setChildren] = useState<Child[]>([])
   const [parentEmail, setParentEmail] = useState("")
   const [copied, setCopied] = useState(false)
-  const supabase = createClient()
 
   /* ---- auth ---- */
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return router.push("/login")
-      const email = session.user.email
-      setParentEmail(email ?? "")
-      if (email) loadChildren(email)
-    })
-  }, [router])
+useEffect(() => {
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (!session) return router.push("/login")
+    const email = session.user.email
+    setParentEmail(email ?? "")
+    if (email) loadChildren(email)
+  })
+}, [router])
 
   /* ---- data ---- */
   async function loadChildren(email: string) {

@@ -15,6 +15,7 @@ export async function proxy(req: NextRequest) {
     '/register/form',
     '/onboarding',
     '/child-login',
+    '/term-plan', // Make term-plan accessible during onboarding
   ]
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   const isAsset = pathname.startsWith('/_next') || pathname.startsWith('/images') || pathname === '/favicon.ico'
