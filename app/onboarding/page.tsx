@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -56,7 +56,7 @@ export default function OnboardingPage() {
       }
 
       toast({ title: "Success", description: "Child linked to your account." })
-      router.push("/guardian")
+      router.push("/term-plan?onboarding=1")
     } catch (err: unknown) {
       toast({
         title: "Error",

@@ -3,8 +3,9 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/db";
+import { AuthService } from "@/lib/services/authService";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Mail, User, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -101,49 +102,12 @@ const FormHeader = ({
   </div>
 );
 
-// --- Success State Component ---
-const SuccessState = ({ email, onReset }: { email: string; onReset: () => void }) => (
-  <FormWrapper>
-    <FormCard>
-      <div className="text-center space-y-6">
-        <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
-          <CheckCircle className="w-7 h-7 text-white/70" />
-        </div>
-        
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-white">
-            Check your inbox
-          </h1>
-          <p className="text-white/40 text-sm">
-            We've sent a magic link to
-          </p>
-          <p className="text-white/70 font-medium">
-            {email}
-          </p>
-        </div>
 
-        <div className="pt-4 space-y-3">
-          <p className="text-xs text-white/30">
-            Didn't receive it? Check your spam folder.
-          </p>
-          
-          <button 
-            onClick={onReset}
-            className="text-sm text-white/30 hover:text-white/50 transition-colors duration-200"
-          >
-            Use a different email
-          </button>
-        </div>
-      </div>
-    </FormCard>
-  </FormWrapper>
-);
 
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -179,7 +143,13 @@ function ParentFlow() {
         // Continue as auth was successful
       }
 
-      setSent(true);
+      // Navigate to unified magic link confirmation page
+      try {
+        router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+      } catch (navErr) {
+        console.warn('[ParentFlow] navigation error, falling back:', navErr)
+        window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+      }
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
@@ -191,18 +161,16 @@ function ParentFlow() {
     }
   };
 
-  if (sent) {
-    return <SuccessState email={email} onReset={() => { setSent(false); setEmail(""); }} />;
-  }
+  // Success state now handled by dedicated page
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleParentSubmit} className="space-y-6">
+        <form onSubmit={handleParentSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={Mail} 
             title="Parent Registration" 
-            subtitle="Monitor your child's learning journey"
+            subtitle="Monitor your child&apos;s learning journey"
           />
           
           <div className="space-y-4">
@@ -423,9 +391,9 @@ function ChildFlow() {
 function EmailLoginFlow() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const authService = new AuthService();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -442,16 +410,14 @@ function EmailLoginFlow() {
 
     setLoading(true);
     try {
-      // Check if user exists and send magic link
-      const { error } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      
-      if (error) throw error;
-      setSent(true);
+      await authService.login(trimmed);
+      // Navigate to unified magic link confirmation page
+      try {
+        router.replace(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
+      } catch (navErr) {
+        console.warn('[EmailLoginFlow] navigation error, falling back:', navErr)
+        window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
+      }
     } catch (error: unknown) {
       toast({
         title: "Error",
@@ -463,14 +429,12 @@ function EmailLoginFlow() {
     }
   };
 
-  if (sent) {
-    return <SuccessState email={email} onReset={() => { setSent(false); setEmail(""); }} />;
-  }
+  // Success state now handled by dedicated page
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={Mail} 
             title="Welcome back" 

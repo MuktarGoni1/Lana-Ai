@@ -6,9 +6,8 @@ export async function proxy(req: NextRequest) {
   const url = req.nextUrl
   const pathname = url.pathname
 
-  // Skip middleware for public assets and health
+  // Identify public routes and static assets
   const PUBLIC_PATHS = [
-    '/',
     '/landing-page',
     '/login',
     '/register',
@@ -18,7 +17,7 @@ export async function proxy(req: NextRequest) {
   ]
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
   const isAsset = pathname.startsWith('/_next') || pathname.startsWith('/images') || pathname === '/favicon.ico'
-  if (isPublic || isAsset) return NextResponse.next()
+  if (isAsset) return NextResponse.next()
 
   const res = NextResponse.next()
 
@@ -27,9 +26,15 @@ export async function proxy(req: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  // If authenticated and trying to access the landing page, send to root
+  // If authenticated and trying to access the landing page, send to homepage
   if (session && pathname === '/landing-page') {
-    const dest = new URL('/', req.url)
+    const dest = new URL('/homepage', req.url)
+    return NextResponse.redirect(dest)
+  }
+
+  // If authenticated and hitting root, normalize to homepage
+  if (session && pathname === '/') {
+    const dest = new URL('/homepage', req.url)
     return NextResponse.redirect(dest)
   }
 
@@ -53,10 +58,6 @@ export async function proxy(req: NextRequest) {
 
 // Limit middleware to app routes, excluding assets
 export const config = {
-  matcher: [
-    '/guardian/:path*',
-    '/settings/:path*',
-    '/video-learning/:path*',
-    '/quiz/:path*',
-  ],
+  // Apply to all non-asset routes; internal public checks happen above
+  matcher: ['/((?!_next|api|images|favicon.ico).*)'],
 }

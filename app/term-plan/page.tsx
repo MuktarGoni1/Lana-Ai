@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
-import { supabase } from '@/lib/db';
 
 /* ---------- Types ---------- */
 interface Topic {
@@ -23,8 +22,13 @@ interface Subject {
 }
 
 /* ---------- main page ---------- */
-export default function TermPlanPage() {
+import { Suspense } from "react";
+
+function TermPlanPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const onboardingParam = searchParams.get("onboarding");
+  const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
@@ -111,7 +115,7 @@ export default function TermPlanPage() {
           <h1 className="text-xl font-semibold">Term Planner</h1>
         </div>
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push("/homepage")}
           className="p-2 rounded-lg hover:bg-white/10 transition-colors"
         >
           <X className="w-5 h-5" />
@@ -212,7 +216,7 @@ export default function TermPlanPage() {
                                 [subject.id]: e.target.value
                               })}
                               onKeyDown={(e) => e.key === "Enter" && addTopic(subject.id)}
-                              placeholder="Add a topic (e.g., Limits & Continuity)"
+                              placeholder="Add a topic (e.g., Limits &amp; Continuity)"
                               className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 
                                        focus:outline-none focus:ring-2 focus:ring-white/20 
                                        placeholder:text-white/40 text-sm transition-all"
@@ -237,7 +241,7 @@ export default function TermPlanPage() {
                                 exit={{ opacity: 0, x: -20 }}
                                 className="flex items-center justify-between p-3 rounded-lg 
                                          bg-white/5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-all"
-                                onClick={() => router.push(`/?topic=${encodeURIComponent(topic.name)}`)}
+                                onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 rounded-full bg-white/40" />
@@ -285,6 +289,46 @@ export default function TermPlanPage() {
           )}
         </motion.div>
       </main>
+
+      {/* footer actions (only during onboarding) */}
+      {isOnboarding && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
+            <button
+              onClick={() => router.push("/homepage")}
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
+            >
+              Skip for now
+            </button>
+            <button
+              onClick={() => {
+                // TODO: Persist subjects/topics to Supabase tables
+                router.push("/homepage")
+              }}
+              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium"
+            >
+              Save plan and continue
+            </button>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function TermPlanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+            <p className="text-white/30 text-sm">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <TermPlanPageContent />
+    </Suspense>
   );
 }

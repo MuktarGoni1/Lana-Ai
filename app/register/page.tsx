@@ -7,8 +7,10 @@ function RegisterLandingContent() {
   const router = useRouter()
   const [isNavigating, setIsNavigating] = useState(false)
 
-  const handleNavigation = (path: string) => {
+  const handleNavigation = async (role: string, path: string) => {
     setIsNavigating(true)
+    // Remove authentication gate for child registration
+    // Child registration should be accessible without prior authentication
     router.push(path)
   }
 
@@ -55,7 +57,7 @@ function RegisterLandingContent() {
               return (
                 <button
                   key={role.id}
-                  onClick={() => handleNavigation(role.path)}
+                  onClick={() => handleNavigation(role.id, role.path)}
                   disabled={isNavigating}
                   className={`
                     relative group p-8 rounded-2xl
@@ -105,7 +107,7 @@ function RegisterLandingContent() {
           {/* Login link */}
           <div className="text-center">
             <button 
-              onClick={() => handleNavigation("/login")}
+              onClick={() => handleNavigation("login", "/login")}
               disabled={isNavigating}
               className="group inline-flex items-center text-white/30 hover:text-white/50 transition-colors duration-200"
             >

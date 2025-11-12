@@ -2,6 +2,22 @@ import { supabase } from '@/lib/db';
 import { createClient } from '@supabase/supabase-js';
 
 export class AuthService {
+  async login(email: string) {
+    try {
+      const trimmed = email.trim();
+      const { data, error } = await supabase.auth.signInWithOtp({
+        email: trimmed,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+      return data;
+    } catch (error: unknown) {
+      console.debug("[AuthService] login magic link error:", error);
+      throw error;
+    }
+  }
   async registerParent(email: string) {
     try {
       const { data, error } = await supabase.auth.signInWithOtp({
@@ -28,12 +44,12 @@ export class AuthService {
       
       return data;
     } catch (error: unknown) {
-      console.error("Failed to register parent:", error);
+      console.debug("[AuthService] registerParent error:", error);
       throw error;
     }
   }
 
-  async registerChild(nickname: string, age: number, grade: string) {
+  async registerChild(nickname: string, age: number, grade: string, contactEmail?: string) {
     try {
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
@@ -46,7 +62,7 @@ export class AuthService {
         email: email,
         password: password, // Use child_uid as password for consistency
         options: {
-          data: { role: "child", nickname, age, grade },
+          data: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
           emailRedirectTo: `${window.location.origin}/`,
         }
       })
@@ -57,7 +73,7 @@ export class AuthService {
       const { error: insertError } = await supabase.from("users").insert({
         id: child_uid,
         email: email,
-        user_metadata: { role: "child", nickname, age, grade },
+        user_metadata: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
       });
       
       if (insertError) {
@@ -69,7 +85,7 @@ export class AuthService {
       localStorage.setItem("lana_sid", child_uid);
       return data;
     } catch (error: unknown) {
-      console.error("Failed to register child:", error);
+      console.debug("[AuthService] registerChild error:", error);
       throw error;
     }
   }

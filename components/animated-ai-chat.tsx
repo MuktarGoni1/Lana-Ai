@@ -17,14 +17,17 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
 import { useMotionValue } from "framer-motion";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { supabase } from '@/lib/db';
 
-// Centralized API base for both components in this file
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Centralized API base with optional proxying via Next.js rewrites
+// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
+const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
+  ? ''
+  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -199,6 +202,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const currentIndexRef = useRef(0);
   const [isQueuePreloading, setIsQueuePreloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
@@ -212,17 +216,37 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   }, [blocks]);
 
   const objectUrlsRef = useRef<string[]>([]);
-  const fetchTTSBlobUrl = useCallback(async (text: string) => {
-    const res = await fetch(`${API_BASE}/api/tts`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) throw new Error(`TTS error: ${res.status}`);
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    objectUrlsRef.current.push(url);
-    return url;
+  const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
+    try {
+      if (isRetry) {
+        setIsRetrying(true);
+      }
+      
+      // Use Next.js local proxy to avoid CORS and align with server route
+      const res = await fetch(`/api/tts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        // Handle different error cases
+        if (res.status === 503) {
+          throw new Error('Audio service temporarily unavailable. Please try again later.');
+        } else if (res.status === 400) {
+          throw new Error('Invalid request to audio service.');
+        } else {
+          throw new Error(`Audio service error: ${res.status}`);
+        }
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
+      return url;
+    } finally {
+      if (isRetry) {
+        setIsRetrying(false);
+      }
+    }
   }, []);
 
   // Cleanup audio and revoke object URLs on unmount to prevent leaks
@@ -266,16 +290,31 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       setIsTtsLoading(true);
       if (!segments.length) return;
       const firstUrl = await fetchTTSBlobUrl(segments[0]);
-      setAudioUrl(firstUrl);
-      setAudioQueue([firstUrl]);
-      setCurrentIndex(0);
-      // Preload the next segment in background if available
-      if (segments.length > 1) {
-        setIsQueuePreloading(true);
-        fetchTTSBlobUrl(segments[1])
-          .then((u) => setAudioQueue((q) => [...q, u]))
-          .catch(console.error)
-          .finally(() => setIsQueuePreloading(false));
+      
+      if (!firstUrl) {
+        // If first attempt failed, try once more after a short delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const retryUrl = await fetchTTSBlobUrl(segments[0], true /* isRetry */);
+        if (retryUrl) {
+          setAudioUrl(retryUrl);
+          setAudioQueue([retryUrl]);
+          setCurrentIndex(0);
+          // Continue with preloading...
+        }
+      }
+      
+      if (firstUrl) {
+        setAudioUrl(firstUrl);
+        setAudioQueue([firstUrl]);
+        setCurrentIndex(0);
+        // Preload the next segment in background if available
+        if (segments.length > 1) {
+          setIsQueuePreloading(true);
+          fetchTTSBlobUrl(segments[1])
+            .then((u) => setAudioQueue((q) => [...q, u]))
+            .catch(console.error)
+            .finally(() => setIsQueuePreloading(false));
+        }
       }
     } catch (e) {
       console.error(e);
@@ -297,11 +336,24 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         if (segments[nextIndex] && !audioQueue[nextIndex]) {
           try {
             const u = await fetchTTSBlobUrl(segments[nextIndex]);
-            setAudioQueue((q) => {
-              const qq = q.slice();
-              qq[nextIndex] = u;
-              return qq;
-            });
+            if (!u) {
+              // If first attempt failed, try once more
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              const retryUrl = await fetchTTSBlobUrl(segments[nextIndex], true /* isRetry */);
+              if (retryUrl) {
+                setAudioQueue((q) => {
+                  const qq = q.slice();
+                  qq[nextIndex] = retryUrl;
+                  return qq;
+                });
+              }
+            } else {
+              setAudioQueue((q) => {
+                const qq = q.slice();
+                qq[nextIndex] = u;
+                return qq;
+              });
+            }
           } catch (e) {
             console.error(e);
           }
@@ -325,7 +377,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   }, [audioUrl, audioQueue, segments, fetchTTSBlobUrl]);
 
   const togglePlayPause = useCallback(async () => {
-    if (isTtsLoading || isQueuePreloading) return;
+    if (isTtsLoading || isQueuePreloading || isRetrying) return;
     const hasPrepared = !!(audioUrl || audioQueue.length);
     if (!audioRef.current) {
       if (!hasPrepared) {
@@ -339,14 +391,14 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     } else {
       audioRef.current.pause();
     }
-  }, [audioUrl, audioQueue, isTtsLoading, isQueuePreloading, preloadTTS, playTTS]);
+  }, [audioUrl, audioQueue, isTtsLoading, isQueuePreloading, isRetrying, preloadTTS, playTTS]);
 
   // Auto-preload audio once streaming completes to reduce wait time
   useEffect(() => {
-    if (isStreamingComplete && !audioUrl && !isTtsLoading) {
+    if (isStreamingComplete && !audioUrl && !isTtsLoading && !isRetrying) {
       preloadTTS();
     }
-  }, [isStreamingComplete, audioUrl, isTtsLoading, preloadTTS]);
+  }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
   if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
     blocks.push({ content: lesson.introduction });
@@ -434,18 +486,18 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading}
+            disabled={isTtsLoading || isQueuePreloading || isRetrying}
             aria-pressed={isPlaying}
             className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {isTtsLoading || isQueuePreloading ? (
+            {isTtsLoading || isQueuePreloading || isRetrying ? (
               <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
             ) : isPlaying ? (
               <Pause className="w-3.5 h-3.5" />
             ) : (
               <Play className="w-3.5 h-3.5" />
             )}
-            {isTtsLoading || isQueuePreloading
+            {isTtsLoading || isQueuePreloading || isRetrying
               ? "Preparing audio…"
               : isPlaying
               ? "Pause"
@@ -658,12 +710,26 @@ interface AnimatedAIChatProps {
 
     // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
     try {
+      // Debug: surface API base and outgoing topic
+      if (process.env.NODE_ENV === 'development') {
+        console.info('[lesson-stream] request', { API_BASE, topic: q, age: userAge })
+      }
+      // Add explicit SSE Accept header and a connection timeout to avoid hanging
+      const connectTimer = setTimeout(() => {
+        try { abortRef.current?.abort(); } catch {}
+      }, Number(process.env.NEXT_PUBLIC_STREAM_TIMEOUT_MS ?? 15000));
+      // Fallback age to avoid 422 when user age is unavailable
+      const ageToSend = Number.isFinite(Number(userAge)) ? Number(userAge) : 12;
       const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: q, age: userAge }),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
+        body: JSON.stringify({ topic: q, age: ageToSend }),
         signal: abortRef.current.signal,
       });
+      clearTimeout(connectTimer);
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
@@ -710,6 +776,10 @@ interface AnimatedAIChatProps {
                 setLessonJson(finalLesson);
                 setShowVideoButton(true);
                 setIsTyping(false);
+                if (process.env.NODE_ENV === 'development') {
+                  const introPreview = (finalLesson?.introduction || '').slice(0, 120)
+                  console.info('[lesson-stream] done', { topicSent: q, introPreview })
+                }
                 
                 // Ensure save completes
                 await savePromise;
@@ -718,6 +788,9 @@ interface AnimatedAIChatProps {
               case "error":
                 setError(msg.message);
                 setIsTyping(false);
+                if (process.env.NODE_ENV === 'development') {
+                  console.warn('[lesson-stream] error', msg)
+                }
                 return;
             }
           } catch (e) {
@@ -728,6 +801,9 @@ interface AnimatedAIChatProps {
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") console.log("aborted");
       else setError(e instanceof Error ? e.message : "Streaming failed");
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[lesson-stream] catch', e)
+      }
       
       if (retryCount < MAX_RETRIES) {
         setTimeout(() => {

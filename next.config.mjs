@@ -19,17 +19,18 @@ const nextConfig = {
   // Disable production browser source maps for performance
   productionBrowserSourceMaps: false,
   allowedDevOrigins: ['192.168.0.187', 'localhost'],
-  
   // Bundle optimization: disable optimizePackageImports for dev stability
   experimental: {
     // optimizePackageImports disabled due to HMR/runtime issues
   },
-  turbopack: {},
+  // Disable React compiler to prevent conflicts
+  reactCompiler: false,
+  // Turbopack configuration to fix HMR issues
+  turbopack: {
+    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+  },
   // Turbopack is stable; remove deprecated experimental.turbo config
   // If you need custom SVG handling, prefer using React components or next/image.
-  
-
-
   
   // Performance optimizations
   poweredByHeader: false,
@@ -89,13 +90,26 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300',
+            value: isProd ? 'public, max-age=300, s-maxage=300' : 'no-store',
           },
         ],
       },
     ]
   },
-  outputFileTracingRoot: 'c:\\Users\\Muktar Goni Usman\\.qoder\\lana-frontend\\lana-ai',
+  async rewrites() {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    if (!apiBase) return [];
+    return [
+      { source: '/api/:path*', destination: `${apiBase}/api/:path*` },
+      // Ensure legacy calls to /history are correctly forwarded to /api/history
+      { source: '/history', destination: `${apiBase}/api/history` },
+      // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused
+      { source: '/reset', destination: `${apiBase}/api/reset` },
+      { source: '/health', destination: `${apiBase}/health` },
+    ];
+  },
+  // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
+  // outputFileTracingRoot: undefined,
 };
 
 export default nextConfig;
