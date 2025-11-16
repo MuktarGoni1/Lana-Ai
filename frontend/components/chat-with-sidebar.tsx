@@ -17,11 +17,16 @@ import Logo from "@/components/logo"
 import { useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { useApi } from "@/hooks/use-api"
+import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
+import type { User } from "@supabase/supabase-js"
 
-// Centralized API base for this component - with better fallback handling
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
+// Centralized API base with optional proxying via Next.js rewrites
+// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
+const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
+  ? ''
+  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
 
 // Lazy load heavy components
 const AnimatedAIChat = dynamic(() => import("@/components/animated-ai-chat").then(mod => mod.AnimatedAIChat), {
@@ -61,8 +66,9 @@ function ChatWithSidebarContent() {
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const router = useRouter()
@@ -71,7 +77,6 @@ function ChatWithSidebarContent() {
   
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
-    console.log(`API_BASE value: ${API_BASE}`);
     const id = localStorage.getItem("lana_sid") || uuid()
     localStorage.setItem("lana_sid", id)
     setSid(id)
@@ -89,43 +94,32 @@ function ChatWithSidebarContent() {
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async () => {
-    if (!sid) return
-    setLoadingHistory(true)
-    setHistoryError(null)
+  const fetchHistory = async (forceRefresh = false) => {
+    if (!user || !sid) return;
+    setLoadingHistory(true);
+    setHistoryError(null);
     try {
-      // Use cached data if available, bypass cache every 30 seconds
-      const bypassCache = Date.now() % 30000 < 100; // Bypass cache ~every 30 seconds
-      console.log(`API_BASE value:`, API_BASE); // Debug log
-      console.log(`Constructing URL with: ${API_BASE}/api/history?sid=${sid}`);
-      const url = `${API_BASE}/api/history?sid=${sid}`;
-      console.log(`Final URL:`, url); // Debug log
-      const data = await api.get<ChatHistory[]>(url, undefined, bypassCache);
+      const bypassCache = forceRefresh || (Date.now() % 30000 < 100);
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+      const data = await api.get<ChatHistory[]>(
+        `${API_BASE}/api/history?sid=${sid}`,
+        { headers },
+        bypassCache
+      );
       setHistory(data);
-    } catch (error: unknown) {
-      console.error('Failed to fetch history:', error);
-      setHistory([]);
-      setHistoryError('Unable to load chat history. Please check your connection.');
-      toast({
-        title: "Connection Error",
-        description: "Unable to load chat history. Please check your connection.",
-        variant: "destructive",
-      });
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        setHistoryError("Please login or register to save search history.");
+      } else {
+        setHistoryError("Failed to fetch history.");
+      }
     } finally {
-      setLoadingHistory(false)
+      setLoadingHistory(false);
     }
-  }
-
-  useEffect(() => {
-    if (sid) fetchHistory()
-    
-    // Set up periodic refresh of history data
-    const refreshInterval = setInterval(() => {
-      if (sid) fetchHistory();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(refreshInterval);
-  }, [sid])
+  };
 
   // Fetch user session
   useEffect(() => {
@@ -134,26 +128,50 @@ function ChatWithSidebarContent() {
       if (session) {
         setUser(session.user);
         setRole(session.user.user_metadata?.role || null);
+        setAccessToken(session.access_token || null);
+        // Ensure session id is namespaced by user id to satisfy backend auth checks
+        try {
+          const currentSid = localStorage.getItem("lana_sid");
+          const uidPrefix = `${session.user.id}:`;
+          if (currentSid && !currentSid.startsWith(uidPrefix)) {
+            const newSid = `${session.user.id}:${currentSid}`;
+            localStorage.setItem("lana_sid", newSid);
+            setSid(newSid);
+          }
+        } catch {}
+        if (sid) {
+          fetchHistory(true); // ensure immediate fresh load
+        }
       }
     };
     fetchUserSession();
-  }, []);
+  
+    if (sid && accessToken) {
+      fetchHistory(true); // refresh when tokens present
+      const refreshInterval = setInterval(() => {
+        if (sid && accessToken) fetchHistory(false); // periodic refresh can use cache
+      }, 30000);
+      return () => clearInterval(refreshInterval);
+    }
+  }, [sid, accessToken]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
     if (!sid) return
     try {
-      // Clear any cached history data
-      apiClient.clearCache();
-      await fetchHistory();
-      setView("chat");
+      // Generate a fresh session id locally instead of calling a non-existent /reset
+      const newSid = uuid()
+      localStorage.setItem("lana_sid", newSid)
+      setSid(newSid)
+      await fetchHistory()
+      setView("chat")
     } catch (error) {
-      console.error("Failed to reset chat:", error);
+      console.error("Failed to start new chat:", error)
       toast({
         title: "Error",
         description: "Failed to start a new chat. Please try again.",
         variant: "destructive",
-      });
+      })
     }
   }
 
@@ -213,7 +231,7 @@ function ChatWithSidebarContent() {
               </SidebarGroupContent>
             </SidebarGroup>
   
-            {/* Live History */}
+            {/* Live History - Secure Authentication Check */}
             <SidebarGroup>
               <SidebarGroupLabel className="text-white/70 flex items-center gap-2">
                 <History className="size-4" />
@@ -221,40 +239,68 @@ function ChatWithSidebarContent() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {loadingHistory && (
+                  {/* Authentication Check - Show login prompt for unauthenticated users */}
+                  {!user && !loadingHistory && (
                     <SidebarMenuItem>
-                      <div className="flex items-center gap-2 p-2 text-white/50">
-                        <div className="w-4 h-4 border-2 border-white/10 border-t-white/30 rounded-full animate-spin" />
-                        <span className="text-sm">Loading...</span>
+                      <div className="flex flex-col items-center gap-3 p-4 text-center">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10">
+                          <LogIn className="w-6 h-6 text-white/60" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-white/80 font-medium">
+                            Please login or register to save search history.
+                          </p>
+                          <SidebarMenuButton
+                            onClick={() => router.push("/login")}
+                            className="w-full justify-center bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                          >
+                            <LogIn className="w-4 h-4" />
+                            <span>Login or Register</span>
+                          </SidebarMenuButton>
+                        </div>
                       </div>
                     </SidebarMenuItem>
                   )}
                   
-                  {historyError && (
-                    <SidebarMenuItem>
-                      <div className="flex items-center gap-2 p-2 text-red-400">
-                        <AlertCircle className="size-4" />
-                        <span className="text-sm">Failed to load history</span>
-                      </div>
-                    </SidebarMenuItem>
+                  {/* Authenticated users see full History functionality */}
+                  {user && (
+                    <>
+                      {loadingHistory && (
+                        <SidebarMenuItem>
+                          <div className="flex items-center gap-2 p-2 text-white/50">
+                            <div className="w-4 h-4 border-2 border-white/10 border-t-white/30 rounded-full animate-spin" />
+                            <span className="text-sm">Loading...</span>
+                          </div>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {historyError && historyError !== 'Authentication required' && (
+                        <SidebarMenuItem>
+                          <div className="flex items-center gap-2 p-2 text-red-400">
+                            <AlertCircle className="size-4" />
+                            <span className="text-sm">Failed to load history</span>
+                          </div>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {history.length === 0 && !loadingHistory && (
+                        <SidebarMenuItem>
+                          <span className="text-xs text-white/50 px-2">No history yet</span>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {(Array.isArray(history) ? history : []).map((chat) => (
+                        <SidebarMenuItem key={chat.id}>
+                          <SidebarMenuButton
+                            onClick={() => handleSelect(chat.title)}
+                            className="items-start py-2 text-white/80 hover:text-white hover:bg-white/5"
+                          >
+                            <span className="font-medium text-sm truncate">{chat.title}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </>
                   )}
-                  
-                  {history.length === 0 && !loadingHistory && (
-                    <SidebarMenuItem>
-                      <span className="text-xs text-white/50 px-2">No history yet</span>
-                    </SidebarMenuItem>
-                  )}
-                  
-                  {(Array.isArray(history) ? history : []).map((chat) => (
-                    <SidebarMenuItem key={chat.id}>
-                      <SidebarMenuButton
-                        onClick={() => handleSelect(chat.title)}
-                        className="items-start py-2 text-white/80 hover:text-white hover:bg-white/5"
-                      >
-                        <span className="font-medium text-sm truncate">{chat.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -310,7 +356,7 @@ function ChatWithSidebarContent() {
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();
-                      router.push("/login");
+                      router.push("/homepage");
                     }}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >

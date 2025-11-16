@@ -1,4 +1,5 @@
-import { ApiErrorResponse, StructuredLessonResponse } from '@/types/api';
+import { ApiErrorResponse } from '@/types/api';
+import { ApiError, NetworkError } from './errors';
 
 type CacheEntry<T> = {
   data: T;
@@ -87,6 +88,58 @@ const getErrorMessage = (status: number, defaultMessage: string): string => {
   }
 };
 
+// Helper: per-request timeout and basic retry with exponential backoff
+async function requestWithTimeoutAndRetry(
+  url: string,
+  init: RequestInit,
+  opts?: { timeoutMs?: number; retries?: number; retryDelayMs?: number }
+) {
+  const timeoutMs = opts?.timeoutMs ?? Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8000);
+  const maxRetries = Math.max(0, opts?.retries ?? 2);
+  const baseDelay = Math.max(100, opts?.retryDelayMs ?? 300);
+
+  let attempt = 0;
+  const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+  while (true) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(url, { ...init, signal: controller.signal });
+      clearTimeout(timer);
+      const status = res.status;
+      // Retry on transient server issues and rate limiting
+      if ([429, 502, 503, 504].includes(status) && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        attempt++;
+        continue;
+      }
+      const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const durationMs = Math.round(end - start);
+      if (process.env.NODE_ENV === 'development') {
+        console.info('[api] request', { url, status, durationMs });
+      }
+      return res;
+    } catch (err) {
+      clearTimeout(timer);
+      // Retry on abort (timeout) or network errors if attempts remain
+      const isAbort = (err as { name?: string })?.name === 'AbortError';
+      const isNetwork = err instanceof TypeError; // fetch network errors in browsers
+      if ((isAbort || isNetwork) && attempt < maxRetries) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise((r) => setTimeout(r, delay));
+        attempt++;
+        continue;
+      }
+      if (isNetwork) {
+        throw new NetworkError('A network error occurred. Please check your connection.');
+      }
+      throw err;
+    }
+  }
+}
+
 // API client with caching
 export const apiClient = {
   // GET request with caching
@@ -103,14 +156,18 @@ export const apiClient = {
 
     // Fetch fresh data
     try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
+      const response = await requestWithTimeoutAndRetry(
+        url,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers,
+          },
+          ...options,
         },
-        ...options,
-      });
+        { timeoutMs: Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 8000), retries: 2, retryDelayMs: 300 }
+      );
 
       if (!response.ok) {
         // Enhanced error handling with more specific error messages
@@ -123,7 +180,7 @@ export const apiClient = {
           } else if (errorData.error) {
             errorMessage = errorData.error;
           }
-        } catch (e: unknown) {
+        } catch {
           // If we can't parse the error response, use status text
           errorMessage = `${response.status} ${response.statusText}`;
         }
@@ -131,7 +188,7 @@ export const apiClient = {
         // Map to user-friendly messages
         errorMessage = getErrorMessage(response.status, errorMessage);
         
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status);
       }
 
       const data = await response.json();
@@ -141,23 +198,30 @@ export const apiClient = {
       
       return data as T;
     } catch (e: unknown) {
-      logError('API request failed:', e);
-      throw e;
+      if (e instanceof ApiError || e instanceof NetworkError) {
+        throw e;
+      }
+      logError('API GET failed:', e);
+      throw new Error('An unexpected error occurred.');
     }
   },
 
   // POST request (no caching for mutations)
   async post<T, U>(url: string, body: U, options?: RequestInit): Promise<T> {
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...options?.headers,
+      const response = await requestWithTimeoutAndRetry(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...options?.headers,
+          },
+          body: JSON.stringify(body),
+          ...options,
         },
-        body: JSON.stringify(body),
-        ...options,
-      });
+        { timeoutMs: Number(process.env.NEXT_PUBLIC_API_TIMEOUT_MS ?? 10000), retries: 2, retryDelayMs: 300 }
+      );
 
       if (!response.ok) {
         // Enhanced error handling with more specific error messages
@@ -170,31 +234,27 @@ export const apiClient = {
           } else if (errorData.error) {
             errorMessage = errorData.error;
           }
-        } catch (error: unknown) {
+        } catch {
           // If we can't parse the error response, use status text
           errorMessage = `${response.status} ${response.statusText}`;
         }
-        
-        // Map to user-friendly messages
         errorMessage = getErrorMessage(response.status, errorMessage);
-        
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status);
       }
 
-      const data = await response.json();
-      
-      // Invalidate related GET caches
-      apiCache.invalidate(new RegExp(`GET:${url}`));
-      
-      return data as T;
-    } catch (error: unknown) {
-      logError('API request failed:', error);
-      throw error;
+      // Invalidate cache for related GET requests
+      // This is a simple invalidation, a more robust strategy might be needed
+      if (url.includes('/history')) {
+        apiCache.invalidate(/GET:\/api\/history/);
+      }
+
+      return (await response.json()) as T;
+    } catch (e: unknown) {
+      if (e instanceof ApiError || e instanceof NetworkError) {
+        throw e;
+      }
+      logError('API POST failed:', e);
+      throw new Error('An unexpected error occurred.');
     }
   },
-
-  // Clear all cache
-  clearCache(): void {
-    apiCache.clear();
-  }
 };

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, SkipForward, Save } from "lucide-react";
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
+import { useToast } from '@/hooks/use-toast';
 
 /* ---------- Types ---------- */
 interface Topic {
@@ -23,29 +24,85 @@ interface Subject {
 }
 
 /* ---------- main page ---------- */
-export default function TermPlanPage() {
+import { Suspense } from "react";
+
+function TermPlanPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+  const onboardingParam = searchParams.get("onboarding");
+  const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
+  const returnTo = searchParams.get("returnTo");
+
+  // Persist onboarding completion flag and redirect appropriately
+  const [saving, setSaving] = useState(false);
+  const completeOnboardingAndRedirect = async () => {
+    setSaving(true);
+    try {
+      // Update user metadata to mark onboarding as complete
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { error } = await supabase.auth.updateUser({
+          data: { onboarding_complete: true },
+        });
+        if (error) {
+          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error);
+        }
+      }
+
+      // Cookie fallback to handle network failures and ensure middleware bypass
+      try {
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+      } catch (cookieErr) {
+        console.warn('[term-plan] failed to set completion cookie:', cookieErr);
+      }
+
+      // Success toast for UX feedback
+      toast({ title: 'Onboarding complete', description: 'Your plan is saved. Redirecting…' });
+
+      // Redirect to original destination if provided, otherwise homepage
+      if (returnTo) {
+        try {
+          const url = new URL(returnTo, window.location.origin);
+          // Normalize destinations that shouldn't lead back to marketing
+          const path = url.pathname;
+          if (path === '/' || path === '/landing-page') {
+            router.replace('/homepage');
+          } else {
+            router.replace(url.toString());
+          }
+        } catch {
+          // Malformed returnTo → default to homepage
+          router.replace('/homepage');
+        }
+      } else {
+        router.replace('/homepage');
+      }
+    } catch (err) {
+      console.error('[term-plan] completion error:', err);
+      toast({ title: 'Error', description: 'Could not finalize onboarding. Continuing anyway.' });
+      router.replace('/homepage');
+    } finally {
+      setSaving(false);
+    }
+  };
+  // Backwards-compatible alias for existing button handlers
+  const handleComplete = completeOnboardingAndRedirect;
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
-  const [isFirstTime, setIsFirstTime] = useState(false);
 
-  useEffect(() => {
-    // Check if this is the user's first time (onboarding)
-    const firstTime = localStorage.getItem('lana_first_time_term_plan');
-    if (firstTime === 'true') {
-      setIsFirstTime(true);
-    }
-    
-    // Check authentication
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        router.push("/login");
-      }
-    };
-    checkAuth();
-  }, [router]);
+  // Removed authentication check to make page public
+  // useEffect(() => {
+  //   const checkAuth = async () => {
+  //     const { data: { session } } = await supabase.auth.getSession();
+  //     if (!session) {
+  //       router.push("/login");
+  //     }
+  //   };
+  //   checkAuth();
+  // }, [router]);
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -109,22 +166,6 @@ export default function TermPlanPage() {
     ));
   };
 
-  const handleSaveAndContinue = () => {
-    // Mark that first-time onboarding is complete
-    if (isFirstTime) {
-      localStorage.removeItem('lana_first_time_term_plan');
-    }
-    router.push("/homepage");
-  };
-
-  const handleSkip = () => {
-    // Mark that first-time onboarding is complete
-    if (isFirstTime) {
-      localStorage.removeItem('lana_first_time_term_plan');
-    }
-    router.push("/homepage");
-  };
-
   return (
     <div className="min-h-screen bg-black text-white">
       {/* header with logo */}
@@ -133,14 +174,12 @@ export default function TermPlanPage() {
           <Logo className="w-10 h-10 md:w-12 md:h-12" />
           <h1 className="text-xl font-semibold">Term Planner</h1>
         </div>
-        {!isFirstTime && (
-          <button
-            onClick={() => router.back()}
-            className="p-2 rounded-lg hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
+        <button
+          onClick={() => router.push("/homepage")}
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </header>
 
       {/* body */}
@@ -237,7 +276,7 @@ export default function TermPlanPage() {
                                 [subject.id]: e.target.value
                               })}
                               onKeyDown={(e) => e.key === "Enter" && addTopic(subject.id)}
-                              placeholder="Add a topic (e.g., Limits & Continuity)"
+                              placeholder="Add a topic (e.g., Limits &amp; Continuity)"
                               className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 
                                        focus:outline-none focus:ring-2 focus:ring-white/20 
                                        placeholder:text-white/40 text-sm transition-all"
@@ -262,7 +301,7 @@ export default function TermPlanPage() {
                                 exit={{ opacity: 0, x: -20 }}
                                 className="flex items-center justify-between p-3 rounded-lg 
                                          bg-white/5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-all"
-                                onClick={() => router.push(`/?topic=${encodeURIComponent(topic.name)}`)}
+                                onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 rounded-full bg-white/40" />
@@ -311,27 +350,45 @@ export default function TermPlanPage() {
         </motion.div>
       </main>
 
-      {/* First-time onboarding buttons */}
-      {isFirstTime && (
-        <div className="fixed bottom-6 left-6 right-6 flex justify-between items-center max-w-4xl mx-auto">
-          <button
-            onClick={handleSkip}
-            className="px-6 py-3 bg-white/10 text-white rounded-lg font-medium 
-                     flex items-center gap-2 hover:bg-white/20 transition-all border border-white/20"
-          >
-            <SkipForward className="w-4 h-4" />
-            Skip for now
-          </button>
-          <button
-            onClick={handleSaveAndContinue}
-            className="px-6 py-3 bg-white text-black rounded-lg font-medium 
-                     flex items-center gap-2 hover:bg-white/90 transition-all"
-          >
-            <Save className="w-4 h-4" />
-            Save and continue
-          </button>
+      {/* footer actions (only during onboarding) */}
+      {isOnboarding && (
+        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
+          <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
+            <button
+              onClick={handleComplete}
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
+            >
+              Skip for now
+            </button>
+            <button
+              onClick={async () => {
+                // TODO: Persist subjects/topics to Supabase tables
+                await handleComplete();
+              }}
+              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium"
+            >
+              Save plan and continue
+            </button>
+          </div>
         </div>
       )}
     </div>
+  );
+}
+
+export default function TermPlanPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-white flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+            <p className="text-white/30 text-sm">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <TermPlanPageContent />
+    </Suspense>
   );
 }

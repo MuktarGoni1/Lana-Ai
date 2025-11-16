@@ -3,7 +3,7 @@ export class ApiError extends Error {
   constructor(
     public statusCode: number,
     message: string,
-    public originalError?: any
+    public originalError?: Error | unknown
   ) {
     super(message);
     this.name = 'ApiError';
@@ -45,7 +45,7 @@ export const handleApiError = async (response: Response): Promise<never> => {
     } else if (errorData.error) {
       errorMessage = errorData.error;
     }
-  } catch (e) {
+  } catch {
     // If we can't parse the error response, use status text
     errorMessage = `${response.status} ${response.statusText}`;
   }

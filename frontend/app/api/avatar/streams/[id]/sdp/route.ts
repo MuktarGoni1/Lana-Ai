@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 
 function getAuthHeader() {
   const apiKey = process.env.DID_API_KEY;
@@ -25,11 +26,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       headers['Cookie'] = `AWSALB=${sessionId}`; // best effort; legacy talks streams also accept session_id in body
     }
 
-    const res = await fetch(`https://api.d-id.com/talks/streams/${id}/sdp`, {
+    const res = await fetchWithTimeoutAndRetry(`https://api.d-id.com/talks/streams/${id}/sdp`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ answer, session_id: sessionId }),
-    });
+    }, { timeoutMs: 8_000, retries: 2, retryDelayMs: 300 });
 
     const text = await res.text();
     

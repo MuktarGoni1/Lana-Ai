@@ -1,20 +1,19 @@
 services:
+  # Frontend: Next.js Web Service
   - type: web
     name: lana-frontend
     env: node
     plan: free
-    buildCommand: npm run build
-    startCommand: npm start -p $PORT
-    publishDir: ./.next
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- -p $PORT -H 0.0.0.0
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 18
-      - key: PORT
-        value: 10000
-      - key: NEXT_PUBLIC_SUPABASE_URL
-        sync: false
-      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        sync: false
       - key: NEXT_PUBLIC_API_BASE
-        sync: false
+        value: https://lana-ai.onrender.com
+      - key: NEXT_PUBLIC_USE_PROXY
+        value: "false"
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"

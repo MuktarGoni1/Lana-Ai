@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -65,9 +65,33 @@ function QuizContent() {
   const router = useRouter();
 
   /* ---------- load quiz ---------- */
-  const quiz = useMemo<Question[]>(() => {
+  const [quiz, setQuiz] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const id = search.get("id");
     const raw = search.get("data");
-    return parseQuizParam(raw);
+    async function load() {
+      if (id) {
+        try {
+          const res = await fetch(`/api/quiz/${id}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setQuiz(Array.isArray(data) ? data : []);
+          } else {
+            setQuiz([]);
+          }
+        } catch {
+          setQuiz([]);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        const parsed = parseQuizParam(raw);
+        setQuiz(parsed);
+        setLoading(false);
+      }
+    }
+    load();
   }, [search]);
 
   /* ---------- state ---------- */
@@ -81,6 +105,13 @@ function QuizContent() {
   );
 
   /* ---------- empty guard ---------- */
+  if (loading)
+    return (
+      <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
+        <div className="text-center">Loading quiz...</div>
+      </div>
+    );
+
   if (!quiz.length)
     return (
       <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">

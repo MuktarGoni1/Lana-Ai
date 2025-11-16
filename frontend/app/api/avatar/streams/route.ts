@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 
 function getAuthHeader() {
   const apiKey = process.env.DID_API_KEY;
@@ -51,7 +52,7 @@ export async function POST(req: Request) {
       config: { stitch: true },
     };
 
-    const res = await fetch('https://api.d-id.com/talks/streams', {
+    const res = await fetchWithTimeoutAndRetry('https://api.d-id.com/talks/streams', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -59,7 +60,7 @@ export async function POST(req: Request) {
         Accept: 'application/json',
       },
       body: JSON.stringify(payload),
-    });
+    }, { timeoutMs: 10_000, retries: 2, retryDelayMs: 300 });
 
     const text = await res.text();
     
