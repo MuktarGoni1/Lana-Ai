@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -33,6 +33,11 @@ function TermPlanPageContent() {
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
+  
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
@@ -93,16 +98,59 @@ function TermPlanPageContent() {
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
 
-  // Removed authentication check to make page public
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     const { data: { session } } = await supabase.auth.getSession();
-  //     if (!session) {
-  //       router.push("/login");
-  //     }
-  //   };
-  //   checkAuth();
-  // }, [router]);
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // No session, redirect to login
+          setAuthError("No active session found. Please log in.");
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          return;
+        }
+
+        // Verify the user is authenticated
+        const response = await fetch('/api/verify-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email })
+        });
+
+        const result = await response.json();
+        
+        if (result.isAuthenticated) {
+          setIsAuthenticated(true);
+        } else {
+          setAuthError(result.message || "User is not authenticated");
+          setIsAuthenticated(false);
+        }
+      } catch (error: any) {
+        console.error('[term-plan] auth check error:', error);
+        setAuthError("Error checking authentication status");
+        setIsAuthenticated(false);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (authChecked && !isAuthenticated) {
+      // Delay the redirect slightly to show the error message
+      const timer = setTimeout(() => {
+        router.push("/login");
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authChecked, isAuthenticated, router]);
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -165,6 +213,36 @@ function TermPlanPageContent() {
         : subject
     ));
   };
+
+  // Show loading state while checking authentication
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error and redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md p-6">
+          <X className="w-12 h-12 mx-auto text-red-500" />
+          <h2 className="text-2xl font-semibold">Access Denied</h2>
+          <p className="text-white/70">
+            {authError || "You must be authenticated to access this page."}
+          </p>
+          <p className="text-white/50 text-sm">
+            Redirecting to login page...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">

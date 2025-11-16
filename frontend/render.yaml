@@ -18,4 +18,4 @@ services:
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: SUPABASE_SERVICE_ROLE_KEY
-        value:
+        sync: false
