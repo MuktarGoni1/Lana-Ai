@@ -4,21 +4,22 @@ Simplified FastAPI application for Lana AI Backend.
 """
 
 import logging
-import json
-from typing import Any, Dict, List, Optional
 
 # FastAPI imports
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, field_validator
 from app.middleware.security_headers_middleware import SecurityHeadersMiddleware
+from app.middleware.request_timing_middleware import RequestTimingMiddleware, get_metrics_snapshot
 from app.settings import load_settings
+from app.repositories.memory_cache_repository import MemoryCacheRepository
 
+from app.api.routes.tts import router as tts_router
 from app.api.router import api_router
-from app.config import GROQ_API_KEY
-from app.repositories.interfaces import IChatRepository
-
+from fastapi.responses import StreamingResponse
+import time
+import json
+import asyncio
+import hashlib
 try:
     from groq import Groq
 except Exception:
@@ -40,18 +41,31 @@ app = FastAPI(
 
 # Load settings for global config
 settings = load_settings()
+# Initialize shared cache and Groq client for structured lessons
+_STRUCTURED_LESSON_CACHE = MemoryCacheRepository(default_ttl=1800)
+_GROQ_CLIENT = Groq(api_key=settings.groq_api_key) if (Groq and settings.groq_api_key) else None
+_INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
 # Add CORS middleware
+# Avoid invalid configuration: credentials + wildcard origins
+_allow_origins = settings.cors_origins or ["*"]
+_allow_credentials = True
+if "*" in _allow_origins:
+    # Starlette requires explicit origins when credentials are allowed
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins or ["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=_allow_origins,
+    allow_credentials=_allow_credentials,
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+# Add request timing middleware
+app.add_middleware(RequestTimingMiddleware)
 
 # Root endpoint
 @app.get("/", tags=["Root"]) 
@@ -59,8 +73,15 @@ async def root():
     """Simple root endpoint to confirm API is accessible."""
     return {"message": "Welcome to Lana AI API", "status": "online"}
 
+# Removed duplicate sample lesson endpoints; use `/api/lessons` router from app.api.routes.lessons
+# Removed duplicate math solver sample; use `/api/math-solver/solve` route from app.api.routes.math_solver
 # Include modular API routes under /api
+# (only TTS for now to avoid pulling extra dependencies)
+# app.include_router(tts_router, prefix="/api/tts")
 app.include_router(api_router, prefix="/api")
+
+from pydantic import BaseModel, Field, field_validator
+from typing import List, Optional
 
 
 def sanitize_text(text: str) -> str:
@@ -124,66 +145,41 @@ class StructuredLessonResponse(BaseModel):
     quiz: List[QuizItem]
 
 
-@app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
-async def create_structured_lesson(req: StructuredLessonRequest):
-    """Create a structured lesson from a topic and optional age constraints."""
-    def _stub(topic: str) -> StructuredLessonResponse:
-        intro = f"Let's learn about {topic} in a clear, friendly way."
-        classifications = [ClassificationItem(type="Category", description=topic.title())]
-        sections = [
-            SectionItem(title="Overview", content=f"{topic} — key ideas and examples."),
-            SectionItem(title="Details", content=f"Deeper look at {topic}."),
-        ]
-        quiz = [
-            QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
-        ]
-        return StructuredLessonResponse(
-            introduction=intro,
-            classifications=classifications,
-            sections=sections,
-            diagram="",
-            quiz=quiz,
-        )
+async def _stub_lesson(topic: str) -> StructuredLessonResponse:
+    intro = f"Let's learn about {topic} in a clear, friendly way."
+    classifications = [ClassificationItem(type="Category", description=topic.title())]
+    sections = [
+        SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
+        SectionItem(title="Details", content=f"Deeper look at {topic}."),
+    ]
+    quiz = [
+        QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
+    ]
+    return StructuredLessonResponse(
+        introduction=intro,
+        classifications=classifications,
+        sections=sections,
+        diagram="",
+        quiz=quiz,
+    )
 
-    return await create_structured_lesson_internal(req.topic, req.age)
-
-
-async def create_structured_lesson_internal(topic: str, age: Optional[int] = None):
-    """Internal function to create a structured lesson from a topic and optional age constraints."""
-    def _stub(topic: str) -> StructuredLessonResponse:
-        intro = f"Let's learn about {topic} in a clear, friendly way."
-        classifications = [ClassificationItem(type="Category", description=topic.title())]
-        sections = [
-            SectionItem(title="Overview", content=f"{topic} — key ideas and examples."),
-            SectionItem(title="Details", content=f"Deeper look at {topic}."),
-        ]
-        quiz = [
-            QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
-        ]
-        return StructuredLessonResponse(
-            introduction=intro,
-            classifications=classifications,
-            sections=sections,
-            diagram="",
-            quiz=quiz,
-        )
-
-    # Use LLM if configured; otherwise fall back to stub
-    if Groq and GROQ_API_KEY:
+async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
+    if _GROQ_CLIENT is not None:
         try:
-            client = Groq(api_key=GROQ_API_KEY)
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
                 "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
                 "sections (array of {title, content}), diagram (string; ASCII or description), "
                 "quiz (array of {question, options, answer}). Keep language clear for the learner."
             )
+            # Build prompt with optional age field
             user_prompt = {
                 "topic": topic,
-                "age": age,
                 "requirements": "Educational, concise, accurate, friendly."
             }
-            completion = client.chat.completions.create(
+            if age is not None:
+                user_prompt["age"] = age
+            completion = _GROQ_CLIENT.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 temperature=0.3,
                 response_format={"type": "json_object"},
@@ -193,25 +189,134 @@ async def create_structured_lesson_internal(topic: str, age: Optional[int] = Non
                 ],
             )
             content = completion.choices[0].message.content
+            raw_excerpt = (content or "")[:300]
+            # Parse JSON with robust normalization for string fields
             data = json.loads(content)
+
+            def _to_str(val: Optional[object], default: str = "") -> str:
+                try:
+                    if isinstance(val, str):
+                        return val
+                    if isinstance(val, dict) and "text" in val:
+                        t = val.get("text")
+                        return t if isinstance(t, str) else default
+                    if val is None:
+                        return default
+                    return str(val)
+                except Exception:
+                    return default
+
+            intro_norm = _to_str(data.get("introduction"), default=None)  # Optional[str]
+            diagram_norm = _to_str(data.get("diagram"), default="")
+
+            # Keep list items strict; they already map to our pydantic models
+            classifications = [ClassificationItem(**c) for c in data.get("classifications", [])]
+            sections = [SectionItem(**s) for s in data.get("sections", [])]
+            quiz = [QuizItem(**q) for q in data.get("quiz", [])]
+
             resp = StructuredLessonResponse(
-                introduction=data.get("introduction"),
-                classifications=[ClassificationItem(**c) for c in data.get("classifications", [])],
-                sections=[SectionItem(**s) for s in data.get("sections", [])],
-                diagram=data.get("diagram", ""),
-                quiz=[QuizItem(**q) for q in data.get("quiz", [])],
+                introduction=intro_norm,
+                classifications=classifications,
+                sections=sections,
+                diagram=diagram_norm,
+                quiz=quiz,
             )
-            # Ensure minimum content
-            if not resp.sections:
-                return _stub(topic)
-            return resp
+            if resp.sections:
+                try:
+                    await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
+                except Exception:
+                    pass
+                return resp, "llm"
+            return await _stub_lesson(topic), "stub"
         except Exception as e:
-            logger.warning(f"Structured lesson LLM error: {e}")
-            return _stub(topic)
+            # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
+            try:
+                logger.warning(f"Structured lesson LLM error: {e}. raw_excerpt={raw_excerpt}")
+            except Exception:
+                logger.warning(f"Structured lesson LLM error: {e}")
+            return await _stub_lesson(topic), "stub"
     else:
-        return _stub(topic)
+        return await _stub_lesson(topic), "stub"
+
+async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
+    fut = _INFLIGHT_LESSONS.get(cache_key)
+    if fut and not fut.done():
+        return await fut
+    loop = asyncio.get_event_loop()
+    fut = loop.create_future()
+    _INFLIGHT_LESSONS[cache_key] = fut
+    async def _run():
+        try:
+            result = await _compute_structured_lesson(cache_key, topic, age)
+            fut.set_result(result)
+        except Exception as e:
+            logger.error(f"Structured lesson compute failed: {e}")
+            fut.set_result((await _stub_lesson(topic), "stub"))
+        finally:
+            _INFLIGHT_LESSONS.pop(cache_key, None)
+    asyncio.create_task(_run())
+    return await fut
 
 
+@app.on_event("startup")
+async def warm_up_structured_lessons():
+    """Warm the structured lesson pipeline to reduce first-request latency.
+
+    If a Groq client is configured, this primes the model and cache by generating
+    one small sample lesson. Otherwise, it seeds the in-memory cache with a stub.
+    """
+    try:
+        sample_topics = ["warm-up sample"]
+        sample_age = 10
+        for t in sample_topics:
+            cache_key = hashlib.md5(f"{t}|{sample_age}".encode()).hexdigest()[:16]
+            await _get_or_compute_lesson(cache_key, t, sample_age)
+        logger.info(
+            "Structured lessons warm-up complete: topics=%d, llm=%s",
+            len(sample_topics),
+            "enabled" if _GROQ_CLIENT is not None else "disabled",
+        )
+    except Exception as e:
+        logger.warning(f"Structured lessons warm-up error: {e}")
+
+
+@app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
+async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
+    """Create a structured lesson from a topic and optional age constraints."""
+    def _stub(topic: str) -> StructuredLessonResponse:
+        intro = f"Let's learn about {topic} in a clear, friendly way."
+        classifications = [ClassificationItem(type="Category", description=topic.title())]
+        sections = [
+            SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
+            SectionItem(title="Details", content=f"Deeper look at {topic}."),
+        ]
+        quiz = [
+            QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
+        ]
+        return StructuredLessonResponse(
+            introduction=intro,
+            classifications=classifications,
+            sections=sections,
+            diagram="",
+            quiz=quiz,
+        )
+
+    topic = req.topic
+    age = req.age
+    # Build cache key and try cache first
+    cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
+    try:
+        cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
+        if cached:
+            response.headers["X-Content-Source"] = "cache"
+            return StructuredLessonResponse(**cached)
+    except Exception:
+        pass
+
+    # Compute with single-flight to avoid duplicate LLM calls
+    lesson, src = await _get_or_compute_lesson(cache_key, topic, age)
+    response.headers["X-Content-Source"] = src
+    return lesson
 class TTSRequest(BaseModel):
     text: str
 
@@ -237,6 +342,50 @@ async def synthesize_speech(req: TTSRequest):
 async def health():
     """Liveness probe for Render and tests."""
     return {"status": "ok"}
+
+# Simple metrics endpoint for monitoring
+@app.get("/api/metrics")
+async def metrics():
+    """Return basic per-path timing metrics collected in-process."""
+    return {"paths": get_metrics_snapshot()}
+
+@app.post("/api/cache/reset")
+async def reset_cache(namespaces: Optional[list[str]] = None):
+    """Reset in-memory caches to eliminate stale or hardcoded responses.
+
+    - If `namespaces` provided, clears only those; otherwise clears all.
+    - Targets the structured lesson cache; extendable for other caches if needed.
+    """
+    try:
+        if namespaces:
+            for ns in namespaces:
+                try:
+                    _STRUCTURED_LESSON_CACHE._caches.pop(ns, None)
+                except Exception:
+                    pass
+        else:
+            try:
+                _STRUCTURED_LESSON_CACHE._caches.clear()
+            except Exception:
+                pass
+        try:
+            _STRUCTURED_LESSON_CACHE._stats["last_reset"] = time.time()
+        except Exception:
+            pass
+        return {"ok": True, "namespaces": namespaces or "all"}
+    except Exception as e:
+        logger.warning(f"Cache reset error: {e}")
+        return {"ok": False, "error": str(e)}
+from typing import Any, Dict, List, Optional
+from fastapi import HTTPException, Query
+from pydantic import BaseModel
+
+from app.config import SUPABASE_URL, SUPABASE_KEY
+from app.repositories.interfaces import IChatRepository
+try:
+    from app.repositories.supabase_chat_repository import SupabaseChatRepository
+except Exception:
+    SupabaseChatRepository = None  # Graceful if supabase SDK not installed
 
 
 class InMemoryChatRepository(IChatRepository):
@@ -268,17 +417,35 @@ class InMemoryChatRepository(IChatRepository):
 async def stream_structured_lesson(req: StructuredLessonRequest):
     """Stream a structured lesson as a single SSE 'done' event for fast UI consumption."""
     try:
-        # Reuse the non-stream generator for content
-        lesson = await create_structured_lesson_internal(req.topic, req.age)
+        topic = req.topic
+        age = req.age
+        cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
+        source = "stub"
+        # Try cache first
+        try:
+            cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
+            if cached:
+                lesson = StructuredLessonResponse(**cached)
+                source = "cache"
+            else:
+                raise Exception("no-cache")
+        except Exception:
+            # Compute lesson using single-flight; fallback handled inside helper
+            lesson, source = await _get_or_compute_lesson(cache_key, topic, age)
         async def event_generator():
             # Use model_dump for Pydantic v2 compatibility
             try:
                 payload_lesson = lesson.model_dump()
             except Exception:
                 payload_lesson = lesson.dict()
-            payload = {"type": "done", "lesson": payload_lesson}
+            payload = {"type": "done", "source": source, "lesson": payload_lesson}
             yield f"data: {json.dumps(payload)}\n\n"
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        stream_resp = StreamingResponse(event_generator(), media_type="text/event-stream")
+        try:
+            stream_resp.headers["X-Content-Source"] = source
+        except Exception:
+            pass
+        return stream_resp
     except Exception as e:
         err = {"type": "error", "message": str(e)}
         async def error_stream():

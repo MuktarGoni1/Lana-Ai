@@ -100,7 +100,11 @@ const nextConfig = {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE;
     if (!apiBase) return [];
     return [
-      { source: '/api/:path*', destination: `${apiBase}/api/:path*` },
+      // Exclude frontend API routes that should be handled locally
+      { 
+        source: '/api/:path((?!auth/verify-email|check-user|verify-user|test-auth|deployment-test|supabase-test|avatar/streams|tts|quiz|subscription/status).*)', 
+        destination: `${apiBase}/api/:path*` 
+      },
       // Ensure legacy calls to /history are correctly forwarded to /api/history
       { source: '/history', destination: `${apiBase}/api/history` },
       // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused

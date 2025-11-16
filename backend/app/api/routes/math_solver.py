@@ -5,17 +5,19 @@ from fastapi import APIRouter, HTTPException, Depends
 from app.schemas import MathProblemRequest, MathSolutionResponse
 from app.services.math_solver_service import MathSolverService
 from app.repositories.memory_cache_repository import MemoryCacheRepository
-from app.config import GROQ_API_KEY
+from app.settings import load_settings
 from groq import Groq
 
 router = APIRouter()
 
-# Dependency provider for MathSolverService
+# Initialize shared cache and Groq client once per process
+_settings = load_settings()
+_CACHE = MemoryCacheRepository()
+_GROQ = Groq(api_key=_settings.groq_api_key) if _settings.groq_api_key else None
+
+# Dependency provider for MathSolverService using shared singletons
 def get_math_solver_service() -> MathSolverService:
-    cache = MemoryCacheRepository()
-    # Initialize Groq client if API key available
-    groq_client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
-    return MathSolverService(cache_repo=cache, groq_client=groq_client)
+    return MathSolverService(cache_repo=_CACHE, groq_client=_GROQ)
 
 @router.post("/solve")
 async def solve_math_problem(request: MathProblemRequest, service: MathSolverService = Depends(get_math_solver_service)):

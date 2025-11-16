@@ -115,18 +115,9 @@ class TTSService:
                 return audio_data
             except Exception as e:
                 logger.error(f"Gemini TTS error: {e}")
+                # Re-raise the exception to signal failure instead of silent fallback
+                raise RuntimeError(f"TTS generation failed: {str(e)}") from e
 
-        # Fallback: generate minimal WAV silence
-        logger.info("Using TTS fallback (silence WAV)")
-        sample_rate = 22050
-        duration_seconds = max(1.0, len(text) * 0.05)
-        samples = int(sample_rate * duration_seconds)
-        buf = io.BytesIO()
-        with wave.open(buf, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
-            wf.writeframes(b"\x00\x00" * samples)
-        audio_data = buf.getvalue()
-        await self.cache_repo.set(cache_key, audio_data, namespace="tts")
-        return audio_data
+        # If we reach here, TTS service is not properly configured
+        logger.error("TTS service not properly configured - no Gemini client available")
+        raise RuntimeError("Text-to-speech service is currently unavailable. Please check system configuration.")

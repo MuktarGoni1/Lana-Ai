@@ -12,9 +12,11 @@ from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
+# Create a singleton TTSService so its cache/client are reused across requests
+_TTS_SERVICE = TTSService()
+
 def _get_tts_service():
-    # Service with internal cache and env-initialized Gemini client
-    return TTSService()
+    return _TTS_SERVICE
 
 @router.post("/synthesize", response_model=TTSResponse)
 async def synthesize_speech(request: TTSRequest):
@@ -22,16 +24,23 @@ async def synthesize_speech(request: TTSRequest):
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
     tts_service = _get_tts_service()
-    # Default to 'leda' voice when not provided
-    audio_bytes = await tts_service.generate_speech(request.text, request.voice or "leda")
-    # Compute duration from WAV header
     try:
-        with wave.open(io.BytesIO(audio_bytes), "rb") as wf:
-            duration = wf.getnframes() / float(wf.getframerate())
-    except Exception:
-        duration = 0.0
-    audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
-    return TTSResponse(audio_base64=audio_b64, duration_seconds=duration)
+        # Default to 'leda' voice when not provided
+        audio_bytes = await tts_service.generate_speech(request.text, request.voice or "leda")
+        # Compute duration from WAV header
+        try:
+            with wave.open(io.BytesIO(audio_bytes), "rb") as wf:
+                duration = wf.getnframes() / float(wf.getframerate())
+        except Exception:
+            duration = 0.0
+        audio_b64 = base64.b64encode(audio_bytes).decode("utf-8")
+        return TTSResponse(audio_base64=audio_b64, duration_seconds=duration)
+    except RuntimeError as e:
+        # Handle TTS service errors with proper HTTP status
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        # Handle unexpected errors
+        raise HTTPException(status_code=500, detail=f"Internal TTS error: {str(e)}")
 
 # New: progressive audio streaming endpoint
 @router.get("/stream")
@@ -41,25 +50,33 @@ async def stream_speech(text: str, voice: Optional[str] = None):
         raise HTTPException(status_code=400, detail="Text cannot be empty")
 
     tts_service = _get_tts_service()
-    # Default to 'leda' voice when not provided
-    audio_bytes = await tts_service.generate_speech(text, voice or "leda")
+    try:
+        # Default to 'leda' voice when not provided
+        audio_bytes = await tts_service.generate_speech(text, voice or "leda")
 
-    async def chunker():
-        chunk_size = 16384  # 16 KB chunks
-        for i in range(0, len(audio_bytes), chunk_size):
-            yield audio_bytes[i:i + chunk_size]
+        async def chunker():
+            chunk_size = 16384  # 16 KB chunks
+            for i in range(0, len(audio_bytes), chunk_size):
+                yield audio_bytes[i:i + chunk_size]
 
-    return StreamingResponse(
-        chunker(),
-        media_type="audio/wav",
-        headers={
-            "Cache-Control": "no-store",
-            "Content-Disposition": "inline; filename=\"speech.wav\"",
-            "X-Accel-Buffering": "no",
-        },
-    )
+        return StreamingResponse(
+            chunker(),
+            media_type="audio/wav",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": "inline; filename=\"speech.wav\"",
+                "Accept-Ranges": "bytes",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except RuntimeError as e:
+        # Handle TTS service errors with proper HTTP status
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        # Handle unexpected errors
+        raise HTTPException(status_code=500, detail=f"Internal TTS error: {str(e)}")
 
-# Alias to match frontend expectation: POST /api/tts returns audio/wav
+# Alias to match frontend expectation: POST /api/tts returns audio/wav as streaming response.
 @router.post("/")
 async def synthesize_wav(request: TTSRequest):
     """Convert text to speech and return audio/wav as streaming response."""
@@ -67,20 +84,28 @@ async def synthesize_wav(request: TTSRequest):
         raise HTTPException(status_code=400, detail="Text cannot be empty")
 
     tts_service = _get_tts_service()
-    # Default to 'leda' voice when not provided
-    audio_bytes = await tts_service.generate_speech(request.text, request.voice or "leda")
+    try:
+        # Default to 'leda' voice when not provided
+        audio_bytes = await tts_service.generate_speech(request.text, request.voice or "leda")
 
-    async def chunker():
-        chunk_size = 16384
-        for i in range(0, len(audio_bytes), chunk_size):
-            yield audio_bytes[i:i + chunk_size]
+        async def chunker():
+            chunk_size = 16384
+            for i in range(0, len(audio_bytes), chunk_size):
+                yield audio_bytes[i:i + chunk_size]
 
-    return StreamingResponse(
-        chunker(),
-        media_type="audio/wav",
-        headers={
-            "Cache-Control": "no-store",
-            "Content-Disposition": "inline; filename=\"speech.wav\"",
-            "X-Accel-Buffering": "no",
-        },
-    )
+        return StreamingResponse(
+            chunker(),
+            media_type="audio/wav",
+            headers={
+                "Cache-Control": "no-store",
+                "Content-Disposition": "inline; filename=\"speech.wav\"",
+                "Accept-Ranges": "bytes",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except RuntimeError as e:
+        # Handle TTS service errors with proper HTTP status
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        # Handle unexpected errors
+        raise HTTPException(status_code=500, detail=f"Internal TTS error: {str(e)}")
