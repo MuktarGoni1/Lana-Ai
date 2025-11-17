@@ -53,14 +53,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       admin = getSupabaseAdmin()
     } catch (envErr) {
-      console.error('[verify-email] missing env vars', { requestId, email, envErr })
+      console.error('[verify-email] missing env vars', { requestId, envErr })
       return NextResponse.json({
         ok: false,
         error: 'service_unavailable',
         message: 'Verification service temporarily unavailable. Please try again later.',
       }, { status: 503, headers: { 'x-request-id': requestId } })
     }
-    const { data, error } = await admin.auth.admin.listUsers({ query: `email eq "${email}"` })
+    const { data, error } = await admin.auth.admin.listUsers({ 
+      page: 1,
+      perPage: 100 
+    });
     const t1 = performance.now()
 
     if (error) {
@@ -72,7 +75,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }, { status: 502, headers: { 'x-request-id': requestId } })
     }
 
-    const user = data?.users?.[0] ?? null
+    // Add debugging to see the structure of the data
+    console.log('[verify-email] listUsers response structure', { 
+      requestId, 
+      email, 
+      dataKeys: Object.keys(data),
+      usersType: typeof data.users,
+      usersLength: Array.isArray(data.users) ? data.users.length : 'not an array'
+    });
+
+    // Find the user with the matching email (case-insensitive)
+    const user = Array.isArray(data.users) ? data.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) : null;
+
     const exists = Boolean(user)
     const confirmed = Boolean(user?.email_confirmed_at)
 

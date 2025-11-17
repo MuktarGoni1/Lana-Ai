@@ -10,6 +10,8 @@ export async function verifyUserAuthentication(email: string): Promise<{
   message: string;
 }> {
   try {
+    console.log('[authVerificationService] Starting verification for email:', email);
+    
     if (!email) {
       return {
         isAuthenticated: false,
@@ -29,7 +31,9 @@ export async function verifyUserAuthentication(email: string): Promise<{
     // Use the Supabase admin client to check if user exists
     let adminClient;
     try {
+      console.log('[authVerificationService] Initializing Supabase admin client');
       adminClient = getSupabaseAdmin();
+      console.log('[authVerificationService] Supabase admin client initialized successfully');
     } catch (envError: any) {
       console.error('[authVerificationService] Environment error:', envError);
       return {
@@ -41,12 +45,12 @@ export async function verifyUserAuthentication(email: string): Promise<{
     // Search for users by email using a more efficient method
     // First try to get the user directly by email if the method is available
     try {
-      // Try to use getUserById if we can find the user ID first
-      // But since we only have email, we need to use listUsers
+      console.log('[authVerificationService] Calling listUsers');
       const { data, error } = await adminClient.auth.admin.listUsers({
         page: 1,
         perPage: 100 // Limit to 100 users to prevent excessive data transfer
       });
+      console.log('[authVerificationService] listUsers response:', { data, error });
       
       if (error) {
         console.error('[authVerificationService] Supabase error:', error);
@@ -56,8 +60,16 @@ export async function verifyUserAuthentication(email: string): Promise<{
         };
       }
       
+      // Add debugging to see the structure of the data
+      console.log('[authVerificationService] listUsers response structure', { 
+        dataKeys: Object.keys(data),
+        usersType: typeof data.users,
+        usersLength: Array.isArray(data.users) ? data.users.length : 'not an array'
+      });
+      
       // Find the user with the matching email (case-insensitive)
-      const user = data.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      const user = Array.isArray(data.users) ? data.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) : null;
+      console.log('[authVerificationService] Found user:', user);
       
       if (!user) {
         return {
