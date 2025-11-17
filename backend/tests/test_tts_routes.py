@@ -1,5 +1,10 @@
+import sys
+import os
+# Add the backend directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from fastapi.testclient import TestClient
-from backend.main import app
+from main import app
 import app.api.routes.tts as tts_module
 from app.services.tts_service import TTSService
 

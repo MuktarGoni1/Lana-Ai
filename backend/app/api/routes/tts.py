@@ -9,6 +9,7 @@ import io
 import wave
 from typing import Optional
 from fastapi.responses import StreamingResponse
+from app.config import TTS_CHUNK_SIZE
 
 router = APIRouter()
 
@@ -55,7 +56,8 @@ async def stream_speech(text: str, voice: Optional[str] = None):
         audio_bytes = await tts_service.generate_speech(text, voice or "leda")
 
         async def chunker():
-            chunk_size = 16384  # 16 KB chunks
+            # Increased chunk size for faster streaming
+            chunk_size = TTS_CHUNK_SIZE  # Configurable chunk size
             for i in range(0, len(audio_bytes), chunk_size):
                 yield audio_bytes[i:i + chunk_size]
 
@@ -67,6 +69,9 @@ async def stream_speech(text: str, voice: Optional[str] = None):
                 "Content-Disposition": "inline; filename=\"speech.wav\"",
                 "Accept-Ranges": "bytes",
                 "X-Accel-Buffering": "no",
+                # Add streaming optimization headers
+                "Connection": "keep-alive",
+                "Transfer-Encoding": "chunked",
             },
         )
     except RuntimeError as e:
@@ -89,7 +94,8 @@ async def synthesize_wav(request: TTSRequest):
         audio_bytes = await tts_service.generate_speech(request.text, request.voice or "leda")
 
         async def chunker():
-            chunk_size = 16384
+            # Increased chunk size for faster streaming
+            chunk_size = TTS_CHUNK_SIZE  # Configurable chunk size
             for i in range(0, len(audio_bytes), chunk_size):
                 yield audio_bytes[i:i + chunk_size]
 
@@ -101,6 +107,9 @@ async def synthesize_wav(request: TTSRequest):
                 "Content-Disposition": "inline; filename=\"speech.wav\"",
                 "Accept-Ranges": "bytes",
                 "X-Accel-Buffering": "no",
+                # Add streaming optimization headers
+                "Connection": "keep-alive",
+                "Transfer-Encoding": "chunked",
             },
         )
     except RuntimeError as e:
