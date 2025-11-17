@@ -3,6 +3,9 @@ import { NextRequest } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    // Log request for debugging
+    console.log('[API verify-user] Received request');
+    
     // Check if the request is from a trusted source
     const origin = request.headers.get('origin');
     const host = request.headers.get('host');
@@ -46,7 +49,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    console.log('[API verify-user] Verifying user:', email);
     const result = await verifyUserAuthentication(email);
+    console.log('[API verify-user] Verification result:', result);
     
     return new Response(
       JSON.stringify(result), 

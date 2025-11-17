@@ -27,47 +27,68 @@ export async function verifyUserAuthentication(email: string): Promise<{
     }
 
     // Use the Supabase admin client to check if user exists
-    const adminClient = getSupabaseAdmin();
+    let adminClient;
+    try {
+      adminClient = getSupabaseAdmin();
+    } catch (envError: any) {
+      console.error('[authVerificationService] Environment error:', envError);
+      return {
+        isAuthenticated: false,
+        message: `Environment configuration error: ${envError.message || 'Missing Supabase credentials'}`
+      };
+    }
     
     // Search for users by email using a more efficient method
-    const { data, error } = await adminClient.auth.admin.listUsers({
-      page: 1,
-      perPage: 100 // Limit to 100 users to prevent excessive data transfer
-    });
-    
-    if (error) {
-      console.error('[authVerificationService] Supabase error:', error);
+    // First try to get the user directly by email if the method is available
+    try {
+      // Try to use getUserById if we can find the user ID first
+      // But since we only have email, we need to use listUsers
+      const { data, error } = await adminClient.auth.admin.listUsers({
+        page: 1,
+        perPage: 100 // Limit to 100 users to prevent excessive data transfer
+      });
+      
+      if (error) {
+        console.error('[authVerificationService] Supabase error:', error);
+        return {
+          isAuthenticated: false,
+          message: `Failed to retrieve users: ${error.message}`
+        };
+      }
+      
+      // Find the user with the matching email (case-insensitive)
+      const user = data.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
+      
+      if (!user) {
+        return {
+          isAuthenticated: false,
+          message: `No authenticated user found with email: ${email}`
+        };
+      }
+      
+      // Check if email is confirmed
+      if (!user.email_confirmed_at) {
+        return {
+          isAuthenticated: false,
+          user,
+          message: `User ${email} exists but email is not confirmed`
+        };
+      }
+      
+      // Return authenticated user
       return {
-        isAuthenticated: false,
-        message: `Failed to retrieve users: ${error.message}`
-      };
-    }
-    
-    // Find the user with the matching email (case-insensitive)
-    const user = data.users.find(u => u.email?.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-      return {
-        isAuthenticated: false,
-        message: `No authenticated user found with email: ${email}`
-      };
-    }
-    
-    // Check if email is confirmed
-    if (!user.email_confirmed_at) {
-      return {
-        isAuthenticated: false,
+        isAuthenticated: true,
         user,
-        message: `User ${email} exists but email is not confirmed`
+        message: `User ${email} is authenticated`
+      };
+    } catch (methodError: any) {
+      console.error('[authVerificationService] Error querying users:', methodError);
+      return {
+        isAuthenticated: false,
+        message: `Error querying users: ${methodError.message || 'Unknown error'}`
       };
     }
-    
-    // Return authenticated user
-    return {
-      isAuthenticated: true,
-      user,
-      message: `User ${email} is authenticated`
-    };
+
   } catch (error: any) {
     console.error('[authVerificationService] Unexpected error:', error);
     return {
