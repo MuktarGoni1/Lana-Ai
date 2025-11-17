@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowLeft, Video, Loader2, AlertCircle, Home } from "lucide-react";
+import { ArrowLeft, Video, Loader2, AlertCircle, Home, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";

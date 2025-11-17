@@ -55,6 +55,16 @@ class ILessonRepository(ABC):
         pass
 
     @abstractmethod
+    async def get_lesson_by_id(self, lesson_id: str) -> Optional[Dict[str, Any]]:
+        """Get a specific lesson by ID."""
+        pass
+
+    @abstractmethod
+    async def delete_lesson_by_id(self, lesson_id: str) -> bool:
+        """Delete a lesson by ID."""
+        pass
+
+    @abstractmethod
     async def get_popular_topics(self, limit: int = 10) -> List[str]:
         """Get most popular topics."""
         pass

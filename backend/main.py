@@ -6,8 +6,9 @@ Simplified FastAPI application for Lana AI Backend.
 import logging
 
 # FastAPI imports
-from fastapi import FastAPI, Response
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, Response  # type: ignore
+import uuid
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from app.middleware.security_headers_middleware import SecurityHeadersMiddleware
 from app.middleware.request_timing_middleware import RequestTimingMiddleware, get_metrics_snapshot
 from app.settings import load_settings
@@ -15,13 +16,13 @@ from app.repositories.memory_cache_repository import MemoryCacheRepository
 
 from app.api.routes.tts import router as tts_router
 from app.api.router import api_router
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse  # type: ignore
 import time
 import json
 import asyncio
 import hashlib
 try:
-    from groq import Groq
+    from groq import Groq  # type: ignore
 except Exception:
     Groq = None
 
@@ -80,7 +81,7 @@ async def root():
 # app.include_router(tts_router, prefix="/api/tts")
 app.include_router(api_router, prefix="/api")
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator  # type: ignore
 from typing import List, Optional
 
 
@@ -112,11 +113,11 @@ class SectionItem(BaseModel):
 
 
 class QuizItem(BaseModel):
-    question: str
+    q: str  # Changed from 'question' to 'q' to match frontend expectations
     options: List[str]
     answer: str
 
-    @field_validator("question", "answer")
+    @field_validator("q", "answer")  # Changed from 'question' to 'q'
     def _san(cls, v):
         return sanitize_text(v)
 
@@ -138,6 +139,7 @@ class StructuredLessonRequest(BaseModel):
 
 
 class StructuredLessonResponse(BaseModel):
+    id: Optional[str] = None
     introduction: Optional[str] = None
     classifications: List[ClassificationItem] = []
     sections: List[SectionItem]
@@ -153,9 +155,10 @@ async def _stub_lesson(topic: str) -> StructuredLessonResponse:
         SectionItem(title="Details", content=f"Deeper look at {topic}."),
     ]
     quiz = [
-        QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
+        QuizItem(q=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),  # Changed from 'question' to 'q'
     ]
     return StructuredLessonResponse(
+        id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
         introduction=intro,
         classifications=classifications,
         sections=sections,
@@ -163,8 +166,10 @@ async def _stub_lesson(topic: str) -> StructuredLessonResponse:
         quiz=quiz,
     )
 
+
 async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
     if _GROQ_CLIENT is not None:
+        raw_excerpt = ""  # Initialize raw_excerpt to ensure it's always available
         try:
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
@@ -178,7 +183,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 "requirements": "Educational, concise, accurate, friendly."
             }
             if age is not None:
-                user_prompt["age"] = age
+                user_prompt["age"] = str(age)  # Convert to string
             completion = _GROQ_CLIENT.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 temperature=0.3,
@@ -189,7 +194,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 ],
             )
             content = completion.choices[0].message.content
-            raw_excerpt = (content or "")[:300]
+            raw_excerpt = (content or "")[:300]  # Update raw_excerpt with actual content
             # Parse JSON with robust normalization for string fields
             data = json.loads(content)
 
@@ -206,15 +211,25 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 except Exception:
                     return default
 
-            intro_norm = _to_str(data.get("introduction"), default=None)  # Optional[str]
+            intro_norm = _to_str(data.get("introduction"), default="")  # Changed from None to empty string
             diagram_norm = _to_str(data.get("diagram"), default="")
 
             # Keep list items strict; they already map to our pydantic models
             classifications = [ClassificationItem(**c) for c in data.get("classifications", [])]
             sections = [SectionItem(**s) for s in data.get("sections", [])]
-            quiz = [QuizItem(**q) for q in data.get("quiz", [])]
+            # Map question field to q for QuizItem compatibility
+            quiz_data = data.get("quiz", [])
+            quiz_items = []
+            for q_item in quiz_data:
+                # Create a copy and rename question to q
+                quiz_item_copy = q_item.copy()
+                if "question" in quiz_item_copy:
+                    quiz_item_copy["q"] = quiz_item_copy.pop("question")
+                quiz_items.append(QuizItem(**quiz_item_copy))
+            quiz = quiz_items
 
             resp = StructuredLessonResponse(
+                id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
                 introduction=intro_norm,
                 classifications=classifications,
                 sections=sections,
@@ -291,9 +306,10 @@ async def create_structured_lesson(req: StructuredLessonRequest, response: Respo
             SectionItem(title="Details", content=f"Deeper look at {topic}."),
         ]
         quiz = [
-            QuizItem(question=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),
+            QuizItem(q=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),  # Changed from 'question' to 'q'
         ]
         return StructuredLessonResponse(
+            id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
             introduction=intro,
             classifications=classifications,
             sections=sections,
@@ -377,8 +393,8 @@ async def reset_cache(namespaces: Optional[list[str]] = None):
         logger.warning(f"Cache reset error: {e}")
         return {"ok": False, "error": str(e)}
 from typing import Any, Dict, List, Optional
-from fastapi import HTTPException, Query
-from pydantic import BaseModel
+from fastapi import HTTPException, Query  # type: ignore
+from pydantic import BaseModel  # type: ignore
 
 from app.config import SUPABASE_URL, SUPABASE_KEY
 from app.repositories.interfaces import IChatRepository

@@ -1,3 +1,4 @@
+import uuid
 from typing import List, Dict, Any, Optional
 
 import logging
@@ -34,9 +35,13 @@ class LessonService:
                 return cached_lesson
 
         logger.info(f"Generating new lesson for {topic} ({lesson_type})...")
+        # Generate a unique ID for the lesson
+        lesson_id = str(uuid.uuid4())
+        
         # Placeholder for actual lesson generation logic
         # This would involve calls to LLMs, TTS, etc.
         new_lesson = {
+            "id": lesson_id,
             "topic": topic,
             "difficulty": difficulty,
             "type": lesson_type,
