@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/db";
-import { AuthService } from "@/lib/services/authService";
+import { useAuth } from "@/hooks/useAuth";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
@@ -103,8 +102,6 @@ const FormHeader = ({
   </div>
 );
 
-
-
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
@@ -125,23 +122,17 @@ function ParentFlow() {
     
     setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { 
-          data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/term-plan?onboarding=1`,
-        },
+      // Use our new auth service
+      const response = await fetch('/api/auth/register-parent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
       });
-      if (signInError) throw signInError;
       
-      const { error: upsertError } = await supabase.from("guardians").upsert({
-        email: email.trim(),
-        weekly_report: true,
-        monthly_report: false,
-      }, { onConflict: 'email' });
-      if (upsertError) {
-        console.warn('[ParentFlow] Failed to create guardian record:', upsertError);
-        // Continue as auth was successful
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to send magic link');
       }
 
       // Navigate to unified magic link confirmation page
@@ -190,7 +181,7 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={loading}>
-              Login
+              Register
             </PrimaryButton>
             
             <p className="text-xs text-white/20 text-center">
@@ -241,36 +232,25 @@ function ChildFlow() {
     
     setLoading(true);
     try {
-      const child_uid = crypto.randomUUID();
-      const password = crypto.randomUUID();
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: childEmail,
-        password,
-        options: { 
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/auth/confirmed/child`,
-        },
+      // Use our new auth service
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          childEmail,
+          guardianEmail,
+          nickname,
+          age: Number(age),
+          grade
+        }),
       });
-      if (signUpError) throw signUpError;
       
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: childEmail,
-        user_metadata: { 
-          role: "child", 
-          nickname, 
-          age, 
-          grade, 
-          guardian_email: guardianEmail 
-        },
-      });
-      if (insertError) {
-        console.warn('[ChildFlow] Failed to create user record:', insertError);
-        // Continue as auth was successful
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to create account');
       }
       
-      localStorage.setItem('lana_sid', child_uid);
       router.push("/homepage");
     } catch (error: unknown) {
       toast({ 
@@ -394,7 +374,14 @@ function EmailLoginFlow() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const authService = new AuthService();
+  const { signIn, user } = useAuth();
+
+  // Redirect authenticated users to homepage
+  useEffect(() => {
+    if (user) {
+      router.replace("/homepage");
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,48 +398,7 @@ function EmailLoginFlow() {
 
     setLoading(true);
     try {
-      // 1) Verify email in Supabase Auth via secure API (exists + confirmed)
-      const verify = await authService.verifyEmailWithSupabaseAuth(trimmed);
-      if (!verify.exists) {
-        toast({
-          title: "Email not found",
-          description: "This email is not registered. Please register or try another email.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-      if (!verify.confirmed) {
-        toast({
-          title: "Email not verified",
-          description: "Please verify your email by clicking the link sent to your inbox.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // 2) Optional: ensure presence in our authenticated users tables (guardians/users)
-      const isAuthed = await authService.isEmailAuthenticated(trimmed);
-      if (!isAuthed) {
-        toast({
-          title: "Not in authenticated list",
-          description: "We could not find this user in our records. Please complete signup first.",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      // 3) Send OTP and proceed
-      await authService.login(trimmed);
-      // Navigate to unified magic link confirmation page
-      try {
-        router.replace(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
-      } catch (navErr) {
-        console.warn('[EmailLoginFlow] navigation error, falling back:', navErr)
-        window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
-      }
+      await signIn(trimmed);
     } catch (error: unknown) {
       toast({
         title: "Error",

@@ -35,9 +35,9 @@ export default function GuardianConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "Guardian email saved." });
 
-        // Redirect to login as specified in requirements
+        // Redirect to homepage for authenticated users
         setTimeout(() => {
-          router.replace("/login");
+          router.replace("/homepage");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed/guardian] confirmation error:", err);
@@ -47,7 +47,7 @@ export default function GuardianConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        setTimeout(() => router.replace("/login"), 2500);
+        setTimeout(() => router.replace("/homepage"), 2500);
       }
     };
 
@@ -61,7 +61,7 @@ export default function GuardianConfirmedPage() {
           <h1 className="text-2xl font-semibold">Authentication Confirmed</h1>
           <p className="text-white/50 text-sm">
             {status === "confirming" && "Confirming your session…"}
-            {status === "confirmed" && "Your authentication is complete/confirmed. Please visit login."}
+            {status === "confirmed" && "Welcome! Your guardian account is ready."}
             {status === "error" && "We couldn’t confirm your session."}
           </p>
         </div>

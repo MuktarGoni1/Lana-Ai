@@ -21,7 +21,7 @@ function setGuestCookie(req: NextRequest, res: NextResponse) {
 }
 
 // Centralized auth gating and role-based redirects
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   try {
     const url = req.nextUrl
     const pathname = url.pathname
@@ -40,6 +40,7 @@ export async function proxy(req: NextRequest) {
       '/auth/confirmed',
       '/auth/confirmed/guardian',
       '/auth/confirmed/child',
+      '/quiz',
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -54,6 +55,38 @@ export async function proxy(req: NextRequest) {
 
     const { data: { session } } = await supabase.auth.getSession();
 
+    // Define protected routes
+    const protectedPaths = [
+      '/dashboard',
+      '/settings',
+      '/guardian',
+      '/term-plan',
+      '/quiz',
+      '/personalised-ai-tutor'
+    ]
+
+    const isProtectedRoute = protectedPaths.some(path => 
+      pathname.startsWith(path)
+    )
+
+    // If the user is not authenticated and trying to access a protected route, redirect to login
+    if (!session && isProtectedRoute) {
+      const dest = new URL('/login', req.url)
+      dest.searchParams.set('redirectedFrom', pathname)
+      return NextResponse.redirect(dest)
+    }
+
+    // If the user is authenticated and trying to access login/register pages, redirect to homepage
+    const authPaths = ['/login', '/register']
+    const isAuthPath = authPaths.some(path => 
+      pathname.startsWith(path)
+    )
+
+    if (session && isAuthPath) {
+      const dest = new URL('/landing-page', req.url)
+      return NextResponse.redirect(dest)
+    }
+
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(session?.user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
@@ -67,8 +100,17 @@ export async function proxy(req: NextRequest) {
 
     // If authenticated and trying to access the landing page, send to homepage
     if (session && pathname === '/landing-page') {
-      const dest = new URL('/homepage', req.url)
-      return NextResponse.redirect(dest)
+      // Redirect to appropriate dashboard based on role
+      if (role === 'child') {
+        const dest = new URL('/personalised-ai-tutor', req.url)
+        return NextResponse.redirect(dest)
+      } else if (role === 'guardian') {
+        const dest = new URL('/guardian', req.url)
+        return NextResponse.redirect(dest)
+      } else {
+        const dest = new URL('/homepage', req.url)
+        return NextResponse.redirect(dest)
+      }
     }
 
     // If authenticated and hitting root, normalize to landing page
@@ -90,7 +132,7 @@ export async function proxy(req: NextRequest) {
     }
 
     // Set guest cookie for landing page visits
-    if (pathname === '/landing-page') {
+    if (pathname === '/homepage') {
       setGuestCookie(req, res)
     }
 
@@ -98,7 +140,7 @@ export async function proxy(req: NextRequest) {
     return res
   } catch (error) {
     // On any middleware error, redirect to landing page
-    console.error('[proxy] error:', error)
+    console.error('[middleware] error:', error)
     return NextResponse.redirect(new URL('/landing-page', req.url))
   }
 }

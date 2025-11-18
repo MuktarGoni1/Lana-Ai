@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { validateEnv } from "@/lib/env";
 import AuthWrapper from "./auth-wrapper";
+import { AuthProvider } from "@/hooks/useAuth";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -19,9 +20,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <>
+    <AuthProvider>
       <AuthWrapper>{children}</AuthWrapper>
       <Toaster />
-    </>
+    </AuthProvider>
   );
 }

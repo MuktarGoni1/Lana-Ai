@@ -1,24 +1,12 @@
 import { AuthService } from '@/lib/services/authService'
 
+// Mock fetch globally
+global.fetch = jest.fn() as jest.Mock
+
 jest.mock('@/lib/db', () => {
   const signInWithOtp = jest.fn().mockResolvedValue({ data: { ok: true }, error: null });
-  const builder = () => {
-    const api: any = {
-      insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      upsert: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      ilike: jest.fn().mockReturnThis(),
-      limit: jest.fn().mockResolvedValue({ data: [], error: null }),
-    };
-    return api;
-  };
-  const tableBuilders: Record<string, any> = {};
-  const from = jest.fn().mockImplementation((table: string) => {
-    if (!tableBuilders[table]) {
-      tableBuilders[table] = builder();
-    }
-    return tableBuilders[table];
+  const from = jest.fn().mockReturnValue({
+    insert: jest.fn().mockResolvedValue({ data: {}, error: null })
   });
   return { supabase: { auth: { signInWithOtp }, from } };
 })
@@ -28,6 +16,8 @@ describe('AuthService', () => {
   beforeEach(() => {
     service = new AuthService()
     jest.clearAllMocks()
+    // Reset fetch mock
+    ;(global.fetch as jest.Mock).mockReset()
   })
 
   test('login sends trimmed email via OTP', async () => {
@@ -51,27 +41,46 @@ describe('AuthService', () => {
         options: expect.objectContaining({ emailRedirectTo: expect.stringContaining('/auth/confirmed/guardian') }) 
       })
     )
+    // Check that we also insert into the guardians table
     expect(supabase.from).toHaveBeenCalledWith('guardians')
   })
 
   test('isEmailAuthenticated returns true when email is found', async () => {
-    const { supabase } = require('@/lib/db')
-    // Mock guardians.select.eq.limit to resolve with a row
-    const fromInstance = supabase.from('guardians')
-    fromInstance.limit.mockResolvedValue({ data: [{ email: 'user@example.com' }], error: null })
+    // Mock fetch to return a successful response
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValueOnce({ exists: true })
+    })
 
     const ok = await service.isEmailAuthenticated('user@example.com')
     expect(ok).toBe(true)
+    expect(global.fetch).toHaveBeenCalledWith('/api/auth/check-user', expect.any(Object))
   })
 
   test('isEmailAuthenticated returns false when email not found', async () => {
-    const { supabase } = require('@/lib/db')
-    const gFrom = supabase.from('guardians')
-    const uFrom = supabase.from('users')
-    gFrom.limit.mockResolvedValue({ data: [], error: null })
-    uFrom.limit.mockResolvedValue({ data: [], error: null })
+    // Mock fetch to return a successful response with exists: false
+    ;(global.fetch as jest.Mock).mockResolvedValueOnce({
+      ok: true,
+      json: jest.fn().mockResolvedValueOnce({ exists: false })
+    })
 
     const ok = await service.isEmailAuthenticated('missing@example.com')
     expect(ok).toBe(false)
+  })
+
+  test('isEmailAuthenticated falls back to verify-email when check-user fails', async () => {
+    // Mock fetch to fail on check-user but succeed on verify-email
+    ;(global.fetch as jest.Mock)
+      .mockResolvedValueOnce({ ok: false }) // check-user fails
+      .mockResolvedValueOnce({ // verify-email succeeds
+        ok: true,
+        json: jest.fn().mockResolvedValueOnce({ exists: true })
+      })
+
+    const ok = await service.isEmailAuthenticated('user@example.com')
+    expect(ok).toBe(true)
+    expect(global.fetch).toHaveBeenCalledTimes(2)
+    expect(global.fetch).toHaveBeenNthCalledWith(1, '/api/auth/check-user', expect.any(Object))
+    expect(global.fetch).toHaveBeenNthCalledWith(2, '/api/auth/verify-email', expect.any(Object))
   })
 })

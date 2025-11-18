@@ -14,7 +14,10 @@ jest.mock('next/server', () => {
     set(name: string, value: string, options?: any) { this.jar.set(name, { value, options }) }
     get(name: string) {
       const v = this.jar.get(name)
-      return v ? { name, value: v.value } : undefined
+      return v ? { name, value: v.value, ...v.options } : undefined
+    }
+    has(name: string) {
+      return this.jar.has(name)
     }
   }
   class NextResponse {
@@ -24,7 +27,10 @@ jest.mock('next/server', () => {
       this.cookies = new CookieJar()
       this.headers = new SimpleHeaders()
     }
-    static next() { return new NextResponse() }
+    static next() { 
+      const res = new NextResponse()
+      return res
+    }
     static redirect(url: URL | string) {
       const res = new NextResponse()
       const href = typeof url === 'string' ? url : url.toString()
@@ -35,16 +41,21 @@ jest.mock('next/server', () => {
   return { NextResponse }
 })
 
-// Mock proxy to control behavior
-jest.mock('@/proxy', () => {
-  const { NextResponse } = require('next/server')
+// Import the actual middleware function
+import { middleware } from '@/middleware'
+
+// Mock the Supabase client
+jest.mock('@supabase/auth-helpers-nextjs', () => {
   return {
-    proxy: jest.fn(async () => NextResponse.next()),
+    createMiddlewareClient: jest.fn(() => {
+      return {
+        auth: {
+          getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
+        },
+      }
+    }),
   }
 })
-
-// Import middleware after mocks
-import { middleware } from '@/middleware'
 
 function makeReq(pathname: string) {
   const url = `http://localhost:3000${pathname}`
@@ -52,6 +63,7 @@ function makeReq(pathname: string) {
     url,
     nextUrl: { pathname },
     cookies: {
+      has: (name: string) => false,
       get: (name: string) => undefined,
     },
   } as any
@@ -66,11 +78,19 @@ describe('middleware guest cookie and error redirect', () => {
     expect(cookie?.value).toMatch(/^guest-/)
   })
 
-  test('redirects to homepage on proxy error', async () => {
-    const { proxy } = jest.requireMock('@/proxy')
-    proxy.mockImplementationOnce(async () => { throw new Error('boom') })
+  test('redirects to homepage on middleware error', async () => {
+    // Mock the Supabase client to throw an error
+    const { createMiddlewareClient } = require('@supabase/auth-helpers-nextjs')
+    createMiddlewareClient.mockImplementationOnce(() => {
+      return {
+        auth: {
+          getSession: jest.fn().mockRejectedValue(new Error('boom')),
+        },
+      }
+    })
+    
     const req = makeReq('/protected')
     const res = await middleware(req)
-    expect(res.headers.get('location')).toContain('/homepage')
+    expect(res.headers.get('location')).toContain('/landing-page')
   })
 })

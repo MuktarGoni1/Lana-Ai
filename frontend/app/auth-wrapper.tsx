@@ -18,6 +18,7 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
       // Avoid reroute if already on term-plan onboarding
       const isOnboardingRoute = window.location.pathname.startsWith('/term-plan') && new URLSearchParams(window.location.search).get('onboarding') === '1';
+      
       // If onboarding not complete and not a child → go to term plan
       if (!isComplete && role !== 'child' && !isOnboardingRoute) {
         const returnTo = encodeURIComponent(currentPath || "/homepage");
