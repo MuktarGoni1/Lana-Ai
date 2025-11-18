@@ -190,7 +190,7 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
+              Login
             </PrimaryButton>
             
             <p className="text-xs text-white/20 text-center">

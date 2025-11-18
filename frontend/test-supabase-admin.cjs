@@ -4,7 +4,7 @@
  */
 
 // Import the Supabase admin client
-import { getSupabaseAdmin } from './lib/supabase-admin.js';
+const { getSupabaseAdmin } = require('./lib/supabase-admin');
 
 async function testSupabaseAdmin() {
   console.log('Testing direct Supabase Auth admin API access...');

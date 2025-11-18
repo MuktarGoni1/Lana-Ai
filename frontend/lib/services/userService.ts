@@ -18,14 +18,27 @@ export async function getCurrentUserAge(): Promise<number | null> {
       return metaAge;
     }
 
-    const { data } = await supabase
-      .from('users')
-      .select('user_metadata')
-      .eq('id', user.id)
-      .single();
+    // Try to get age from users table, but handle case where table doesn't exist
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('user_metadata')
+        .eq('id', user.id)
+        .single();
 
-    const tableAge = (data?.user_metadata?.age as number | undefined) ?? null;
-    return typeof tableAge === 'number' ? tableAge : null;
+      // If there's an error (like table not existing), return null
+      if (error) {
+        console.debug('[userService.getCurrentUserAge] users table query error:', error);
+        return null;
+      }
+
+      const tableAge = (data?.user_metadata?.age as number | undefined) ?? null;
+      return typeof tableAge === 'number' ? tableAge : null;
+    } catch (tableError) {
+      // If the users table doesn't exist, that's okay - just return null
+      console.debug('[userService.getCurrentUserAge] users table may not exist:', tableError);
+      return null;
+    }
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.warn('[userService.getCurrentUserAge] error', error);

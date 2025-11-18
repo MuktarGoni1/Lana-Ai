@@ -30,13 +30,23 @@ export default function OnboardingPage() {
     const child_uid = crypto.randomUUID() // anon child
 
     try {
-      // 1. create child user (anon)
-      const { error: userErr } = await supabase.from("users").insert({
-        id: child_uid,
-        email: `${child_uid}@child.lana`,
-        user_metadata: { role: "child", nickname, age, grade },
-      })
-      if (userErr) throw userErr
+      // 1. create child user (anon) - handle case where users table doesn't exist
+      let userCreated = false;
+      try {
+        const { error: userErr } = await supabase.from("users").insert({
+          id: child_uid,
+          email: `${child_uid}@child.lana`,
+          user_metadata: { role: "child", nickname, age, grade },
+        })
+        if (userErr) {
+          console.debug('[Onboarding] users table insert error:', userErr);
+        } else {
+          userCreated = true;
+        }
+      } catch (tableError) {
+        // If the users table doesn't exist, that's okay
+        console.debug('[Onboarding] users table may not exist:', tableError);
+      }
 
       // 2. link parent → child
       const { error: guardianErr } = await supabase.from("guardians").insert({
@@ -46,8 +56,14 @@ export default function OnboardingPage() {
         monthly_report: false,
       })
       if (guardianErr) {
-        // Compensate: remove child user to avoid orphaned record
-        await supabase.from("users").delete().eq("id", child_uid)
+        // Compensate: remove child user to avoid orphaned record (if it was created)
+        if (userCreated) {
+          try {
+            await supabase.from("users").delete().eq("id", child_uid)
+          } catch (deleteError) {
+            console.debug('[Onboarding] Failed to cleanup child user:', deleteError);
+          }
+        }
         throw guardianErr
       }
 

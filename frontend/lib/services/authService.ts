@@ -69,35 +69,54 @@ export class AuthService {
       throw error instanceof Error ? error : new Error('Network or server error during verification.');
     }
   }
+  
   /**
    * Check if an email exists in our authenticated users dataset.
-   * Looks in `guardians` and `users` tables.
+   * Uses the proper Supabase Auth methods instead of querying non-existent tables.
    */
   async isEmailAuthenticated(email: string): Promise<boolean> {
     try {
       const trimmed = email.trim();
       if (!trimmed) return false;
 
-      const { data: gData, error: gErr } = await supabase
-        .from('guardians')
-        .select('email')
-        .ilike('email', trimmed)
-        .limit(1);
-      if (gErr) console.debug('[AuthService] guardians check error:', gErr);
-      if (Array.isArray(gData) && gData.length > 0) return true;
-
-      const { data: uData, error: uErr } = await supabase
-        .from('users')
-        .select('email')
-        .ilike('email', trimmed)
-        .limit(1);
-      if (uErr) console.debug('[AuthService] users check error:', uErr);
-      return Array.isArray(uData) && uData.length > 0;
+      // Use the secure API endpoint to check if user is authenticated
+      // This avoids trying to query non-existent database tables
+      try {
+        const response = await fetch('/api/auth/check-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmed }),
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data.exists === true;
+        }
+        
+        // If the API call fails, fall back to using the verify-email endpoint
+        console.debug('[AuthService] API check failed, falling back to verify-email');
+        const verifyResponse = await fetch('/api/auth/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: trimmed }),
+        });
+        
+        if (verifyResponse.ok) {
+          const data = await verifyResponse.json();
+          return data.exists === true;
+        }
+        
+        return false;
+      } catch (apiError) {
+        console.debug('[AuthService] API check error, falling back:', apiError);
+        return false;
+      }
     } catch (error) {
       console.debug('[AuthService] isEmailAuthenticated error:', error);
       return false;
     }
   }
+  
   async login(email: string) {
     try {
       const trimmed = email.trim();
@@ -114,6 +133,7 @@ export class AuthService {
       throw error;
     }
   }
+  
   async registerParent(email: string) {
     try {
       const { data, error } = await supabase.auth.signInWithOtp({
@@ -165,16 +185,21 @@ export class AuthService {
 
       if (signError) throw signError
 
-      // Store child row in users table
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: email,
-        user_metadata: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
-      });
-      
-      if (insertError) {
-        console.warn('[AuthService] Failed to create user record:', insertError);
-        // Don't throw here as the auth was successful
+      // Store child row in users table (if it exists)
+      try {
+        const { error: insertError } = await supabase.from("users").insert({
+          id: child_uid,
+          email: email,
+          user_metadata: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
+        });
+        
+        if (insertError) {
+          console.warn('[AuthService] Failed to create user record:', insertError);
+          // Don't throw here as the auth was successful
+        }
+      } catch (tableError) {
+        // If the users table doesn't exist, that's okay
+        console.debug('[AuthService] Users table may not exist, continuing without it:', tableError);
       }
 
       // Store session ID in localStorage for anonymous users
