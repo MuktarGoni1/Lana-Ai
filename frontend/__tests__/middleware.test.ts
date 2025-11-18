@@ -27,70 +27,244 @@ jest.mock('next/server', () => {
       this.cookies = new CookieJar()
       this.headers = new SimpleHeaders()
     }
-    static next() { 
-      const res = new NextResponse()
-      return res
+    static next() {
+      return new NextResponse()
     }
-    static redirect(url: URL | string) {
+    static redirect(url: string | URL) {
       const res = new NextResponse()
-      const href = typeof url === 'string' ? url : url.toString()
-      res.headers.set('location', href)
+      res.headers.set('location', url.toString())
       return res
     }
   }
   return { NextResponse }
 })
 
-// Import the actual middleware function
-import { middleware } from '@/middleware'
-
-// Mock the Supabase client
-jest.mock('@supabase/auth-helpers-nextjs', () => {
-  return {
-    createMiddlewareClient: jest.fn(() => {
-      return {
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: null } }),
-        },
+// Mock Supabase client
+jest.mock('@supabase/ssr', () => {
+  const mockCreateServerClient = jest.fn().mockImplementation(() => {
+    return {
+      auth: {
+        getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
       }
-    }),
-  }
+    }
+  })
+  return { createServerClient: mockCreateServerClient }
 })
 
-function makeReq(pathname: string) {
-  const url = `http://localhost:3000${pathname}`
-  return {
-    url,
-    nextUrl: { pathname },
-    cookies: {
-      has: (name: string) => false,
-      get: (name: string) => undefined,
-    },
-  } as any
-}
+// Import the actual middleware after mocks
+const { middleware } = require('../middleware')
 
 describe('middleware guest cookie and error redirect', () => {
-
   test('sets guest cookie on homepage visit', async () => {
-    const req = makeReq('/homepage')
+    const req = {
+      nextUrl: { pathname: '/homepage' },
+      cookies: {
+        has: jest.fn().mockReturnValue(false),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue(undefined)
+      }
+    }
+    
     const res = await middleware(req)
     const cookie = res.cookies.get('lana_guest_id')
+    expect(cookie).toBeDefined()
     expect(cookie?.value).toMatch(/^guest-/)
   })
 
   test('redirects to homepage on middleware error', async () => {
-    // Mock the Supabase client to throw an error
-    const { createMiddlewareClient } = require('@supabase/auth-helpers-nextjs')
-    createMiddlewareClient.mockImplementationOnce(() => {
-      return {
-        auth: {
-          getSession: jest.fn().mockRejectedValue(new Error('boom')),
-        },
-      }
+    // Mock Supabase to throw an error
+    jest.mock('@supabase/ssr', () => {
+      const mockCreateServerClient = jest.fn().mockImplementation(() => {
+        return {
+          auth: {
+            getUser: jest.fn().mockRejectedValue(new Error('Test error'))
+          }
+        }
+      })
+      return { createServerClient: mockCreateServerClient }
     })
     
-    const req = makeReq('/protected')
+    // Re-import middleware with new mock
+    jest.resetModules()
+    const { middleware } = require('../middleware')
+    
+    const req = {
+      nextUrl: { pathname: '/protected', origin: 'http://localhost:3000' },
+      url: 'http://localhost:3000/protected',
+      cookies: {
+        has: jest.fn().mockReturnValue(false),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue(undefined)
+      }
+    }
+    
     const res = await middleware(req)
-    expect(res.headers.get('location')).toContain('/landing-page')
+    expect(res.headers.get('location')).toBe('http://localhost:3000/landing-page')
+  })
+})
+
+// Additional middleware tests for authenticated user scenarios
+describe('middleware authenticated user scenarios', () => {
+  beforeEach(() => {
+    // Reset all mocks
+    jest.resetAllMocks()
+    jest.resetModules()
+  })
+
+  test('allows authenticated user to access protected routes', async () => {
+    // Mock Supabase to return an authenticated user with completed onboarding
+    jest.mock('@supabase/ssr', () => {
+      const mockCreateServerClient = jest.fn().mockImplementation(() => {
+        return {
+          auth: {
+            getUser: jest.fn().mockResolvedValue({ 
+              data: { 
+                user: {
+                  id: 'test-user-id',
+                  email: 'test@example.com',
+                  user_metadata: { 
+                    role: 'guardian',
+                    onboarding_complete: true // User has completed onboarding
+                  }
+                } 
+              }, 
+              error: null 
+            }),
+          }
+        }
+      })
+      return { createServerClient: mockCreateServerClient }
+    })
+    
+    // Re-import middleware with new mock
+    jest.resetModules()
+    const { middleware } = require('../middleware')
+    
+    const req = {
+      nextUrl: { pathname: '/dashboard', origin: 'http://localhost:3000' },
+      url: 'http://localhost:3000/dashboard',
+      cookies: {
+        has: jest.fn().mockReturnValue(true),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue({ name: 'lana_guest_id', value: 'guest-12345' })
+      }
+    }
+    
+    const res = await middleware(req)
+    // Should allow access (no redirect)
+    expect(res.headers.get('location')).toBeNull()
+  })
+
+  test('redirects authenticated user from login to landing page', async () => {
+    // Mock Supabase to return an authenticated user
+    jest.mock('@supabase/ssr', () => {
+      const mockCreateServerClient = jest.fn().mockImplementation(() => {
+        return {
+          auth: {
+            getUser: jest.fn().mockResolvedValue({ 
+              data: { 
+                user: {
+                  id: 'test-user-id',
+                  email: 'test@example.com',
+                  user_metadata: { 
+                    role: 'guardian',
+                    onboarding_complete: true
+                  }
+                } 
+              }, 
+              error: null 
+            }),
+          }
+        }
+      })
+      return { createServerClient: mockCreateServerClient }
+    })
+    
+    // Re-import middleware with new mock
+    jest.resetModules()
+    const { middleware } = require('../middleware')
+    
+    const req = {
+      nextUrl: { pathname: '/login', origin: 'http://localhost:3000' },
+      url: 'http://localhost:3000/login',
+      cookies: {
+        has: jest.fn().mockReturnValue(true),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue({ name: 'lana_guest_id', value: 'guest-12345' })
+      }
+    }
+    
+    const res = await middleware(req)
+    expect(res.headers.get('location')).toBe('http://localhost:3000/landing-page')
+  })
+
+  test('redirects unauthenticated user from protected route to login', async () => {
+    // Mock Supabase to return no user (unauthenticated)
+    jest.mock('@supabase/ssr', () => {
+      const mockCreateServerClient = jest.fn().mockImplementation(() => {
+        return {
+          auth: {
+            getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+          }
+        }
+      })
+      return { createServerClient: mockCreateServerClient }
+    })
+    
+    // Re-import middleware with new mock
+    jest.resetModules()
+    const { middleware } = require('../middleware')
+    
+    const req = {
+      nextUrl: { pathname: '/dashboard', origin: 'http://localhost:3000' },
+      url: 'http://localhost:3000/dashboard',
+      cookies: {
+        has: jest.fn().mockReturnValue(false),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue(undefined)
+      }
+    }
+    
+    const res = await middleware(req)
+    // Should redirect to login with redirectedFrom parameter (URL encoded)
+    expect(res.headers.get('location')).toBe('http://localhost:3000/login?redirectedFrom=%2Fdashboard')
+  })
+
+  test('allows access to public routes for unauthenticated users', async () => {
+    // Mock Supabase to return no user (unauthenticated)
+    jest.mock('@supabase/ssr', () => {
+      const mockCreateServerClient = jest.fn().mockImplementation(() => {
+        return {
+          auth: {
+            getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+          }
+        }
+      })
+      return { createServerClient: mockCreateServerClient }
+    })
+    
+    // Re-import middleware with new mock
+    jest.resetModules()
+    const { middleware } = require('../middleware')
+    
+    const req = {
+      nextUrl: { pathname: '/landing-page', origin: 'http://localhost:3000' },
+      url: 'http://localhost:3000/landing-page',
+      cookies: {
+        has: jest.fn().mockReturnValue(false),
+        getAll: jest.fn().mockReturnValue([]),
+        set: jest.fn(),
+        get: jest.fn().mockReturnValue(undefined)
+      }
+    }
+    
+    const res = await middleware(req)
+    // Should allow access (no redirect)
+    expect(res.headers.get('location')).toBeNull()
   })
 })

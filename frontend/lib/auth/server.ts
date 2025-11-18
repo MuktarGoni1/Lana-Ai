@@ -9,8 +9,12 @@ import type { User } from '@supabase/supabase-js'
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const supabase = await createServerClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    return session?.user ?? null
+    // Use getUser() for secure user data instead of relying on session.user directly
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (!error && user) {
+      return user
+    }
+    return null
   } catch (error) {
     console.error('Error getting current user:', error)
     return null

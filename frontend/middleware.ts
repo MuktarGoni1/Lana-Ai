@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
+import { type CookieOptions } from '@supabase/ssr'
 
 // Generate a simple UUID-like string for guest sessions
 function generateGuestId(): string {
@@ -50,10 +51,43 @@ export async function middleware(req: NextRequest) {
 
     const res = NextResponse.next()
 
-    // Create Supabase middleware client via auth-helpers for Next.js
-    const supabase = createMiddlewareClient({ req, res })
+    // Create Supabase middleware client using @supabase/ssr
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            try {
+              return req.cookies.getAll()
+            } catch (error) {
+              console.error('Error getting cookies:', error)
+              return []
+            }
+          },
+          setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
+            try {
+              cookiesToSet.forEach(({ name, value, options }) => {
+                // Validate that the value is a valid string before setting
+                if (typeof value === 'string') {
+                  req.cookies.set(name, value)
+                  res.cookies.set(name, value, options)
+                } else {
+                  console.warn(`Invalid cookie value for ${name}:`, value)
+                }
+              })
+            } catch (error) {
+              // Handle cookie setting errors in middleware
+              console.error('Error setting cookies in middleware:', error)
+            }
+          },
+        },
+      }
+    )
 
-    const { data: { session } } = await supabase.auth.getSession();
+    // Use getUser() for secure user data instead of relying on session.user directly
+    const { data: { user }, error } = await supabase.auth.getUser();
+    const sessionExists = !error && user;
 
     // Define protected routes
     const protectedPaths = [
@@ -70,7 +104,7 @@ export async function middleware(req: NextRequest) {
     )
 
     // If the user is not authenticated and trying to access a protected route, redirect to login
-    if (!session && isProtectedRoute) {
+    if (!sessionExists && isProtectedRoute) {
       const dest = new URL('/login', req.url)
       dest.searchParams.set('redirectedFrom', pathname)
       return NextResponse.redirect(dest)
@@ -82,24 +116,24 @@ export async function middleware(req: NextRequest) {
       pathname.startsWith(path)
     )
 
-    if (session && isAuthPath) {
+    if (sessionExists && isAuthPath) {
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }
 
     // First-time onboarding enforcement
-    const onboardingComplete = Boolean(session?.user?.user_metadata?.onboarding_complete)
+    const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
     const isOnboardingRoute = pathname.startsWith('/term-plan') || pathname.startsWith('/onboarding')
-    const role = session?.user?.user_metadata?.role as 'child' | 'guardian' | undefined
-    if (session && !onboardingComplete && !cookieComplete && !isOnboardingRoute && role !== 'child') {
+    const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
+    if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute && role !== 'child') {
       const returnTo = `${pathname}${url.search}`
       const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
 
     // If authenticated and trying to access the landing page, send to homepage
-    if (session && pathname === '/landing-page') {
+    if (sessionExists && pathname === '/landing-page') {
       // Redirect to appropriate dashboard based on role
       if (role === 'child') {
         const dest = new URL('/personalised-ai-tutor', req.url)
@@ -114,13 +148,13 @@ export async function middleware(req: NextRequest) {
     }
 
     // If authenticated and hitting root, normalize to landing page
-    if (session && pathname === '/') {
+    if (sessionExists && pathname === '/') {
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }
 
     // If unauthenticated and not trying to access a public path, send to landing page
-    if (!session && !isPublic && pathname !== '/landing-page') {
+    if (!sessionExists && !isPublic && pathname !== '/landing-page') {
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }

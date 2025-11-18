@@ -26,12 +26,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Get initial session
         const { data: { session } } = await supabase.auth.getSession()
-        setUser(session?.user ?? null)
+        
+        // Use getUser() for secure user data instead of relying on session.user directly
+        if (session?.access_token) {
+          const { data: { user }, error } = await supabase.auth.getUser()
+          if (!error && user) {
+            setUser(user)
+          } else {
+            setUser(null)
+          }
+        } else {
+          setUser(null)
+        }
         
         // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (_event, session) => {
-            setUser(session?.user ?? null)
+          async (_event, session) => {
+            if (session?.access_token) {
+              // Use getUser() for secure user data
+              const { data: { user }, error } = await supabase.auth.getUser()
+              if (!error && user) {
+                setUser(user)
+              } else {
+                setUser(null)
+              }
+            } else {
+              setUser(null)
+            }
             setLoading(false)
           }
         )
@@ -90,10 +111,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshUser = async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      setUser(session?.user ?? null)
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (!error && user) {
+        setUser(user)
+      } else {
+        setUser(null)
+      }
     } catch (error) {
       console.error('Refresh user error:', error)
+      setUser(null)
     }
   }
 

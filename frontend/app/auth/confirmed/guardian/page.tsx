@@ -26,7 +26,7 @@ export default function GuardianConfirmedPage() {
 
         // Add or update guardian record
         if (userEmail) {
-          const { error: upsertError } = await supabase
+          const { error: upsertError } = await (supabase as any)
             .from("guardians")
             .upsert({ email: userEmail, weekly_report: true, monthly_report: false }, { onConflict: "email" });
           if (upsertError) console.warn("[auth/confirmed/guardian] upsert warn:", upsertError);
