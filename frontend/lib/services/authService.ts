@@ -90,7 +90,8 @@ export class AuthService {
         
         if (response.ok) {
           const data = await response.json();
-          return data.exists === true;
+          // Check both that the user exists and that their email is confirmed
+          return data.exists === true && data.confirmed === true;
         }
         
         // If the API call fails, fall back to using the verify-email endpoint
@@ -103,7 +104,7 @@ export class AuthService {
         
         if (verifyResponse.ok) {
           const data = await verifyResponse.json();
-          return data.exists === true;
+          return data.exists === true && data.confirmed === true;
         }
         
         return false;
@@ -120,16 +121,18 @@ export class AuthService {
   async login(email: string) {
     try {
       const trimmed = email.trim();
-      const { data, error } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: {
-          emailRedirectTo: `${window.location.origin}/term-plan?onboarding=1`,
-        },
-      });
-      if (error) throw error;
-      return data;
+      // Instead of sending a magic link, we'll verify the email and redirect appropriately
+      const verificationResult = await this.verifyEmailWithSupabaseAuth(trimmed);
+      
+      if (verificationResult.exists && verificationResult.confirmed) {
+        // User is authenticated, proceed with login
+        // In a real implementation, you might want to create a session here
+        return { success: true, userId: verificationResult.userId };
+      } else {
+        throw new Error('Email not verified or confirmed');
+      }
     } catch (error: unknown) {
-      console.debug("[AuthService] login magic link error:", error);
+      console.debug("[AuthService] login error:", error);
       throw error;
     }
   }

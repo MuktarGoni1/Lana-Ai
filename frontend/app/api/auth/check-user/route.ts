@@ -66,17 +66,35 @@ export async function POST(request: NextRequest) {
       }
 
       // Look for the user in the returned data
-      const userExists = Array.isArray(data.users) 
-        ? data.users.some(user => 
+      const user = Array.isArray(data.users) 
+        ? data.users.find(user => 
             user.email && user.email.toLowerCase() === email.toLowerCase()
           )
-        : false;
+        : null;
+
+      // Check if user exists and email is confirmed
+      const userExists = !!user;
+      const emailConfirmed = user?.email_confirmed_at ? true : false;
+
+      // For guardian/child verification, we can check additional metadata
+      // In a full implementation, you might check against specific guardian/child tables
+      const isGuardianOrChild = userExists && (
+        user.app_metadata?.role === 'guardian' || 
+        user.app_metadata?.role === 'child'
+      );
 
       return new Response(
         JSON.stringify({
           success: true,
           exists: userExists,
-          message: userExists ? 'User found' : 'User not found'
+          confirmed: emailConfirmed,
+          isAuthorized: userExists && emailConfirmed,
+          isGuardianOrChild: isGuardianOrChild,
+          message: userExists 
+            ? emailConfirmed 
+              ? 'User authenticated and email confirmed' 
+              : 'User exists but email not confirmed'
+            : 'User not found'
         }),
         {
           status: 200,

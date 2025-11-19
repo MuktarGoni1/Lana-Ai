@@ -376,11 +376,37 @@ function EmailLoginFlow() {
 
     setLoading(true);
     try {
-      await signIn(trimmed);
+      // First verify if the email is authenticated
+      const isVerified = await authService.isEmailAuthenticated(trimmed);
+      
+      if (!isVerified) {
+        toast({
+          title: "Email not verified",
+          description: "This email is not authenticated. Please register first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // If verified, automatically sign in the user
+      // Check if it's a guardian or child email
+      const verificationResult = await authService.verifyEmailWithSupabaseAuth(trimmed);
+      
+      if (verificationResult.exists && verificationResult.confirmed) {
+        // Automatically redirect based on user role
+        // For now, we'll redirect to homepage, but this could be enhanced
+        router.push("/homepage");
+      } else {
+        toast({
+          title: "Email not confirmed",
+          description: "Please confirm your email address before logging in.",
+          variant: "destructive",
+        });
+      }
     } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to verify email. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -416,7 +442,7 @@ function EmailLoginFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
+              Login
             </PrimaryButton>
             
             <p className="text-xs text-white/20 text-center">
