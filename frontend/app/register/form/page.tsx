@@ -6,6 +6,7 @@ import { supabase } from "@/lib/db"
 import { ArrowRight, ChevronLeft } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { z } from "zod"
+import { AuthService } from "@/lib/services/authService"
 
 function ParentFlow() {
   const router = useRouter()
@@ -35,11 +36,9 @@ function ParentFlow() {
       if (error) throw error
 
       // Insert/Upsert guardian record for authenticated users tracking
-      const { error: upsertError } = await supabase.from("guardians").upsert({
-        email: email.trim(),
-        weekly_report: true,
-        monthly_report: false,
-      }, { onConflict: 'email' })
+      const { error: upsertError } = await (supabase as any)
+        .from("guardians")
+        .upsert({ email: email.trim(), weekly_report: true, monthly_report: false }, { onConflict: 'email' })
       if (upsertError) {
         console.warn('[Register Parent] Failed to upsert guardian record:', upsertError)
       }
@@ -137,6 +136,7 @@ function ChildFlow() {
   })
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
+  const authService = new AuthService()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -161,35 +161,8 @@ function ChildFlow() {
 
     setIsLoading(true)
     try {
-      const child_uid = crypto.randomUUID()
-      const password = crypto.randomUUID()
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: childEmail,
-        password,
-        options: {
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/auth/confirmed/child`
-        }
-      })
-      if (signUpError) throw signUpError
-
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: childEmail,
-        user_metadata: {
-          role: "child",
-          nickname,
-          age,
-          grade,
-          guardian_email: guardianEmail
-        }
-      })
-      if (insertError) {
-        console.warn('[ChildFlow] Failed to create user record:', insertError)
-      }
-
-      localStorage.setItem('lana_sid', child_uid)
+      // Use the updated AuthService method
+      await authService.registerChild(nickname, Number(age), grade, guardianEmail)
       router.push("/homepage")
     } catch (error) {
       console.error("Child registration error:", error)

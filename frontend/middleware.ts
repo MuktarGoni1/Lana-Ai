@@ -132,7 +132,7 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dest)
     }
 
-    // If authenticated and trying to access the landing page, send to homepage
+    // If authenticated and trying to access the landing page, send to appropriate dashboard
     if (sessionExists && pathname === '/landing-page') {
       // Redirect to appropriate dashboard based on role
       if (role === 'child') {
@@ -147,14 +147,23 @@ export async function middleware(req: NextRequest) {
       }
     }
 
-    // If authenticated and hitting root, normalize to landing page
+    // If authenticated and hitting root, redirect to appropriate dashboard
     if (sessionExists && pathname === '/') {
-      const dest = new URL('/landing-page', req.url)
-      return NextResponse.redirect(dest)
+      // Redirect to appropriate dashboard based on role
+      if (role === 'child') {
+        const dest = new URL('/personalised-ai-tutor', req.url)
+        return NextResponse.redirect(dest)
+      } else if (role === 'guardian') {
+        const dest = new URL('/guardian', req.url)
+        return NextResponse.redirect(dest)
+      } else {
+        const dest = new URL('/homepage', req.url)
+        return NextResponse.redirect(dest)
+      }
     }
 
     // If unauthenticated and not trying to access a public path, send to landing page
-    if (!sessionExists && !isPublic && pathname !== '/landing-page') {
+    if (!sessionExists && !isPublic && pathname !== '/landing-page' && pathname !== '/') {
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }

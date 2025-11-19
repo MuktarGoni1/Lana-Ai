@@ -136,8 +136,25 @@ export class AuthService {
   
   async registerParent(email: string) {
     try {
+      const trimmedEmail = email.trim();
+      
+      // First, create a record in the guardians table
+      // Cast supabase to any to bypass typing issues
+      const sb: any = supabase;
+      const { error: insertError } = await sb.from("guardians").upsert({
+        email: trimmedEmail,
+        weekly_report: true,
+        monthly_report: false,
+      }, { onConflict: 'email' });
+      
+      if (insertError) {
+        console.warn('[AuthService] Failed to create guardian record:', insertError);
+        // Don't throw here as we still want to proceed with authentication
+      }
+
+      // Then send the magic link
       const { data, error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: trimmedEmail,
         options: {
           data: { role: "guardian" },
           emailRedirectTo: `${window.location.origin}/auth/confirmed/guardian`,
@@ -145,18 +162,6 @@ export class AuthService {
       });
 
       if (error) throw error;
-
-      // Also create a record in the guardians table
-      const { error: insertError } = await supabase.from("guardians").insert({
-        email: email.trim(),
-        weekly_report: true,
-        monthly_report: false,
-      });
-      
-      if (insertError) {
-        console.warn('[AuthService] Failed to create guardian record:', insertError);
-        // Don't throw here as the auth was successful
-      }
       
       return data;
     } catch (error: unknown) {
@@ -165,32 +170,32 @@ export class AuthService {
     }
   }
 
-  async registerChild(nickname: string, age: number, grade: string, contactEmail?: string) {
+  async registerChild(nickname: string, age: number, grade: string, guardianEmail: string) {
     try {
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
-
-      const child_uid = crypto.randomUUID()
-      const email = `${child_uid}@child.lana`
-      const password = child_uid // Use child_uid as password for consistency
+      const child_uid = crypto.randomUUID();
+      const email = `${child_uid}@child.lana`;
+      const password = crypto.randomUUID(); // Generate a secure password
 
       // Create the auth user
       const { data, error: signError } = await supabase.auth.signUp({
         email: email,
-        password: password, // Use child_uid as password for consistency
+        password: password,
         options: {
-          data: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
+          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
           emailRedirectTo: `${window.location.origin}/auth/confirmed/child`,
         }
-      })
+      });
 
-      if (signError) throw signError
+      if (signError) throw signError;
 
       // Store child row in users table (if it exists)
       try {
-        const { error: insertError } = await supabase.from("users").insert({
+        // Cast supabase to any to bypass typing issues
+        const sb: any = supabase;
+        const { error: insertError } = await sb.from("users").insert({
           id: child_uid,
           email: email,
-          user_metadata: { role: "child", nickname, age, grade, contact_email: contactEmail ?? null },
+          user_metadata: JSON.stringify({ role: "child", nickname, age, grade, guardian_email: guardianEmail }),
         });
         
         if (insertError) {
@@ -202,8 +207,30 @@ export class AuthService {
         console.debug('[AuthService] Users table may not exist, continuing without it:', tableError);
       }
 
+      // Link child to guardian
+      try {
+        // Cast supabase to any to bypass typing issues
+        const sb: any = supabase;
+        const { error: linkError } = await sb.from("guardians").insert({
+          email: guardianEmail,
+          child_uid: child_uid,
+          weekly_report: true,
+          monthly_report: false,
+        });
+        
+        if (linkError) {
+          console.warn('[AuthService] Failed to link child to guardian:', linkError);
+          // Don't throw here as the auth was successful
+        }
+      } catch (linkError) {
+        console.debug('[AuthService] Error linking child to guardian:', linkError);
+      }
+
       // Store session ID in localStorage for anonymous users
-      localStorage.setItem("lana_sid", child_uid);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem("lana_sid", child_uid);
+      }
+      
       return data;
     } catch (error: unknown) {
       console.debug("[AuthService] registerChild error:", error);

@@ -6,7 +6,8 @@ global.fetch = jest.fn() as jest.Mock
 jest.mock('@/lib/db', () => {
   const signInWithOtp = jest.fn().mockResolvedValue({ data: { ok: true }, error: null });
   const from = jest.fn().mockReturnValue({
-    insert: jest.fn().mockResolvedValue({ data: {}, error: null })
+    insert: jest.fn().mockResolvedValue({ data: {}, error: null }),
+    upsert: jest.fn().mockResolvedValue({ data: {}, error: null })
   });
   return { supabase: { auth: { signInWithOtp }, from } };
 })

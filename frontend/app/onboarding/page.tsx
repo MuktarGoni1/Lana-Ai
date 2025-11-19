@@ -5,6 +5,7 @@ import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, User, BookOpen, GraduationCap } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { InsertUser, InsertGuardian } from "@/types/supabase"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -42,11 +43,14 @@ export default function OnboardingPage() {
       // 1. create child user (anon) - handle case where users table doesn't exist
       let userCreated = false;
       try {
-        const { error: userErr } = await supabase.from("users").insert({
+        const userData: InsertUser = {
           id: child_uid,
           email: `${child_uid}@child.lana`,
           user_metadata: { role: "child", nickname, age, grade },
-        })
+        };
+        
+        // Cast to any to bypass TypeScript error with Supabase client typing
+        const { error: userErr } = await (supabase.from("users").insert([userData] as any));
         if (userErr) {
           console.debug('[Onboarding] users table insert error:', userErr);
         } else {
@@ -58,22 +62,29 @@ export default function OnboardingPage() {
       }
 
       // 2. link parent → child
-      const { error: guardianErr } = await supabase.from("guardians").insert({
-        email: session.user.email,
-        child_uid,
-        weekly_report: true,
-        monthly_report: false,
-      })
-      if (guardianErr) {
-        // Compensate: remove child user to avoid orphaned record (if it was created)
-        if (userCreated) {
-          try {
-            await supabase.from("users").delete().eq("id", child_uid)
-          } catch (deleteError) {
-            console.debug('[Onboarding] Failed to cleanup child user:', deleteError);
+      try {
+        const guardianData: InsertGuardian = {
+          email: session.user.email || "",
+          child_uid,
+          weekly_report: true,
+          monthly_report: false,
+        };
+        
+        // Cast to any to bypass TypeScript error with Supabase client typing
+        const { error: guardianErr } = await (supabase.from("guardians").insert([guardianData] as any));
+        if (guardianErr) {
+          // Compensate: remove child user to avoid orphaned record (if it was created)
+          if (userCreated) {
+            try {
+              await (supabase.from("users").delete().eq("id", child_uid) as any);
+            } catch (deleteError) {
+              console.debug('[Onboarding] Failed to cleanup child user:', deleteError);
+            }
           }
+          throw guardianErr
         }
-        throw guardianErr
+      } catch (guardianError) {
+        throw guardianError;
       }
 
       toast({ 

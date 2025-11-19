@@ -7,10 +7,20 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { User, BookOpen, Calendar, Mail, Copy, Check, Plus, Home, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { Database } from "@/types/supabase"
 
+// Define the type for the data we're selecting from guardians table
+interface GuardianData {
+  child_uid: string | null;
+  weekly_report: boolean | null;
+  monthly_report: boolean | null;
+}
+
+// Define the type for the data we're selecting from searches table
 interface ChildSearch { 
+  id: string;
   title: string;
-  created_at: string;
+  created_at: string | null;
 }
 
 interface Child {
@@ -20,6 +30,10 @@ interface Child {
   email: string;
   searches: ChildSearch[];
 }
+
+// Define types for Supabase responses
+type UsersRow = Database['public']['Tables']['users']['Row'];
+type UpdateGuardian = Database['public']['Tables']['guardians']['Update'];
 
 export default function GuardianDashboard() {
   const router = useRouter()
@@ -44,40 +58,54 @@ export default function GuardianDashboard() {
   async function loadChildren(email: string) {
     try {
       setLoading(true)
-      const { data } = await supabase
+      // Explicitly type the response
+      const { data, error }: { data: GuardianData[] | null; error: any } = await supabase
         .from("guardians")
         .select("child_uid, weekly_report, monthly_report")
         .eq("email", email)
+      
+      if (error) {
+        throw error
+      }
       
       if (!data) {
         setChildren([])
         return
       }
       
-      const kids = await Promise.all(
-        data.map(async (g) => {
-          // Fetch child email from the public users table instead of admin API
-          const { data: userRow } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", g.child_uid)
-            .single()
+      const childrenData: Child[] = []
+      
+      for (const g of data) {
+        // Skip entries without child_uid
+        if (!g.child_uid) {
+          continue;
+        }
+        
+        // Fetch child email from the public users table instead of admin API
+        const { data: userRow, error: userError }: { data: UsersRow | null; error: any } = await supabase
+          .from("users")
+          .select("email")
+          .eq("id", g.child_uid)
+          .single()
 
-          const { data: searches } = await supabase
-            .from("searches")
-            .select("title,created_at")
-            .eq("uid", g.child_uid)
-            .order("created_at", { ascending: false })
-            .limit(10)
+        // Explicitly type the searches response
+        const { data: searches, error: searchesError }: { data: ChildSearch[] | null; error: any } = await supabase
+          .from("searches")
+          .select("id,title,created_at")
+          .eq("uid", g.child_uid)
+          .order("created_at", { ascending: false })
+          .limit(10)
 
-          return {
-            ...g,
-            email: userRow?.email ?? "Anonymous child",
-            searches: searches ?? [],
-          }
+        childrenData.push({
+          child_uid: g.child_uid,
+          weekly_report: g.weekly_report ?? false,
+          monthly_report: g.monthly_report ?? false,
+          email: userRow?.email ?? "Anonymous child",
+          searches: searches ?? [],
         })
-      )
-      setChildren(kids)
+      }
+      
+      setChildren(childrenData)
     } catch (error) {
       console.error("Error loading children:", error)
       toast({
@@ -92,14 +120,24 @@ export default function GuardianDashboard() {
   }
 
   async function toggleWeekly(child_uid: string, checked: boolean) {
-    // Optimistic update
-    setChildren(prev => prev.map(k => k.child_uid === child_uid ? { ...k, weekly_report: checked } : k))
+    // Optimistic update with proper typing
+    setChildren((prev: Child[]) => prev.map((k: Child) => 
+      k.child_uid === child_uid ? { ...k, weekly_report: checked } : k
+    ) as Child[])
     try {
-      const { error } = await supabase.from("guardians").update({ weekly_report: checked }).eq("child_uid", child_uid)
+      // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+      const sb: any = supabase;
+      const { data, error } = await sb
+        .from("guardians")
+        .update({ weekly_report: checked })
+        .eq("child_uid", child_uid)
+        
       if (error) throw error
     } catch (err: unknown) {
       // revert on failure
-      setChildren(prev => prev.map(k => k.child_uid === child_uid ? { ...k, weekly_report: !checked } : k))
+      setChildren((prev: Child[]) => prev.map((k: Child) => 
+        k.child_uid === child_uid ? { ...k, weekly_report: !checked } : k
+      ) as Child[])
       toast({
         title: "Update failed",
         description: (err as Error)?.message || "Could not update weekly report.",
@@ -112,12 +150,22 @@ export default function GuardianDashboard() {
   }
   
   async function toggleMonthly(child_uid: string, checked: boolean) {
-    setChildren(prev => prev.map(k => k.child_uid === child_uid ? { ...k, monthly_report: checked } : k))
+    setChildren((prev: Child[]) => prev.map((k: Child) => 
+      k.child_uid === child_uid ? { ...k, monthly_report: checked } : k
+    ) as Child[])
     try {
-      const { error } = await supabase.from("guardians").update({ monthly_report: checked }).eq("child_uid", child_uid)
+      // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+      const sb: any = supabase;
+      const { data, error } = await sb
+        .from("guardians")
+        .update({ monthly_report: checked })
+        .eq("child_uid", child_uid)
+        
       if (error) throw error
     } catch (err: unknown) {
-      setChildren(prev => prev.map(k => k.child_uid === child_uid ? { ...k, monthly_report: !checked } : k))
+      setChildren((prev: Child[]) => prev.map((k: Child) => 
+        k.child_uid === child_uid ? { ...k, monthly_report: !checked } : k
+      ) as Child[])
       toast({
         title: "Update failed",
         description: (err as Error)?.message || "Could not update monthly report.",
@@ -311,8 +359,8 @@ export default function GuardianDashboard() {
                   <BookOpen className="w-4 h-4" />Recent searches
                 </h3>
                 <ul className="list-disc list-inside text-sm text-white/80 space-y-1 max-h-32 overflow-y-auto">
-                  {kid.searches.map((s: ChildSearch) => (
-                    <li key={s.created_at} className="truncate">{s.title}</li>
+                  {kid.searches.map((s) => (
+                    <li key={s.created_at || s.id} className="truncate">{s.title}</li>
                   ))}
                 </ul>
                 {!kid.searches.length && <p className="text-white/50 text-sm">No searches yet.</p>}

@@ -73,6 +73,26 @@ export type Database = {
           created_at?: string | null
         }
       }
+      users: {
+        Row: {
+          id: string
+          email: string
+          user_metadata: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          email: string
+          user_metadata?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          email?: string
+          user_metadata?: Json | null
+          created_at?: string | null
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -97,3 +117,7 @@ export type UpdateGuestSearch = Database['public']['Tables']['Guest searches']['
 export type Searches = Database['public']['Tables']['searches']['Row']
 export type InsertSearch = Database['public']['Tables']['searches']['Insert']
 export type UpdateSearch = Database['public']['Tables']['searches']['Update']
+
+export type Users = Database['public']['Tables']['users']['Row']
+export type InsertUser = Database['public']['Tables']['users']['Insert']
+export type UpdateUser = Database['public']['Tables']['users']['Update']

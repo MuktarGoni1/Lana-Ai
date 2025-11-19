@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
+import { AuthService } from "@/lib/services/authService";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -108,6 +109,7 @@ function ParentFlow() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const authService = new AuthService();
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,17 +125,7 @@ function ParentFlow() {
     setLoading(true);
     try {
       // Use our new auth service
-      const response = await fetch('/api/auth/register-parent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim() }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send magic link');
-      }
+      await authService.registerParent(email.trim());
 
       // Navigate to unified magic link confirmation page
       try {
@@ -208,6 +200,7 @@ function ChildFlow() {
     age: "" as number | "", 
     grade: "" 
   });
+  const authService = new AuthService();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -233,23 +226,7 @@ function ChildFlow() {
     setLoading(true);
     try {
       // Use our new auth service
-      const response = await fetch('/api/auth/register-child', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          childEmail,
-          guardianEmail,
-          nickname,
-          age: Number(age),
-          grade
-        }),
-      });
-      
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to create account');
-      }
+      await authService.registerChild(nickname, Number(age), grade, guardianEmail);
       
       router.push("/homepage");
     } catch (error: unknown) {
@@ -375,6 +352,7 @@ function EmailLoginFlow() {
   const { toast } = useToast();
   const router = useRouter();
   const { signIn, user } = useAuth();
+  const authService = new AuthService();
 
   // Redirect authenticated users to homepage
   useEffect(() => {
