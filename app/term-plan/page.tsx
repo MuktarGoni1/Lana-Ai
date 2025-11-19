@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
+import { supabase } from '@/lib/db';
+import { useToast } from '@/hooks/use-toast';
 
 /* ---------- Types ---------- */
 interface Topic {
@@ -27,22 +29,128 @@ import { Suspense } from "react";
 function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
+  const returnTo = searchParams.get("returnTo");
+  
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  // Persist onboarding completion flag and redirect appropriately
+  const [saving, setSaving] = useState(false);
+  const completeOnboardingAndRedirect = async () => {
+    setSaving(true);
+    try {
+      // Update user metadata to mark onboarding as complete
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { error } = await supabase.auth.updateUser({
+          data: { onboarding_complete: true },
+        });
+        if (error) {
+          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error);
+        }
+      }
+
+      // Cookie fallback to handle network failures and ensure middleware bypass
+      try {
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+      } catch (cookieErr) {
+        console.warn('[term-plan] failed to set completion cookie:', cookieErr);
+      }
+
+      // Success toast for UX feedback
+      toast({ title: 'Onboarding complete', description: 'Your plan is saved. Redirecting…' });
+
+      // Redirect to original destination if provided, otherwise homepage
+      if (returnTo) {
+        try {
+          const url = new URL(returnTo, window.location.origin);
+          // Normalize destinations that shouldn't lead back to marketing
+          const path = url.pathname;
+          if (path === '/' || path === '/landing-page') {
+            router.replace('/homepage');
+          } else {
+            router.replace(url.toString());
+          }
+        } catch {
+          // Malformed returnTo → default to homepage
+          router.replace('/homepage');
+        }
+      } else {
+        router.replace('/homepage');
+      }
+    } catch (err) {
+      console.error('[term-plan] completion error:', err);
+      toast({ title: 'Error', description: 'Could not finalize onboarding. Continuing anyway.' });
+      router.replace('/homepage');
+    } finally {
+      setSaving(false);
+    }
+  };
+  // Backwards-compatible alias for existing button handlers
+  const handleComplete = completeOnboardingAndRedirect;
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
 
-  // Removed authentication check to make page public
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     const { data: { session } } = await supabase.auth.getSession();
-  //     if (!session) {
-  //       router.push("/login");
-  //     }
-  //   };
-  //   checkAuth();
-  // }, [router]);
+  // Check authentication on component mount
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        // Get current session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          // No session, redirect to login
+          setAuthError("No active session found. Please log in.");
+          setIsAuthenticated(false);
+          setAuthChecked(true);
+          return;
+        }
+
+        // Verify the user is authenticated
+        const response = await fetch('/api/verify-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: session.user.email })
+        });
+
+        const result = await response.json();
+        
+        if (result.isAuthenticated) {
+          setIsAuthenticated(true);
+        } else {
+          setAuthError(result.message || "User is not authenticated");
+          setIsAuthenticated(false);
+        }
+      } catch (error: any) {
+        console.error('[term-plan] auth check error:', error);
+        setAuthError("Error checking authentication status");
+        setIsAuthenticated(false);
+      } finally {
+        setAuthChecked(true);
+      }
+    };
+
+    checkAuth();
+  }, []);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (authChecked && !isAuthenticated) {
+      // Delay the redirect slightly to show the error message
+      const timer = setTimeout(() => {
+        router.push("/login");
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authChecked, isAuthenticated, router]);
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -105,6 +213,36 @@ function TermPlanPageContent() {
         : subject
     ));
   };
+
+  // Show loading state while checking authentication
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error and redirect if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md p-6">
+          <X className="w-12 h-12 mx-auto text-red-500" />
+          <h2 className="text-2xl font-semibold">Access Denied</h2>
+          <p className="text-white/70">
+            {authError || "You must be authenticated to access this page."}
+          </p>
+          <p className="text-white/50 text-sm">
+            Redirecting to login page...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -295,15 +433,15 @@ function TermPlanPageContent() {
         <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
             <button
-              onClick={() => router.push("/homepage")}
+              onClick={handleComplete}
               className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
             >
               Skip for now
             </button>
             <button
-              onClick={() => {
+              onClick={async () => {
                 // TODO: Persist subjects/topics to Supabase tables
-                router.push("/homepage")
+                await handleComplete();
               }}
               className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium"
             >

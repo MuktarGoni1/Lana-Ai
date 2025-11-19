@@ -13,5 +13,9 @@ services:
         value: 18
       - key: NEXT_PUBLIC_API_BASE
         value: https://lana-ai.onrender.com
+      - key: NEXT_PUBLIC_USE_PROXY
+        value: "false"
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false

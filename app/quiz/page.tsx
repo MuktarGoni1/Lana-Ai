@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { Suspense } from "react";
 
 /* ---------------- types ---------------- */
 type Question = {
-  q: string;
+  q: string; 
   options: string[];
   answer: string;
   explanation?: string; // supplied by backend
@@ -38,12 +38,14 @@ function parseQuizParam(raw: string | null): Question[] {
     const cleaned: Question[] = [];
     for (const item of data.slice(0, MAX_QUESTIONS)) {
       if (!item || typeof item !== "object") continue;
+      // Handle 'q' property
       const q = typeof item.q === "string" ? item.q.trim().slice(0, MAX_Q_LEN) : null;
       const options = Array.isArray(item.options)
         ? item.options
             .filter((o: unknown) => typeof o === "string")
             .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
         : null;
+      // Handle both 'answer' properties for consistency
       const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : null;
       const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : undefined;
 
@@ -65,9 +67,55 @@ function QuizContent() {
   const router = useRouter();
 
   /* ---------- load quiz ---------- */
-  const quiz = useMemo<Question[]>(() => {
+  const [quiz, setQuiz] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const id = search.get("id");
+    const lessonId = search.get("lessonId");
     const raw = search.get("data");
-    return parseQuizParam(raw);
+    async function load() {
+      if (lessonId) {
+        // Load quiz by lesson ID
+        try {
+          const res = await fetch(`/api/lessons/${lessonId}/quiz`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            // Transform data to match frontend expectations
+            const transformedQuiz = Array.isArray(data) ? data.map((item: any) => ({
+              q: item.q || "",
+              options: Array.isArray(item.options) ? item.options : [],
+              answer: item.answer || ""
+            })).filter(item => item.q && item.options.length > 0) : [];
+            setQuiz(transformedQuiz);
+          } else {
+            setQuiz([]);
+          }
+        } catch {
+          setQuiz([]);
+        } finally {
+          setLoading(false);
+        }
+      } else if (id) {
+        try {
+          const res = await fetch(`/api/quiz/${id}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setQuiz(Array.isArray(data) ? data : []);
+          } else {
+            setQuiz([]);
+          }
+        } catch {
+          setQuiz([]);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        const parsed = parseQuizParam(raw);
+        setQuiz(parsed);
+        setLoading(false);
+      }
+    }
+    load();
   }, [search]);
 
   /* ---------- state ---------- */
@@ -81,6 +129,13 @@ function QuizContent() {
   );
 
   /* ---------- empty guard ---------- */
+  if (loading)
+    return (
+      <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
+        <div className="text-center">Loading quiz...</div>
+      </div>
+    );
+
   if (!quiz.length)
     return (
       <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, User, BookOpen, GraduationCap } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import type { InsertUser, InsertGuardian } from "@/types/supabase"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -42,20 +43,20 @@ export default function OnboardingPage() {
       // 1. create child user (anon) - handle case where users table doesn't exist
       let userCreated = false;
       try {
-        // Cast supabase to any to bypass typing issues
-        const sb: any = supabase;
-        
-        const userData = {
+        const userData: InsertUser = {
           id: child_uid,
           email: `${child_uid}@child.lana`,
           user_metadata: JSON.stringify({ role: "child", nickname, age, grade }),
         };
         
-        const { error: userErr } = await sb.from("users").insert(userData);
+        // Cast to any to bypass TypeScript error with Supabase client typing
+        const sb: any = supabase;
+        const { error: userErr } = await sb.from("users").insert([userData]);
         if (userErr) {
           console.debug('[Onboarding] users table insert error:', userErr);
         } else {
           userCreated = true;
+          console.log('[Onboarding] Successfully created user record for child:', child_uid);
         }
       } catch (tableError) {
         // If the users table doesn't exist, that's okay
@@ -64,29 +65,33 @@ export default function OnboardingPage() {
 
       // 2. link parent → child
       try {
-        // Cast supabase to any to bypass typing issues
-        const sb: any = supabase;
-        
-        const guardianData = {
-          email: session.user.email,
+        const guardianData: InsertGuardian = {
+          email: session.user.email || "",
           child_uid,
           weekly_report: true,
           monthly_report: false,
         };
         
-        const { error: guardianErr } = await sb.from("guardians").insert(guardianData);
+        // Cast to any to bypass TypeScript error with Supabase client typing
+        const sb: any = supabase;
+        const { error: guardianErr } = await sb.from("guardians").insert([guardianData]);
         if (guardianErr) {
+          console.error('[Onboarding] Failed to link child to guardian:', guardianErr);
           // Compensate: remove child user to avoid orphaned record (if it was created)
           if (userCreated) {
             try {
+              const sb: any = supabase;
               await sb.from("users").delete().eq("id", child_uid);
+              console.log('[Onboarding] Cleaned up orphaned child user record:', child_uid);
             } catch (deleteError) {
-              console.debug('[Onboarding] Failed to cleanup child user:', deleteError);
+              console.error('[Onboarding] Failed to cleanup child user:', deleteError);
             }
           }
-          throw guardianErr
+          throw new Error(`Failed to link child to your account: ${guardianErr.message}`);
         }
+        console.log('[Onboarding] Successfully linked child to guardian');
       } catch (guardianError) {
+        console.error('[Onboarding] Error linking child to guardian:', guardianError);
         throw guardianError;
       }
 
@@ -96,6 +101,7 @@ export default function OnboardingPage() {
       })
       router.push("/guardian")
     } catch (err: unknown) {
+      console.error('[Onboarding] Unexpected error:', err);
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Failed to set up child.",

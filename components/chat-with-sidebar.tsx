@@ -17,6 +17,7 @@ import Logo from "@/components/logo"
 import { useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { useApi } from "@/hooks/use-api"
+import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
@@ -93,53 +94,32 @@ function ChatWithSidebarContent() {
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async () => {
-    if (!sid) return
-    setLoadingHistory(true)
-    setHistoryError(null)
+  const fetchHistory = async (forceRefresh = false) => {
+    if (!user || !sid) return;
+    setLoadingHistory(true);
+    setHistoryError(null);
     try {
-      const bypassCache = Date.now() % 30000 < 100
-      const headers: Record<string, string> = {}
+      const bypassCache = forceRefresh || (Date.now() % 30000 < 100);
+      const headers: Record<string, string> = {};
       if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`
+        headers['Authorization'] = `Bearer ${accessToken}`;
       }
       const data = await api.get<ChatHistory[]>(
         `${API_BASE}/api/history?sid=${sid}`,
         { headers },
         bypassCache
-      )
-      setHistory(data)
-    } catch (error: unknown) {
-      console.error('Failed to fetch history:', error)
-      setHistory([])
-      
-      // Handle authentication errors specifically
-      if (error instanceof Error && error.message.includes('401')) {
-        setHistoryError('Authentication required')
-        // Don't show toast for auth errors - UI will handle the login prompt
+      );
+      setHistory(data);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) {
+        setHistoryError("Please login or register to save search history.");
       } else {
-        setHistoryError('Unable to load chat history. Please check your connection.')
-        toast({
-          title: "Connection Error",
-          description: "Unable to load chat history. Please check your connection.",
-          variant: "destructive",
-        })
+        setHistoryError("Failed to fetch history.");
       }
     } finally {
-      setLoadingHistory(false)
+      setLoadingHistory(false);
     }
-  }
-
-  useEffect(() => {
-    if (sid && accessToken) fetchHistory()
-    
-    // Set up periodic refresh of history data
-    const refreshInterval = setInterval(() => {
-      if (sid && accessToken) fetchHistory();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(refreshInterval);
-  }, [sid, accessToken])
+  };
 
   // Fetch user session
   useEffect(() => {
@@ -149,14 +129,31 @@ function ChatWithSidebarContent() {
         setUser(session.user);
         setRole(session.user.user_metadata?.role || null);
         setAccessToken(session.access_token || null);
-        // If sid is already set, fetch history now that we have the token
+        // Ensure session id is namespaced by user id to satisfy backend auth checks
+        try {
+          const currentSid = localStorage.getItem("lana_sid");
+          const uidPrefix = `${session.user.id}:`;
+          if (currentSid && !currentSid.startsWith(uidPrefix)) {
+            const newSid = `${session.user.id}:${currentSid}`;
+            localStorage.setItem("lana_sid", newSid);
+            setSid(newSid);
+          }
+        } catch {}
         if (sid) {
-          fetchHistory();
+          fetchHistory(true); // ensure immediate fresh load
         }
       }
     };
     fetchUserSession();
-  }, [sid]); // Add sid as dependency to refetch when session changes
+  
+    if (sid && accessToken) {
+      fetchHistory(true); // refresh when tokens present
+      const refreshInterval = setInterval(() => {
+        if (sid && accessToken) fetchHistory(false); // periodic refresh can use cache
+      }, 30000);
+      return () => clearInterval(refreshInterval);
+    }
+  }, [sid, accessToken]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
@@ -166,7 +163,6 @@ function ChatWithSidebarContent() {
       const newSid = uuid()
       localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
-      apiClient.clearCache()
       await fetchHistory()
       setView("chat")
     } catch (error) {
@@ -360,7 +356,7 @@ function ChatWithSidebarContent() {
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();
-                      router.push("/login");
+                      router.push("/homepage");
                     }}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >

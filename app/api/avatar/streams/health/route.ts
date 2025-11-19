@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 
 export async function GET() {
   try {
@@ -19,7 +20,7 @@ export async function GET() {
     const base64 = Buffer.from(apiKey).toString('base64');
     const authHeader = `Basic ${base64}`;
     
-    const response = await fetch('https://api.d-id.com/talks/streams', {
+    const response = await fetchWithTimeoutAndRetry('https://api.d-id.com/talks/streams', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -32,7 +33,7 @@ export async function GET() {
         stream_warmup: true,
         output_resolution: 512,
       }),
-    });
+    }, { timeoutMs: 8_000, retries: 1, retryDelayMs: 300 });
 
     if (!response.ok) {
       return NextResponse.json({ 

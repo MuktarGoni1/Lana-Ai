@@ -4,32 +4,54 @@ import { useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { ArrowRight, ChevronLeft } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { z } from "zod"
+import { AuthService } from "@/lib/services/authService"
 
 function ParentFlow() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleParent = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
 
     try {
+      const valid = z.string().email().safeParse(email.trim())
+      if (!valid.success) {
+        toast({ title: "Invalid email", description: "Please enter a valid email address.", variant: "destructive" })
+        setIsLoading(false)
+        return
+      }
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
-          data: { role: "parent" }
+          emailRedirectTo: `${window.location.origin}/auth/confirmed/guardian`,
+          data: { role: "guardian" }
         }
       })
 
       if (error) throw error
 
+      // Insert/Upsert guardian record for authenticated users tracking
+      const { error: upsertError } = await (supabase as any)
+        .from("guardians")
+        .upsert({ email: email.trim(), weekly_report: true, monthly_report: false }, { onConflict: 'email' })
+      if (upsertError) {
+        console.warn('[Register Parent] Failed to upsert guardian record:', upsertError)
+      }
+
       // Navigate to magic link sent page with email
       router.push(`/register/magic-link-sent?email=${encodeURIComponent(email)}`)
     } catch (error) {
       console.error("Parent registration error:", error)
-      alert("Failed to send magic link. Please try again.")
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }
@@ -113,6 +135,8 @@ function ChildFlow() {
     grade: ""
   })
   const [isLoading, setIsLoading] = useState(false)
+  const { toast } = useToast()
+  const authService = new AuthService()
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -127,45 +151,26 @@ function ChildFlow() {
     const { nickname, age, grade, childEmail, guardianEmail } = formData
 
     if (!childEmail || !guardianEmail || !nickname || !age || !grade) {
-      alert("Please fill in all fields.")
+      toast({
+        title: "Missing information",
+        description: "Please fill in all fields.",
+        variant: "destructive",
+      })
       return
     }
 
     setIsLoading(true)
     try {
-      const child_uid = crypto.randomUUID()
-      const password = crypto.randomUUID()
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: childEmail,
-        password,
-        options: {
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      })
-      if (signUpError) throw signUpError
-
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: childEmail,
-        user_metadata: {
-          role: "child",
-          nickname,
-          age,
-          grade,
-          guardian_email: guardianEmail
-        }
-      })
-      if (insertError) {
-        console.warn('[ChildFlow] Failed to create user record:', insertError)
-      }
-
-      localStorage.setItem('lana_sid', child_uid)
-      router.push("/onboarding")
+      // Use the updated AuthService method
+      await authService.registerChild(nickname, Number(age), grade, guardianEmail)
+      router.push("/homepage")
     } catch (error) {
       console.error("Child registration error:", error)
-      alert("Failed to create account. Please try again.")
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to create account. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsLoading(false)
     }

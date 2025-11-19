@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import React, { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import LoadingSpinner from '@/components/ui/loading-spinner'
 import { AlertTriangle } from 'lucide-react'
@@ -15,6 +15,16 @@ export default function Error({
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Global error caught:', error)
+    // Default: auto-redirect users to homepage after brief delay
+    const timer = setTimeout(() => {
+      console.warn('Redirecting to homepage due to error')
+      try {
+        window.location.assign('/homepage')
+      } catch {
+        window.location.href = '/homepage'
+      }
+    }, 1200)
+    return () => clearTimeout(timer)
   }, [error])
 
   return (
@@ -37,7 +47,7 @@ export default function Error({
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.assign('/homepage')}
             className="w-full"
           >
             Go to homepage

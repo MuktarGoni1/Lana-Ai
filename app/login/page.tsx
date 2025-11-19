@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/db";
-import { AuthService } from "@/lib/services/authService";
+import { useAuth } from "@/hooks/useAuth";
+import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
+import { AuthService } from "@/lib/services/authService";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -102,14 +103,13 @@ const FormHeader = ({
   </div>
 );
 
-
-
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const authService = new AuthService();
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,24 +124,8 @@ function ParentFlow() {
     
     setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { 
-          data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (signInError) throw signInError;
-      
-      const { error: upsertError } = await supabase.from("guardians").upsert({
-        email: email.trim(),
-        weekly_report: true,
-        monthly_report: false,
-      }, { onConflict: 'email' });
-      if (upsertError) {
-        console.warn('[ParentFlow] Failed to create guardian record:', upsertError);
-        // Continue as auth was successful
-      }
+      // Use our new auth service
+      await authService.registerParent(email.trim());
 
       // Navigate to unified magic link confirmation page
       try {
@@ -189,7 +173,7 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
+              Register
             </PrimaryButton>
             
             <p className="text-xs text-white/20 text-center">
@@ -216,6 +200,7 @@ function ChildFlow() {
     age: "" as number | "", 
     grade: "" 
   });
+  const authService = new AuthService();
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -240,37 +225,10 @@ function ChildFlow() {
     
     setLoading(true);
     try {
-      const child_uid = crypto.randomUUID();
-      const password = crypto.randomUUID();
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: childEmail,
-        password,
-        options: { 
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (signUpError) throw signUpError;
+      // Use our new auth service
+      await authService.registerChild(nickname, Number(age), grade, guardianEmail);
       
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: childEmail,
-        user_metadata: { 
-          role: "child", 
-          nickname, 
-          age, 
-          grade, 
-          guardian_email: guardianEmail 
-        },
-      });
-      if (insertError) {
-        console.warn('[ChildFlow] Failed to create user record:', insertError);
-        // Continue as auth was successful
-      }
-      
-      localStorage.setItem('lana_sid', child_uid);
-      router.push("/onboarding");
+      router.push("/homepage");
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
@@ -393,16 +351,24 @@ function EmailLoginFlow() {
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { signIn, user } = useAuth();
   const authService = new AuthService();
+
+  // Redirect authenticated users to homepage
+  useEffect(() => {
+    if (user) {
+      router.replace("/homepage");
+    }
+  }, [user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
-    
-    if (!trimmed) {
+    const emailValidation = z.string().email().safeParse(trimmed);
+    if (!emailValidation.success) {
       toast({ 
-        title: "Email required", 
-        description: "Please enter your email address.", 
+        title: "Invalid email", 
+        description: "Please enter a valid email address.", 
         variant: "destructive" 
       });
       return;
@@ -410,18 +376,37 @@ function EmailLoginFlow() {
 
     setLoading(true);
     try {
-      await authService.login(trimmed);
-      // Navigate to unified magic link confirmation page
-      try {
-        router.replace(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
-      } catch (navErr) {
-        console.warn('[EmailLoginFlow] navigation error, falling back:', navErr)
-        window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(trimmed)}`)
+      // First verify if the email is authenticated
+      const isVerified = await authService.isEmailAuthenticated(trimmed);
+      
+      if (!isVerified) {
+        toast({
+          title: "Email not verified",
+          description: "This email is not authenticated. Please register first.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // If verified, automatically sign in the user
+      // Check if it's a guardian or child email
+      const verificationResult = await authService.verifyEmailWithSupabaseAuth(trimmed);
+      
+      if (verificationResult.exists && verificationResult.confirmed) {
+        // Automatically redirect based on user role
+        // For now, we'll redirect to homepage, but this could be enhanced
+        router.push("/homepage");
+      } else {
+        toast({
+          title: "Email not confirmed",
+          description: "Please confirm your email address before logging in.",
+          variant: "destructive",
+        });
       }
     } catch (error: unknown) {
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to verify email. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -457,7 +442,7 @@ function EmailLoginFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
+              Login
             </PrimaryButton>
             
             <p className="text-xs text-white/20 text-center">

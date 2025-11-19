@@ -1,4 +1,5 @@
 import { ApiErrorResponse } from '@/types/api';
+import { ApiError, NetworkError } from './errors';
 
 type CacheEntry<T> = {
   data: T;
@@ -131,6 +132,9 @@ async function requestWithTimeoutAndRetry(
         attempt++;
         continue;
       }
+      if (isNetwork) {
+        throw new NetworkError('A network error occurred. Please check your connection.');
+      }
       throw err;
     }
   }
@@ -184,7 +188,7 @@ export const apiClient = {
         // Map to user-friendly messages
         errorMessage = getErrorMessage(response.status, errorMessage);
         
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status);
       }
 
       const data = await response.json();
@@ -194,8 +198,11 @@ export const apiClient = {
       
       return data as T;
     } catch (e: unknown) {
+      if (e instanceof ApiError || e instanceof NetworkError) {
+        throw e;
+      }
       logError('API GET failed:', e);
-      throw e;
+      throw new Error('An unexpected error occurred.');
     }
   },
 
@@ -231,27 +238,23 @@ export const apiClient = {
           // If we can't parse the error response, use status text
           errorMessage = `${response.status} ${response.statusText}`;
         }
-        
-        // Map to user-friendly messages
         errorMessage = getErrorMessage(response.status, errorMessage);
-        
-        throw new Error(errorMessage);
+        throw new ApiError(errorMessage, response.status);
       }
 
-      const data = await response.json();
-      
-      // Invalidate related GET caches
-      apiCache.invalidate(new RegExp(`GET:${url}`));
-      
-      return data as T;
-    } catch (error: unknown) {
-      logError('API POST failed:', error);
-      throw error;
+      // Invalidate cache for related GET requests
+      // This is a simple invalidation, a more robust strategy might be needed
+      if (url.includes('/history')) {
+        apiCache.invalidate(/GET:\/api\/history/);
+      }
+
+      return (await response.json()) as T;
+    } catch (e: unknown) {
+      if (e instanceof ApiError || e instanceof NetworkError) {
+        throw e;
+      }
+      logError('API POST failed:', e);
+      throw new Error('An unexpected error occurred.');
     }
   },
-
-  // Clear all cache
-  clearCache(): void {
-    apiCache.clear();
-  }
 };

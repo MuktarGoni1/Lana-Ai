@@ -1,8 +1,10 @@
 "use client"
+
 import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
+import { useAuth } from "@/hooks/useAuth"
 import {
 CheckCircle2,
 ArrowRight,
@@ -67,6 +69,8 @@ aria-label="Toggle theme"
 /* ---------- HEADER ---------- */
 function Header() {
 const [open, setOpen] = useState(false)
+const { user } = useAuth()
+
 return (
 <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur">
 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -81,10 +85,18 @@ return (
           </Link>
         ))}
         <ThemeToggle />
-        <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Login</Link>
-        <Link href="/register" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-          Get Started
-        </Link>
+        {user ? (
+          <Link href="/homepage" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            Dashboard
+          </Link>
+        ) : (
+          <>
+            <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Login</Link>
+            <Link href="/register" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+              Get Started
+            </Link>
+          </>
+        )}
       </nav>
 
       {/* mobile burger */}
@@ -111,10 +123,18 @@ return (
         ))}
         <div className="mt-2 flex items-center gap-2">
           <ThemeToggle />
-          <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Login</Link>
-          <Link href="/register" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-            Get Started
-          </Link>
+          {user ? (
+            <Link href="/homepage" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+              Dashboard
+            </Link>
+          ) : (
+            <>
+              <Link href="/login" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background">Login</Link>
+              <Link href="/register" className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
       </nav>
     </div>
@@ -125,28 +145,44 @@ return (
 
 /* ---------- HERO ---------- */
 function HeroSection() {
+const { user } = useAuth()
+
 return (
 <section id="hero" className="py-20 md:py-32">
 <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
 <div className="flex flex-col gap-6">
 <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
-Meet Lana, Your Child's AI Learning Companion
+{user ? `Welcome back, ${user.email}` : "Meet Lana, Your Child's AI Learning Companion"}
 </h1>
 <p className="text-lg text-muted-foreground">
-Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress.
+{user 
+  ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
+  : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
+}
 </p>
 <div className="flex flex-col sm:flex-row gap-3">
-<Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" >
-Start Free Trial
-<ArrowRight className="h-5 w-5" />
-</Link>
-<Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background" >
-Login
-</Link>
+{user ? (
+  <Link href="/homepage" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" >
+    Continue Learning
+    <ArrowRight className="h-5 w-5" />
+  </Link>
+) : (
+  <>
+    <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:bg-primary/90 hover:shadow-md transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background" >
+      Start Free Trial
+      <ArrowRight className="h-5 w-5" />
+    </Link>
+    <Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-colors transition-shadow duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background" >
+      Login
+    </Link>
+  </>
+)}
 </div>
-<p className="text-sm text-muted-foreground">
-Already have an account? <Link href="/login" className="text-primary hover:underline">Sign in</Link> to continue your learning journey.
-</p>
+{!user && (
+  <p className="text-sm text-muted-foreground">
+    Already have an account? <Link href="/login" className="text-primary hover:underline">Sign in</Link> to continue your learning journey.
+  </p>
+)}
 <ul className="space-y-2 pt-4">
 {FEATURES.map((f) => (
 <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -268,26 +304,43 @@ return (
 
 /* ---------- CTA ---------- */
 function CtaSection() {
+const { user } = useAuth()
+
 return (
 <section id="get-started" className="py-20 md:py-32">
 <div className="mx-auto max-w-4xl px-4 text-center">
 <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground">
-Give Your Child the Gift of Personalized Learning — While You Stay Connected
+{user 
+  ? "Continue Your Learning Journey" 
+  : "Give Your Child the Gift of Personalized Learning — While You Stay Connected"
+}
 </h2>
 <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
-Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today.
+{user
+  ? "Keep making progress with personalized AI tutoring and stay connected to your learning journey."
+  : "Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today."
+}
 </p>
 <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-<Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:opacity-90" >
-Start Free Trial
-<ArrowRight className="h-5 w-5" />
-</Link>
-<Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
-Login to Your Account
-</Link>
-<Link href="#contact" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
-Contact Sales
-</Link>
+{user ? (
+  <Link href="/homepage" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:opacity-90" >
+    Continue Learning
+    <ArrowRight className="h-5 w-5" />
+  </Link>
+) : (
+  <>
+    <Link href="/register" className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-primary-foreground font-medium hover:opacity-90" >
+      Start Free Trial
+      <ArrowRight className="h-5 w-5" />
+    </Link>
+    <Link href="/login" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
+      Login to Your Account
+    </Link>
+    <Link href="#contact" className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 font-medium hover:bg-accent hover:text-accent-foreground transition" >
+      Contact Sales
+    </Link>
+  </>
+)}
 </div>
 </div>
 </section>
