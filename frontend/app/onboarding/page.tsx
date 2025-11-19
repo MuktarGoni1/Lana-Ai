@@ -3,6 +3,8 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
+import { Loader2, User, BookOpen, GraduationCap } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -10,6 +12,7 @@ export default function OnboardingPage() {
   const [nickname, setNickname] = useState("")
   const [age, setAge] = useState<number | "">("")
   const [grade, setGrade] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,14 +25,20 @@ export default function OnboardingPage() {
       return
     }
 
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return router.push("/login")
-    }
-
-    const child_uid = crypto.randomUUID() // anon child
-
+    setLoading(true)
     try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        toast({
+          title: "Authentication error",
+          description: "Please log in again",
+          variant: "destructive",
+        })
+        return router.push("/login")
+      }
+
+      const child_uid = crypto.randomUUID() // anon child
+
       // 1. create child user (anon) - handle case where users table doesn't exist
       let userCreated = false;
       try {
@@ -67,14 +76,19 @@ export default function OnboardingPage() {
         throw guardianErr
       }
 
-      toast({ title: "Success", description: "Child linked to your account." })
-      router.push("/term-plan?onboarding=1")
+      toast({ 
+        title: "Success", 
+        description: "Child linked to your account successfully!" 
+      })
+      router.push("/guardian")
     } catch (err: unknown) {
       toast({
         title: "Error",
         description: err instanceof Error ? err.message : "Failed to set up child.",
         variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -95,19 +109,7 @@ export default function OnboardingPage() {
           <div className="relative">
             <div className="absolute inset-0 bg-white/10 rounded-full blur-xl" />
             <div className="relative w-16 h-16 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-full flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-white/80"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"
-                />
-              </svg>
+              <User className="w-8 h-8 text-white/80" />
             </div>
           </div>
         </div>
@@ -131,15 +133,18 @@ export default function OnboardingPage() {
             >
               Nickname
             </label>
-            <input
-              id="nickname"
-              type="text"
-              value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
-              placeholder="Enter child's nickname"
-              className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all"
-              required
-            />
+            <div className="relative">
+              <input
+                id="nickname"
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+                placeholder="Enter child's nickname"
+                className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all pl-10"
+                required
+              />
+              <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -150,17 +155,20 @@ export default function OnboardingPage() {
               >
                 Age
               </label>
-              <input
-                id="age"
-                type="number"
-                min={6}
-                max={18}
-                value={age || ""}
-                onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
-                placeholder="Age"
-                className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="age"
+                  type="number"
+                  min={6}
+                  max={18}
+                  value={age || ""}
+                  onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
+                  placeholder="Age"
+                  className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all pl-10"
+                  required
+                />
+                <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -170,44 +178,64 @@ export default function OnboardingPage() {
               >
                 Grade
               </label>
-              <select
-                id="grade"
-                value={grade}
-                onChange={(e) => setGrade(e.target.value)}
-                className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all appearance-none cursor-pointer"
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff40' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                  backgroundPosition: 'right 0.5rem center',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundSize: '1.5em 1.5em',
-                  paddingRight: '2.5rem',
-                }}
-                required
-              >
-                <option value="" disabled className="bg-black text-white/50">
-                  Select
-                </option>
-                <option value="6" className="bg-black">Grade 6</option>
-                <option value="7" className="bg-black">Grade 7</option>
-                <option value="8" className="bg-black">Grade 8</option>
-                <option value="9" className="bg-black">Grade 9</option>
-                <option value="10" className="bg-black">Grade 10</option>
-                <option value="11" className="bg-black">Grade 11</option>
-                <option value="12" className="bg-black">Grade 12</option>
-                <option value="college" className="bg-black">College</option>
-              </select>
+              <div className="relative">
+                <select
+                  id="grade"
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all appearance-none cursor-pointer pl-10 pr-8"
+                  style={{
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff40' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                    backgroundPosition: 'right 0.5rem center',
+                    backgroundRepeat: 'no-repeat',
+                    backgroundSize: '1.5em 1.5em',
+                  }}
+                  required
+                >
+                  <option value="" disabled className="bg-black text-white/50">
+                    Select
+                  </option>
+                  <option value="6" className="bg-black">Grade 6</option>
+                  <option value="7" className="bg-black">Grade 7</option>
+                  <option value="8" className="bg-black">Grade 8</option>
+                  <option value="9" className="bg-black">Grade 9</option>
+                  <option value="10" className="bg-black">Grade 10</option>
+                  <option value="11" className="bg-black">Grade 11</option>
+                  <option value="12" className="bg-black">Grade 12</option>
+                  <option value="college" className="bg-black">College</option>
+                </select>
+                <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
+              </div>
             </div>
           </div>
 
           <div className="pt-4">
-            <button
+            <Button
               type="submit"
-              className="w-full px-5 py-3.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-white/95 transition-all duration-200"
+              className="w-full px-5 py-3.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-white/95 transition-all duration-200 flex items-center justify-center"
+              disabled={loading}
             >
-              Finish setup
-            </button>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                "Finish setup"
+              )}
+            </Button>
           </div>
         </form>
+
+        {/* Back button */}
+        <div className="pt-6">
+          <button
+            onClick={() => router.push("/guardian")}
+            className="text-white/50 hover:text-white text-sm transition-colors flex items-center gap-2 mx-auto"
+          >
+            Back to dashboard
+          </button>
+        </div>
 
         {/* Footer note */}
         <p className="text-center text-white/30 text-xs mt-8">

@@ -35,9 +35,9 @@ export default function GuardianConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "Guardian email saved." });
 
-        // Redirect to homepage for authenticated users
+        // Redirect directly to guardian dashboard for authenticated users
         setTimeout(() => {
-          router.replace("/homepage");
+          router.replace("/guardian");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed/guardian] confirmation error:", err);
