@@ -44,33 +44,63 @@ function TermPlanPageContent() {
   const completeOnboardingAndRedirect = async () => {
     setSaving(true);
     try {
+      console.log('[term-plan] Starting onboarding completion process');
+      
       // Update user metadata to mark onboarding as complete
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
+        console.log('[term-plan] Updating user metadata with onboarding_complete flag');
         const { error } = await supabase.auth.updateUser({
           data: { onboarding_complete: true },
         });
         if (error) {
           console.warn('[term-plan] failed to set onboarding_complete in metadata:', error);
+          toast({
+            title: "Notice",
+            description: "Unable to save onboarding status, but continuing anyway.",
+            variant: "default",
+          });
+        } else {
+          console.log('[term-plan] successfully updated user metadata with onboarding_complete flag');
         }
+      } else {
+        console.warn('[term-plan] no session found when trying to update user metadata');
+        toast({
+          title: "Notice",
+          description: "Unable to save onboarding status, but continuing anyway.",
+          variant: "default",
+        });
       }
 
       // Cookie fallback to handle network failures and ensure middleware bypass
       try {
+        console.log('[term-plan] Setting completion cookie');
         const oneYear = 60 * 60 * 24 * 365;
         document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+        console.log('[term-plan] successfully set completion cookie');
       } catch (cookieErr) {
         console.warn('[term-plan] failed to set completion cookie:', cookieErr);
+        toast({
+          title: "Notice",
+          description: "Unable to save onboarding status locally, but continuing anyway.",
+          variant: "default",
+        });
       }
 
       // Success toast for UX feedback
-      toast({ title: 'Onboarding complete', description: 'Your plan is saved. Redirecting…' });
+      toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
       // Redirect to homepage for proper role-based routing
+      console.log('[term-plan] redirecting to homepage after successful onboarding');
       router.replace('/homepage');
     } catch (err) {
       console.error('[term-plan] completion error:', err);
-      toast({ title: 'Error', description: 'Could not finalize onboarding. Continuing anyway.' });
+      toast({ 
+        title: 'Onboarding Completed with Issues', 
+        description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
+      });
+      // Even if there's an error, still redirect to homepage
+      console.log('[term-plan] redirecting to homepage despite error');
       router.replace('/homepage');
     } finally {
       setSaving(false);

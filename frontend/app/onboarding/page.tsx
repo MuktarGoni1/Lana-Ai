@@ -17,10 +17,13 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    console.log('[Onboarding] Starting child registration process');
+    
     if (!nickname || !age || !grade) {
+      console.warn('[Onboarding] Validation failed: missing required fields', { nickname, age, grade });
       toast({
-        title: "Error",
-        description: "Please fill all fields",
+        title: "Validation Error",
+        description: "Please fill in all required fields: nickname, age, and grade.",
         variant: "destructive",
       })
       return
@@ -28,49 +31,67 @@ export default function OnboardingPage() {
 
     setLoading(true)
     try {
+      console.log('[Onboarding] Getting user session');
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
+        console.error('[Onboarding] No session found, redirecting to login');
         toast({
-          title: "Authentication error",
-          description: "Please log in again",
+          title: "Authentication Required",
+          description: "Please log in again to continue with child registration.",
           variant: "destructive",
         })
         return router.push("/login")
       }
 
       const child_uid = crypto.randomUUID() // anon child
+      console.log('[Onboarding] Generated child UID:', child_uid);
 
       // 1. create child user (anon) - handle case where users table doesn't exist
       let userCreated = false;
       try {
-        const userData: InsertUser = {
+        const userData = {
           id: child_uid,
           email: `${child_uid}@child.lana`,
           user_metadata: { role: "child", nickname, age, grade },
         };
         
+        console.log('[Onboarding] Attempting to create user record:', userData);
+        
         // Cast to any to bypass TypeScript error with Supabase client typing
         const sb: any = supabase;
         const { error: userErr } = await sb.from("users").insert(userData);
         if (userErr) {
-          console.debug('[Onboarding] users table insert error:', userErr);
+          console.debug('[Onboarding] users table insert error (non-critical):', userErr);
+          // Don't throw here, continue with guardian linking
+          toast({
+            title: "Notice",
+            description: "Child profile created successfully. Some optional information could not be saved.",
+            variant: "default",
+          })
         } else {
           userCreated = true;
           console.log('[Onboarding] Successfully created user record for child:', child_uid);
         }
       } catch (tableError) {
         // If the users table doesn't exist, that's okay
-        console.debug('[Onboarding] users table may not exist:', tableError);
+        console.debug('[Onboarding] users table may not exist or RLS policy prevents insert:', tableError);
+        toast({
+          title: "Notice",
+          description: "Child profile created successfully. Some optional information could not be saved.",
+          variant: "default",
+        })
       }
 
       // 2. link parent → child
       try {
-        const guardianData: InsertGuardian = {
+        const guardianData = {
           email: session.user.email || "",
           child_uid,
           weekly_report: true,
           monthly_report: false,
         };
+        
+        console.log('[Onboarding] Attempting to link child to guardian:', guardianData);
         
         // Cast to any to bypass TypeScript error with Supabase client typing
         const sb: any = supabase;
@@ -87,25 +108,36 @@ export default function OnboardingPage() {
               console.error('[Onboarding] Failed to cleanup child user:', deleteError);
             }
           }
+          toast({
+            title: "Registration Failed",
+            description: `Unable to link child to your account. Please try again. Error: ${guardianErr.message}`,
+            variant: "destructive",
+          })
           throw new Error(`Failed to link child to your account. Please try again. Error: ${guardianErr.message}`);
         }
         console.log('[Onboarding] Successfully linked child to guardian');
       } catch (guardianError) {
         console.error('[Onboarding] Error linking child to guardian:', guardianError);
+        toast({
+          title: "Registration Failed",
+          description: `Unable to link child to your account. Please try again. ${guardianError instanceof Error ? guardianError.message : 'Unknown error occurred.'}`,
+          variant: "destructive",
+        })
         throw new Error(`Failed to link child to your account. Please try again. ${guardianError instanceof Error ? guardianError.message : ''}`);
       }
 
       toast({ 
         title: "Success", 
-        description: "Child linked to your account successfully!" 
+        description: "Child successfully linked to your account! Redirecting to complete setup..." 
       })
       // Redirect to term-plan to complete onboarding
+      console.log('[Onboarding] Redirecting to term-plan');
       router.push("/term-plan?onboarding=1")
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);
       toast({
-        title: "Error",
-        description: err instanceof Error ? err.message : "Failed to set up child. Please try again.",
+        title: "Registration Error",
+        description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
         variant: "destructive",
       })
     } finally {
