@@ -221,32 +221,13 @@ export class AuthService {
 
       if (signError) throw signError;
 
-      // Store child row in users table (if it exists)
-      try {
-        // Cast supabase to any to bypass typing issues
-        const sb: any = supabase;
-        const { error: insertError } = await sb.from("users").insert({
-          id: child_uid,
-          email: email,
-          user_metadata: JSON.stringify({ role: "child", nickname, age, grade, guardian_email: guardianEmail }),
-        });
-        
-        if (insertError) {
-          console.warn('[AuthService] Failed to create user record:', insertError);
-          // Don't throw here as the auth was successful
-        }
-      } catch (tableError) {
-        // If the users table doesn't exist, that's okay
-        console.debug('[AuthService] Users table may not exist, continuing without it:', tableError);
-      }
-
       // Link child to guardian
       try {
         // Cast supabase to any to bypass typing issues
         const sb: any = supabase;
         const { error: linkError } = await sb.from("guardians").insert({
           email: guardianEmail,
-          child_uid: child_uid,
+          child_uid: data.user?.id,
           weekly_report: true,
           monthly_report: false,
         });

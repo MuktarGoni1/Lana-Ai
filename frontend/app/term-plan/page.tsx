@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -48,13 +48,19 @@ function TermPlanPageContent() {
       
       // Update user metadata to mark onboarding as complete
       const { data: { session } } = await supabase.auth.getSession();
+      console.log('[term-plan] Session status:', session ? 'Active' : 'None');
+      
       if (session?.user) {
         console.log('[term-plan] Updating user metadata with onboarding_complete flag');
+        console.log('[term-plan] User ID:', session.user.id);
+        
         const { error } = await supabase.auth.updateUser({
           data: { onboarding_complete: true },
         });
+        
         if (error) {
-          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error);
+          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error.message);
+          console.warn('[term-plan] metadata update error details:', error);
           toast({
             title: "Notice",
             description: "Unable to save onboarding status, but continuing anyway.",
@@ -78,8 +84,9 @@ function TermPlanPageContent() {
         const oneYear = 60 * 60 * 24 * 365;
         document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
         console.log('[term-plan] successfully set completion cookie');
-      } catch (cookieErr) {
-        console.warn('[term-plan] failed to set completion cookie:', cookieErr);
+      } catch (cookieErr: any) {
+        console.warn('[term-plan] failed to set completion cookie:', cookieErr.message);
+        console.warn('[term-plan] cookie error details:', cookieErr);
         toast({
           title: "Notice",
           description: "Unable to save onboarding status locally, but continuing anyway.",
@@ -93,8 +100,9 @@ function TermPlanPageContent() {
       // Redirect to homepage for proper role-based routing
       console.log('[term-plan] redirecting to homepage after successful onboarding');
       router.replace('/homepage');
-    } catch (err) {
-      console.error('[term-plan] completion error:', err);
+    } catch (err: any) {
+      console.error('[term-plan] completion error:', err.message);
+      console.error('[term-plan] completion error details:', err);
       toast({ 
         title: 'Onboarding Completed with Issues', 
         description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
@@ -106,6 +114,41 @@ function TermPlanPageContent() {
       setSaving(false);
     }
   };
+  
+  // Save subjects and topics to localStorage before completing onboarding
+  const saveAndCompleteOnboarding = async () => {
+    setSaving(true);
+    try {
+      console.log('[term-plan] Saving subjects and topics to localStorage');
+      console.log('[term-plan] Number of subjects to save:', subjects.length);
+      
+      // Save to localStorage
+      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
+      
+      toast({ 
+        title: 'Plan Saved', 
+        description: 'Your study plan has been saved successfully.' 
+      });
+      
+      // Complete onboarding
+      await completeOnboardingAndRedirect();
+    } catch (err: any) {
+      console.error('[term-plan] Error saving plan:', err.message);
+      console.error('[term-plan] Save error details:', err);
+      toast({ 
+        title: 'Save Error', 
+        description: 'Failed to save your study plan. Continuing to dashboard anyway.',
+        variant: "destructive"
+      });
+      
+      // Still complete onboarding even if saving fails
+      await completeOnboardingAndRedirect();
+    } finally {
+      setSaving(false);
+    }
+  };
+  
   // Backwards-compatible alias for existing button handlers
   const handleComplete = completeOnboardingAndRedirect;
   const [subjects, setSubjects] = useState<Subject[]>([]);
@@ -448,18 +491,31 @@ function TermPlanPageContent() {
           <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
             <button
               onClick={handleComplete}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
+              disabled={saving}
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Skip for now
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                  Skipping...
+                </>
+              ) : (
+                "Skip for now"
+              )}
             </button>
             <button
-              onClick={async () => {
-                // TODO: Persist subjects/topics to Supabase tables
-                await handleComplete();
-              }}
-              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium"
+              onClick={saveAndCompleteOnboarding}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
-              Save plan and continue
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save plan and continue"
+              )}
             </button>
           </div>
         </div>

@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, User, BookOpen, GraduationCap } from "lucide-react"
+import { Loader2, User, BookOpen, GraduationCap, ChevronLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { InsertUser, InsertGuardian } from "@/types/supabase"
 
@@ -14,16 +14,67 @@ export default function OnboardingPage() {
   const [age, setAge] = useState<number | "">("")
   const [grade, setGrade] = useState("")
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({
+    nickname: "",
+    age: "",
+    grade: ""
+  })
+
+  // Validation functions
+  const validateNickname = (value: string) => {
+    if (!value.trim()) return "Nickname is required"
+    if (value.trim().length < 2) return "Nickname must be at least 2 characters"
+    return ""
+  }
+
+  const validateAge = (value: number | "") => {
+    if (value === "") return "Age is required"
+    if (typeof value === "number" && (value < 6 || value > 18)) return "Age must be between 6 and 18"
+    return ""
+  }
+
+  const validateGrade = (value: string) => {
+    if (!value) return "Grade is required"
+    return ""
+  }
+
+  const handleNicknameChange = (value: string) => {
+    setNickname(value)
+    setErrors(prev => ({ ...prev, nickname: validateNickname(value) }))
+  }
+
+  const handleAgeChange = (value: string) => {
+    const numValue = value === "" ? "" : Number(value)
+    setAge(numValue)
+    setErrors(prev => ({ ...prev, age: validateAge(numValue) }))
+  }
+
+  const handleGradeChange = (value: string) => {
+    setGrade(value)
+    setErrors(prev => ({ ...prev, grade: validateGrade(value) }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     console.log('[Onboarding] Starting child registration process');
+    console.log('[Onboarding] Form data:', { nickname, age, grade });
     
-    if (!nickname || !age || !grade) {
-      console.warn('[Onboarding] Validation failed: missing required fields', { nickname, age, grade });
+    // Validate all fields
+    const nicknameError = validateNickname(nickname)
+    const ageError = validateAge(age)
+    const gradeError = validateGrade(grade)
+    
+    setErrors({
+      nickname: nicknameError,
+      age: ageError,
+      grade: gradeError
+    })
+    
+    if (nicknameError || ageError || gradeError) {
+      console.warn('[Onboarding] Validation failed:', { nicknameError, ageError, gradeError });
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields: nickname, age, and grade.",
+        description: "Please correct the errors in the form.",
         variant: "destructive",
       })
       return
@@ -33,6 +84,8 @@ export default function OnboardingPage() {
     try {
       console.log('[Onboarding] Getting user session');
       const { data: { session } } = await supabase.auth.getSession()
+      console.log('[Onboarding] Session status:', session ? 'Active' : 'None');
+      
       if (!session) {
         console.error('[Onboarding] No session found, redirecting to login');
         toast({
@@ -43,87 +96,32 @@ export default function OnboardingPage() {
         return router.push("/login")
       }
 
-      const child_uid = crypto.randomUUID() // anon child
-      console.log('[Onboarding] Generated child UID:', child_uid);
+      // Call the proper API route to register the child
+      console.log('[Onboarding] Calling register-child API');
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          childEmail: `${crypto.randomUUID()}@child.lana`,
+          guardianEmail: session.user.email,
+          nickname,
+          age: Number(age),
+          grade
+        }),
+      });
 
-      // 1. create child user (anon) - handle case where users table doesn't exist
-      let userCreated = false;
-      try {
-        const userData = {
-          id: child_uid,
-          email: `${child_uid}@child.lana`,
-          user_metadata: { role: "child", nickname, age, grade },
-        };
-        
-        console.log('[Onboarding] Attempting to create user record:', userData);
-        
-        // Cast to any to bypass TypeScript error with Supabase client typing
-        const sb: any = supabase;
-        const { error: userErr } = await sb.from("users").insert(userData);
-        if (userErr) {
-          console.debug('[Onboarding] users table insert error (non-critical):', userErr);
-          // Don't throw here, continue with guardian linking
-          toast({
-            title: "Notice",
-            description: "Child profile created successfully. Some optional information could not be saved.",
-            variant: "default",
-          })
-        } else {
-          userCreated = true;
-          console.log('[Onboarding] Successfully created user record for child:', child_uid);
-        }
-      } catch (tableError) {
-        // If the users table doesn't exist, that's okay
-        console.debug('[Onboarding] users table may not exist or RLS policy prevents insert:', tableError);
-        toast({
-          title: "Notice",
-          description: "Child profile created successfully. Some optional information could not be saved.",
-          variant: "default",
-        })
-      }
-
-      // 2. link parent → child
-      try {
-        const guardianData = {
-          email: session.user.email || "",
-          child_uid,
-          weekly_report: true,
-          monthly_report: false,
-        };
-        
-        console.log('[Onboarding] Attempting to link child to guardian:', guardianData);
-        
-        // Cast to any to bypass TypeScript error with Supabase client typing
-        const sb: any = supabase;
-        const { error: guardianErr } = await sb.from("guardians").insert(guardianData);
-        if (guardianErr) {
-          console.error('[Onboarding] Failed to link child to guardian:', guardianErr);
-          // Compensate: remove child user to avoid orphaned record (if it was created)
-          if (userCreated) {
-            try {
-              const sb: any = supabase;
-              await sb.from("users").delete().eq("id", child_uid);
-              console.log('[Onboarding] Cleaned up orphaned child user record:', child_uid);
-            } catch (deleteError) {
-              console.error('[Onboarding] Failed to cleanup child user:', deleteError);
-            }
-          }
-          toast({
-            title: "Registration Failed",
-            description: `Unable to link child to your account. Please try again. Error: ${guardianErr.message}`,
-            variant: "destructive",
-          })
-          throw new Error(`Failed to link child to your account. Please try again. Error: ${guardianErr.message}`);
-        }
-        console.log('[Onboarding] Successfully linked child to guardian');
-      } catch (guardianError) {
-        console.error('[Onboarding] Error linking child to guardian:', guardianError);
+      const result = await response.json();
+      
+      if (!result.success) {
+        console.error('[Onboarding] API registration failed:', result.message);
         toast({
           title: "Registration Failed",
-          description: `Unable to link child to your account. Please try again. ${guardianError instanceof Error ? guardianError.message : 'Unknown error occurred.'}`,
+          description: result.message,
           variant: "destructive",
-        })
-        throw new Error(`Failed to link child to your account. Please try again. ${guardianError instanceof Error ? guardianError.message : ''}`);
+        });
+        return;
       }
 
       toast({ 
@@ -135,6 +133,10 @@ export default function OnboardingPage() {
       router.push("/term-plan?onboarding=1")
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);
+      console.error('[Onboarding] Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        stack: err instanceof Error ? err.stack : 'No stack trace'
+      });
       toast({
         title: "Registration Error",
         description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
@@ -143,6 +145,10 @@ export default function OnboardingPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleBackToDashboard = () => {
+    router.push("/guardian")
   }
 
   return (
@@ -191,13 +197,18 @@ export default function OnboardingPage() {
                 id="nickname"
                 type="text"
                 value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                onChange={(e) => handleNicknameChange(e.target.value)}
                 placeholder="Enter child's nickname"
-                className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all pl-10"
+                className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/[0.03] transition-all pl-10 ${
+                  errors.nickname ? "border-red-500" : "border-white/10 focus:border-white/30"
+                }`}
                 required
               />
               <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
             </div>
+            {errors.nickname && (
+              <p className="text-red-400 text-xs mt-1">{errors.nickname}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -215,13 +226,18 @@ export default function OnboardingPage() {
                   min={6}
                   max={18}
                   value={age || ""}
-                  onChange={(e) => setAge(e.target.value ? Number(e.target.value) : "")}
+                  onChange={(e) => handleAgeChange(e.target.value)}
                   placeholder="Age"
-                  className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all pl-10"
+                  className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/[0.03] transition-all pl-10 ${
+                    errors.age ? "border-red-500" : "border-white/10 focus:border-white/30"
+                  }`}
                   required
                 />
                 <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               </div>
+              {errors.age && (
+                <p className="text-red-400 text-xs mt-1">{errors.age}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -235,8 +251,10 @@ export default function OnboardingPage() {
                 <select
                   id="grade"
                   value={grade}
-                  onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-4 py-3 bg-white/[0.02] border border-white/10 rounded-lg text-white focus:outline-none focus:border-white/30 focus:bg-white/[0.03] transition-all appearance-none cursor-pointer pl-10 pr-8"
+                  onChange={(e) => handleGradeChange(e.target.value)}
+                  className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white focus:outline-none focus:bg-white/[0.03] transition-all appearance-none cursor-pointer pl-10 pr-8 ${
+                    errors.grade ? "border-red-500" : "border-white/10 focus:border-white/30"
+                  }`}
                   style={{
                     backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff40' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
                     backgroundPosition: 'right 0.5rem center',
@@ -259,10 +277,13 @@ export default function OnboardingPage() {
                 </select>
                 <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
               </div>
+              {errors.grade && (
+                <p className="text-red-400 text-xs mt-1">{errors.grade}</p>
+              )}
             </div>
           </div>
 
-          <div className="pt-4">
+          <div className="pt-4 space-y-3">
             <Button
               type="submit"
               className="w-full px-5 py-3.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-white/95 transition-all duration-200 flex items-center justify-center"
@@ -277,18 +298,18 @@ export default function OnboardingPage() {
                 "Finish setup"
               )}
             </Button>
+            
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleBackToDashboard}
+              className="w-full px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+            >
+              <ChevronLeft className="mr-2 h-4 w-4" />
+              Back to dashboard
+            </Button>
           </div>
         </form>
-
-        {/* Back button */}
-        <div className="pt-6">
-          <button
-            onClick={() => router.push("/guardian")}
-            className="text-white/50 hover:text-white text-sm transition-colors flex items-center gap-2 mx-auto"
-          >
-            Back to dashboard
-          </button>
-        </div>
 
         {/* Footer note */}
         <p className="text-center text-white/30 text-xs mt-8">

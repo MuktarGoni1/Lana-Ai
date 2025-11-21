@@ -84,34 +84,11 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      // Store child row in users table (if it exists)
-      try {
-        const { error: insertError } = await adminClient.from("users").insert({
-          id: child_uid,
-          email: childEmail,
-          user_metadata: JSON.stringify({ 
-            role: "child", 
-            nickname, 
-            age, 
-            grade, 
-            guardian_email: guardianEmail 
-          }),
-        })
-        
-        if (insertError) {
-          console.warn('[API Register Child] Failed to create user record:', insertError)
-          // Don't throw here as the auth was successful
-        }
-      } catch (tableError) {
-        // If the users table doesn't exist, that's okay
-        console.debug('[API Register Child] Users table may not exist, continuing without it:', tableError)
-      }
-
       // Link child to guardian
       try {
         const { error: linkError } = await adminClient.from("guardians").insert({
           email: guardianEmail,
-          child_uid: child_uid,
+          child_uid: data.user?.id,
           weekly_report: true,
           monthly_report: false,
         })
