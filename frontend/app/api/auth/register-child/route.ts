@@ -86,11 +86,14 @@ export async function POST(request: NextRequest) {
 
       // Link child to guardian
       try {
-        const { error: linkError } = await adminClient.from("guardians").insert({
+        const { error: linkError } = await adminClient.from("guardians").upsert({
+          id: crypto.randomUUID(),
           email: guardianEmail,
           child_uid: data.user?.id,
           weekly_report: true,
           monthly_report: false,
+        }, {
+          onConflict: 'email'
         })
         
         if (linkError) {

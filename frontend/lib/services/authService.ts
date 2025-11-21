@@ -225,11 +225,14 @@ export class AuthService {
       try {
         // Cast supabase to any to bypass typing issues
         const sb: any = supabase;
-        const { error: linkError } = await sb.from("guardians").insert({
+        const { error: linkError } = await sb.from("guardians").upsert({
+          id: crypto.randomUUID(),
           email: guardianEmail,
           child_uid: data.user?.id,
           weekly_report: true,
           monthly_report: false,
+        }, {
+          onConflict: 'email'
         });
         
         if (linkError) {
