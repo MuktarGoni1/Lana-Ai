@@ -10,8 +10,18 @@ export default function ChildLoginPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return router.push("/login")
       const role = session.user.user_metadata?.role
-      if (role === "child") router.push("/") // already onboarded
-      else router.push("/onboarding")        // parent → setup
+      // Check if onboarding is complete
+      const onboardingComplete = Boolean(session.user.user_metadata?.onboarding_complete)
+      
+      if (role === "child") {
+        if (onboardingComplete) {
+          router.push("/personalised-ai-tutor")
+        } else {
+          router.push("/term-plan?onboarding=1")
+        }
+      } else {
+        router.push("/onboarding") // parent → setup
+      }
     })
   }, [router])
 

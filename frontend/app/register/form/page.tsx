@@ -70,7 +70,7 @@ function ParentFlow() {
           <p className="text-white/60">Register to manage your child&apos;s learning journey</p>
         </div>
 
-        <form onSubmit={handleParent} className="space-y-4">
+        <form onSubmit={handleParent} className="space-y-4" suppressHydrationWarning>
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2">
               Email Address
@@ -86,6 +86,7 @@ function ParentFlow() {
                        focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
                        transition-all duration-200"
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -97,6 +98,7 @@ function ParentFlow() {
                      hover:bg-white/90
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed"
+            suppressHydrationWarning
           >
             {isLoading ? (
               <>
@@ -116,6 +118,7 @@ function ParentFlow() {
           type="button"
           onClick={() => router.push("/register")}
           className="flex items-center gap-2 text-sm text-white/30 hover:text-white/50 transition-colors duration-200 mx-auto mt-6"
+          suppressHydrationWarning
         >
           <ChevronLeft className="w-4 h-4" />
           Back to options
@@ -189,7 +192,7 @@ function ChildFlow() {
           <p className="text-white/60">Start your learning journey</p>
         </div>
 
-        <form onSubmit={handleChild} className="space-y-4">
+        <form onSubmit={handleChild} className="space-y-4" suppressHydrationWarning>
           <div>
             <label htmlFor="childEmail" className="block text-sm font-medium mb-2">
               Your Email
@@ -206,6 +209,7 @@ function ChildFlow() {
                        focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
                        transition-all duration-200"
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -225,6 +229,7 @@ function ChildFlow() {
                        focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
                        transition-all duration-200"
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -244,6 +249,7 @@ function ChildFlow() {
                        focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
                        transition-all duration-200"
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -265,6 +271,7 @@ function ChildFlow() {
                        focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
                        transition-all duration-200"
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -283,6 +290,7 @@ function ChildFlow() {
                        transition-all duration-200
                        [&>option]:bg-black [&>option]:text-white"
               required
+              suppressHydrationWarning
             >
               <option value="">Select your grade</option>
               <option value="6">Grade 6</option>
@@ -304,6 +312,7 @@ function ChildFlow() {
                      hover:bg-white/90
                      transition-all duration-200
                      disabled:opacity-50 disabled:cursor-not-allowed"
+            suppressHydrationWarning
           >
             {isLoading ? (
               <>
@@ -323,6 +332,7 @@ function ChildFlow() {
           type="button"
           onClick={() => router.push("/register")}
           className="flex items-center gap-2 text-sm text-white/30 hover:text-white/50 transition-colors duration-200 mx-auto mt-6"
+          suppressHydrationWarning
         >
           <ChevronLeft className="w-4 h-4" />
           Back to options

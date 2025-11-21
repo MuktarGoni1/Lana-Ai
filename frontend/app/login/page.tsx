@@ -26,6 +26,7 @@ const FormCard = ({ children }: { children: React.ReactNode }) => (
 const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
+    suppressHydrationWarning
     className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] 
              text-white placeholder-white/20 text-sm
              focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
@@ -36,6 +37,7 @@ const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
 const StyledSelect = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select
     {...props}
+    suppressHydrationWarning
     className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] 
              text-white text-sm appearance-none
              focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
@@ -51,6 +53,7 @@ const PrimaryButton = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
   <button
     {...props}
+    suppressHydrationWarning
     disabled={loading || props.disabled}
     className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
              hover:bg-white/90 transition-all duration-200
@@ -75,6 +78,7 @@ const BackButton = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
+    suppressHydrationWarning
     className="flex items-center gap-2 text-sm text-white/30 hover:text-white/50 
              transition-colors duration-200 mx-auto"
   >
@@ -349,10 +353,20 @@ function ChildFlow() {
 function EmailLoginFlow() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { signIn, user } = useAuth();
   const authService = new AuthService();
+  const searchParams = useSearchParams();
+  
+  // Check if magic link was sent
+  useEffect(() => {
+    if (searchParams.get('magic-link-sent') === 'true') {
+      setMagicLinkSent(true);
+    }
+  }, [searchParams]);
 
   // Redirect authenticated users to homepage
   useEffect(() => {
@@ -361,45 +375,51 @@ function EmailLoginFlow() {
     }
   }, [user, router]);
 
+  // Real-time email validation
+  useEffect(() => {
+    if (email.trim() === "") {
+      setEmailError("");
+      return;
+    }
+
+    const emailValidation = z.string().email().safeParse(email.trim());
+    if (!emailValidation.success) {
+      setEmailError("Please enter a valid email address");
+    } else {
+      setEmailError("");
+    }
+  }, [email]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
+    
+    // Validate email before submission
     const emailValidation = z.string().email().safeParse(trimmed);
     if (!emailValidation.success) {
-      toast({ 
-        title: "Invalid email", 
-        description: "Please enter a valid email address.", 
-        variant: "destructive" 
-      });
+      setEmailError("Please enter a valid email address");
       return;
     }
 
     setLoading(true);
     try {
       // First verify if the email is authenticated
-      const isVerified = await authService.isEmailAuthenticated(trimmed);
-      
-      if (!isVerified) {
-        toast({
-          title: "Email not verified",
-          description: "This email is not authenticated. Please register first.",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      // If verified, automatically sign in the user
-      // Check if it's a guardian or child email
       const verificationResult = await authService.verifyEmailWithSupabaseAuth(trimmed);
       
       if (verificationResult.exists && verificationResult.confirmed) {
-        // Automatically redirect based on user role
-        // For now, we'll redirect to homepage, but this could be enhanced
-        router.push("/homepage");
+        // Automatically sign in the user
+        await signIn(trimmed);
+        // User will be redirected to magic link sent page
+      } else if (verificationResult.exists && !verificationResult.confirmed) {
+        toast({
+          title: "Email not yet authenticated",
+          description: "This email is not yet authenticated. Please check your email for verification instructions.",
+          variant: "destructive",
+        });
       } else {
         toast({
-          title: "Email not confirmed",
-          description: "Please confirm your email address before logging in.",
+          title: "Email not authenticated",
+          description: "This email is not yet authenticated. Please register first.",
           variant: "destructive",
         });
       }
@@ -413,6 +433,35 @@ function EmailLoginFlow() {
       setLoading(false);
     }
   };
+
+  // Show magic link sent message
+  if (magicLinkSent) {
+    return (
+      <FormWrapper>
+        <FormCard>
+          <div className="text-center space-y-6">
+            <div className="w-16 h-16 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
+              <Mail className="w-8 h-8 text-white/70" />
+            </div>
+            <div className="space-y-3">
+              <h1 className="text-2xl font-semibold text-white">Check your email</h1>
+              <p className="text-white/40">
+                We've sent a magic link to <span className="text-white">{email}</span>. 
+                Click the link to sign in to your account.
+              </p>
+            </div>
+            <button
+              onClick={() => setMagicLinkSent(false)}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200"
+            >
+              Back to login
+            </button>
+          </div>
+        </FormCard>
+      </FormWrapper>
+    );
+  }
 
   // Success state now handled by dedicated page
 
@@ -439,6 +488,9 @@ function EmailLoginFlow() {
                 placeholder="Enter your email"
                 required
               />
+              {emailError && (
+                <p className="mt-1 text-xs text-red-400">{emailError}</p>
+              )}
             </div>
             
             <PrimaryButton type="submit" loading={loading}>

@@ -28,13 +28,17 @@ export default function AuthConfirmedPage() {
         // Add the user to an authenticated users list based on role
         try {
           if (role === "guardian" && userEmail) {
-            const { error: upsertError } = await supabase
+            // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+            const sb: any = supabase;
+            const { error: upsertError } = await sb
               .from("guardians")
               .upsert({ email: userEmail, weekly_report: true, monthly_report: false }, { onConflict: "email" });
             if (upsertError) console.warn("[auth/confirmed] guardian upsert warn:", upsertError);
-          } else if (role === "child") {
+          } else if (role === "child" && userEmail) {
             // Child users typically inserted during registration; ensure existence by upserting minimal record
-            const { error: upsertError } = await supabase
+            // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+            const sb: any = supabase;
+            const { error: upsertError } = await sb
               .from("users")
               .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
             if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
@@ -46,9 +50,9 @@ export default function AuthConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Show confirmation then redirect to login as specified
+        // Show confirmation then redirect to homepage
         setTimeout(() => {
-          router.replace("/login");
+          router.replace("/homepage");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed] confirmation error:", err);
@@ -81,7 +85,7 @@ export default function AuthConfirmedPage() {
           <p className="text-white/40 text-xs">Signed in as {email}</p>
         )}
         <p className="text-white/60 text-sm">
-          Please visit <a href="/login" className="underline">login</a>. You will be redirected shortly.
+          Please visit <a href="/homepage" className="underline">homepage</a>. You will be redirected shortly.
         </p>
       </div>
     </div>

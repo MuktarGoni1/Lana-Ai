@@ -66,24 +66,8 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding complete', description: 'Your plan is saved. Redirecting…' });
 
-      // Redirect to original destination if provided, otherwise homepage
-      if (returnTo) {
-        try {
-          const url = new URL(returnTo, window.location.origin);
-          // Normalize destinations that shouldn't lead back to marketing
-          const path = url.pathname;
-          if (path === '/' || path === '/landing-page') {
-            router.replace('/homepage');
-          } else {
-            router.replace(url.toString());
-          }
-        } catch {
-          // Malformed returnTo → default to homepage
-          router.replace('/homepage');
-        }
-      } else {
-        router.replace('/homepage');
-      }
+      // Redirect to homepage for proper role-based routing
+      router.replace('/homepage');
     } catch (err) {
       console.error('[term-plan] completion error:', err);
       toast({ title: 'Error', description: 'Could not finalize onboarding. Continuing anyway.' });

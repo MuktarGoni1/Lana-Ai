@@ -68,6 +68,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (error) {
       console.warn('[verify-email] admin.getUserByEmail error', { requestId, email, error })
+      // Check if this is a connection timeout error
+      if (error.message && error.message.includes('timeout')) {
+        return NextResponse.json({
+          ok: false,
+          error: 'network_timeout',
+          message: 'Network timeout while verifying email. Please try again.',
+        }, { status: 504, headers: { 'x-request-id': requestId } })
+      }
       return NextResponse.json({
         ok: false,
         error: 'auth_admin_error',
@@ -107,6 +115,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(payload, { status: 200, headers: { 'x-request-id': requestId } })
   } catch (err) {
     console.error('[verify-email] unexpected', { requestId, err })
+    // Check if this is a connection timeout error
+    if (err instanceof Error && err.message && err.message.includes('timeout')) {
+      return NextResponse.json({
+        ok: false,
+        error: 'network_timeout',
+        message: 'Network timeout while verifying email. Please try again.',
+      }, { status: 504, headers: { 'x-request-id': requestId } })
+    }
     return NextResponse.json({
       ok: false,
       error: 'network_or_server_error',

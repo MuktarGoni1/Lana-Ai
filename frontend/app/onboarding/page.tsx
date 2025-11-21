@@ -46,12 +46,12 @@ export default function OnboardingPage() {
         const userData: InsertUser = {
           id: child_uid,
           email: `${child_uid}@child.lana`,
-          user_metadata: JSON.stringify({ role: "child", nickname, age, grade }),
+          user_metadata: { role: "child", nickname, age, grade },
         };
         
         // Cast to any to bypass TypeScript error with Supabase client typing
         const sb: any = supabase;
-        const { error: userErr } = await sb.from("users").insert([userData]);
+        const { error: userErr } = await sb.from("users").insert(userData);
         if (userErr) {
           console.debug('[Onboarding] users table insert error:', userErr);
         } else {
@@ -74,7 +74,7 @@ export default function OnboardingPage() {
         
         // Cast to any to bypass TypeScript error with Supabase client typing
         const sb: any = supabase;
-        const { error: guardianErr } = await sb.from("guardians").insert([guardianData]);
+        const { error: guardianErr } = await sb.from("guardians").insert(guardianData);
         if (guardianErr) {
           console.error('[Onboarding] Failed to link child to guardian:', guardianErr);
           // Compensate: remove child user to avoid orphaned record (if it was created)
@@ -87,24 +87,25 @@ export default function OnboardingPage() {
               console.error('[Onboarding] Failed to cleanup child user:', deleteError);
             }
           }
-          throw new Error(`Failed to link child to your account: ${guardianErr.message}`);
+          throw new Error(`Failed to link child to your account. Please try again. Error: ${guardianErr.message}`);
         }
         console.log('[Onboarding] Successfully linked child to guardian');
       } catch (guardianError) {
         console.error('[Onboarding] Error linking child to guardian:', guardianError);
-        throw guardianError;
+        throw new Error(`Failed to link child to your account. Please try again. ${guardianError instanceof Error ? guardianError.message : ''}`);
       }
 
       toast({ 
         title: "Success", 
         description: "Child linked to your account successfully!" 
       })
-      router.push("/guardian")
+      // Redirect to term-plan to complete onboarding
+      router.push("/term-plan?onboarding=1")
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);
       toast({
         title: "Error",
-        description: err instanceof Error ? err.message : "Failed to set up child.",
+        description: err instanceof Error ? err.message : "Failed to set up child. Please try again.",
         variant: "destructive",
       })
     } finally {

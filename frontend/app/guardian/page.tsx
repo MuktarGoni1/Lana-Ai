@@ -264,7 +264,7 @@ export default function GuardianDashboard() {
           
           <div className="pt-4">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/homepage")}
               className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-white/5 border border-white/10 text-white/70 hover:text-white transition-all duration-200 flex items-center gap-2 mx-auto"
             >
               <Home className="w-4 h-4" />
@@ -305,7 +305,7 @@ export default function GuardianDashboard() {
             </Button>
             
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/homepage")}
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm flex items-center gap-2"
             >
               <Home className="w-4 h-4" />

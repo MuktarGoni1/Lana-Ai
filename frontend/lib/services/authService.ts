@@ -33,6 +33,7 @@ export class AuthService {
           if (res.status === 400) throw new Error(data?.message ?? 'Invalid email.');
           if (res.status === 429) throw new Error(data?.message ?? 'Too many attempts. Please wait and try again.');
           if (res.status === 503) throw new Error(data?.message ?? 'Verification service temporarily unavailable. Please try again later.');
+          if (res.status === 504) throw new Error(data?.message ?? 'Network timeout while verifying email. Please check your connection and try again.');
           if (res.status >= 500) throw new Error(data?.message ?? 'Temporary server error. Please try again.');
           throw new Error(data?.message ?? `Verification failed (status ${res.status}).`);
         }
@@ -52,7 +53,7 @@ export class AuthService {
         // Retry once for network/abort errors
         if (err instanceof DOMException && err.name === 'AbortError') {
           console.warn('[AuthService.verifyEmail] request timed out, retrying once');
-        } else if (err instanceof Error && /network|fetch|failed/i.test(err.message)) {
+        } else if (err instanceof Error && /network|fetch|failed|timeout/i.test(err.message)) {
           console.warn('[AuthService.verifyEmail] network error, retrying once');
         } else {
           clearTimeout(timeout);
@@ -94,6 +95,12 @@ export class AuthService {
           return data.exists === true && data.confirmed === true;
         }
         
+        // Handle specific error cases
+        if (response.status === 504) {
+          console.debug('[AuthService] Network timeout while checking user authentication');
+          throw new Error('Network timeout while checking user authentication. Please check your connection and try again.');
+        }
+        
         // If the API call fails, fall back to using the verify-email endpoint
         console.debug('[AuthService] API check failed, falling back to verify-email');
         const verifyResponse = await fetch('/api/auth/verify-email', {
@@ -107,29 +114,52 @@ export class AuthService {
           return data.exists === true && data.confirmed === true;
         }
         
+        // Handle specific error cases for verify-email endpoint
+        if (verifyResponse.status === 504) {
+          console.debug('[AuthService] Network timeout while verifying email');
+          throw new Error('Network timeout while verifying email. Please check your connection and try again.');
+        }
+        
         return false;
       } catch (apiError) {
         console.debug('[AuthService] API check error, falling back:', apiError);
+        // If it's a network timeout error, re-throw it
+        if (apiError instanceof Error && apiError.message.includes('timeout')) {
+          throw apiError;
+        }
         return false;
       }
     } catch (error) {
       console.debug('[AuthService] isEmailAuthenticated error:', error);
-      return false;
+      throw error;
     }
   }
   
   async login(email: string) {
     try {
       const trimmed = email.trim();
-      // Instead of sending a magic link, we'll verify the email and redirect appropriately
+      // First verify if the email is authenticated
       const verificationResult = await this.verifyEmailWithSupabaseAuth(trimmed);
       
       if (verificationResult.exists && verificationResult.confirmed) {
-        // User is authenticated, proceed with login
-        // In a real implementation, you might want to create a session here
-        return { success: true, userId: verificationResult.userId };
+        // User is authenticated, sign them in directly
+        // For security, we still need to use Supabase's authentication flow
+        // We'll send a magic link but with a custom redirect that handles automatic login
+        const { data, error } = await supabase.auth.signInWithOtp({
+          email: trimmed,
+          options: {
+            shouldCreateUser: false, // Don't create a new user if they don't exist
+            emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+          },
+        });
+
+        if (error) throw error;
+        
+        return data;
+      } else if (verificationResult.exists && !verificationResult.confirmed) {
+        throw new Error('Email not yet authenticated. Please check your email for verification instructions.');
       } else {
-        throw new Error('Email not verified or confirmed');
+        throw new Error('Email not authenticated. Please register first.');
       }
     } catch (error: unknown) {
       console.debug("[AuthService] login error:", error);
