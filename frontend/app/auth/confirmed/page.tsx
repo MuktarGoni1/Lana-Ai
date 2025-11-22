@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/db";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/db"
+import { useToast } from "@/hooks/use-toast"
+import { navigateToHomepage } from "@/lib/navigation"
 
 export default function AuthConfirmedPage() {
   const router = useRouter();
@@ -52,7 +53,7 @@ export default function AuthConfirmedPage() {
 
         // Show confirmation then redirect to homepage
         setTimeout(() => {
-          router.replace("/homepage");
+          navigateToHomepage(user, router);
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed] confirmation error:", err);
@@ -62,8 +63,8 @@ export default function AuthConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        // Fallback: send user to login
-        setTimeout(() => router.replace("/login"), 2500);
+        // Fallback: send user to homepage
+        setTimeout(() => navigateToHomepage(null, router), 2500);
       }
     };
 

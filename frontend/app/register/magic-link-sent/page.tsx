@@ -3,10 +3,20 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { ArrowRight } from "lucide-react";
+import { navigateToHomepage } from "@/lib/navigation";
+import { useAuth } from "@/hooks/useAuth";
 
 function MagicLinkSentContent() {
   const params = useSearchParams();
   const email = params.get("email") || "your email";
+  const router = useRouter();
+  const { user } = useAuth();
+  
+  const handleSkipToHomepage = () => {
+    navigateToHomepage(user, router);
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
@@ -63,13 +73,22 @@ function MagicLinkSentContent() {
             Use a different email
           </Link>
 
-          <Link
-            href="/register"
-            prefetch={false}
-            className="block w-full px-5 py-3.5 rounded-lg text-white/70 font-medium text-sm hover:text-white hover:bg-white/[0.03] transition-all duration-200 text-center"
-          >
-            Back to options
-          </Link>
+          <div className="flex gap-3">
+            <Link
+              href="/register"
+              prefetch={false}
+              className="flex-1 px-5 py-3.5 rounded-lg text-white/70 font-medium text-sm hover:text-white hover:bg-white/[0.03] transition-all duration-200 text-center"
+            >
+              Back to options
+            </Link>
+            <button
+              onClick={handleSkipToHomepage}
+              className="flex-1 px-5 py-3.5 rounded-lg border border-white/20 text-white font-medium text-sm hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+            >
+              Skip to homepage
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         {/* Helper text */}

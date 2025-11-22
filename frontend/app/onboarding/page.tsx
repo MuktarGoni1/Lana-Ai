@@ -3,9 +3,10 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, User, BookOpen, GraduationCap, ChevronLeft } from "lucide-react"
+import { Loader2, User, BookOpen, GraduationCap, ChevronLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { InsertUser, InsertGuardian } from "@/types/supabase"
+import { skipToHomepage } from "@/lib/navigation"
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -149,6 +150,16 @@ export default function OnboardingPage() {
 
   const handleBackToDashboard = () => {
     router.push("/guardian")
+  }
+
+  const handleSkipToHomepage = () => {
+    // Get current user for navigation
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      skipToHomepage(router, user);
+    }).catch(() => {
+      // If we can't get the user, still navigate to homepage
+      router.push("/homepage");
+    });
   }
 
   return (
@@ -299,15 +310,26 @@ export default function OnboardingPage() {
               )}
             </Button>
             
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleBackToDashboard}
-              className="w-full px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
-            >
-              <ChevronLeft className="mr-2 h-4 w-4" />
-              Back to dashboard
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleBackToDashboard}
+                className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Back
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleSkipToHomepage}
+                className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+              >
+                Skip to homepage
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </form>
 

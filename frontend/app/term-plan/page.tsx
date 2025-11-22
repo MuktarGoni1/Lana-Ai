@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2 } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
+import { skipToHomepage } from '@/lib/navigation';
 
 /* ---------- Types ---------- */
 interface Topic {
@@ -151,6 +152,17 @@ function TermPlanPageContent() {
   
   // Backwards-compatible alias for existing button handlers
   const handleComplete = completeOnboardingAndRedirect;
+  
+  // Skip to homepage functionality
+  const handleSkipToHomepage = () => {
+    // Get current user for navigation
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      skipToHomepage(router, user);
+    }).catch(() => {
+      // If we can't get the user, still navigate to homepage
+      router.push("/homepage");
+    });
+  };
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
@@ -490,9 +502,9 @@ function TermPlanPageContent() {
         <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
             <button
-              onClick={handleComplete}
+              onClick={handleSkipToHomepage}
               disabled={saving}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {saving ? (
                 <>
@@ -500,8 +512,9 @@ function TermPlanPageContent() {
                   Skipping...
                 </>
               ) : (
-                "Skip for now"
+                "Skip to homepage"
               )}
+              <ArrowRight className="ml-2 h-4 w-4" />
             </button>
             <button
               onClick={saveAndCompleteOnboarding}
