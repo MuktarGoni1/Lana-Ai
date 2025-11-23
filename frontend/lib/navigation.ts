@@ -61,12 +61,12 @@ export function navigateToHomepage(user: User | null, router: any) {
     }
   } catch (error) {
     console.error('[Navigation] Error during navigation:', error);
-    // Fallback: always go to homepage if there's an error
+    // Fallback: always go to landing page if there's an error (not homepage to avoid loops)
     try {
       if (router && typeof router.replace === 'function') {
-        router.replace('/homepage');
+        router.replace('/landing-page');
       } else if (typeof window !== 'undefined') {
-        window.location.replace('/homepage');
+        window.location.replace('/landing-page');
       }
     } catch (fallbackError) {
       console.error('[Navigation] Error during fallback navigation:', fallbackError);

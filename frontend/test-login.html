@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Login</title>
+</head>
+<body>
+    <h1>Test Login with muktargoni1@gmail.com</h1>
+    <form id="loginForm">
+        <input type="email" id="email" value="muktargoni1@gmail.com" readonly />
+        <button type="submit">Login</button>
+    </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('email').value;
+            
+            try {
+                const response = await fetch('/api/auth/verify-email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email }),
+                });
+                
+                const data = await response.json();
+                document.getElementById('result').innerHTML = `
+                    <h2>Verification Result:</h2>
+                    <p>Exists: ${data.exists}</p>
+                    <p>Confirmed: ${data.confirmed}</p>
+                    <p>User ID: ${data.userId}</p>
+                `;
+                
+                if (data.exists && data.confirmed) {
+                    document.getElementById('result').innerHTML += '<p style="color: green;">✅ Email is registered and confirmed</p>';
+                } else if (data.exists) {
+                    document.getElementById('result').innerHTML += '<p style="color: orange;">⚠️ Email is registered but not confirmed</p>';
+                } else {
+                    document.getElementById('result').innerHTML += '<p style="color: red;">❌ Email is not registered</p>';
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        });
+    </script>
+</body>
+</html>

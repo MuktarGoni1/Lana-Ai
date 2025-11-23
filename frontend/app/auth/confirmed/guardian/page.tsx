@@ -47,7 +47,7 @@ export default function GuardianConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        setTimeout(() => router.replace("/homepage"), 2500);
+        setTimeout(() => router.replace("/landing-page"), 2500);
       }
     };
 

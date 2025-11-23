@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Inform user that a magic link has been sent
       // In a real implementation, you might want to redirect to a "check your email" page
-      window.location.href = '/login?magic-link-sent=true';
+      window.location.href = `/login?magic-link-sent=true&email=${encodeURIComponent(email)}`;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;

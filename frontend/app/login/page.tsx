@@ -7,7 +7,6 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
 import { AuthService } from "@/lib/services/authService";
-import { navigateToHomepage } from "@/lib/navigation";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -233,7 +232,8 @@ function ChildFlow() {
       // Use our new auth service
       await authService.registerChild(nickname, Number(age), grade, guardianEmail);
       
-      router.push("/homepage");
+      // Instead of going directly to homepage, redirect to onboarding for child users
+      router.push("/term-plan?onboarding=1");
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
@@ -436,12 +436,6 @@ function EmailLoginFlow() {
   };
 
   // Show magic link sent message
-  const handleSkipToHomepage = () => {
-    // Get current user for navigation
-    const { user } = useAuth();
-    navigateToHomepage(user, router);
-  };
-
   if (magicLinkSent) {
     return (
       <FormWrapper>
@@ -457,23 +451,13 @@ function EmailLoginFlow() {
                 Click the link to sign in to your account.
               </p>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setMagicLinkSent(false)}
-                className="flex-1 px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
-                         hover:bg-white/90 transition-all duration-200"
-              >
-                Back to login
-              </button>
-              <button
-                onClick={handleSkipToHomepage}
-                className="flex-1 px-6 py-3 rounded-xl border border-white/20 text-white font-medium text-sm
-                         hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
-              >
-                Skip to homepage
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </button>
-            </div>
+            <button
+              onClick={() => setMagicLinkSent(false)}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200"
+            >
+              Back to login
+            </button>
           </div>
         </FormCard>
       </FormWrapper>

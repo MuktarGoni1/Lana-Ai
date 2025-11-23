@@ -42,9 +42,7 @@ export async function middleware(req: NextRequest) {
       '/register',
       '/register/form',
       '/register/magic-link-sent',
-      '/onboarding',
       '/child-login',
-      '/term-plan', 
       '/auth/confirmed',
       '/auth/confirmed/guardian',
       '/auth/confirmed/child',
@@ -153,7 +151,7 @@ export async function middleware(req: NextRequest) {
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
-    const isOnboardingRoute = pathname.startsWith('/term-plan') || pathname.startsWith('/onboarding')
+    const isOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/term-plan')
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')

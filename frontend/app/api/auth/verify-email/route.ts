@@ -94,6 +94,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Find the user with the matching email (case-insensitive)
     const user = Array.isArray(data.users) ? data.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) : null;
+    
+    // Add additional debugging for user lookup
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[verify-email] user lookup result', { 
+        requestId, 
+        email, 
+        userFound: !!user,
+        totalUsers: Array.isArray(data.users) ? data.users.length : 0
+      });
+    }
 
     const exists = Boolean(user)
     const confirmed = Boolean(user?.email_confirmed_at)

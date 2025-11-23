@@ -40,6 +40,9 @@ function TermPlanPageContent() {
   const [authChecked, setAuthChecked] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
+  // Check if this is a child user (no email) to adjust the flow
+  const [isChildUser, setIsChildUser] = useState(false);
+
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
   const completeOnboardingAndRedirect = async () => {
@@ -98,9 +101,21 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect to homepage for proper role-based routing
-      console.log('[term-plan] redirecting to homepage after successful onboarding');
-      router.replace('/homepage');
+      // Redirect based on user role
+      const role = session?.user?.user_metadata?.role as "guardian" | "child" | undefined;
+      console.log('[term-plan] redirecting based on user role:', role);
+      
+      if (role === 'child') {
+        console.log('[term-plan] redirecting child user to homepage');
+        router.replace('/homepage');
+      } else if (role === 'guardian') {
+        console.log('[term-plan] redirecting guardian user to guardian dashboard');
+        router.replace('/guardian');
+      } else {
+        // For users without a specific role, go to generic homepage
+        console.log('[term-plan] redirecting to homepage for user without specific role');
+        router.replace('/homepage');
+      }
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
@@ -108,9 +123,22 @@ function TermPlanPageContent() {
         title: 'Onboarding Completed with Issues', 
         description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
       });
-      // Even if there's an error, still redirect to homepage
-      console.log('[term-plan] redirecting to homepage despite error');
-      router.replace('/homepage');
+      // Even if there's an error, still redirect to appropriate dashboard
+      console.log('[term-plan] redirecting to appropriate dashboard despite error');
+      // Get user role for proper redirection even in error cases
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        const role = user?.user_metadata?.role as "guardian" | "child" | undefined;
+        if (role === 'child') {
+          router.replace('/homepage');
+        } else if (role === 'guardian') {
+          router.replace('/guardian');
+        } else {
+          router.replace('/homepage');
+        }
+      }).catch(() => {
+        // Fallback to homepage if we can't get user info
+        router.replace('/homepage');
+      });
     } finally {
       setSaving(false);
     }
@@ -157,7 +185,8 @@ function TermPlanPageContent() {
   const handleSkipToHomepage = () => {
     // Get current user for navigation
     supabase.auth.getUser().then(({ data: { user } }) => {
-      skipToHomepage(router, user);
+      // For all users, redirect to homepage when skipping onboarding
+      router.push("/homepage");
     }).catch(() => {
       // If we can't get the user, still navigate to homepage
       router.push("/homepage");
@@ -181,6 +210,10 @@ function TermPlanPageContent() {
           setAuthChecked(true);
           return;
         }
+
+        // Check if this is a child user (email ending with @child.lana)
+        const isChild = session.user.email?.endsWith('@child.lana') || false;
+        setIsChildUser(isChild);
 
         // Verify the user is authenticated
         const response = await fetch('/api/verify-user', {
@@ -337,9 +370,13 @@ function TermPlanPageContent() {
           className="space-y-6"
         >
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold">Build Your Study Plan</h2>
+            <h2 className="text-2xl font-semibold">
+              {isChildUser ? "Welcome! Let's set up your learning plan" : "Build Your Study Plan"}
+            </h2>
             <p className="text-white/70">
-              Organize your subjects and topics for the term
+              {isChildUser 
+                ? "Create your personalized study plan to get started with your learning journey" 
+                : "Organize your subjects and topics for the term"}
             </p>
           </div>
 

@@ -26,9 +26,11 @@ export default function ChildConfirmedPage() {
 
         // Ensure child user is recorded in users table
         if (userEmail) {
-          const { error: upsertError } = await supabase
+          // Cast supabase to any to bypass typing issues
+          const sb: any = supabase;
+          const { error: upsertError } = await sb
             .from("users")
-            .upsert({ email: userEmail }, { onConflict: "email" });
+            .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
           if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
         }
 
@@ -47,7 +49,7 @@ export default function ChildConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        setTimeout(() => router.replace("/homepage"), 2500);
+        setTimeout(() => router.replace("/login"), 2500);
       }
     };
 

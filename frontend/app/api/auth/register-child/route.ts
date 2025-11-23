@@ -99,6 +99,13 @@ export async function POST(request: NextRequest) {
         if (linkError) {
           console.warn('[API Register Child] Failed to link child to guardian:', linkError)
           // Don't throw here as the auth was successful
+        } else {
+          console.log('[API Register Child] Successfully linked child to guardian')
+        }
+        
+        if (linkError) {
+          console.warn('[API Register Child] Failed to link child to guardian:', linkError)
+          // Don't throw here as the auth was successful
         }
       } catch (linkError) {
         console.debug('[API Register Child] Error linking child to guardian:', linkError)

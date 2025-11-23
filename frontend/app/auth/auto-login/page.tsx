@@ -76,8 +76,8 @@ export default function AutoLoginPage() {
         } catch (logError) {
           console.error('[auto-login] failed to log error details:', logError);
         }
-        // Fallback: send user to login
-        setTimeout(() => router.replace("/login"), 2500);
+        // Fallback: send user to landing page to avoid login loops
+        setTimeout(() => router.replace("/landing-page"), 2500);
       }
     };
 
