@@ -91,13 +91,6 @@ export async function middleware(req: NextRequest) {
       }
     )
     
-    // Special handling for homepage - allow access even without session
-    if (pathname === '/homepage') {
-      console.log('[Middleware] Allowing access to homepage');
-      setGuestCookie(req, res);
-      return res;
-    }
-
     // Use getUser() for secure user data instead of relying on session.user directly
     const { data: { user }, error } = await supabase.auth.getUser();
     const sessionExists = !error && user;
@@ -110,19 +103,6 @@ export async function middleware(req: NextRequest) {
       userMetadata: user?.user_metadata,
       error: error?.message
     });
-
-    // If there's an authentication error but we're trying to access a public path, allow it
-    if (error && isPublic) {
-      console.log('[Middleware] Authentication error but accessing public path, allowing access');
-      return res;
-    }
-    
-    // If there's an authentication error and we're not accessing a public path, redirect to landing page
-    if (error && !isPublic) {
-      console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
-      const dest = new URL('/landing-page', req.url);
-      return NextResponse.redirect(dest);
-    }
 
     // Define protected routes
     const protectedPaths = [
@@ -137,6 +117,26 @@ export async function middleware(req: NextRequest) {
     const isProtectedRoute = protectedPaths.some(path => 
       pathname.startsWith(path)
     )
+
+    // Special handling for homepage - allow access even without session
+    if (pathname === '/homepage') {
+      console.log('[Middleware] Allowing access to homepage');
+      setGuestCookie(req, res);
+      return res;
+    }
+    
+    // If there's an authentication error but we're trying to access a public path, allow it
+    if (error && isPublic) {
+      console.log('[Middleware] Authentication error but accessing public path, allowing access');
+      return res;
+    }
+    
+    // If there's an authentication error and we're not accessing a public path, redirect to landing page
+    if (error && !isPublic) {
+      console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
+      const dest = new URL('/landing-page', req.url);
+      return NextResponse.redirect(dest);
+    }
 
     // If the user is not authenticated and trying to access a protected route, redirect to login
     if (!sessionExists && isProtectedRoute) {
@@ -217,11 +217,6 @@ export async function middleware(req: NextRequest) {
       console.log('[Middleware] Non-guardian user accessing guardian path, redirecting to landing page')
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
-    }
-
-    // Set guest cookie for landing page visits
-    if (pathname === '/homepage') {
-      setGuestCookie(req, res)
     }
 
     // Log successful middleware pass-through
