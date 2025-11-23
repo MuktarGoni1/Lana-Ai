@@ -33,24 +33,12 @@ export default async function Homepage() {
     redirect('/term-plan?onboarding=1')
   }
   
-  // If user is authenticated and onboarding is complete, redirect to appropriate dashboard
-  const role = user.user_metadata?.role
-  console.log('[Homepage] User role:', role)
-  
-  if (role === 'child') {
-    console.log('[Homepage] Redirecting child user to personalised-ai-tutor')
-    redirect('/personalised-ai-tutor')
-  } else if (role === 'guardian') {
-    console.log('[Homepage] Redirecting guardian user to guardian dashboard')
-    redirect('/guardian')
-  } else {
-    // For users without a specific role, stay on homepage
-    console.log('[Homepage] User has no specific role, staying on homepage')
-    return (
-      <div>
-        <h1>Welcome to your dashboard</h1>
-        <p>You are successfully logged in.</p>
-      </div>
-    )
-  }
+  // If user is authenticated and onboarding is complete, stay on homepage for all users
+  console.log('[Homepage] User has completed onboarding, staying on homepage')
+  return (
+    <div>
+      <h1>Welcome to your dashboard</h1>
+      <p>You are successfully logged in.</p>
+    </div>
+  )
 }

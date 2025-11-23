@@ -46,7 +46,6 @@ function TermPlanPageContent() {
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
   
-  // Save subjects and topics to localStorage before completing onboarding
   const saveToLocalAndCompleteOnboarding = async () => {
     setSaving(true);
     try {
@@ -136,21 +135,9 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect based on user role
-      const role = session?.user?.user_metadata?.role as "guardian" | "child" | undefined;
-      console.log('[term-plan] redirecting based on user role:', role);
-      
-      if (role === 'child') {
-        console.log('[term-plan] redirecting child user to homepage');
-        router.replace('/homepage');
-      } else if (role === 'guardian') {
-        console.log('[term-plan] redirecting guardian user to guardian dashboard');
-        router.replace('/guardian');
-      } else {
-        // For users without a specific role, go to generic homepage
-        console.log('[term-plan] redirecting to homepage for user without specific role');
-        router.replace('/homepage');
-      }
+      // Redirect all users to homepage regardless of role
+      console.log('[term-plan] redirecting all users to homepage');
+      router.replace('/homepage');
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);

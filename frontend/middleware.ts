@@ -198,6 +198,13 @@ export async function middleware(req: NextRequest) {
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }
+    
+    // Special handling for homepage - allow access even without session
+    if (pathname === '/homepage') {
+      console.log('[Middleware] Allowing access to homepage')
+      setGuestCookie(req, res)
+      return res
+    }
 
     // Role-based normalization
     if (pathname.startsWith('/guardian') && role !== 'guardian') {
