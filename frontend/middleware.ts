@@ -90,6 +90,13 @@ export async function middleware(req: NextRequest) {
         },
       }
     )
+    
+    // Special handling for homepage - allow access even without session
+    if (pathname === '/homepage') {
+      console.log('[Middleware] Allowing access to homepage');
+      setGuestCookie(req, res);
+      return res;
+    }
 
     // Use getUser() for secure user data instead of relying on session.user directly
     const { data: { user }, error } = await supabase.auth.getUser();
@@ -102,7 +109,20 @@ export async function middleware(req: NextRequest) {
       email: user?.email,
       userMetadata: user?.user_metadata,
       error: error?.message
-    })
+    });
+
+    // If there's an authentication error but we're trying to access a public path, allow it
+    if (error && isPublic) {
+      console.log('[Middleware] Authentication error but accessing public path, allowing access');
+      return res;
+    }
+    
+    // If there's an authentication error and we're not accessing a public path, redirect to landing page
+    if (error && !isPublic) {
+      console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
+      const dest = new URL('/landing-page', req.url);
+      return NextResponse.redirect(dest);
+    }
 
     // Define protected routes
     const protectedPaths = [
@@ -190,20 +210,6 @@ export async function middleware(req: NextRequest) {
         const dest = new URL('/homepage', req.url)
         return NextResponse.redirect(dest)
       }
-    }
-
-    // If unauthenticated and not trying to access a public path, send to landing page
-    if (!sessionExists && !isPublic && pathname !== '/landing-page' && pathname !== '/') {
-      console.log('[Middleware] Unauthenticated user accessing non-public path, redirecting to landing page')
-      const dest = new URL('/landing-page', req.url)
-      return NextResponse.redirect(dest)
-    }
-    
-    // Special handling for homepage - allow access even without session
-    if (pathname === '/homepage') {
-      console.log('[Middleware] Allowing access to homepage')
-      setGuestCookie(req, res)
-      return res
     }
 
     // Role-based normalization

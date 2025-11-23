@@ -11,6 +11,10 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 18
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        value: https://ieqqsgpaivxmcgcflanu.supabase.co
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcXFzZ3BhaXZ4bWNnY2ZsYW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzODI5ODAsImV4cCI6MjA3Mzk1ODk4MH0.H0XLpSpgQ7Fypy7iOFu4aY7zsQ47eDkaeh6Y5ci0HQc
       - key: NEXT_PUBLIC_API_BASE
         value: https://lana-ai.onrender.com
       - key: NEXT_PUBLIC_USE_PROXY
@@ -18,4 +22,4 @@ services:
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: SUPABASE_SERVICE_ROLE_KEY
-        sync: false
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcXFzZ3BhaXZ4bWNnY2ZsYW51Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODM4Mjk4MCwiZXhwIjoyMDczOTU4OTgwfQ.J5GTWN6N-vIEI8nsuvux8PTrbfg2txpCNwhdtocWBQU
