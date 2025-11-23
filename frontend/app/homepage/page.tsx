@@ -17,6 +17,7 @@ import {
   Pause,
   Video,
   BookOpen,
+  PersonStandingIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
@@ -131,7 +132,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
 Textarea.displayName = "Textarea";
 
 /* ------------------------------------------------------------------ */
-/* NEW lesson card component (inline)                                 */
+/* lesson card component (inline)                                 */
 /* ------------------------------------------------------------------ */
 
 interface LessonSection {
@@ -155,7 +156,7 @@ interface Lesson {
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
   // Lightly sanitize markdown-like tokens and normalize bullets per line
-  // Lightly sanitize markdown-like tokens and normalize bullets per line
+
   const sanitizeLine = (line: string) => {
     return line
       .replaceAll("**", "")
@@ -311,7 +312,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       if (!firstUrl && ttsError) {
         // If first attempt failed, try once more after a short delay
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const retryUrl = await fetchTTSBlobUrl(segments[0], true /* isRetry */);
+        const retryUrl = await fetchTTSBlobUrl(segments[0], false /* isRetry */);
         if (retryUrl) {
           setAudioUrl(retryUrl);
           setAudioQueue([retryUrl]);
@@ -596,9 +597,9 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <Video className="w-4 h-4" />, label: "Explain Mode", description: "Detailed video explanation", prefix: "/video" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Step-by-Step", description: "Break complex topics down", prefix: "/steps" },
-    { icon: <Play className="w-4 h-4" />, label: "Interactive Demo", description: "See it in action", prefix: "/demo" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equtions,for simple solutions with explainer", prefix: "/Maths" },
+    { icon: <Play className="w-4 h-4" />, label: "Chats", description: "Chat and ask your friendly Ai", prefix: "/Chat" },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
   ];
 
@@ -898,7 +899,7 @@ interface AnimatedAIChatProps {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-        {/* Save message notification - positioned above logo */}
+        {/* Save message notification */}
         <AnimatePresence>
           {saveMessage && (
             <motion.div 
@@ -1025,7 +1026,7 @@ interface AnimatedAIChatProps {
               />
             </div>
 
-            {/* AI response area — moved OUTSIDE input container */}
+            {/* Response area */}
             {error && (
               <div className="px-4 pb-4">
                 <motion.div 

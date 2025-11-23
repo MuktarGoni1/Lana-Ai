@@ -37,7 +37,6 @@ export async function middleware(req: NextRequest) {
     // Identify public routes and static assets
     const PUBLIC_PATHS = [
       '/landing-page',
-      '/homepage',
       '/login',
       '/register',
       '/register/form',
@@ -46,7 +45,7 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed',
       '/auth/confirmed/guardian',
       '/auth/confirmed/child',
-      '/auth/auto-login', // Add the new auto-login route
+      '/auth/auto-login',
       '/quiz',
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))

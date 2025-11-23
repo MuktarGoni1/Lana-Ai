@@ -135,7 +135,7 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect all users to homepage regardless of role
+      // Redirect all users to homepage
       console.log('[term-plan] redirecting all users to homepage');
       router.replace('/homepage');
     } catch (err: any) {
@@ -145,22 +145,9 @@ function TermPlanPageContent() {
         title: 'Onboarding Completed with Issues', 
         description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
       });
-      // Even if there's an error, still redirect to appropriate dashboard
-      console.log('[term-plan] redirecting to appropriate dashboard despite error');
-      // Get user role for proper redirection even in error cases
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        const role = user?.user_metadata?.role as "guardian" | "child" | undefined;
-        if (role === 'child') {
-          router.replace('/homepage');
-        } else if (role === 'guardian') {
-          router.replace('/guardian');
-        } else {
-          router.replace('/homepage');
-        }
-      }).catch(() => {
-        // Fallback to homepage if we can't get user info
-        router.replace('/homepage');
-      });
+      // Even if there's an error, redirect all users to homepage
+      console.log('[term-plan] redirecting all users to homepage despite error');
+      router.replace('/homepage');
     } finally {
       setSaving(false);
     }
@@ -238,14 +225,9 @@ function TermPlanPageContent() {
   
   // Skip to homepage functionality
   const handleSkipToHomepage = () => {
-    // Get current user for navigation
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      // For all users, redirect to homepage when skipping onboarding
-      router.push("/homepage");
-    }).catch(() => {
-      // If we can't get the user, still navigate to homepage
-      router.push("/homepage");
-    });
+    // Redirect all users to homepage
+    console.log('[term-plan] skipping to homepage for all users');
+    router.push('/homepage');
   };
   const [subjects, setSubjects] = useState<Subject[]>(() => {
     // Load from localStorage on initial render
