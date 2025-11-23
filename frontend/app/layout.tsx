@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { ClientProviders } from './providers'
 import { ThemeProvider } from 'next-themes'
+import { LocalChildrenManager } from '@/components/local-children-manager'
 
 export const metadata: Metadata = {
   title: 'lana-ai',
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <ClientProviders>{children}</ClientProviders>
+          <ClientProviders>
+            {children}
+            <LocalChildrenManager />
+          </ClientProviders>
         </ThemeProvider>
       </body>
     </html>

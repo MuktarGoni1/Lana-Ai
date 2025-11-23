@@ -205,53 +205,201 @@ export class AuthService {
 
   async registerChild(nickname: string, age: number, grade: string, guardianEmail: string) {
     try {
-      const child_uid = crypto.randomUUID();
-      const email = `${child_uid}@child.lana`;
-      const password = crypto.randomUUID(); // Generate a secure password
-
-      // Create the auth user
-      const { data, error: signError } = await supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: {
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/auth/confirmed/child`,
-        }
+      // Call the enhanced API route
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nickname,
+          age,
+          grade,
+          guardianEmail
+        }),
       });
 
-      if (signError) throw signError;
-
-      // Link child to guardian
-      try {
-        // Cast supabase to any to bypass typing issues
-        const sb: any = supabase;
-        const { error: linkError } = await sb.from("guardians").upsert({
-          id: crypto.randomUUID(),
-          email: guardianEmail,
-          child_uid: data.user?.id,
-          weekly_report: true,
-          monthly_report: false,
-        }, {
-          onConflict: 'email'
-        });
-        
-        if (linkError) {
-          console.warn('[AuthService] Failed to link child to guardian:', linkError);
-          // Don't throw here as the auth was successful
+      const result = await response.json();
+      
+      if (!result.success) {
+        // If API registration fails due to offline status, save locally
+        if (result.offline) {
+          this.saveChildLocally(nickname, age, grade, guardianEmail);
+          return {
+            success: false,
+            message: result.message,
+            offline: true
+          };
         }
-      } catch (linkError) {
-        console.debug('[AuthService] Error linking child to guardian:', linkError);
-      }
-
-      // Store session ID in localStorage for anonymous users
-      if (typeof window !== 'undefined') {
-        localStorage.setItem("lana_sid", child_uid);
+        // For other failures, still save locally
+        this.saveChildLocally(nickname, age, grade, guardianEmail);
+        throw new Error(result.message || 'Failed to register child');
       }
       
-      return data;
+      // Store session ID in localStorage for anonymous users (using first child if bulk)
+      if (typeof window !== 'undefined' && result.data && result.data.length > 0) {
+        const childData = result.data[0];
+        localStorage.setItem("lana_sid", childData.child_uid);
+      }
+      
+      return result;
     } catch (error: unknown) {
       console.debug("[AuthService] registerChild error:", error);
+      // Save locally on any network error
+      this.saveChildLocally(nickname, age, grade, guardianEmail);
       throw error;
+    }
+  }
+
+  async registerMultipleChildren(children: { nickname: string; age: number; grade: string }[], guardianEmail: string) {
+    try {
+      // Call the enhanced API route for bulk registration
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          children,
+          guardianEmail
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        // If API registration fails due to offline status, save locally
+        if (result.offline) {
+          children.forEach(child => {
+            this.saveChildLocally(child.nickname, child.age, child.grade, guardianEmail);
+          });
+          return {
+            success: false,
+            message: result.message,
+            offline: true
+          };
+        }
+        // For other failures, still save locally
+        children.forEach(child => {
+          this.saveChildLocally(child.nickname, child.age, child.grade, guardianEmail);
+        });
+        throw new Error(result.message || 'Failed to register children');
+      }
+      
+      return result;
+    } catch (error: unknown) {
+      console.debug("[AuthService] registerMultipleChildren error:", error);
+      // Save locally on any network error
+      children.forEach(child => {
+        this.saveChildLocally(child.nickname, child.age, child.grade, guardianEmail);
+      });
+      throw error;
+    }
+  }
+
+  // Save child data locally when API registration fails
+  saveChildLocally(nickname: string, age: number, grade: string, guardianEmail: string) {
+    if (typeof window !== 'undefined') {
+      try {
+        // Get existing local children or initialize empty array
+        const localChildren = this.getLocalChildren();
+        
+        // Create new child object
+        const newChild = {
+          id: crypto.randomUUID(),
+          nickname,
+          age,
+          grade,
+          guardianEmail,
+          createdAt: new Date().toISOString(),
+          linked: false // Mark as not yet linked to account
+        };
+        
+        // Add new child to local storage
+        localChildren.push(newChild);
+        localStorage.setItem('lana_local_children', JSON.stringify(localChildren));
+        
+        console.log('[AuthService] Child data saved locally:', newChild);
+      } catch (error) {
+        console.error('[AuthService] Failed to save child data locally:', error);
+      }
+    }
+  }
+
+  // Get locally saved children
+  getLocalChildren() {
+    if (typeof window !== 'undefined') {
+      try {
+        const localChildren = localStorage.getItem('lana_local_children');
+        return localChildren ? JSON.parse(localChildren) : [];
+      } catch (error) {
+        console.error('[AuthService] Failed to retrieve local children:', error);
+        return [];
+      }
+    }
+    return [];
+  }
+
+  // Link local children to account when connection is restored
+  async linkLocalChildrenToAccount(guardianEmail: string) {
+    try {
+      const localChildren: any[] = this.getLocalChildren();
+      
+      if (localChildren.length === 0) {
+        return { success: true, message: 'No local children to link' };
+      }
+      
+      // Try to register each local child
+      const results: any[] = [];
+      const failedChildren: any[] = [];
+      
+      for (const child of localChildren) {
+        try {
+          const response = await fetch('/api/auth/register-child', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nickname: child.nickname,
+              age: child.age,
+              grade: child.grade,
+              guardianEmail: child.guardianEmail
+            }),
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            results.push({ ...child, linked: true });
+          } else {
+            failedChildren.push({ child, error: result.message });
+          }
+        } catch (error) {
+          failedChildren.push({ child, error: error instanceof Error ? error.message : 'Unknown error' });
+        }
+      }
+      
+      // Update local storage with linked status
+      if (results.length > 0) {
+        const remainingLocalChildren = localChildren.filter((localChild: any) => 
+          !results.some((result: any) => result.id === localChild.id)
+        );
+        localStorage.setItem('lana_local_children', JSON.stringify(remainingLocalChildren));
+      }
+      
+      return {
+        success: true,
+        linked: results,
+        failed: failedChildren,
+        message: `${results.length} children linked, ${failedChildren.length} failed`
+      };
+    } catch (error) {
+      console.error('[AuthService] Error linking local children:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'Failed to link local children'
+      };
     }
   }
 }
