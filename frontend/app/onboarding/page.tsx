@@ -1,5 +1,5 @@
 "use client"
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
@@ -18,6 +18,45 @@ export default function OnboardingPage() {
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const authService = new AuthService()
+  
+  // Check for and sync local children data when component mounts
+  useEffect(() => {
+    const syncLocalChildren = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user?.email) {
+          // Check if there are local children to sync
+          const localChildren = authService.getLocalChildren();
+          if (localChildren.length > 0) {
+            toast({
+              title: "Syncing Local Data",
+              description: `Found ${localChildren.length} children saved locally. Syncing with account...`,
+            });
+            
+            // Try to sync local children
+            const result = await authService.linkLocalChildrenToAccount(session.user.email);
+            
+            if (result.success) {
+              toast({
+                title: "Sync Complete",
+                description: result.message,
+              });
+            } else {
+              toast({
+                title: "Sync Partially Failed",
+                description: result.message,
+                variant: "destructive",
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('[Onboarding] Error syncing local children:', error);
+      }
+    };
+    
+    syncLocalChildren();
+  }, []);
 
   // Validation functions
   const validateNickname = (value: string) => {

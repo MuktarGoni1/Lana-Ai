@@ -45,6 +45,41 @@ function TermPlanPageContent() {
 
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
+  
+  // Save subjects and topics to localStorage before completing onboarding
+  const saveToLocalAndCompleteOnboarding = async () => {
+    setSaving(true);
+    try {
+      console.log('[term-plan] Saving subjects and topics to localStorage');
+      console.log('[term-plan] Number of subjects to save:', subjects.length);
+      
+      // Save to localStorage
+      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
+      
+      toast({ 
+        title: 'Plan Saved Locally', 
+        description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
+      });
+      
+      // Complete onboarding
+      await completeOnboardingAndRedirect();
+    } catch (err: any) {
+      console.error('[term-plan] Error saving plan locally:', err.message);
+      console.error('[term-plan] Save error details:', err);
+      toast({ 
+        title: 'Save Error', 
+        description: 'Failed to save your study plan locally.',
+        variant: "destructive"
+      });
+      
+      // Still complete onboarding even if saving fails
+      await completeOnboardingAndRedirect();
+    } finally {
+      setSaving(false);
+    }
+  };
+  
   const completeOnboardingAndRedirect = async () => {
     setSaving(true);
     try {
@@ -148,17 +183,50 @@ function TermPlanPageContent() {
   const saveAndCompleteOnboarding = async () => {
     setSaving(true);
     try {
-      console.log('[term-plan] Saving subjects and topics to localStorage');
+      console.log('[term-plan] Saving subjects and topics');
       console.log('[term-plan] Number of subjects to save:', subjects.length);
       
-      // Save to localStorage
-      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
-      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
-      
-      toast({ 
-        title: 'Plan Saved', 
-        description: 'Your study plan has been saved successfully.' 
-      });
+      // Try to save to backend first
+      try {
+        // Get current user session
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session?.user?.email) {
+          throw new Error('No authenticated user found');
+        }
+        
+        // Save to backend API
+        const response = await fetch('/api/study-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: session.user.email,
+            subjects
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to save study plan');
+        }
+        
+        console.log('[term-plan] Successfully saved subjects and topics to backend');
+        toast({ 
+          title: 'Plan Saved', 
+          description: 'Your study plan has been saved successfully.' 
+        });
+      } catch (err: any) {
+        // If backend save fails, save locally
+        console.error('[term-plan] Backend save failed, saving locally:', err.message);
+        localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+        toast({ 
+          title: 'Plan Saved Locally', 
+          description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
+        });
+      }
       
       // Complete onboarding
       await completeOnboardingAndRedirect();
@@ -192,7 +260,19 @@ function TermPlanPageContent() {
       router.push("/homepage");
     });
   };
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>(() => {
+    // Load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('lana_study_plan');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error('Failed to parse saved study plan:', e);
+        return [];
+      }
+    }
+    return [];
+  });
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
 
@@ -269,8 +349,12 @@ function TermPlanPageContent() {
       isExpanded: true
     };
     
-    setSubjects([...subjects, newSubject]);
+    const updatedSubjects = [...subjects, newSubject];
+    setSubjects(updatedSubjects);
     setSubjectInput("");
+    
+    // Save to localStorage
+    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const addTopic = (subjectId: string) => {
@@ -287,33 +371,51 @@ function TermPlanPageContent() {
       })
     };
 
-    setSubjects(subjects.map(subject => 
+    const updatedSubjects = subjects.map(subject => 
       subject.id === subjectId 
         ? { ...subject, topics: [...subject.topics, newTopic] }
         : subject
-    ));
+    );
     
+    setSubjects(updatedSubjects);
     setTopicInputs({ ...topicInputs, [subjectId]: "" });
+    
+    // Save to localStorage
+    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const toggleSubject = (subjectId: string) => {
-    setSubjects(subjects.map(subject =>
+    const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, isExpanded: !subject.isExpanded }
         : subject
-    ));
+    );
+    
+    setSubjects(updatedSubjects);
+    
+    // Save to localStorage
+    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const deleteSubject = (subjectId: string) => {
-    setSubjects(subjects.filter(subject => subject.id !== subjectId));
+    const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
+    setSubjects(updatedSubjects);
+    
+    // Save to localStorage
+    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const deleteTopic = (subjectId: string, topicId: string) => {
-    setSubjects(subjects.map(subject =>
+    const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
         : subject
-    ));
+    );
+    
+    setSubjects(updatedSubjects);
+    
+    // Save to localStorage
+    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   // Show loading state while checking authentication
