@@ -1,59 +1,296 @@
-import { describe, it, expect } from '@jest/globals';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import userEvent from '@testing-library/user-event';
+import TermPlanPage from '../app/term-plan/page';
 
-describe('Onboarding Flow', () => {
-  it('should have proper error handling and logging', () => {
-    // This is a placeholder test to verify that our fixes are in place
-    // The actual implementation has been updated with better error handling and logging
-    expect(true).toBe(true);
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+  useRouter: jest.fn(),
+  useSearchParams: jest.fn(),
+}));
+
+// Mock the Supabase client
+jest.mock('@/lib/db', () => ({
+  supabase: {
+    auth: {
+      updateUser: jest.fn(),
+      getSession: jest.fn(),
+    },
+  },
+}));
+
+// Mock useEnhancedAuth hook
+jest.mock('@/hooks/useEnhancedAuth', () => ({
+  useEnhancedAuth: jest.fn(),
+}));
+
+// Mock useToast hook
+jest.mock('@/hooks/use-toast', () => ({
+  useToast: () => ({
+    toast: jest.fn(),
+  }),
+}));
+
+// Mock localStorage
+Object.defineProperty(window, 'localStorage', {
+  value: {
+    getItem: jest.fn(),
+    setItem: jest.fn(),
+    removeItem: jest.fn(),
+  },
+  writable: true,
+});
+
+describe('Onboarding Flow Tests', () => {
+  const mockPush = jest.fn();
+  const mockReplace = jest.fn();
+  const mockToast = jest.fn();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (useRouter as jest.Mock).mockReturnValue({
+      push: mockPush,
+      replace: mockReplace,
+    });
+    
+    // Mock useToast
+    jest.mock('@/hooks/use-toast', () => ({
+      useToast: () => ({
+        toast: mockToast,
+      }),
+    }));
   });
-  
-  it('should validate form inputs correctly', () => {
-    // Test that validation functions exist and work correctly
-    expect(true).toBe(true);
-  });
-  
-  it('should handle authentication errors gracefully', () => {
-    // Test that authentication errors are handled properly
-    expect(true).toBe(true);
-  });
-  
-  it('should handle database errors gracefully', () => {
-    // Test that database errors are handled properly
-    expect(true).toBe(true);
-  });
-  
-  it('should successfully add a child manually', async () => {
-    // Test the complete child addition flow
-    expect(true).toBe(true);
-  });
-  
-  it('should call the register-child API correctly', async () => {
-    // Test that the API is called with the correct parameters
-    expect(true).toBe(true);
-  });
-  
-  it('should handle successful child registration', async () => {
-    // This test verifies that our implementation can handle the registration flow
-    expect(true).toBe(true);
-  });
-  
-  it('should handle registration API errors', async () => {
-    // This test verifies that our implementation can handle API errors
-    expect(true).toBe(true);
-  });
-  
-  it('should support adding multiple children', () => {
-    // Test that multiple children can be added
-    expect(true).toBe(true);
-  });
-  
-  it('should support CSV import for bulk registration', () => {
-    // Test that CSV files can be imported
-    expect(true).toBe(true);
-  });
-  
-  it('should redirect to term-plan after successful registration', () => {
-    // Test that users are redirected after successful registration
-    expect(true).toBe(true);
+
+  describe('Term Plan Page', () => {
+    it('should render term plan page for onboarding', () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return authenticated user
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      render(<TermPlanPage />);
+      
+      expect(screen.getByText('Build Your Study Plan')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Enter subject name (e.g., Mathematics, Physics)')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Add Subject' })).toBeInTheDocument();
+      
+      // Check for onboarding footer buttons
+      expect(screen.getByRole('button', { name: 'Skip to homepage' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Save plan and continue' })).toBeInTheDocument();
+    });
+
+    it('should handle adding subjects and topics', async () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return authenticated user
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      render(<TermPlanPage />);
+      
+      const subjectInput = screen.getByPlaceholderText('Enter subject name (e.g., Mathematics, Physics)');
+      const addSubjectButton = screen.getByRole('button', { name: 'Add Subject' });
+      
+      // Add a subject
+      await userEvent.type(subjectInput, 'Mathematics');
+      await userEvent.click(addSubjectButton);
+      
+      // Verify subject is added
+      expect(screen.getByText('Mathematics')).toBeInTheDocument();
+      
+      // Add a topic to the subject
+      const topicInput = screen.getByPlaceholderText('Add a topic (e.g., Limits & Continuity)');
+      const addTopicButton = screen.getByRole('button', { name: 'Add' });
+      
+      await userEvent.type(topicInput, 'Algebra');
+      await userEvent.click(addTopicButton);
+      
+      // Verify topic is added
+      expect(screen.getByText('Algebra')).toBeInTheDocument();
+    });
+
+    it('should handle skipping onboarding', async () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return authenticated user
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        user: {
+          id: 'test-user-id',
+          email: 'test@example.com',
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
+      render(<TermPlanPage />);
+      
+      const skipButton = screen.getByRole('button', { name: 'Skip to homepage' });
+      await userEvent.click(skipButton);
+      
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/homepage');
+      });
+    });
+
+    it('should handle saving study plan and completing onboarding', async () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return authenticated user
+      const mockUser = {
+        id: 'test-user-id',
+        email: 'test@example.com',
+      };
+      
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        user: mockUser,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      
+      // Mock Supabase updateUser
+      const supabaseMock = require('@/lib/db').supabase;
+      supabaseMock.auth.updateUser.mockResolvedValue({ error: null });
+      
+      // Mock localStorage
+      const localStorageMock = {
+        getItem: jest.fn(() => JSON.stringify([])),
+        setItem: jest.fn(),
+      };
+      Object.defineProperty(window, 'localStorage', {
+        value: localStorageMock,
+        writable: true,
+      });
+
+      render(<TermPlanPage />);
+      
+      // Add a subject first
+      const subjectInput = screen.getByPlaceholderText('Enter subject name (e.g., Mathematics, Physics)');
+      const addSubjectButton = screen.getByRole('button', { name: 'Add Subject' });
+      
+      await userEvent.type(subjectInput, 'Mathematics');
+      await userEvent.click(addSubjectButton);
+      
+      const saveButton = screen.getByRole('button', { name: 'Save plan and continue' });
+      await userEvent.click(saveButton);
+      
+      await waitFor(() => {
+        // Verify localStorage was called to save the study plan
+        expect(localStorageMock.setItem).toHaveBeenCalledWith('lana_study_plan', expect.any(String));
+        
+        // Verify updateUser was called to mark onboarding as complete
+        expect(supabaseMock.auth.updateUser).toHaveBeenCalledWith({
+          data: { onboarding_complete: true },
+        });
+        
+        // Verify redirect to homepage
+        expect(mockReplace).toHaveBeenCalledWith('/homepage');
+      });
+    });
+
+    it('should handle onboarding completion errors gracefully', async () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return authenticated user
+      const mockUser = {
+        id: 'test-user-id',
+        email: 'test@example.com',
+      };
+      
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        user: mockUser,
+        isAuthenticated: true,
+        isLoading: false,
+      });
+      
+      // Mock Supabase updateUser to return an error
+      const supabaseMock = require('@/lib/db').supabase;
+      supabaseMock.auth.updateUser.mockResolvedValue({ error: new Error('Failed to update user') });
+      
+      // Mock localStorage
+      const localStorageMock = {
+        getItem: jest.fn(() => JSON.stringify([])),
+        setItem: jest.fn(),
+      };
+      Object.defineProperty(window, 'localStorage', {
+        value: localStorageMock,
+        writable: true,
+      });
+
+      render(<TermPlanPage />);
+      
+      const saveButton = screen.getByRole('button', { name: 'Save plan and continue' });
+      await userEvent.click(saveButton);
+      
+      await waitFor(() => {
+        // Verify toast notification for the error
+        expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
+          title: 'Notice',
+          description: 'Unable to save onboarding status, but continuing anyway.',
+          variant: 'default',
+        }));
+        
+        // Still redirect to homepage despite error
+        expect(mockReplace).toHaveBeenCalledWith('/homepage');
+      });
+    });
+
+    it('should redirect unauthenticated users to login', async () => {
+      (useSearchParams as jest.Mock).mockReturnValue({
+        get: jest.fn((param) => {
+          if (param === 'onboarding') return '1';
+          return null;
+        }),
+      });
+      
+      // Mock useEnhancedAuth to return unauthenticated user
+      jest.requireMock('@/hooks/useEnhancedAuth').useEnhancedAuth = () => ({
+        isAuthenticated: false,
+        isLoading: false,
+      });
+
+      render(<TermPlanPage />);
+      
+      await waitFor(() => {
+        expect(mockPush).toHaveBeenCalledWith('/login');
+      });
+    });
   });
 });
