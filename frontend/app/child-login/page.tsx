@@ -22,7 +22,7 @@ export default function ChildLoginPage() {
         
         if (role === "child") {
           if (onboardingComplete) {
-            router.push("/personalised-ai-tutor")
+            router.push("/homepage")
           } else {
             router.push("/term-plan?onboarding=1")
           }

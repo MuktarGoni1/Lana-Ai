@@ -341,7 +341,7 @@ function ChatWithSidebarContent() {
               {role === "guardian" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => router.push("/guardian")}
+                    onClick={() => router.push("/homepage")}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <Mail className="w-4 h-4" />

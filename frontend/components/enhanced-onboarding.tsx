@@ -192,12 +192,8 @@ export default function EnhancedOnboarding() {
           description: 'Your plan has been saved. Redirecting to dashboard...' 
         });
         
-        // Redirect to appropriate page
-        if (returnTo) {
-          router.replace(returnTo);
-        } else {
-          router.replace('/homepage');
-        }
+        // Redirect to homepage with onboarding completion flag
+        router.replace('/homepage?onboardingComplete=1');
       } else {
         toast({ 
           title: 'Onboarding Error', 

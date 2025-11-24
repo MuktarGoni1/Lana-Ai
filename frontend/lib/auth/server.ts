@@ -52,14 +52,7 @@ export async function redirectIfAuthenticated(): Promise<void> {
       return
     }
     
-    // Redirect to appropriate dashboard based on role
-    const role = user.user_metadata?.role as 'child' | 'guardian' | undefined
-    if (role === 'child') {
-      redirect('/personalised-ai-tutor')
-    } else if (role === 'guardian') {
-      redirect('/guardian')
-    } else {
-      redirect('/homepage')
-    }
+    // Redirect all authenticated users to homepage
+    redirect('/homepage')
   }
 }

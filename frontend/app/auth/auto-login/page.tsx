@@ -46,16 +46,9 @@ export default function AutoLoginPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Redirect based on user role
-        const role = user.user_metadata?.role as "guardian" | "child" | undefined;
+        // Redirect all authenticated users to homepage
         setTimeout(() => {
-          if (role === "child") {
-            router.replace("/personalised-ai-tutor");
-          } else if (role === "guardian") {
-            router.replace("/guardian");
-          } else {
-            router.replace("/homepage");
-          }
+          router.replace("/homepage");
         }, 1000);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);

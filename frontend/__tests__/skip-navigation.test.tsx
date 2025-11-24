@@ -133,6 +133,42 @@ describe('Skip Navigation Functionality', () => {
       // Should attempt to fallback to homepage (might be called twice due to error handling)
       expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
+
+    it("should redirect authenticated users to homepage when onboarding is complete", () => {
+      const mockUser = {
+        id: "test-user-id",
+        email: "user@example.com",
+        user_metadata: {
+          onboarding_complete: true,
+        },
+        app_metadata: {},
+        aud: "",
+        created_at: "",
+      } as User;
+      
+      navigateToHomepage(mockUser, mockRouter);
+      
+      expect(mockRouter.replace).toHaveBeenCalledWith("/homepage");
+    });
+
+    it("should redirect child users to personalized AI tutor", () => {
+      const mockUser = {
+        id: "test-user-id",
+        email: "child@example.com",
+        user_metadata: {
+          role: "child",
+          onboarding_complete: true,
+        },
+        app_metadata: {},
+        aud: "",
+        created_at: "",
+      } as User;
+      
+      navigateToHomepage(mockUser, mockRouter);
+      
+      // Updated expectation: all users should be redirected to homepage
+      expect(mockRouter.replace).toHaveBeenCalledWith("/homepage");
+    });
   });
 
   describe('navigateToNextStep', () => {

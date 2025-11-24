@@ -265,7 +265,7 @@ export default function OnboardingPage() {
   }
 
   const handleBackToDashboard = () => {
-    router.push("/guardian")
+    router.push("/homepage")
   }
 
   const handleSkipToHomepage = () => {

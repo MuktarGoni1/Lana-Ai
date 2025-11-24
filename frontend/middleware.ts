@@ -153,18 +153,9 @@ export async function middleware(req: NextRequest) {
 
     if (sessionExists && isAuthPath) {
       console.log('[Middleware] Authenticated user accessing auth path, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+      // Redirect all authenticated users to homepage
+      const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
     }
 
     // First-time onboarding enforcement
@@ -172,43 +163,36 @@ export async function middleware(req: NextRequest) {
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
     const isOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/term-plan')
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
+    
+    // Check if this is a redirect from onboarding completion
+    const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
+    
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')
       const returnTo = `${pathname}${url.search}`
       const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
-
-    // If authenticated and trying to access the landing page, send to appropriate dashboard
-    if (sessionExists && pathname === '/landing-page') {
-      console.log('[Middleware] Authenticated user accessing landing page, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+    
+    // If onboarding was just completed, redirect to homepage regardless of role
+    if (isOnboardingCompletion) {
+      console.log('[Middleware] Onboarding just completed, redirecting to homepage')
+      const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
     }
 
-    // If authenticated and hitting root, redirect to appropriate dashboard
+    // If authenticated and trying to access the landing page, send to homepage
+    if (sessionExists && pathname === '/landing-page') {
+      console.log('[Middleware] Authenticated user accessing landing page, redirecting to homepage')
+      const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
+    }
+
+    // If authenticated and hitting root, redirect to homepage
     if (sessionExists && pathname === '/') {
-      console.log('[Middleware] Authenticated user accessing root, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+      console.log('[Middleware] Authenticated user accessing root, redirecting to homepage')
+      const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
     }
 
     // Role-based normalization

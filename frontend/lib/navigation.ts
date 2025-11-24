@@ -33,22 +33,9 @@ export function navigateToHomepage(user: User | null, router: any) {
       return;
     }
 
-    // Get user role
-    const role = user.user_metadata?.role;
-
-    // Navigate based on role
-    let targetPath = '/homepage';
-    if (role === 'child') {
-      console.log('[Navigation] Redirecting child user to personalised-ai-tutor');
-      targetPath = '/personalised-ai-tutor';
-    } else if (role === 'guardian') {
-      console.log('[Navigation] Redirecting guardian user to guardian dashboard');
-      targetPath = '/guardian';
-    } else {
-      // For users without a specific role, go to generic homepage
-      console.log('[Navigation] User has no specific role, redirecting to generic homepage');
-      targetPath = '/homepage';
-    }
+    // Navigate all authenticated users to homepage
+    console.log('[Navigation] Redirecting authenticated user to homepage');
+    const targetPath = '/homepage';
 
     // Navigate to target path
     if (router && typeof router.replace === 'function') {
