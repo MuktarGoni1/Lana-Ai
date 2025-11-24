@@ -4,6 +4,21 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import LoginPage from '@/app/login/page';
+import '@testing-library/jest-dom';
+
+// Mock Supabase client to prevent initialization errors
+jest.mock('@/lib/db', () => ({
+  supabase: {
+    auth: {
+      onAuthStateChange: jest.fn(),
+      getUser: jest.fn(),
+      signInWithOtp: jest.fn(),
+      signOut: jest.fn(),
+      updateUser: jest.fn(),
+      refreshSession: jest.fn(),
+    },
+  },
+}));
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -24,6 +39,8 @@ jest.mock('@/hooks/use-toast', () => ({
 }));
 
 // Mock AuthService
+import type { AuthService } from '@/lib/services/authService';
+
 jest.mock('@/lib/services/authService', () => {
   return {
     AuthService: jest.fn().mockImplementation(() => ({
@@ -96,7 +113,7 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should handle successful login for verified users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail = jest.fn<Promise<{ exists: boolean; confirmed: boolean; userId?: string | null; }>, [string]>().mockResolvedValue({
       exists: true,
       confirmed: true,
       userId: 'user-123',
@@ -122,9 +139,10 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should show error message for unverified users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail = jest.fn<Promise<{ exists: boolean; confirmed: boolean; userId?: string | null; }>, [string]>().mockResolvedValue({
       exists: true,
       confirmed: false,
+      userId: null,
     });
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
@@ -150,9 +168,10 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should show error message for non-existent users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail = jest.fn<Promise<{ exists: boolean; confirmed: boolean; userId?: string | null; }>, [string]>().mockResolvedValue({
       exists: false,
       confirmed: false,
+      userId: null,
     });
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
@@ -178,7 +197,7 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    const mockVerifyEmail = jest.fn().mockRejectedValue(new Error('API Error'));
+    const mockVerifyEmail = jest.fn<Promise<{ exists: boolean; confirmed: boolean; userId?: string | null; }>, [string]>().mockRejectedValue(new Error('API Error'));
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
     AuthServiceMock.mockImplementation(() => ({

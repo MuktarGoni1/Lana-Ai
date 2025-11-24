@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     # Database and Redis
     database_url: str = ""
     redis_url: str = ""
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
 
     @field_validator("cors_origins", mode="before")
     def parse_origins(cls, v):
@@ -64,6 +68,10 @@ def load_settings() -> Settings:
         "supabase_service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
         "supabase_anon_key": os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
         "redis_url": os.getenv("REDIS_URL", ""),
+        "redis_host": os.getenv("REDIS_HOST", "localhost"),
+        "redis_port": int(os.getenv("REDIS_PORT", "6379")),
+        "redis_db": int(os.getenv("REDIS_DB", "0")),
+        "redis_password": os.getenv("REDIS_PASSWORD"),
     }
     return Settings(**values)
 

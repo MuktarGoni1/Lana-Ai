@@ -3,13 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { BookOpen, ChevronDown, ChevronUp, Plus, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
-import { supabase } from '@/lib/db';
-import { useToast } from '@/hooks/use-toast';
 
-/* ---------- Types ---------- */
 interface Topic {
   id: string;
   name: string;
@@ -24,25 +22,13 @@ interface Subject {
   isExpanded: boolean;
 }
 
-/* ---------- main page ---------- */
-import { Suspense } from "react";
-
-function TermPlanPageContent() {
+export default function EnhancedOnboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
-  const onboardingParam = searchParams.get("onboarding");
-  const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
+  const { user, isAuthenticated, isLoading, completeOnboarding } = useEnhancedAuth();
   const returnTo = searchParams.get("returnTo");
   
-  // Authentication state is now handled by useEnhancedAuth hook
-  
-  // Check if this is a child user (no email) to adjust the flow
-  const [isChildUser, setIsChildUser] = useState(false);
-
-  // Persist onboarding completion flag and redirect appropriately
-  const [saving, setSaving] = useState(false);
   const [subjects, setSubjects] = useState<Subject[]>(() => {
     // Load from localStorage on initial render
     if (typeof window !== 'undefined') {
@@ -56,8 +42,17 @@ function TermPlanPageContent() {
     }
     return [];
   });
+  
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.push("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
 
   // Save subjects to localStorage whenever they change
   useEffect(() => {
@@ -66,137 +61,71 @@ function TermPlanPageContent() {
     }
   }, [subjects]);
 
-  // Check if user is a child user
-  useEffect(() => {
-    if (user) {
-      const isChild = user.email?.endsWith('@child.lana') || false;
-      setIsChildUser(isChild);
-    }
-  }, [user]);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      // Delay the redirect slightly to show the error message
-      const timer = setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, isLoading, router]);
-
-  const saveToLocalAndCompleteOnboarding = async () => {
-    setSaving(true);
-    try {
-      console.log('[term-plan] Saving subjects and topics to localStorage');
-      console.log('[term-plan] Number of subjects to save:', subjects.length);
-      
-      // Save to localStorage
-      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
-      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
-      
-      toast({ 
-        title: 'Plan Saved Locally', 
-        description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
-      });
-      
-      // Complete onboarding
-      await completeOnboardingAndRedirect();
-    } catch (err: any) {
-      console.error('[term-plan] Error saving plan locally:', err.message);
-      console.error('[term-plan] Save error details:', err);
-      toast({ 
-        title: 'Save Error', 
-        description: 'Failed to save your study plan locally.',
-        variant: "destructive"
-      });
-      
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
-    } finally {
-      setSaving(false);
-    }
+  const addSubject = () => {
+    if (!subjectInput.trim()) return;
+    
+    const newSubject: Subject = {
+      id: Date.now().toString(),
+      name: subjectInput.trim(),
+      topics: [],
+      dateAdded: new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      }),
+      isExpanded: true
+    };
+    
+    setSubjects([...subjects, newSubject]);
+    setSubjectInput("");
   };
-  
-  const completeOnboardingAndRedirect = async () => {
-    setSaving(true);
-    try {
-      console.log('[term-plan] Starting onboarding completion process');
-      
-      // Update user metadata to mark onboarding as complete
-      if (user) {
-        console.log('[term-plan] Updating user metadata with onboarding_complete flag');
-        console.log('[term-plan] User ID:', user.id);
-        
-        const { error } = await supabase.auth.updateUser({
-          data: { onboarding_complete: true },
-        });
-        
-        if (error) {
-          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error.message);
-          console.warn('[term-plan] metadata update error details:', error);
-          toast({
-            title: "Notice",
-            description: "Unable to save onboarding status, but continuing anyway.",
-            variant: "default",
-          });
-        } else {
-          console.log('[term-plan] successfully updated user metadata with onboarding_complete flag');
-        }
-      } else {
-        console.warn('[term-plan] no user found when trying to update user metadata');
-        toast({
-          title: "Notice",
-          description: "Unable to save onboarding status, but continuing anyway.",
-          variant: "default",
-        });
-      }
 
-      // Cookie fallback to handle network failures and ensure middleware bypass
-      try {
-        console.log('[term-plan] Setting completion cookie');
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-        console.log('[term-plan] successfully set completion cookie');
-      } catch (cookieErr: any) {
-        console.warn('[term-plan] failed to set completion cookie:', cookieErr.message);
-        console.warn('[term-plan] cookie error details:', cookieErr);
-        toast({
-          title: "Notice",
-          description: "Unable to save onboarding status locally, but continuing anyway.",
-          variant: "default",
-        });
-      }
+  const addTopic = (subjectId: string) => {
+    const topicInput = topicInputs[subjectId];
+    if (!topicInput?.trim()) return;
 
-      // Success toast for UX feedback
-      toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
+    const newTopic: Topic = {
+      id: Date.now().toString(),
+      name: topicInput.trim(),
+      dateAdded: new Date().toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+      })
+    };
 
-      // Redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage');
-      router.replace('/homepage');
-    } catch (err: any) {
-      console.error('[term-plan] completion error:', err.message);
-      console.error('[term-plan] completion error details:', err);
-      toast({ 
-        title: 'Onboarding Completed with Issues', 
-        description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
-      });
-      // Even if there's an error, redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage despite error');
-      router.replace('/homepage');
-    } finally {
-      setSaving(false);
-    }
+    setSubjects(subjects.map(subject => 
+      subject.id === subjectId 
+        ? { ...subject, topics: [...subject.topics, newTopic] }
+        : subject
+    ));
+    
+    setTopicInputs({ ...topicInputs, [subjectId]: "" });
   };
-  
-  // Save subjects and topics to localStorage before completing onboarding
-  const saveAndCompleteOnboarding = async () => {
-    setSaving(true);
+
+  const toggleSubject = (subjectId: string) => {
+    setSubjects(subjects.map(subject =>
+      subject.id === subjectId
+        ? { ...subject, isExpanded: !subject.isExpanded }
+        : subject
+    ));
+  };
+
+  const deleteSubject = (subjectId: string) => {
+    setSubjects(subjects.filter(subject => subject.id !== subjectId));
+  };
+
+  const deleteTopic = (subjectId: string, topicId: string) => {
+    setSubjects(subjects.map(subject =>
+      subject.id === subjectId
+        ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
+        : subject
+    ));
+  };
+
+  const saveStudyPlan = async () => {
+    setIsSaving(true);
     try {
-      console.log('[term-plan] Saving subjects and topics');
-      console.log('[term-plan] Number of subjects to save:', subjects.length);
-      
       // Try to save to backend first
       try {
         if (!user?.email) {
@@ -221,14 +150,14 @@ function TermPlanPageContent() {
           throw new Error(result.message || 'Failed to save study plan');
         }
         
-        console.log('[term-plan] Successfully saved subjects and topics to backend');
+        console.log('[EnhancedOnboarding] Successfully saved subjects and topics to backend');
         toast({ 
           title: 'Plan Saved', 
           description: 'Your study plan has been saved successfully.' 
         });
       } catch (err: any) {
         // If backend save fails, save locally
-        console.error('[term-plan] Backend save failed, saving locally:', err.message);
+        console.error('[EnhancedOnboarding] Backend save failed, saving locally:', err.message);
         localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
         toast({ 
           title: 'Plan Saved Locally', 
@@ -236,101 +165,56 @@ function TermPlanPageContent() {
         });
       }
       
-      // Complete onboarding
-      await completeOnboardingAndRedirect();
     } catch (err: any) {
-      console.error('[term-plan] Error saving plan:', err.message);
-      console.error('[term-plan] Save error details:', err);
+      console.error('[EnhancedOnboarding] Error saving plan:', err.message);
       toast({ 
         title: 'Save Error', 
-        description: 'Failed to save your study plan. Continuing to dashboard anyway.',
+        description: 'Failed to save your study plan.',
         variant: "destructive"
       });
-      
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
     } finally {
-      setSaving(false);
+      setIsSaving(false);
     }
   };
-  
-  // Backwards-compatible alias for existing button handlers
-  const handleComplete = completeOnboardingAndRedirect;
-  
-  // Skip to homepage functionality
-  const handleSkipToHomepage = () => {
-    // Redirect all users to homepage
-    console.log('[term-plan] skipping to homepage for all users');
-    router.push('/homepage');
-  };
 
-  const addSubject = () => {
-    if (!subjectInput.trim()) return;
-    
-    const newSubject: Subject = {
-      id: Date.now().toString(),
-      name: subjectInput.trim(),
-      topics: [],
-      dateAdded: new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      }),
-      isExpanded: true
-    };
-    
-    const updatedSubjects = [...subjects, newSubject];
-    setSubjects(updatedSubjects);
-    setSubjectInput("");
-  };
-
-  const addTopic = (subjectId: string) => {
-    const topicInput = topicInputs[subjectId];
-    if (!topicInput?.trim()) return;
-
-    const newTopic: Topic = {
-      id: Date.now().toString(),
-      name: topicInput.trim(),
-      dateAdded: new Date().toLocaleDateString('en-US', { 
-        year: 'numeric', 
-        month: 'short', 
-        day: 'numeric' 
-      })
-    };
-
-    const updatedSubjects = subjects.map(subject => 
-      subject.id === subjectId 
-        ? { ...subject, topics: [...subject.topics, newTopic] }
-        : subject
-    );
-    
-    setSubjects(updatedSubjects);
-    setTopicInputs({ ...topicInputs, [subjectId]: "" });
-  };
-
-  const toggleSubject = (subjectId: string) => {
-    const updatedSubjects = subjects.map(subject =>
-      subject.id === subjectId
-        ? { ...subject, isExpanded: !subject.isExpanded }
-        : subject
-    );
-    
-    setSubjects(updatedSubjects);
-  };
-
-  const deleteSubject = (subjectId: string) => {
-    const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
-    setSubjects(updatedSubjects);
-  };
-
-  const deleteTopic = (subjectId: string, topicId: string) => {
-    const updatedSubjects = subjects.map(subject =>
-      subject.id === subjectId
-        ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
-        : subject
-    );
-    
-    setSubjects(updatedSubjects);
+  const completeOnboardingFlow = async () => {
+    setIsSaving(true);
+    try {
+      // Save study plan first
+      await saveStudyPlan();
+      
+      // Complete onboarding
+      const result = await completeOnboarding();
+      
+      if (result.success) {
+        toast({ 
+          title: 'Onboarding Complete', 
+          description: 'Your plan has been saved. Redirecting to dashboard...' 
+        });
+        
+        // Redirect to appropriate page
+        if (returnTo) {
+          router.replace(returnTo);
+        } else {
+          router.replace('/homepage');
+        }
+      } else {
+        toast({ 
+          title: 'Onboarding Error', 
+          description: result.error || 'Failed to complete onboarding.',
+          variant: "destructive"
+        });
+      }
+    } catch (err: any) {
+      console.error('[EnhancedOnboarding] Error completing onboarding:', err.message);
+      toast({ 
+        title: 'Onboarding Error', 
+        description: 'Failed to complete onboarding.',
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // Show loading state while checking authentication
@@ -345,19 +229,26 @@ function TermPlanPageContent() {
     );
   }
 
-  // Show error and redirect if not authenticated
+  // Show error if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md p-6">
-          <X className="w-12 h-12 mx-auto text-red-500" />
+          <div className="w-12 h-12 mx-auto text-red-500">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
           <h2 className="text-2xl font-semibold">Access Denied</h2>
           <p className="text-white/70">
             You must be authenticated to access this page.
           </p>
-          <p className="text-white/50 text-sm">
-            Redirecting to login page...
-          </p>
+          <button
+            onClick={() => router.push("/login")}
+            className="px-4 py-2 bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-all"
+          >
+            Go to Login
+          </button>
         </div>
       </div>
     );
@@ -375,7 +266,9 @@ function TermPlanPageContent() {
           onClick={() => router.push("/homepage")}
           className="p-2 rounded-lg hover:bg-white/10 transition-colors"
         >
-          <X className="w-5 h-5" />
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+          </svg>
         </button>
       </header>
 
@@ -388,12 +281,10 @@ function TermPlanPageContent() {
         >
           <div className="space-y-2">
             <h2 className="text-2xl font-semibold">
-              {isChildUser ? "Welcome! Let's set up your learning plan" : "Build Your Study Plan"}
+              Welcome! Let's set up your learning plan
             </h2>
             <p className="text-white/70">
-              {isChildUser 
-                ? "Create your personalized study plan to get started with your learning journey" 
-                : "Organize your subjects and topics for the term"}
+              Create your personalized study plan to get started with your learning journey
             </p>
           </div>
 
@@ -520,7 +411,9 @@ function TermPlanPageContent() {
                                     className="opacity-0 group-hover:opacity-100 p-1 
                                              hover:bg-white/10 rounded transition-all"
                                   >
-                                    <X className="w-3 h-3" />
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                    </svg>
                                   </button>
                                 </div>
                               </motion.div>
@@ -551,59 +444,26 @@ function TermPlanPageContent() {
         </motion.div>
       </main>
 
-      {/* footer actions (only during onboarding) */}
-      {isOnboarding && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
-          <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
-            <button
-              onClick={handleSkipToHomepage}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                  Skipping...
-                </>
-              ) : (
-                "Skip to homepage"
-              )}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </button>
-            <button
-              onClick={saveAndCompleteOnboarding}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save plan and continue"
-              )}
-            </button>
-          </div>
+      {/* footer actions */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
+        <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
+          <button
+            onClick={completeOnboardingFlow}
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              "Save plan and continue"
+            )}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </button>
         </div>
-      )}
+      </div>
     </div>
-  );
-}
-
-export default function TermPlanPage() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-black text-white flex items-center justify-center">
-          <div className="text-center space-y-4">
-            <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
-            <p className="text-white/30 text-sm">Loading…</p>
-          </div>
-        </div>
-      }
-    >
-      <TermPlanPageContent />
-    </Suspense>
   );
 }

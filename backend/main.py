@@ -26,6 +26,9 @@ try:
 except Exception:
     Groq = None
 
+# Import job worker manager
+from app.jobs.worker_manager import start_job_workers, stop_job_workers
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -73,6 +76,29 @@ app.add_middleware(RequestTimingMiddleware)
 async def root():
     """Simple root endpoint to confirm API is accessible."""
     return {"message": "Welcome to Lana AI API", "status": "online"}
+
+# Startup event to initialize job workers
+@app.on_event("startup")
+async def startup_event():
+    """Initialize job workers on startup."""
+    try:
+        await start_job_workers()
+        logger.info("Job workers started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start job workers: {e}")
+        # Don't raise the exception to avoid crashing the application
+        pass
+
+# Shutdown event to stop job workers
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop job workers on shutdown."""
+    try:
+        await stop_job_workers()
+        logger.info("Job workers stopped successfully")
+    except Exception as e:
+        logger.error(f"Error stopping job workers: {e}")
+        pass
 
 # Removed duplicate sample lesson endpoints; use `/api/lessons` router from app.api.routes.lessons
 # Removed duplicate math solver sample; use `/api/math-solver/solve` route from app.api.routes.math_solver

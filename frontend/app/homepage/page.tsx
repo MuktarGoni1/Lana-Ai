@@ -26,6 +26,8 @@ import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { supabase } from '@/lib/db';
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { useToast } from '@/hooks/use-toast';
 
 // Centralized API base for both components in this file
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
@@ -57,8 +59,57 @@ import ChatWithSidebar from '@/components/chat-with-sidebar';
 // Main Homepage Component for Lana AI
 // This component serves as the primary interface for users to interact with the AI tutor
 export default function HomePage() {
+  const { user, isAuthenticated, isLoading, refreshSession } = useEnhancedAuth();
+  const { toast } = useToast();
+  const router = useRouter();
   const [question, setQuestion] = useState("");
   const handleNavigate = (text: string) => setQuestion(text.trim());
+
+  // Handle session timeout
+  useEffect(() => {
+    // Set up a periodic check for session validity
+    const sessionCheckInterval = setInterval(async () => {
+      if (isAuthenticated) {
+        try {
+          // Try to refresh the session to check if it's still valid
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error || !session) {
+            // Session has expired or there was an error
+            toast({
+              title: "Session Expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive"
+            });
+            router.push("/login");
+          }
+        } catch (error) {
+          console.error("Error checking session:", error);
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    // Clean up interval on unmount
+    return () => clearInterval(sessionCheckInterval);
+  }, [isAuthenticated, router, toast]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect unauthenticated users to login
+  if (!isAuthenticated) {
+    router.push("/login");
+    return null;
+  }
 
   return <ChatWithSidebar />;
 }
@@ -198,7 +249,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const currentIndexRef = useRef(0);
   const [isQueuePreloading, setIsQueuePreloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [ttsError, setTtsError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
@@ -217,7 +267,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     try {
       if (isRetry) {
         setIsRetrying(true);
-        setTtsError(null); // Clear previous error when retrying
       }
       
       const res = await fetch(`${API_BASE}/api/tts/`, {
@@ -238,14 +287,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       objectUrlsRef.current.push(url);
-      setTtsError(null);
       return url;
-    } catch (e: unknown) {
-      console.error('TTS Error:', e);
-      const errorMessage = e instanceof Error ? e.message : "Audio generation failed";
-      setTtsError(errorMessage);
-      // Return null to indicate failure but not break the UI
-      return null;
     } finally {
       if (isRetry) {
         setIsRetrying(false);
@@ -276,7 +318,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     // Build segments directly from lesson structure for speed
     if (typeof lesson?.introduction === "string") {
       const intro = lesson.introduction.trim();
-      if (intro) segs.push(intro.length > 600 ? intro.slice(0, 600) : intro);
+      segs.push(intro.length > 600 ? intro.slice(0, 600) : intro);
     }
     if (Array.isArray(lesson?.sections)) {
       for (const section of lesson.sections) {
@@ -286,21 +328,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         }
       }
     }
-    if (segs.length) {
-      return segs.slice(0, 6);
-    }
-    // Robust fallback: derive from lesson fields before using blocks-based full text
-    const fallbackIntro =
-      typeof lesson?.introduction === "string" ? lesson.introduction.trim() : "";
-    const fallbackSection =
-      Array.isArray(lesson?.sections)
-        ? String((lesson.sections.find((s: LessonSection) => s?.content) || {}).content || "").trim()
-        : "";
-    const fallbackDiagram =
-      typeof lesson?.diagram === "string" ? lesson.diagram.trim() : "";
-    const fallback =
-      fallbackIntro || fallbackSection || fallbackDiagram || getFullLessonText();
-    return fallback ? [fallback.length > 900 ? fallback.slice(0, 900) : fallback] : [];
+    return segs.length ? segs : [getFullLessonText()];
   }, [lesson, getFullLessonText]);
 
   const preloadTTS = useCallback(async () => {
@@ -309,10 +337,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       if (!segments.length) return;
       const firstUrl = await fetchTTSBlobUrl(segments[0]);
       
-      if (!firstUrl && ttsError) {
+      if (!firstUrl) {
         // If first attempt failed, try once more after a short delay
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const retryUrl = await fetchTTSBlobUrl(segments[0], false /* isRetry */);
+        const retryUrl = await fetchTTSBlobUrl(segments[0], true /* isRetry */);
         if (retryUrl) {
           setAudioUrl(retryUrl);
           setAudioQueue([retryUrl]);
@@ -329,9 +357,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         if (segments.length > 1) {
           setIsQueuePreloading(true);
           fetchTTSBlobUrl(segments[1])
-            .then((u) => {
-              if (u) setAudioQueue((q) => [...q, u]);
-            })
+            .then((u) => setAudioQueue((q) => [...q, u]))
             .catch(console.error)
             .finally(() => setIsQueuePreloading(false));
         }
@@ -341,7 +367,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     } finally {
       setIsTtsLoading(false);
     }
-  }, [segments, fetchTTSBlobUrl, ttsError]);
+  }, [segments, fetchTTSBlobUrl]);
 
   const playTTS = useCallback(() => {
     const src = audioQueue[currentIndexRef.current] || audioUrl;
@@ -362,14 +388,14 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
               const retryUrl = await fetchTTSBlobUrl(segments[nextIndex], true /* isRetry */);
               if (retryUrl) {
                 setAudioQueue((q) => {
-                  const qq = [...q];  // Create a new array copy
+                  const qq = q.slice();
                   qq[nextIndex] = retryUrl;
                   return qq;
                 });
               }
-            } else if (u) {  // Check if u is not null before using it
+            } else {
               setAudioQueue((q) => {
-                const qq = [...q];  // Create a new array copy
+                const qq = q.slice();
                 qq[nextIndex] = u;
                 return qq;
               });
@@ -378,7 +404,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
             console.error(e);
           }
         }
-
         setCurrentIndex(nextIndex);
         currentIndexRef.current = nextIndex;
         const nextSrc = audioQueue[nextIndex];
@@ -397,157 +422,103 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     audioRef.current.play().catch(console.error);
   }, [audioUrl, audioQueue, segments, fetchTTSBlobUrl]);
 
-  const togglePlayPause = useCallback(async () => {
-    if (isTtsLoading || isQueuePreloading || isRetrying) return;
-    const hasPrepared = !!(audioUrl || audioQueue.length);
-    if (!audioRef.current) {
-      if (!hasPrepared) {
-        await preloadTTS();
-      }
-      playTTS();
-      return;
-    }
-    if (audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
-    } else {
-      audioRef.current.pause();
-    }
-  }, [audioUrl, audioQueue, isTtsLoading, isQueuePreloading, isRetrying, preloadTTS, playTTS]);
-
-  // Auto-preload audio once streaming completes to reduce wait time
-  useEffect(() => {
-    if (isStreamingComplete && !audioUrl && !isTtsLoading && !isRetrying) {
-      preloadTTS();
-    }
-  }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
-
-  if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
-    blocks.push({ content: lesson.introduction });
-  } else {
-    if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-      blocks.push({
-        title: "Introduction",
-        content: lesson.introduction.trim(),
-      });
-    }
-
-    if (
-      Array.isArray(lesson.classifications) &&
-      lesson.classifications.length > 0
-    ) {
-      const classificationContent = lesson.classifications
-        .map((c: { type?: string; description?: string }) => {
-          if (c?.type && c?.description) {
-            return `• ${c.type}: ${c.description}`;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join("\n");
-
-      if (classificationContent) {
-        blocks.push({
-          title: "Classifications / Types",
-          content: classificationContent,
-        });
-      }
-    }
-
-    // Detailed sections (now after classifications)
-    if (Array.isArray(lesson.sections)) {
-      for (const section of lesson.sections) {
-        if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-          blocks.push({
-            title: normalizeTitle(section.title.trim()),
-            content: section.content.trim(),
-          });
-        }
-      }
-    }
-
-    if (lesson.diagram && lesson.diagram.trim()) {
-      blocks.push({
-        title: "Diagram Description",
-        content: lesson.diagram.trim(),
-      });
-    }
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-6 max-w-3xl mx-auto"
-    >
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 space-y-6">
-        {blocks.map((block, idx) => (
-          <div key={idx} className="space-y-2">
-            {block.title && (
-              <h3 className="font-bold text-white text-lg tracking-wide">
-                {block.title}
-              </h3>
-            )}
-            <div className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap font-sans">
-              {block.content.split("\n").map((line, i) => (
-                <div key={i}>{sanitizeLine(line) || "\u00A0"}</div>
-              ))}
-            </div>
+    <div className="lesson-card bg-white/5 border border-white/10 rounded-xl p-6 space-y-6">
+      {/* header with logo and title */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/10 rounded-lg">
+            <BookOpen className="w-5 h-5 text-white" />
           </div>
-        ))}
+          <h2 className="text-xl font-semibold">Lesson Preview</h2>
+        </div>
+        <button
+          onClick={handleTakeQuiz}
+          className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          Take Quiz
+        </button>
+      </div>
 
-        {!blocks.length && (
-          <p className="text-white/60 italic text-sm">No lesson content available.</p>
+      {/* lesson content */}
+      <div className="space-y-4 text-sm">
+        {lesson?.introduction && (
+          <div className="space-y-2">
+            <h3 className="font-medium text-white/80">Introduction</h3>
+            <p className="text-white/70 leading-relaxed">
+              {lesson.introduction}
+            </p>
+          </div>
+        )}
+
+        {Array.isArray(lesson?.sections) && lesson.sections.length > 0 && (
+          <div className="space-y-3">
+            {lesson.sections.map((section, idx) => (
+              <div key={idx} className="space-y-2">
+                {section.title && (
+                  <h3 className="font-medium text-white/80">
+                    {normalizeTitle(section.title)}
+                  </h3>
+                )}
+                {section.content && (
+                  <p className="text-white/70 leading-relaxed">
+                    {section.content}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {lesson?.diagram && (
+          <div className="space-y-2">
+            <h3 className="font-medium text-white/80">Diagram</h3>
+            <pre className="text-white/70 bg-black/20 p-3 rounded-lg text-xs whitespace-pre-wrap">
+              {lesson.diagram}
+            </pre>
+          </div>
         )}
       </div>
 
-      {/* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */}
-      {isStreamingComplete && (
-        <div className="flex justify-end mt-6 gap-3">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading || isRetrying || !!ttsError}
-            aria-pressed={isPlaying}
-            aria-disabled={isTtsLoading || isQueuePreloading || isRetrying || !!ttsError}
-            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+      {/* audio controls */}
+      <div className="flex items-center gap-3 pt-2">
+        <button
+          onClick={isPlaying ? () => audioRef.current?.pause() : playTTS}
+          disabled={isTtsLoading || isRetrying}
+          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {isPlaying ? (
+            <Pause className="w-4 h-4" />
+          ) : (
+            <Play className="w-4 h-4" />
+          )}
+        </button>
+        
+        {isTtsLoading && (
+          <div className="flex items-center gap-2 text-white/50 text-sm">
+            <LoaderIcon className="w-4 h-4 animate-spin" />
+            <span>Generating audio...</span>
+          </div>
+        )}
+        
+        {isRetrying && (
+          <div className="flex items-center gap-2 text-white/50 text-sm">
+            <LoaderIcon className="w-4 h-4 animate-spin" />
+            <span>Retrying...</span>
+          </div>
+        )}
+        
+        {!isTtsLoading && !isRetrying && (
+          <button
+            onClick={preloadTTS}
+            className="text-xs text-white/50 hover:text-white/80 transition-colors"
           >
-            {isTtsLoading || isQueuePreloading || isRetrying ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {isTtsLoading || isQueuePreloading || isRetrying
-              ? "Preparing audio…"
-              : isPlaying
-              ? "Pause"
-              : audioUrl || audioQueue.length
-              ? "Play"
-              : ttsError
-              ? "Audio unavailable"
-              : "Prepare & Listen"}
-          </motion.button>
-
-          {!!ttsError && (
-            <p className="text-xs text-red-300/90">{ttsError}</p>
-          )}
-
-          {lesson.quiz && lesson.quiz.length > 0 && (
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleTakeQuiz}
-              className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
-            >
-              <Sparkles className="w-3.5 h-3.5" />
-              Take Quiz
-            </motion.button>
-          )}
-        </div>
-      )}
-    </motion.div>
+            Generate audio
+          </button>
+        )}
+      </div>
+    </div>
   );
 };
 
@@ -639,13 +610,13 @@ interface AnimatedAIChatProps {
           }
           
           // If not in metadata, try to get from users table
-          const { data: userData } = await supabase
+          const { data: userData, error } = await supabase
             .from('users')
             .select('user_metadata')
             .eq('id', session.user.id)
             .single();
             
-          if (userData && (userData as any).user_metadata?.age) {
+          if (!error && userData && (userData as any).user_metadata?.age) {
             setUserAge((userData as any).user_metadata.age);
           }
         }

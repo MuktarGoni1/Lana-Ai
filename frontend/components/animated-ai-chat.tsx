@@ -23,6 +23,7 @@ import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { getCurrentUserAge } from '@/lib/services/userService';
 import { isGuestClient } from '@/lib/guest';
+import { createClient } from '@/lib/supabase/client';
 
 // Centralized API base with optional proxying via Next.js rewrites
 // When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
@@ -773,9 +774,28 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const loadAge = async () => {
       try {
-        const age = await getCurrentUserAge();
-        if (typeof age === 'number') {
-          setUserAge(age);
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Only proceed if user is properly authenticated
+        if (session?.user) {
+          // First try to get age from user metadata
+          const age = (session.user as any).user_metadata?.age;
+          if (age) {
+            setUserAge(age);
+            return;
+          }
+          
+          // If not in metadata, try to get from users table
+          const { data: userData, error } = await supabase
+            .from('users')
+            .select('user_metadata')
+            .eq('id', session.user.id)
+            .single();
+            
+          if (!error && userData && (userData as any).user_metadata?.age) {
+            setUserAge((userData as any).user_metadata.age);
+          }
         }
       } catch (error) {
         console.error('Error retrieving user age:', error);

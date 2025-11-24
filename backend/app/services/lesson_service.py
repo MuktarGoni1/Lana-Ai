@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 import logging
 logger = logging.getLogger(__name__)
 from app.repositories.interfaces import ICacheRepository, ILessonRepository
+from app.jobs.queue_config import get_lesson_queue
 
 
 class LessonService:
@@ -54,6 +55,26 @@ class LessonService:
         await self.lesson_repository.save_lesson_history(user_id, topic, new_lesson)
 
         return new_lesson
+
+    async def create_lesson_job(
+        self,
+        user_id: str,
+        topic: str,
+        difficulty: str = "intermediate",
+        lesson_type: str = "standard"
+    ):
+        """Create a lesson generation job and return the job ID."""
+        lesson_queue = get_lesson_queue()
+        
+        job_data = {
+            "user_id": user_id,
+            "topic": topic,
+            "difficulty": difficulty,
+            "lesson_type": lesson_type
+        }
+        
+        job = await lesson_queue.add("lesson-generation", job_data)
+        return job.id
 
     async def get_user_lesson_history(
         self, user_id: str, limit: int = 50, offset: int = 0
