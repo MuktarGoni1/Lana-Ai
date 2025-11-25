@@ -156,7 +156,7 @@ export class EnhancedAuthService {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirmed`,
+          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
         },
       });
 
@@ -217,7 +217,7 @@ export class EnhancedAuthService {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/confirmed`,
+          redirectTo: `${window.location.origin}/auth/auto-login`,
           scopes: 'openid email profile',
         },
       });
@@ -269,7 +269,7 @@ export class EnhancedAuthService {
         email: email.trim().toLowerCase(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/auth/confirmed/guardian`,
+          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
         },
       });
 

@@ -190,7 +190,7 @@ export class AuthService {
         email: trimmedEmail,
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/auth/confirmed/guardian`,
+          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
         },
       });
 

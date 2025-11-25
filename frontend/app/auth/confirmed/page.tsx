@@ -51,9 +51,9 @@ export default function AuthConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Show confirmation then redirect to homepage
+        // Show confirmation then redirect to onboarding
         setTimeout(() => {
-          navigateToHomepage(user, router);
+          router.push("/onboarding");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed] confirmation error:", err);
@@ -63,8 +63,8 @@ export default function AuthConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        // Fallback: send user to homepage
-        setTimeout(() => navigateToHomepage(null, router), 2500);
+        // Fallback: send user to onboarding
+        setTimeout(() => router.push("/onboarding"), 2500);
       }
     };
 
@@ -86,7 +86,7 @@ export default function AuthConfirmedPage() {
           <p className="text-white/40 text-xs">Signed in as {email}</p>
         )}
         <p className="text-white/60 text-sm">
-          Please visit <a href="/homepage" className="underline">homepage</a>. You will be redirected shortly.
+          Please visit <a href="/onboarding" className="underline">onboarding</a>. You will be redirected shortly.
         </p>
       </div>
     </div>

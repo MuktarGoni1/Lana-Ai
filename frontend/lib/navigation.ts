@@ -22,12 +22,12 @@ export function navigateToHomepage(user: User | null, router: any) {
     // If user is not authenticated, go to landing page
     if (!user) {
       console.log('[Navigation] No user found, redirecting to landing page');
-      if (router && typeof router.replace === 'function') {
-        router.replace('/landing-page');
+      if (router && typeof router.push === 'function') {
+        router.push('/landing-page');
       } else {
         // Fallback: use window.location
         if (typeof window !== 'undefined') {
-          window.location.replace('/landing-page');
+          window.location.assign('/landing-page');
         }
       }
       return;
@@ -38,22 +38,22 @@ export function navigateToHomepage(user: User | null, router: any) {
     const targetPath = '/homepage';
 
     // Navigate to target path
-    if (router && typeof router.replace === 'function') {
-      router.replace(targetPath);
+    if (router && typeof router.push === 'function') {
+      router.push(targetPath);
     } else {
       // Fallback: use window.location
       if (typeof window !== 'undefined') {
-        window.location.replace(targetPath);
+        window.location.assign(targetPath);
       }
     }
   } catch (error) {
     console.error('[Navigation] Error during navigation:', error);
     // Fallback: always go to landing page if there's an error (not homepage to avoid loops)
     try {
-      if (router && typeof router.replace === 'function') {
-        router.replace('/landing-page');
+      if (router && typeof router.push === 'function') {
+        router.push('/landing-page');
       } else if (typeof window !== 'undefined') {
-        window.location.replace('/landing-page');
+        window.location.assign('/landing-page');
       }
     } catch (fallbackError) {
       console.error('[Navigation] Error during fallback navigation:', fallbackError);

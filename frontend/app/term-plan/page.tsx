@@ -172,9 +172,9 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage');
-      router.replace('/homepage');
+      // Redirect all users to onboarding flow
+      console.log('[term-plan] redirecting all users to onboarding flow');
+      router.push('/term-plan?onboarding=1');
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
@@ -182,9 +182,9 @@ function TermPlanPageContent() {
         title: 'Onboarding Completed with Issues', 
         description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
       });
-      // Even if there's an error, redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage despite error');
-      router.replace('/homepage');
+      // Even if there's an error, redirect all users to onboarding flow
+      console.log('[term-plan] redirecting all users to onboarding flow despite error');
+      router.push('/term-plan?onboarding=1');
     } finally {
       setSaving(false);
     }
@@ -259,9 +259,9 @@ function TermPlanPageContent() {
   
   // Skip to homepage functionality
   const handleSkipToHomepage = () => {
-    // Redirect all users to homepage
-    console.log('[term-plan] skipping to homepage for all users');
-    router.push('/homepage');
+    // Redirect all users to onboarding flow
+    console.log('[term-plan] skipping to onboarding flow for all users');
+    router.push('/term-plan?onboarding=1');
   };
 
   const addSubject = () => {

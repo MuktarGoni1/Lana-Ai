@@ -318,8 +318,8 @@ function ParentFlow() {
     try {
       // Use a default origin for server-side rendering
       const redirectTo = isClient 
-        ? `${window.location.origin}/auth/confirmed/guardian`
-        : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/confirmed/guardian`
+        ? `${window.location.origin}/auth/auto-login`
+        : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/auto-login`
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -515,7 +515,7 @@ function ChildFlow() {
         formData.grade, 
         formData.guardianEmail
       )
-      router.push("/homepage")
+      router.push("/onboarding")
     } catch (error) {
       console.error("Child registration error:", error)
       toast({

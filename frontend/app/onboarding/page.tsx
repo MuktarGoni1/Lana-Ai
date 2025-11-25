@@ -259,13 +259,15 @@ export default function OnboardingPage() {
         description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
         variant: "destructive",
       })
+      // Even in case of error, continue onboarding to prevent blocking users
+      router.push("/term-plan?onboarding=1");
     } finally {
       setLoading(false)
     }
   }
 
   const handleBackToDashboard = () => {
-    router.push("/homepage")
+    router.push("/term-plan?onboarding=1")
   }
 
   const handleSkipToHomepage = () => {

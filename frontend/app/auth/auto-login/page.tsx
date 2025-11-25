@@ -24,21 +24,13 @@ export default function AutoLoginPage() {
         // Check if user has completed onboarding
         const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
         
-        // If onboarding is not complete, redirect to term-plan for onboarding
+        // If onboarding is not complete, redirect to onboarding
         if (!onboardingComplete) {
-          // Set cookie for middleware
-          try {
-            const oneYear = 60 * 60 * 24 * 365;
-            document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-          } catch (cookieErr) {
-            console.warn("[auto-login] failed to set completion cookie:", cookieErr);
-          }
-
           setStatus("confirmed");
           toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
 
           setTimeout(() => {
-            router.replace("/term-plan?onboarding=1");
+            router.push("/onboarding");
           }, 1000);
           return;
         }
@@ -48,7 +40,7 @@ export default function AutoLoginPage() {
 
         // Redirect all authenticated users to homepage
         setTimeout(() => {
-          router.replace("/homepage");
+          router.push("/homepage");
         }, 1000);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);
