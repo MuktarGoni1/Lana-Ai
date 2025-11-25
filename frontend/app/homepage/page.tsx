@@ -568,18 +568,17 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equtions,for simple solutions with explainer", prefix: "/Maths" },
-    { icon: <Play className="w-4 h-4" />, label: "Chats", description: "Chat and ask your friendly Ai", prefix: "/Chat" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths" },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat" },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
   ];
-
 
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
       label: "Explanation Mode",
-      description: "Comprehensive Ai explanations",
+      description: "Comprehensive AI explanations",
       action: () =>
         onNavigateToVideoLearning?.(
           value.trim() || "What would you like to learn?"

@@ -182,6 +182,71 @@ export class EnhancedAuthService {
     }
   }
 
+  async loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.updateAuthState({ isLoading: true, error: null });
+      
+      console.log('[EnhancedAuthService] Initiating Google login');
+      console.log('[EnhancedAuthService] Supabase auth object:', supabase.auth);
+      
+      // Check if supabase.auth exists
+      if (!supabase.auth) {
+        const errorMessage = 'Supabase auth object is undefined';
+        console.error('[EnhancedAuthService] Google login error:', errorMessage);
+        this.updateAuthState({ 
+          isLoading: false, 
+          error: errorMessage 
+        });
+        return { success: false, error: errorMessage };
+      }
+      
+      // Check if supabase.auth.signInWithOAuth exists
+      if (typeof supabase.auth.signInWithOAuth !== 'function') {
+        const errorMessage = 'signInWithOAuth is not available. This method may not be supported in the current Supabase client configuration.';
+        console.error('[EnhancedAuthService] Google login error:', errorMessage);
+        console.error('[EnhancedAuthService] Available methods on supabase.auth:', Object.keys(supabase.auth));
+        this.updateAuthState({ 
+          isLoading: false, 
+          error: errorMessage 
+        });
+        return { success: false, error: errorMessage };
+      }
+      
+      // Call signInWithOAuth with the correct parameters
+      console.log('[EnhancedAuthService] Calling signInWithOAuth with provider: google');
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/confirmed`,
+          scopes: 'openid email profile',
+        },
+      });
+
+      if (error) {
+        console.error('[EnhancedAuthService] Google login error:', error);
+        this.updateAuthState({ 
+          isLoading: false, 
+          error: error.message 
+        });
+        return { success: false, error: error.message };
+      }
+
+      console.log('[EnhancedAuthService] Google login initiated successfully', data);
+      
+      // For OAuth, the redirect happens automatically
+      this.updateAuthState({ isLoading: false });
+      return { success: true };
+    } catch (error) {
+      console.error('[EnhancedAuthService] Unexpected Google login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during Google login';
+      this.updateAuthState({ 
+        isLoading: false, 
+        error: errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async registerParent(email: string): Promise<{ success: boolean; error?: string }> {
     try {
       this.updateAuthState({ isLoading: true, error: null });
@@ -193,7 +258,7 @@ export class EnhancedAuthService {
           email: email.trim().toLowerCase(),
           weekly_report: true,
           monthly_report: false,
-        }, { onConflict: 'email' });
+        } as any, { onConflict: 'email' });
 
       if (insertError) {
         console.warn('[EnhancedAuthService] Failed to create guardian record:', insertError);

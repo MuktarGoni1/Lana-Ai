@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -109,9 +109,22 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const { registerParent, isLoading } = useEnhancedAuth();
+  const hookReturn = useEnhancedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[ParentFlow] useEnhancedAuth return value:', hookReturn);
+    console.log('[ParentFlow] loginWithGoogle value:', loginWithGoogle);
+    console.log('[ParentFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
+    
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[ParentFlow] loginWithGoogle is not a function');
+      console.error('[ParentFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +138,7 @@ function ParentFlow() {
     }
     
     try {
-      const result = await registerParent(email.trim());
+      const result = await loginWithEmail(email.trim());
       
       if (result.success) {
         // Navigate to unified magic link confirmation page
@@ -151,14 +164,52 @@ function ParentFlow() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Parent Login Page] Initiating Google login');
+      console.log('[Parent Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Parent Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Parent Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Parent Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Parent Login Page] Google login error:', error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   return (
     <FormWrapper>
       <FormCard>
         <form onSubmit={handleParentSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={Mail} 
-            title="Parent Registration" 
-            subtitle="Monitor your child&apos;s learning journey"
+            title="Parent Login" 
+            subtitle="Access your child's learning journey"
           />
           
           <div className="space-y-4">
@@ -177,8 +228,30 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Register
+              Login
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </button>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -196,59 +269,95 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const { registerChild, isLoading } = useEnhancedAuth();
-  const [formData, setFormData] = useState({ 
-    nickname: "", 
-    age: "", 
-    grade: "1st Grade",
-    guardianEmail: ""
-  });
+  const hookReturn = useEnhancedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
+  const [email, setEmail] = useState("");
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[ChildFlow] useEnhancedAuth return value:', hookReturn);
+    console.log('[ChildFlow] loginWithGoogle value:', loginWithGoogle);
+    console.log('[ChildFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
+    
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[ChildFlow] loginWithGoogle is not a function');
+      console.error('[ChildFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate form data
-    if (!formData.nickname.trim()) {
-      toast({ title: "Nickname required", description: "Please enter your nickname.", variant: "destructive" });
-      return;
-    }
-    
-    const age = parseInt(formData.age);
-    if (isNaN(age) || age < 8 || age > 18) {
-      toast({ title: "Invalid age", description: "Please enter a valid age between 8 and 18.", variant: "destructive" });
-      return;
-    }
-    
-    if (!formData.guardianEmail.trim()) {
-      toast({ title: "Guardian email required", description: "Please enter your guardian's email.", variant: "destructive" });
+    if (!email.trim()) {
+      toast({ title: "Email required", description: "Please enter your email address.", variant: "destructive" });
       return;
     }
     
     try {
-      const result = await registerChild(
-        formData.nickname.trim(),
-        age,
-        formData.grade,
-        formData.guardianEmail.trim()
-      );
+      const result = await loginWithEmail(email.trim());
       
       if (result.success) {
         toast({ 
           title: "Success", 
-          description: "Child registered successfully! You can now login." 
+          description: "Magic link sent to your email!" 
         });
-        router.push("/child-login");
+        // Navigate to unified magic link confirmation page
+        try {
+          router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        } catch (navErr) {
+          console.warn('[ChildFlow] navigation error, falling back:', navErr)
+          window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        }
       } else {
         toast({ 
           title: "Error", 
-          description: result.error || "Failed to register child. Please try again.", 
+          description: result.error || "Failed to send magic link. Please try again.", 
           variant: "destructive" 
         });
       }
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to register child. Please try again.", 
+        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Child Login Page] Initiating Google login');
+      console.log('[Child Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Child Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Child Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Child Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Child Login Page] Google login error:', error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
         variant: "destructive" 
       });
     }
@@ -260,86 +369,50 @@ function ChildFlow() {
         <form onSubmit={handleChildSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={User} 
-            title="Child Registration" 
-            subtitle="Start your learning adventure"
+            title="Child Login" 
+            subtitle="Continue your learning journey"
           />
           
           <div className="space-y-4">
             <div>
-              <label htmlFor="nickname" className="block text-xs text-white/40 mb-2">
-                Nickname
+              <label htmlFor="email" className="block text-xs text-white/40 mb-2">
+                Email address
               </label>
               <StyledInput 
-                id="nickname" 
-                type="text" 
-                value={formData.nickname} 
-                onChange={(e) => setFormData({...formData, nickname: e.target.value})} 
-                placeholder="Enter your nickname" 
-                required 
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="age" className="block text-xs text-white/40 mb-2">
-                  Age
-                </label>
-                <StyledInput 
-                  id="age" 
-                  type="number" 
-                  min="8" 
-                  max="18"
-                  value={formData.age} 
-                  onChange={(e) => setFormData({...formData, age: e.target.value})} 
-                  placeholder="8-18" 
-                  required 
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="grade" className="block text-xs text-white/40 mb-2">
-                  Grade
-                </label>
-                <StyledSelect 
-                  id="grade" 
-                  value={formData.grade} 
-                  onChange={(e) => setFormData({...formData, grade: e.target.value})} 
-                  required
-                >
-                  <option value="Kindergarten">Kindergarten</option>
-                  <option value="1st Grade">1st Grade</option>
-                  <option value="2nd Grade">2nd Grade</option>
-                  <option value="3rd Grade">3rd Grade</option>
-                  <option value="4th Grade">4th Grade</option>
-                  <option value="5th Grade">5th Grade</option>
-                  <option value="6th Grade">6th Grade</option>
-                  <option value="7th Grade">7th Grade</option>
-                  <option value="8th Grade">8th Grade</option>
-                  <option value="9th Grade">9th Grade</option>
-                  <option value="10th Grade">10th Grade</option>
-                  <option value="11th Grade">11th Grade</option>
-                  <option value="12th Grade">12th Grade</option>
-                </StyledSelect>
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="guardianEmail" className="block text-xs text-white/40 mb-2">
-                Guardian's Email
-              </label>
-              <StyledInput 
-                id="guardianEmail" 
+                id="email" 
                 type="email" 
-                value={formData.guardianEmail} 
-                onChange={(e) => setFormData({...formData, guardianEmail: e.target.value})} 
-                placeholder="guardian@example.com" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder="child@example.com" 
                 required 
               />
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Register
+              Login
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </button>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -358,8 +431,21 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+  const hookReturn = useEnhancedAuth();
+  const { isAuthenticated, isLoading, loginWithGoogle } = hookReturn;
   const { toast } = useToast();
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[LoginContent] useEnhancedAuth return value:', hookReturn);
+    console.log('[LoginContent] loginWithGoogle value:', loginWithGoogle);
+    console.log('[LoginContent] typeof loginWithGoogle:', typeof loginWithGoogle);
+    
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[LoginContent] loginWithGoogle is not a function');
+      console.error('[LoginContent] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
 
   // Redirect authenticated users
   useEffect(() => {
@@ -369,6 +455,44 @@ function LoginContent() {
       router.push("/homepage");
     }
   }, [isAuthenticated, isLoading, router]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Login Page] Initiating Google login');
+      console.log('[Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Login Page] Google login error:', error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -424,6 +548,26 @@ function LoginContent() {
             >
               <User className="h-4 w-4" />
               Sign in as Child
+            </button>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
             </button>
             
             <div className="relative my-6">
