@@ -39,10 +39,15 @@ export default function AuthConfirmedPage() {
             // Child users typically inserted during registration; ensure existence by upserting minimal record
             // Cast supabase to any to bypass typing issues (following the pattern used in authService)
             const sb: any = supabase;
-            const { error: upsertError } = await sb
-              .from("users")
-              .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
-            if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            try {
+              const { error: upsertError } = await sb
+                .from("users")
+                .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
+              if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            } catch (upsertError) {
+              // If the users table doesn't exist, that's okay - just log it
+              console.debug("[auth/confirmed] users table may not exist:", upsertError);
+            }
           }
         } catch (dbErr) {
           console.warn("[auth/confirmed] upsert error:", dbErr);

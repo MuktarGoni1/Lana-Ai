@@ -6,6 +6,7 @@
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import rateLimiter from "@/lib/rate-limiter";
 import {
   Paperclip,
   Command,
@@ -289,6 +290,13 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       // Validate input
       if (!text || !text.trim()) {
         throw new Error("No text provided for text-to-speech");
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/tts/';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
       }
       
       const res = await fetch(`${API_BASE}/api/tts/`, {
@@ -703,19 +711,9 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
             }
           }
           
-          // If not in metadata, try to get from users table
-          const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('user_metadata')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (!userError && userData && (userData as any).user_metadata?.age) {
-            const userAge = parseInt((userData as any).user_metadata.age, 10);
-            if (!isNaN(userAge) && userAge > 0) {
-              setUserAge(userAge);
-            }
-          }
+          // If not in metadata, we don't have a users table, so we can't query it
+          // The age should be in the user metadata from Supabase auth
+          console.debug('User age not found in metadata, using null');
         }
       } catch (error) {
         console.error('Error retrieving user age:', error);
@@ -811,6 +809,16 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       if (process.env.NODE_ENV === 'development') {
         console.info('[homepage lesson-stream] request', { API_BASE, topic: q, age: userAge })
       }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/structured-lesson/stream';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+        setIsTyping(false);
+        return;
+      }
+      
       const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

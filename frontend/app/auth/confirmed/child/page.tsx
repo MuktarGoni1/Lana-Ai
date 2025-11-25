@@ -29,10 +29,15 @@ export default function ChildConfirmedPage() {
         if (userEmail) {
           // Cast supabase to any to bypass typing issues
           const sb: any = supabase;
-          const { error: upsertError } = await sb
-            .from("users")
-            .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
-          if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
+          try {
+            const { error: upsertError } = await sb
+              .from("users")
+              .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
+            if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
+          } catch (upsertError) {
+            // If the users table doesn't exist, that's okay - just log it
+            console.debug("[auth/confirmed/child] users table may not exist:", upsertError);
+          }
         }
 
         setStatus("confirmed");

@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { cn, fetchWithTimeoutAndRetry } from "@/lib/utils";
+import rateLimiter from "@/lib/rate-limiter";
 import {
   Paperclip,
   Command,
@@ -786,16 +787,9 @@ interface AnimatedAIChatProps {
             return;
           }
           
-          // If not in metadata, try to get from users table
-          const { data: userData, error } = await supabase
-            .from('users')
-            .select('user_metadata')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (!error && userData && (userData as any).user_metadata?.age) {
-            setUserAge((userData as any).user_metadata.age);
-          }
+          // If not in metadata, we don't have a users table, so we can't query it
+          // The age should be in the user metadata from Supabase auth
+          console.debug('User age not found in metadata, using null');
         }
       } catch (error) {
         console.error('Error retrieving user age:', error);
@@ -984,6 +978,16 @@ interface AnimatedAIChatProps {
       if (!isGuest && typeof userAge === 'number') {
         payload.age = userAge
       }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/structured-lesson/stream';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+        setIsTyping(false);
+        return;
+      }
+      
       const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
         method: "POST",
         headers: {

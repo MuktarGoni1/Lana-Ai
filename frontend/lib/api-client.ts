@@ -1,5 +1,6 @@
 import { ApiErrorResponse } from '@/types/api';
 import { ApiError, NetworkError } from './errors';
+import rateLimiter from '@/lib/rate-limiter';
 
 type CacheEntry<T> = {
   data: T;
@@ -211,6 +212,14 @@ export const apiClient = {
 
   // POST request (no caching for mutations)
   async post<T, U>(url: string, body: U, options?: RequestInit): Promise<T> {
+    // Check rate limit before making request
+    // Extract endpoint from URL (e.g., /api/structured-lesson/stream)
+    const endpoint = new URL(url, 'http://localhost').pathname;
+    if (!rateLimiter.isAllowed(endpoint)) {
+      const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+      throw new ApiError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`, 429);
+    }
+    
     try {
       const response = await requestWithTimeoutAndRetry(
         url,
