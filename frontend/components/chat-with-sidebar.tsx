@@ -1,7 +1,7 @@
 // components/chat-with-sidebar.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -62,6 +62,19 @@ interface ChatHistory {
   timestamp: string
 }
 
+// Add a debounce helper function
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
 function ChatWithSidebarContent() {
   const [view, setView] = useState<"chat" | "video-learning">("chat")
   const [question, setQuestion] = useState<string>("")
@@ -76,6 +89,14 @@ function ChatWithSidebarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+  
+  // Create a debounced version of fetchHistory
+  const debouncedFetchHistory = useCallback(
+    debounce((forceRefresh = false) => {
+      fetchHistory(forceRefresh);
+    }, 1000), // 1 second debounce
+    []
+  );
   
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
@@ -127,6 +148,10 @@ function ChatWithSidebarContent() {
           case 404:
             setHistoryError("History not found.");
             break;
+          case 429:
+            // Handle rate limiting - don't show error to user, just silently fail
+            console.warn("Rate limit exceeded for history fetch");
+            break;
           case 500:
             setHistoryError("Server error. Please try again later.");
             break;
@@ -171,18 +196,20 @@ function ChatWithSidebarContent() {
         }
       } catch {}
       if (sid) {
-        fetchHistory(true); // ensure immediate fresh load
+        debouncedFetchHistory(true); // use debounced version
       }
     }
     
     if (sid && accessToken) {
-      fetchHistory(true); // refresh when tokens present
+      debouncedFetchHistory(true); // use debounced version
+      // Reduce polling frequency to avoid rate limiting
+      // Changed from 30 seconds to 5 minutes (300000ms)
       const refreshInterval = setInterval(() => {
-        if (sid && accessToken) fetchHistory(false); // periodic refresh can use cache
-      }, 30000);
+        if (sid && accessToken) debouncedFetchHistory(false); // use debounced version
+      }, 300000); // 5 minutes instead of 30 seconds
       return () => clearInterval(refreshInterval);
     }
-  }, [user, sid, accessToken]);
+  }, [user, sid, accessToken, debouncedFetchHistory]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
@@ -192,7 +219,7 @@ function ChatWithSidebarContent() {
       const newSid = uuid()
       localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
-      await fetchHistory()
+      await debouncedFetchHistory() // use debounced version
       setView("chat")
     } catch (error) {
       console.error("Failed to start new chat:", error)
@@ -211,7 +238,7 @@ function ChatWithSidebarContent() {
 
   const handleBack = () => {
     setView("chat")
-    fetchHistory()
+    debouncedFetchHistory() // use debounced version
   }
 
   /* 4️⃣ Routing */
@@ -422,7 +449,7 @@ function ChatWithSidebarContent() {
               }>
                 <AnimatedAIChat
                   onNavigateToVideoLearning={handleSelect}
-                  onSend={fetchHistory}
+                  onSend={debouncedFetchHistory}
                 />
               </Suspense>
             ) : (

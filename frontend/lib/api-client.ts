@@ -110,7 +110,10 @@ async function requestWithTimeoutAndRetry(
       const status = res.status;
       // Retry on transient server issues and rate limiting
       if ([429, 502, 503, 504].includes(status) && attempt < maxRetries) {
-        const delay = baseDelay * Math.pow(2, attempt);
+        // For rate limiting, use a longer delay
+        const delay = status === 429 
+          ? Math.max(5000, baseDelay * Math.pow(2, attempt)) // At least 5 seconds for rate limiting
+          : baseDelay * Math.pow(2, attempt);
         await new Promise((r) => setTimeout(r, delay));
         attempt++;
         continue;
