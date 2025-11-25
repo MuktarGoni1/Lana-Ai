@@ -21,6 +21,7 @@ import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 
 // Centralized API base with optional proxying via Next.js rewrites
 // When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
@@ -66,7 +67,8 @@ function ChatWithSidebarContent() {
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+  // Replace individual auth state variables with useEnhancedAuth hook
+  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
   const [role, setRole] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
@@ -105,20 +107,38 @@ function ChatWithSidebarContent() {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
       const data = await api.get<ChatHistory[]>(
-        `${API_BASE}/api/history?sid=${sid}`,
+        `${API_BASE}/history?sid=${sid}&limit=50`,
         { headers },
         bypassCache
       );
       setHistory(data);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        // Don't show error message for authenticated users
-        if (!user) {
-          setHistoryError("Please login or register to save search history.");
+      if (e instanceof ApiError) {
+        switch (e.status) {
+          case 401:
+            // Don't show error message for authenticated users
+            if (!isAuthenticated) {
+              setHistoryError("Please login or register to save search history.");
+            }
+            break;
+          case 403:
+            setHistoryError("Access denied. Please login with proper credentials.");
+            break;
+          case 404:
+            setHistoryError("History not found.");
+            break;
+          case 500:
+            setHistoryError("Server error. Please try again later.");
+            break;
+          default:
+            // Only show error messages to unauthenticated users for other errors
+            if (!isAuthenticated) {
+              setHistoryError("Failed to fetch history.");
+            }
         }
       } else {
-        // Only show error messages to unauthenticated users
-        if (!user) {
+        // Only show error messages to unauthenticated users for network errors
+        if (!isAuthenticated) {
           setHistoryError("Failed to fetch history.");
         }
       }
@@ -127,31 +147,34 @@ function ChatWithSidebarContent() {
     }
   };
 
-  // Fetch user session
+  // Fetch user session - simplified with useEnhancedAuth
   useEffect(() => {
-    const fetchUserSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        setRole(session.user.user_metadata?.role || null);
-        setAccessToken(session.access_token || null);
-        // Ensure session id is namespaced by user id to satisfy backend auth checks
-        try {
-          const currentSid = localStorage.getItem("lana_sid");
-          const uidPrefix = `${session.user.id}:`;
-          if (currentSid && !currentSid.startsWith(uidPrefix)) {
-            const newSid = `${session.user.id}:${currentSid}`;
-            localStorage.setItem("lana_sid", newSid);
-            setSid(newSid);
-          }
-        } catch {}
-        if (sid) {
-          fetchHistory(true); // ensure immediate fresh load
+    if (user) {
+      setRole(user.user_metadata?.role || null)
+      // Get access token
+      const getAccessToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setAccessToken(session.access_token || null)
         }
       }
-    };
-    fetchUserSession();
-  
+      getAccessToken()
+      
+      // Ensure session id is namespaced by user id to satisfy backend auth checks
+      try {
+        const currentSid = localStorage.getItem("lana_sid");
+        const uidPrefix = `${user.id}:`;
+        if (currentSid && !currentSid.startsWith(uidPrefix)) {
+          const newSid = `${user.id}:${currentSid}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
+        }
+      } catch {}
+      if (sid) {
+        fetchHistory(true); // ensure immediate fresh load
+      }
+    }
+    
     if (sid && accessToken) {
       fetchHistory(true); // refresh when tokens present
       const refreshInterval = setInterval(() => {
@@ -159,7 +182,7 @@ function ChatWithSidebarContent() {
       }, 30000);
       return () => clearInterval(refreshInterval);
     }
-  }, [sid, accessToken]);
+  }, [user, sid, accessToken]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
@@ -246,7 +269,7 @@ function ChatWithSidebarContent() {
               <SidebarGroupContent>
                 <SidebarMenu>
                   {/* Authentication Check - Show login prompt for unauthenticated users */}
-                  {!user && !loadingHistory && (
+                  {!isAuthenticated && !authLoading && !loadingHistory && (
                     <SidebarMenuItem>
                       <div className="flex flex-col items-center gap-3 p-4 text-center">
                         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10">
@@ -269,7 +292,7 @@ function ChatWithSidebarContent() {
                   )}
                   
                   {/* Authenticated users see full History functionality */}
-                  {user && (
+                  {isAuthenticated && (
                     <>
                       {loadingHistory && (
                         <SidebarMenuItem>
@@ -358,7 +381,7 @@ function ChatWithSidebarContent() {
   
               {/* Auth action - Log out if authenticated, Log in if not */}
               <SidebarMenuItem>
-                {user ? (
+                {isAuthenticated ? (
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();

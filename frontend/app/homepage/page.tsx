@@ -18,6 +18,7 @@ import {
   Video,
   BookOpen,
   PersonStandingIcon,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
@@ -30,7 +31,9 @@ import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 import { useToast } from '@/hooks/use-toast';
 
 // Centralized API base for both components in this file
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
+// Using the same pattern as other files in the project for consistency
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
+
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -238,11 +241,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   };
 
   // Removed verbose debug logging for production readiness.
-  let blocks: { title?: string; content: string }[] = [];
-
   // TTS state and actions
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null); // Local error state for TTS
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioQueue, setAudioQueue] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -253,14 +255,29 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
+  // Fixed: Properly generate blocks from lesson content
   const getFullLessonText = useCallback(() => {
     const lines: string[] = [];
-    for (const b of blocks) {
-      if (b.title) lines.push(`${b.title}`);
-      lines.push(b.content);
+    
+    // Add introduction
+    if (lesson?.introduction) {
+      lines.push(lesson.introduction);
     }
+    
+    // Add sections
+    if (Array.isArray(lesson?.sections)) {
+      for (const section of lesson.sections) {
+        if (section?.title) {
+          lines.push(section.title);
+        }
+        if (section?.content) {
+          lines.push(section.content);
+        }
+      }
+    }
+    
     return lines.join("\n\n");
-  }, [blocks]);
+  }, [lesson]);
 
   const objectUrlsRef = useRef<string[]>([]);
   const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
@@ -269,25 +286,55 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         setIsRetrying(true);
       }
       
+      // Validate input
+      if (!text || !text.trim()) {
+        throw new Error("No text provided for text-to-speech");
+      }
+      
       const res = await fetch(`${API_BASE}/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: text.trim() }),
       });
+      
       if (!res.ok) {
-        // Handle different error cases
-        if (res.status === 503) {
-          throw new Error('Audio service temporarily unavailable. Please try again later.');
-        } else if (res.status === 400) {
-          throw new Error('Invalid request to audio service.');
-        } else {
-          throw new Error(`Audio service error: ${res.status}`);
+        // Handle different error cases with more specific messages
+        let errorMessage = 'Audio service error';
+        switch (res.status) {
+          case 400:
+            errorMessage = 'Invalid request to audio service.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait before trying again.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          case 503:
+            errorMessage = 'Audio service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = `Audio service error: ${res.status}`;
         }
+        throw new Error(errorMessage);
       }
+      
       const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty audio response");
+      }
+      
       const url = URL.createObjectURL(blob);
       objectUrlsRef.current.push(url);
       return url;
+    } catch (error) {
+      console.error("TTS Error:", error);
+      setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
+      // Don't throw for retry attempts, just return null
+      if (isRetry) {
+        return null;
+      }
+      throw error;
     } finally {
       if (isRetry) {
         setIsRetrying(false);
@@ -295,20 +342,25 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, []);
 
-  // Cleanup audio and revoke object URLs on unmount to prevent leaks
+  // Improved cleanup audio and revoke object URLs on unmount to prevent leaks
   useEffect(() => {
     return () => {
       try {
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.src = "";
+          audioRef.current = null;
         }
         for (const u of objectUrlsRef.current) {
-          URL.revokeObjectURL(u);
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {
+            console.warn('Failed to revoke object URL:', e);
+          }
         }
         objectUrlsRef.current = [];
       } catch (e) {
-        // Swallow cleanup errors
+        console.error('Error during audio cleanup:', e);
       }
     };
   }, []);
@@ -318,7 +370,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     // Build segments directly from lesson structure for speed
     if (typeof lesson?.introduction === "string") {
       const intro = lesson.introduction.trim();
-      segs.push(intro.length > 600 ? intro.slice(0, 600) : intro);
+      if (intro) segs.push(intro.length > 600 ? intro.slice(0, 600) : intro);
     }
     if (Array.isArray(lesson?.sections)) {
       for (const section of lesson.sections) {
@@ -328,13 +380,19 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         }
       }
     }
-    return segs.length ? segs : [getFullLessonText()];
+    
+    // Fallback to full text if no segments were created
+    return segs.length ? segs : [getFullLessonText()].filter(text => text.trim().length > 0);
   }, [lesson, getFullLessonText]);
 
   const preloadTTS = useCallback(async () => {
     try {
       setIsTtsLoading(true);
-      if (!segments.length) return;
+      setTtsError(null); // Clear previous errors
+      if (!segments.length) {
+        throw new Error("No content available for text-to-speech");
+      }
+      
       const firstUrl = await fetchTTSBlobUrl(segments[0]);
       
       if (!firstUrl) {
@@ -346,10 +404,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           setAudioQueue([retryUrl]);
           setCurrentIndex(0);
           // Continue with preloading...
+        } else {
+          throw new Error("Failed to generate audio after retry");
         }
-      }
-      
-      if (firstUrl) {
+      } else {
         setAudioUrl(firstUrl);
         setAudioQueue([firstUrl]);
         setCurrentIndex(0);
@@ -357,13 +415,21 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         if (segments.length > 1) {
           setIsQueuePreloading(true);
           fetchTTSBlobUrl(segments[1])
-            .then((u) => setAudioQueue((q) => [...q, u]))
-            .catch(console.error)
+            .then((u) => {
+              if (u) {
+                setAudioQueue((q) => [...q, u]);
+              }
+            })
+            .catch((error) => {
+              console.error("Error preloading next segment:", error);
+              setTtsError(error instanceof Error ? error.message : "Failed to preload audio");
+            })
             .finally(() => setIsQueuePreloading(false));
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error("TTS Preload Error:", e);
+      setTtsError(e instanceof Error ? e.message : "Failed to generate audio");
     } finally {
       setIsTtsLoading(false);
     }
@@ -371,7 +437,12 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
   const playTTS = useCallback(() => {
     const src = audioQueue[currentIndexRef.current] || audioUrl;
-    if (!src) return;
+    if (!src) {
+      console.warn("No audio source available to play");
+      setTtsError("No audio available to play");
+      return;
+    }
+    
     if (!audioRef.current) {
       audioRef.current = new Audio(src);
       audioRef.current.addEventListener("play", () => setIsPlaying(true));
@@ -388,20 +459,21 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
               const retryUrl = await fetchTTSBlobUrl(segments[nextIndex], true /* isRetry */);
               if (retryUrl) {
                 setAudioQueue((q) => {
-                  const qq = q.slice();
+                  const qq = [...q];
                   qq[nextIndex] = retryUrl;
                   return qq;
                 });
               }
             } else {
               setAudioQueue((q) => {
-                const qq = q.slice();
+                const qq = [...q];
                 qq[nextIndex] = u;
                 return qq;
               });
             }
           } catch (e) {
-            console.error(e);
+            console.error("Error loading next audio segment:", e);
+            setTtsError(e instanceof Error ? e.message : "Failed to load next audio segment");
           }
         }
         setCurrentIndex(nextIndex);
@@ -410,7 +482,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         if (nextSrc) {
           if (audioRef.current) {
             audioRef.current.src = nextSrc;
-            audioRef.current.play().catch(console.error);
+            audioRef.current.play().catch((error) => {
+              console.error("Error playing audio:", error);
+              setTtsError("Failed to play audio");
+            });
           }
         } else {
           setIsPlaying(false);
@@ -419,7 +494,11 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     } else {
       audioRef.current.src = src;
     }
-    audioRef.current.play().catch(console.error);
+    
+    audioRef.current.play().catch((error) => {
+      console.error("Error playing audio:", error);
+      setTtsError("Failed to play audio");
+    });
   }, [audioUrl, audioQueue, segments, fetchTTSBlobUrl]);
 
   return (
@@ -509,6 +588,13 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           </div>
         )}
         
+        {ttsError && (
+          <div className="flex items-center gap-2 text-red-400 text-sm">
+            <AlertCircle className="w-4 h-4" />
+            <span>{ttsError}</span>
+          </div>
+        )}
+        
         {!isTtsLoading && !isRetrying && (
           <button
             onClick={preloadTTS}
@@ -537,7 +623,7 @@ interface AnimatedAIChatProps {
   onSend?: () => void
 }
 
-  export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
+export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -597,30 +683,40 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const getUserAge = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        // Check for session error
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          return;
+        }
         
         // Only proceed if user is properly authenticated
         if (session?.user) {
           // First try to get age from user metadata
           const age = (session.user as any).user_metadata?.age;
           if (age) {
-            setUserAge(age);
-            return;
+            const parsedAge = parseInt(age, 10);
+            if (!isNaN(parsedAge) && parsedAge > 0) {
+              setUserAge(parsedAge); // Ensure it's a valid number
+              return;
+            }
           }
           
           // If not in metadata, try to get from users table
-          const { data: userData, error } = await supabase
+          const { data: userData, error: userError } = await supabase
             .from('users')
             .select('user_metadata')
             .eq('id', session.user.id)
             .single();
             
-          if (!error && userData && (userData as any).user_metadata?.age) {
-            setUserAge((userData as any).user_metadata.age);
+          if (!userError && userData && (userData as any).user_metadata?.age) {
+            const userAge = parseInt((userData as any).user_metadata.age, 10);
+            if (!isNaN(userAge) && userAge > 0) {
+              setUserAge(userAge);
+            }
           }
         }
-        // Remove the else block - no age-based features for unauthenticated users
-        // Age-based responses, term plans, and history are only for registered users
       } catch (error) {
         console.error('Error retrieving user age:', error);
       }
@@ -657,6 +753,10 @@ interface AnimatedAIChatProps {
     const q = value.trim();
     if (!q) return;
 
+    // Reset retry count for new requests
+    setRetryCount(0);
+    setError(null); // Clear previous errors for new requests
+    
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     setIsTyping(true);
@@ -664,7 +764,6 @@ interface AnimatedAIChatProps {
     setStoredLong("");
     setShowVideoButton(false);
     setLessonJson(null);
-    setError(null);
 
     // legacy video path
     if (q.startsWith("/video")) {
@@ -719,7 +818,30 @@ interface AnimatedAIChatProps {
         signal: abortRef.current.signal,
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        // Handle specific HTTP errors with user-friendly messages
+        let errorMessage = "Failed to get response from server";
+        switch (response.status) {
+          case 400:
+            errorMessage = "Invalid request. Please try rephrasing your question.";
+            break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment and try again.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again later.";
+            break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
+        }
+        throw new Error(errorMessage);
+      }
 
       if (!response.body) {
         setError("Streaming unsupported by browser or server");
@@ -737,7 +859,7 @@ interface AnimatedAIChatProps {
       const timeoutId = setTimeout(() => {
         if (!hasFirstChunk) {
           abortRef.current?.abort();
-          setError("Timeout waiting for response");
+          setError("Timeout waiting for response. Please check your connection and try again.");
           setIsTyping(false);
         }
       }, 15000);
@@ -793,7 +915,7 @@ interface AnimatedAIChatProps {
                 return; 
 
               case "error":
-                setError(msg.message);
+                setError(msg.message || "An error occurred while generating the lesson");
                 setIsTyping(false);
                 if (process.env.NODE_ENV === 'development') {
                   console.warn('[homepage lesson-stream] error', msg)
@@ -802,26 +924,33 @@ interface AnimatedAIChatProps {
             }
           } catch (e) {
             // Skip malformed messages
+            console.warn('Skipping malformed message:', ln);
           }
         }
       }
       clearTimeout(timeoutId);
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") console.log("aborted");
-      else setError(e instanceof Error ? e.message : "Streaming failed");
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[homepage lesson-stream] catch', e)
+      if (e instanceof Error && e.name === "AbortError") {
+        console.log("Request aborted");
+        setError("Request cancelled");
+      } else {
+        const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred";
+        setError(errorMessage);
+        console.error('[homepage lesson-stream] catch', e);
       }
       
+      // Only retry for network-related errors or server errors, not client errors
       if (retryCount < MAX_RETRIES) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, retryCount) * 1000;
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
           handleSendMessage();
-        }, 1000 * (retryCount + 1)); 
+        }, delay); 
       }
     } finally {
+      // Don't clear the input value on error so user can retry
       setIsTyping(false);
-      setValue('')
     }
   };
 
