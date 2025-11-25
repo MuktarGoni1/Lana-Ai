@@ -95,7 +95,7 @@ function ChatWithSidebarContent() {
   const api = useApi();
   
   const fetchHistory = async (forceRefresh = false) => {
-    if (!user || !sid) return;
+    if (!sid) return;
     setLoadingHistory(true);
     setHistoryError(null);
     try {
@@ -112,9 +112,15 @@ function ChatWithSidebarContent() {
       setHistory(data);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
-        setHistoryError("Please login or register to save search history.");
+        // Don't show error message for authenticated users
+        if (!user) {
+          setHistoryError("Please login or register to save search history.");
+        }
       } else {
-        setHistoryError("Failed to fetch history.");
+        // Only show error messages to unauthenticated users
+        if (!user) {
+          setHistoryError("Failed to fetch history.");
+        }
       }
     } finally {
       setLoadingHistory(false);

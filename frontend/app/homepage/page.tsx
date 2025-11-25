@@ -747,7 +747,10 @@ interface AnimatedAIChatProps {
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(q.trim()).then(saveResult => {
         console.log('✅ saveSearch result:', saveResult)
-        if (saveResult?.message) {
+        // Only show messages for unauthenticated users or actual errors
+        if (saveResult?.message && (saveResult.suggestion || !saveResult.success)) {
+          // Only show messages to unauthenticated users
+          // Authenticated users don't need to see success messages about saving to history
           setSaveMessage(saveResult.message)
           setShowSaveMessage(true)
           setTimeout(() => {
