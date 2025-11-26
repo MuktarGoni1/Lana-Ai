@@ -29,6 +29,13 @@ except Exception:
 # Import job worker manager
 from app.jobs.worker_manager import start_job_workers, stop_job_workers
 
+# Redis availability check
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -180,8 +187,12 @@ async def _stub_lesson(topic: str) -> StructuredLessonResponse:
         SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
         SectionItem(title="Details", content=f"Deeper look at {topic}."),
     ]
+    # Generate 4 comprehensive quiz questions instead of just 1
     quiz = [
         QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+        QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+        QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+        QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
     ]
     return StructuredLessonResponse(
         id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
@@ -264,7 +275,8 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 diagram=diagram_norm,
                 quiz=quiz,
             )
-            if resp.sections:
+            # Only cache and return LLM response if it has both sections and quiz questions
+            if resp.sections and resp.quiz:
                 try:
                     await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
                 except Exception:
@@ -333,8 +345,12 @@ async def create_structured_lesson(req: StructuredLessonRequest, response: Respo
             SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
             SectionItem(title="Details", content=f"Deeper look at {topic}."),
         ]
+        # Generate 4 comprehensive quiz questions instead of just 1
         quiz = [
             QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
         ]
         return StructuredLessonResponse(
             id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
