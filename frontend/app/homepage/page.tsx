@@ -232,14 +232,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      // Check if we have a lesson ID to use the new endpoint
-      if (lesson?.id) {
-        // Use the new endpoint that retrieves quiz by lesson ID
-        router.push(`/quiz?lessonId=${lesson.id}`);
-        return;
-      }
+      // Always use the data-based approach since lesson ID approach won't work
+      // (lessons are ephemeral and not retrievable by ID from the backend)
       
-      // Fallback to the old method if no lesson ID is available
+      // Check if we have quiz data available
       if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
         console.warn("No quiz data available", lesson?.quiz);
         return;
@@ -247,7 +243,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       
       // Transform quiz data to match frontend expectations
       const transformedQuiz = lesson.quiz.map((item) => ({
-        q: item.q || "",  // Use 'q' property from backend
+        q: item.q || (item as any).question || "",  // Handle both 'q' and 'question' properties
         options: Array.isArray(item.options) ? item.options : [],
         answer: item.answer || ""
       })).filter((item) => item.q && item.options.length > 0);

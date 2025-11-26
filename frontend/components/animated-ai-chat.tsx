@@ -199,7 +199,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       
       // Transform quiz data to match frontend expectations
       const transformedQuiz = lesson.quiz.map((item: any) => ({
-        q: item.q || "",
+        q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
         options: Array.isArray(item.options) ? item.options : [],
         answer: item.answer || ""
       })).filter(item => item.q && item.options.length > 0);

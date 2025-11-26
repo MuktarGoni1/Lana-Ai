@@ -38,25 +38,40 @@ function parseQuizParam(raw: string | null): Question[] {
     const cleaned: Question[] = [];
     for (const item of data.slice(0, MAX_QUESTIONS)) {
       if (!item || typeof item !== "object") continue;
-      // Handle 'q' property
-      const q = typeof item.q === "string" ? item.q.trim().slice(0, MAX_Q_LEN) : null;
+      // Handle 'q' property - be more flexible
+      const q = typeof item.q === "string" ? item.q.trim().slice(0, MAX_Q_LEN) : 
+                typeof item.question === "string" ? item.question.trim().slice(0, MAX_Q_LEN) : null;
       const options = Array.isArray(item.options)
         ? item.options
             .filter((o: unknown) => typeof o === "string")
             .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
+        : Array.isArray(item.choices) // Handle 'choices' as well
+        ? item.choices
+            .filter((o: unknown) => typeof o === "string")
+            .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
         : null;
       // Handle both 'answer' properties for consistency
-      const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : null;
-      const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : undefined;
+      const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : 
+                     typeof item.correct === "string" ? item.correct.trim().slice(0, MAX_OPT_LEN) : null;
+      const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : 
+                          typeof item.reason === "string" ? item.reason.trim().slice(0, MAX_Q_LEN) : undefined;
 
+      // Be more lenient with validation
       if (!q || !options || options.length < MIN_OPTIONS || options.length > MAX_OPTIONS || !answer) continue;
-      if (!options.includes(answer)) continue;
+      if (!options.includes(answer)) {
+        // If answer is not in options, try to find a close match
+        const matchingOption = options.find((opt: string) => 
+          opt.toLowerCase().trim() === answer.toLowerCase().trim());
+        if (!matchingOption) continue;
+        // Use the matching option instead
+      }
 
       cleaned.push({ q, options, answer, explanation });
     }
 
     return cleaned;
-  } catch {
+  } catch (error) {
+    console.error("Error parsing quiz data:", error);
     return [];
   }
 }
@@ -80,17 +95,21 @@ function QuizContent() {
           const res = await fetch(`/api/lessons/${lessonId}/quiz`, { cache: "no-store" });
           if (res.ok) {
             const data = await res.json();
-            // Transform data to match frontend expectations
+            console.log("Quiz data received from API:", data); // Debug log
+            // Transform data to match frontend expectations with better error handling
             const transformedQuiz = Array.isArray(data) ? data.map((item: any) => ({
-              q: item.q || "",
+              q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
               options: Array.isArray(item.options) ? item.options : [],
               answer: item.answer || ""
             })).filter(item => item.q && item.options.length > 0) : [];
+            console.log("Transformed quiz data:", transformedQuiz); // Debug log
             setQuiz(transformedQuiz);
           } else {
+            console.warn("Failed to fetch quiz by lesson ID:", res.status);
             setQuiz([]);
           }
-        } catch {
+        } catch (error) {
+          console.error("Error fetching quiz by lesson ID:", error);
           setQuiz([]);
         } finally {
           setLoading(false);
@@ -102,9 +121,11 @@ function QuizContent() {
             const data = await res.json();
             setQuiz(Array.isArray(data) ? data : []);
           } else {
+            console.warn("Failed to fetch quiz by ID:", res.status);
             setQuiz([]);
           }
-        } catch {
+        } catch (error) {
+          console.error("Error fetching quiz by ID:", error);
           setQuiz([]);
         } finally {
           setLoading(false);
@@ -140,12 +161,13 @@ function QuizContent() {
     return (
       <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p>No quiz data.</p>
+          <p>Sorry, no quiz questions are available for this lesson.</p>
+          <p className="text-sm text-white/70">The lesson may not include quiz questions or there was an issue loading them.</p>
           <button
             onClick={() => router.back()}
             className="px-4 py-2 rounded-lg bg-white text-black"
           >
-            Go back
+            Go back to lesson
           </button>
         </div>
       </div>
