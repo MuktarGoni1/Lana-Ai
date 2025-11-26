@@ -768,14 +768,24 @@ class LessonService:
                 ],
                 "quiz_questions": [
                     {
-                        "question": f"{topic} is mainly about?",
-                        "options": ["Concepts", "Tools", "Both"],
-                        "correct_answer": "Both",
+                        "question": f"What is {topic}?",
+                        "options": [f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"],
+                        "correct_answer": "D) All of the above",
                     },
                     {
-                        "question": f"One application of {topic}?",
-                        "options": ["None", "Data", "Web"],
-                        "correct_answer": "Data",
+                        "question": f"Which is a key aspect of {topic}?",
+                        "options": [f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"],
+                        "correct_answer": "D) All of the above",
+                    },
+                    {
+                        "question": f"How is {topic} typically used?",
+                        "options": [f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"],
+                        "correct_answer": "D) All of the above",
+                    },
+                    {
+                        "question": f"What should you know about {topic}?",
+                        "options": [f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"],
+                        "correct_answer": "D) All of the above",
                     },
                 ],
                 "diagram_description": f"High-level diagram of {topic} components",
@@ -805,11 +815,11 @@ class LessonService:
 Structure:
 {{
   "introduction": {{"definition": "Brief definition", "relevance": "Why important"}},
-  "sections": [{{"title": "Title", "content": "• Point 1\\n• Point 2\\n• Point 3"}}],
+  "sections": [{{"title": "Title", "content": "• Point 1\n• Point 2\n• Point 3"}}],
   "classifications": [{{"type": "Type", "description": "Description"}}],
   "quiz_questions": [{{"question": "Q?", "options": ["A", "B", "C", "D"], "correct_answer": "A"}}]
 }}
-Rules: 3 sections, 3-5 bullets each, 4 quiz questions, <600 tokens."""
+Rules: 3 sections, 3-5 bullets each, 4 quiz questions with 4 options each, <600 tokens."""
 
     def _parse_json_response(self, response: str) -> Dict[str, Any]:
         """Parse JSON from AI response with error handling."""
@@ -898,13 +908,13 @@ Rules: 3 sections, 3-5 bullets each, 4 quiz questions, <600 tokens."""
                     )
                 )
 
-        # Ensure at least one quiz question
+        # Ensure at least one quiz question with better options
         if not quiz:
             quiz = [
                 QuizItem(
-                    q=f"What did you learn about {topic}?",
-                    options=["A) Nothing", "B) Something", "C) Everything"],
-                    answer="B) Something",
+                    q=f"What is {topic}?",
+                    options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"],
+                    answer="D) All of the above",
                 )
             ]
 
@@ -931,8 +941,8 @@ Rules: 3 sections, 3-5 bullets each, 4 quiz questions, <600 tokens."""
             quiz=[
                 QuizItem(
                     q=f"What is {topic}?",
-                    options=["A) A concept", "B) A skill", "C) Both"],
-                    answer="C) Both",
+                    options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"],
+                    answer="D) All of the above",
                 )
             ],
         )

@@ -181,7 +181,7 @@ async def _stub_lesson(topic: str) -> StructuredLessonResponse:
         SectionItem(title="Details", content=f"Deeper look at {topic}."),
     ]
     quiz = [
-        QuizItem(q=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),  # Changed from 'question' to 'q'
+        QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
     ]
     return StructuredLessonResponse(
         id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
@@ -201,7 +201,9 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
                 "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
                 "sections (array of {title, content}), diagram (string; ASCII or description), "
-                "quiz (array of {question, options, answer}). Keep language clear for the learner."
+                "quiz (array of {question, options, answer}). For quiz questions, create 4 multiple choice questions with 4 options each. "
+                "Make sure the questions test understanding of the topic and have clear correct answers. "
+                "Keep language clear for the learner."
             )
             # Build prompt with optional age field
             user_prompt = {
@@ -332,7 +334,7 @@ async def create_structured_lesson(req: StructuredLessonRequest, response: Respo
             SectionItem(title="Details", content=f"Deeper look at {topic}."),
         ]
         quiz = [
-            QuizItem(q=f"What is {topic}?", options=[f"A {topic} concept", "Not related"], answer=f"A {topic} concept"),  # Changed from 'question' to 'q'
+            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
         ]
         return StructuredLessonResponse(
             id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
