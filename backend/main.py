@@ -180,20 +180,66 @@ class StructuredLessonResponse(BaseModel):
     quiz: List[QuizItem]
 
 
-async def _stub_lesson(topic: str) -> StructuredLessonResponse:
-    intro = f"Let's learn about {topic} in a clear, friendly way."
+async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+    # Create age-appropriate introduction
+    age_str = ""
+    if age is not None:
+        if age <= 2:
+            age_str = "in a simple, fun way"
+        elif age <= 5:
+            age_str = "in a clear, friendly way"
+        elif age <= 12:
+            age_str = "in an engaging way"
+        elif age <= 18:
+            age_str = "in a detailed way"
+        else:
+            age_str = "in depth"
+    
+    intro = f"Let's learn about {topic} {age_str}!"
     classifications = [ClassificationItem(type="Category", description=topic.title())]
-    sections = [
-        SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
-        SectionItem(title="Details", content=f"Deeper look at {topic}."),
-    ]
-    # Generate 4 comprehensive quiz questions instead of just 1
-    quiz = [
-        QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-        QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-        QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-        QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-    ]
+    
+    # Create age-appropriate sections
+    if age is not None and age <= 5:
+        sections = [
+            SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
+            SectionItem(title="Details", content=f"Deeper look at {topic}."),
+        ]
+    elif age is not None and age <= 12:
+        sections = [
+            SectionItem(title="What is it?", content=f"{topic} - key ideas and examples."),
+            SectionItem(title="How does it work?", content=f"Understanding how {topic} works."),
+            SectionItem(title="Why is it important?", content=f"Learning why {topic} matters."),
+        ]
+    else:
+        sections = [
+            SectionItem(title="Introduction", content=f"Understanding {topic} - key concepts and definitions."),
+            SectionItem(title="Key Principles", content=f"Core principles and theories of {topic}."),
+            SectionItem(title="Applications", content=f"How {topic} is applied in real-world scenarios."),
+        ]
+    
+    # Generate age-appropriate quiz questions
+    if age is not None and age <= 5:
+        quiz = [
+            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
+        ]
+    elif age is not None and age <= 12:
+        quiz = [
+            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"Why is {topic} important?", options=[f"A) It helps us understand the world", f"B) It has practical applications", f"C) It builds critical thinking", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"How can {topic} be used?", options=[f"A) In school projects", f"B) In daily life", f"C) In future careers", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"What should you remember about {topic}?", options=[f"A) Key definitions", f"B) Main concepts", f"C) Real-world examples", "D) All of the above"], answer="D) All of the above"),
+        ]
+    else:
+        quiz = [
+            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
+        ]
+    
     return StructuredLessonResponse(
         id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
         introduction=intro,
@@ -208,6 +254,20 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
     if _GROQ_CLIENT is not None:
         raw_excerpt = ""  # Initialize raw_excerpt to ensure it's always available
         try:
+            # Enhanced system prompt with better age-based instructions
+            age_str = ""
+            if age is not None:
+                if age <= 2:
+                    age_str = "toddler"
+                elif age <= 5:
+                    age_str = "preschooler"
+                elif age <= 12:
+                    age_str = "child"
+                elif age <= 18:
+                    age_str = "teenager"
+                else:
+                    age_str = "adult"
+            
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
                 "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
@@ -216,13 +276,17 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 "Make sure the questions test understanding of the topic and have clear correct answers. "
                 "Keep language clear for the learner."
             )
-            # Build prompt with optional age field
+            
+            # Enhanced user prompt with better age-based context
             user_prompt = {
                 "topic": topic,
                 "requirements": "Educational, concise, accurate, friendly."
             }
+            
             if age is not None:
-                user_prompt["age"] = str(age)  # Convert to string
+                user_prompt["age_group"] = age_str
+                user_prompt["age"] = age
+                
             completion = _GROQ_CLIENT.chat.completions.create(
                 model="llama-3.1-8b-instant",
                 temperature=0.3,
@@ -234,6 +298,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             )
             content = completion.choices[0].message.content
             raw_excerpt = (content or "")[:300]  # Update raw_excerpt with actual content
+            
             # Parse JSON with robust normalization for string fields
             data = json.loads(content)
 
@@ -282,16 +347,17 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 except Exception:
                     pass
                 return resp, "llm"
-            return await _stub_lesson(topic), "stub"
+            return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
             try:
                 logger.warning(f"Structured lesson LLM error: {e}. raw_excerpt={raw_excerpt}")
             except Exception:
                 logger.warning(f"Structured lesson LLM error: {e}")
-            return await _stub_lesson(topic), "stub"
+            return await _stub_lesson(topic, age), "stub"
     else:
-        return await _stub_lesson(topic), "stub"
+        return await _stub_lesson(topic, age), "stub"
+
 
 async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
     fut = _INFLIGHT_LESSONS.get(cache_key)
@@ -306,7 +372,7 @@ async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int])
             fut.set_result(result)
         except Exception as e:
             logger.error(f"Structured lesson compute failed: {e}")
-            fut.set_result((await _stub_lesson(topic), "stub"))
+            fut.set_result((await _stub_lesson(topic, age), "stub"))
         finally:
             _INFLIGHT_LESSONS.pop(cache_key, None)
     asyncio.create_task(_run())
@@ -339,19 +405,65 @@ async def warm_up_structured_lessons():
 async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
     """Create a structured lesson from a topic and optional age constraints."""
     def _stub(topic: str) -> StructuredLessonResponse:
-        intro = f"Let's learn about {topic} in a clear, friendly way."
+        # Create age-appropriate introduction
+        age_str = ""
+        if age is not None:
+            if age <= 2:
+                age_str = "in a simple, fun way"
+            elif age <= 5:
+                age_str = "in a clear, friendly way"
+            elif age <= 12:
+                age_str = "in an engaging way"
+            elif age <= 18:
+                age_str = "in a detailed way"
+            else:
+                age_str = "in depth"
+        
+        intro = f"Let's learn about {topic} {age_str}!"
         classifications = [ClassificationItem(type="Category", description=topic.title())]
-        sections = [
-            SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
-            SectionItem(title="Details", content=f"Deeper look at {topic}."),
-        ]
-        # Generate 4 comprehensive quiz questions instead of just 1
-        quiz = [
-            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-        ]
+        
+        # Create age-appropriate sections
+        if age is not None and age <= 5:
+            sections = [
+                SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
+                SectionItem(title="Details", content=f"Deeper look at {topic}."),
+            ]
+        elif age is not None and age <= 12:
+            sections = [
+                SectionItem(title="What is it?", content=f"{topic} - key ideas and examples."),
+                SectionItem(title="How does it work?", content=f"Understanding how {topic} works."),
+                SectionItem(title="Why is it important?", content=f"Learning why {topic} matters."),
+            ]
+        else:
+            sections = [
+                SectionItem(title="Introduction", content=f"Understanding {topic} - key concepts and definitions."),
+                SectionItem(title="Key Principles", content=f"Core principles and theories of {topic}."),
+                SectionItem(title="Applications", content=f"How {topic} is applied in real-world scenarios."),
+            ]
+        
+        # Generate age-appropriate quiz questions
+        if age is not None and age <= 5:
+            quiz = [
+                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
+            ]
+        elif age is not None and age <= 12:
+            quiz = [
+                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"Why is {topic} important?", options=[f"A) It helps us understand the world", f"B) It has practical applications", f"C) It builds critical thinking", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"How can {topic} be used?", options=[f"A) In school projects", f"B) In daily life", f"C) In future careers", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"What should you remember about {topic}?", options=[f"A) Key definitions", f"B) Main concepts", f"C) Real-world examples", "D) All of the above"], answer="D) All of the above"),
+            ]
+        else:
+            quiz = [
+                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
+                QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
+            ]
+        
         return StructuredLessonResponse(
             id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
             introduction=intro,

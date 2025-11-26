@@ -6,7 +6,7 @@ services:
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    startCommand: npm run start -- -p $PORT -H 0.0.0.0
+    startCommand: npm run start -- -p $PORT
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
@@ -22,4 +22,4 @@ services:
       - key: NEXT_TELEMETRY_DISABLED
         value: "1"
       - key: SUPABASE_SERVICE_ROLE_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcXFzZ3BhaXZ4bWNnY2ZsYW51Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1ODM4Mjk4MCwiZXhwIjoyMDczOTU4OTgwfQ.J5GTWN6N-vIEI8nsuvux8PTrbfg2txpCNwhdtocWBQU
+        sync: false

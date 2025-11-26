@@ -115,7 +115,16 @@ export default function HomePage() {
     return null;
   }
 
-  return <ChatWithSidebar />;
+  // Return the AnimatedAIChat component instead of ChatWithSidebar
+  return (
+    <div className="flex flex-col w-full items-center justify-center bg-transparent text-white p-6 relative overflow-hidden min-h-[calc(100vh-3rem)]">
+      <AnimatedAIChat onNavigateToVideoLearning={(title) => {
+        // Implement navigation logic here
+        console.log("Navigating to video learning with title:", title);
+        // router.push(`/video-learning?title=${encodeURIComponent(title)}`);
+      }} />
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -196,7 +205,7 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  q: string;  // Changed from 'question' to 'q' to match backend
+  q: string;  
   options: string[];
   answer: string;
 }
