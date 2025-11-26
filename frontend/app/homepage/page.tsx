@@ -542,13 +542,15 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           </div>
           <h2 className="text-xl font-semibold">Lesson Preview</h2>
         </div>
-        <button
-          onClick={handleTakeQuiz}
-          className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          Take Quiz
-        </button>
+        {lesson.quiz && lesson.quiz.length > 0 && (
+          <button
+            onClick={handleTakeQuiz}
+            className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Take Quiz
+          </button>
+        )}
       </div>
 
       {/* lesson content */}
