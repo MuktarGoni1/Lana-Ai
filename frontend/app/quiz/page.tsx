@@ -306,6 +306,12 @@ function QuizContent() {
               <RotateCcw className="w-4 h-4" /> Restart
             </button>
             <button
+              onClick={() => router.push("/homepage")}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600"
+            >
+              More Questions
+            </button>
+            <button
               onClick={() => router.back()}
               className="px-4 py-2 rounded-lg bg-white text-black font-medium"
             >
@@ -385,34 +391,42 @@ function QuizContent() {
             )}
           </div>
 
-          <div>
-            {isLast ? (
-              <button
-                onClick={() => setSubmitted(true)}
-                disabled={Object.keys(answers).length !== quiz.length}
-                className={cn(
-                  "px-5 py-2 rounded-lg text-sm font-medium",
-                  Object.keys(answers).length === quiz.length
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/40 cursor-not-allowed"
-                )}
-              >
-                Submit
-              </button>
-            ) : (
-              <button
-                onClick={() => setIdx((i) => i + 1)}
-                disabled={!answers[idx]}
-                className={cn(
-                  "px-5 py-2 rounded-lg text-sm font-medium",
-                  answers[idx]
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/40 cursor-not-allowed"
-                )}
-              >
-                Next
-              </button>
-            )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push("/homepage")}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600"
+            >
+              More Questions
+            </button>
+            <div>
+              {isLast ? (
+                <button
+                  onClick={() => setSubmitted(true)}
+                  disabled={Object.keys(answers).length !== quiz.length}
+                  className={cn(
+                    "px-5 py-2 rounded-lg text-sm font-medium",
+                    Object.keys(answers).length === quiz.length
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/40 cursor-not-allowed"
+                  )}
+                >
+                  Submit
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIdx((i) => i + 1)}
+                  disabled={!answers[idx]}
+                  className={cn(
+                    "px-5 py-2 rounded-lg text-sm font-medium",
+                    answers[idx]
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/40 cursor-not-allowed"
+                  )}
+                >
+                  Next
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>

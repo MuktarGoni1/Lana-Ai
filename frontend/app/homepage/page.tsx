@@ -196,12 +196,13 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  question: string;
+  q: string;  // Changed from 'question' to 'q' to match backend
   options: string[];
   answer: string;
 }
 
 interface Lesson {
+  id?: string;
   introduction?: string;
   classifications?: Array<{ type: string; description: string }>;
   sections?: LessonSection[];
@@ -231,10 +232,32 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
+      // Check if we have a lesson ID to use the new endpoint
+      if (lesson?.id) {
+        // Use the new endpoint that retrieves quiz by lesson ID
+        router.push(`/quiz?lessonId=${lesson.id}`);
         return;
       }
-      const data = encodeURIComponent(JSON.stringify(lesson.quiz));
+      
+      // Fallback to the old method if no lesson ID is available
+      if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
+        console.warn("No quiz data available", lesson?.quiz);
+        return;
+      }
+      
+      // Transform quiz data to match frontend expectations
+      const transformedQuiz = lesson.quiz.map((item) => ({
+        q: item.q || "",  // Use 'q' property from backend
+        options: Array.isArray(item.options) ? item.options : [],
+        answer: item.answer || ""
+      })).filter((item) => item.q && item.options.length > 0);
+      
+      if (transformedQuiz.length === 0) {
+        console.warn("No valid quiz items after transformation", lesson.quiz);
+        return;
+      }
+      
+      const data = encodeURIComponent(JSON.stringify(transformedQuiz));
       router.push(`/quiz?data=${data}`);
     } catch (err) {
       console.error("Failed to navigate to quiz:", err);
