@@ -646,6 +646,8 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  placeholder?: string;
+  action?: () => void;
 }
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
@@ -684,13 +686,41 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths" },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat" },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("default") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
   const modeSuggestions = [
+    {
+      icon: <PersonStandingIcon className="w-4 h-4" />,
+      label: "Structured Lesson",
+      description: "Detailed and structured breakdown of your topic.",
+      action: () => handleModeClick("default"),
+      placeholder: "Please input a topic for structured learning"
+    },
+    {
+      icon: <BookOpen className="w-4 h-4" />,
+      label: "Maths Tutor",
+      description: "Add maths equations for simple solutions with explainer",
+      action: () => handleModeClick("maths"),
+      placeholder: "Please input a maths question"
+    },
+    {
+      icon: <Play className="w-4 h-4" />,
+      label: "Chat",
+      description: "Chat and ask your friendly AI",
+      action: () => handleModeClick("chat"),
+      placeholder: "Please input your question"
+    },
+    {
+      icon: <Sparkles className="w-4 h-4" />,
+      label: "Quick Answer",
+      description: "Concise explanation",
+      action: () => handleModeClick("quick"),
+      placeholder: "Please input your question for a quick answer"
+    },
     {
       icon: <Video className="w-4 h-4" />,
       label: "Explanation Mode",
@@ -707,6 +737,32 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       action: () => router.push("/term-plan"),
     },
   ];
+
+  // Function to handle mode button clicks and activate command palette with placeholder text
+  const handleModeClick = (mode: string) => {
+    switch (mode) {
+      case "maths":
+        setValue("/Maths ");
+        break;
+      case "chat":
+        setValue("/Chat ");
+        break;
+      case "quick":
+        setValue("/quick ");
+        break;
+      case "default":
+      default:
+        setValue("/default ");
+        break;
+    }
+    setShowCommandPalette(true);
+    // Focus the textarea after setting the value
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
 
   /* --- effects ----------------------------------------------------- */
   // Retrieve user age on component mount - ONLY for authenticated users
@@ -767,6 +823,20 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       window.removeEventListener("mousemove", handleMouseMove); 
     };
   }, [mouseX, mouseY]);
+
+  // Function to get the appropriate placeholder based on the current mode
+  const getModePlaceholder = (): string => {
+    if (value.startsWith("/default")) {
+      return "Please input a topic for structured learning";
+    } else if (value.startsWith("/Maths")) {
+      return "Please input a maths question";
+    } else if (value.startsWith("/Chat")) {
+      return "Please input your question";
+    } else if (value.startsWith("/quick")) {
+      return "Please input your question for a quick answer";
+    }
+    return "What would you like to learn today?";
+  };
 
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
@@ -1123,8 +1193,12 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        setValue(s.prefix + " ");
-                        setShowCommandPalette(false);
+                        if (s.action) {
+                          s.action();
+                        } else {
+                          setValue(s.prefix + " ");
+                          setShowCommandPalette(false);
+                        }
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
@@ -1151,7 +1225,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="What would you like to learn today?"
+                placeholder={getModePlaceholder()}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
