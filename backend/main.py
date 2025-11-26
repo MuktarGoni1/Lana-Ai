@@ -274,13 +274,15 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 "sections (array of {title, content}), diagram (string; ASCII or description), "
                 "quiz (array of {question, options, answer}). For quiz questions, create 4 multiple choice questions with 4 options each. "
                 "Make sure the questions test understanding of the topic and have clear correct answers. "
-                "Keep language clear for the learner."
+                "Keep language clear for the learner. For scientific topics, provide specific details and examples. "
+                "Do not provide generic responses. Each section should contain substantial educational content. "
+                "If you cannot provide a quality response for the specific topic, indicate so explicitly."
             )
             
             # Enhanced user prompt with better age-based context
             user_prompt = {
                 "topic": topic,
-                "requirements": "Educational, concise, accurate, friendly."
+                "requirements": "Educational, concise, accurate, friendly. Provide specific details for scientific topics. Do not provide generic template responses. Each section should contain substantial educational content relevant to the specific topic."
             }
             
             if age is not None:
@@ -300,7 +302,11 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             raw_excerpt = (content or "")[:300]  # Update raw_excerpt with actual content
             
             # Parse JSON with robust normalization for string fields
-            data = json.loads(content)
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse JSON from LLM for topic '{topic}': {e}. Content: {content[:200]}...")
+                raise
 
             def _to_str(val: Optional[object], default: str = "") -> str:
                 try:
@@ -341,19 +347,31 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 quiz=quiz,
             )
             # Only cache and return LLM response if it has both sections and quiz questions
-            if resp.sections and resp.quiz:
+            # Also validate that content is substantial (not just generic templates)
+            has_substantial_content = (
+                resp.sections and resp.quiz and
+                len(resp.sections) >= 2 and  # At least 2 sections
+                all(len(s.content) > 50 for s in resp.sections) and  # Each section has substantial content
+                len(resp.quiz) >= 3  # At least 3 quiz questions
+            )
+            
+            if has_substantial_content:
                 try:
                     await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
                 except Exception:
                     pass
                 return resp, "llm"
+            # Log when we're falling back to stub due to incomplete or low-quality LLM response
+            logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
+                          f"Sections: {len(resp.sections)}, Quiz: {len(resp.quiz)}, "
+                          f"Section quality: {[len(s.content) for s in resp.sections]}")
             return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
             try:
-                logger.warning(f"Structured lesson LLM error: {e}. raw_excerpt={raw_excerpt}")
+                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
             except Exception:
-                logger.warning(f"Structured lesson LLM error: {e}")
+                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
             return await _stub_lesson(topic, age), "stub"
     else:
         return await _stub_lesson(topic, age), "stub"

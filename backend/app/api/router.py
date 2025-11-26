@@ -2,7 +2,7 @@
 Main API router that includes all route modules.
 """
 from fastapi import APIRouter
-from .routes import lessons, math_solver, tts, history, jobs
+from .routes import lessons, math_solver, tts, history, jobs, chat
 
 # Create main API router
 api_router = APIRouter()
@@ -13,4 +13,4 @@ api_router.include_router(math_solver.router, prefix="/math-solver", tags=["math
 api_router.include_router(tts.router, prefix="/tts", tags=["tts"])
 api_router.include_router(history.router, tags=["history"])
 api_router.include_router(jobs.router, tags=["jobs"])
-
+api_router.include_router(chat.router, prefix="/chat", tags=["chat"])

@@ -33,7 +33,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.endpoint_limits = {
             "/api/structured-lesson": {"per_minute": 20, "per_hour": 300},
             "/api/structured-lesson/stream": {"per_minute": 20, "per_hour": 300},
-            "/api/tts": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/synthesize": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/stream": {"per_minute": 15, "per_hour": 150},
             "/api/solve-math": {"per_minute": 30, "per_hour": 400},
         }
 

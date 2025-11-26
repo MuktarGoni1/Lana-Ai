@@ -25,51 +25,8 @@ def _get_tts_service():
 @router.post("/synthesize", response_model=TTSResponse)
 async def synthesize_speech(request: TTSRequest, http_request: Request):
     """Convert text to speech and return base64 WAV audio with duration."""
-    # Apply rate limiting
-    client_ip = await rate_limiter.get_client_ip(http_request)
-    endpoint = "/api/tts/synthesize"
-    
-    # Get endpoint-specific limits
-    limits = rate_limiter.endpoint_limits.get(
-        endpoint,
-        {"per_minute": 15, "per_hour": 150},
-    )
-    
-    # Check rate limits
-    minute_key = f"{client_ip}:{endpoint}:minute"
-    hour_key = f"{client_ip}:{endpoint}:hour"
-    
-    minute_ok, minute_count = await rate_limiter.check_rate_limit(
-        minute_key, limits["per_minute"], 60
-    )
-    
-    if not minute_ok:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Limit: {limits['per_minute']}/min",
-            headers={
-                "Retry-After": "60",
-                "X-RateLimit-Limit": str(limits["per_minute"]),
-                "X-RateLimit-Remaining": str(0),
-                "X-RateLimit-Reset": str(60),
-            },
-        )
-    
-    hour_ok, hour_count = await rate_limiter.check_rate_limit(
-        hour_key, limits["per_hour"], 3600
-    )
-    
-    if not hour_ok:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Limit: {limits['per_hour']}/hour",
-            headers={
-                "Retry-After": "3600",
-                "X-RateLimit-Limit": str(limits["per_hour"]),
-                "X-RateLimit-Remaining": str(0),
-                "X-RateLimit-Reset": str(3600),
-            },
-        )
+    # Apply rate limiting through middleware
+    pass  # Rate limiting is handled by middleware now
     
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -97,52 +54,8 @@ async def synthesize_speech(request: TTSRequest, http_request: Request):
 @router.get("/stream")
 async def stream_speech(text: str, voice: Optional[str] = None, http_request: Request = None):
     """Stream audio/wav so playback can start while downloading."""
-    # Apply rate limiting
-    if http_request:
-        client_ip = await rate_limiter.get_client_ip(http_request)
-        endpoint = "/api/tts/stream"
-        
-        # Get endpoint-specific limits
-        limits = rate_limiter.endpoint_limits.get(
-            endpoint,
-            {"per_minute": 15, "per_hour": 150},
-        )
-        
-        # Check rate limits
-        minute_key = f"{client_ip}:{endpoint}:minute"
-        hour_key = f"{client_ip}:{endpoint}:hour"
-        
-        minute_ok, minute_count = await rate_limiter.check_rate_limit(
-            minute_key, limits["per_minute"], 60
-        )
-        
-        if not minute_ok:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Limit: {limits['per_minute']}/min",
-                headers={
-                    "Retry-After": "60",
-                    "X-RateLimit-Limit": str(limits["per_minute"]),
-                    "X-RateLimit-Remaining": str(0),
-                    "X-RateLimit-Reset": str(60),
-                },
-            )
-        
-        hour_ok, hour_count = await rate_limiter.check_rate_limit(
-            hour_key, limits["per_hour"], 3600
-        )
-        
-        if not hour_ok:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Rate limit exceeded. Limit: {limits['per_hour']}/hour",
-                headers={
-                    "Retry-After": "3600",
-                    "X-RateLimit-Limit": str(limits["per_hour"]),
-                    "X-RateLimit-Remaining": str(0),
-                    "X-RateLimit-Reset": str(3600),
-                },
-            )
+    # Apply rate limiting through middleware
+    pass  # Rate limiting is handled by middleware now
     
     if not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -182,51 +95,8 @@ async def stream_speech(text: str, voice: Optional[str] = None, http_request: Re
 @router.post("/")
 async def synthesize_wav(request: TTSRequest, http_request: Request):
     """Convert text to speech and return audio/wav as streaming response."""
-    # Apply rate limiting
-    client_ip = await rate_limiter.get_client_ip(http_request)
-    endpoint = "/api/tts/"
-    
-    # Get endpoint-specific limits
-    limits = rate_limiter.endpoint_limits.get(
-        endpoint,
-        {"per_minute": 15, "per_hour": 150},
-    )
-    
-    # Check rate limits
-    minute_key = f"{client_ip}:{endpoint}:minute"
-    hour_key = f"{client_ip}:{endpoint}:hour"
-    
-    minute_ok, minute_count = await rate_limiter.check_rate_limit(
-        minute_key, limits["per_minute"], 60
-    )
-    
-    if not minute_ok:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Limit: {limits['per_minute']}/min",
-            headers={
-                "Retry-After": "60",
-                "X-RateLimit-Limit": str(limits["per_minute"]),
-                "X-RateLimit-Remaining": str(0),
-                "X-RateLimit-Reset": str(60),
-            },
-        )
-    
-    hour_ok, hour_count = await rate_limiter.check_rate_limit(
-        hour_key, limits["per_hour"], 3600
-    )
-    
-    if not hour_ok:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Rate limit exceeded. Limit: {limits['per_hour']}/hour",
-            headers={
-                "Retry-After": "3600",
-                "X-RateLimit-Limit": str(limits["per_hour"]),
-                "X-RateLimit-Remaining": str(0),
-                "X-RateLimit-Reset": str(3600),
-            },
-        )
+    # Apply rate limiting through middleware
+    pass  # Rate limiting is handled by middleware now
     
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
