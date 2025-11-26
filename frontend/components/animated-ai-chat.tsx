@@ -14,6 +14,7 @@ import {
   Pause,
   Video,
   BookOpen,
+  PersonStandingIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
@@ -745,9 +746,9 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <Video className="w-4 h-4" />, label: "Explain Mode", description: "Detailed video explanation", prefix: "/video" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Step-by-Step", description: "Break complex topics down", prefix: "/steps" },
-    { icon: <Play className="w-4 h-4" />, label: "Interactive Demo", description: "See it in action", prefix: "/demo" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths" },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat" },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
   ];
 

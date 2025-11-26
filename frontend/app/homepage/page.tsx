@@ -115,16 +115,8 @@ export default function HomePage() {
     return null;
   }
 
-  // Return the AnimatedAIChat component instead of ChatWithSidebar
-  return (
-    <div className="flex flex-col w-full items-center justify-center bg-transparent text-white p-6 relative overflow-hidden min-h-[calc(100vh-3rem)]">
-      <AnimatedAIChat onNavigateToVideoLearning={(title) => {
-        // Implement navigation logic here
-        console.log("Navigating to video learning with title:", title);
-        // router.push(`/video-learning?title=${encodeURIComponent(title)}`);
-      }} />
-    </div>
-  );
+  // Return the ChatWithSidebar component to maintain the sidebar
+  return <ChatWithSidebar />;
 }
 
 /* ------------------------------------------------------------------ */
