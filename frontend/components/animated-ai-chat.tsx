@@ -244,38 +244,71 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
   const objectUrlsRef = useRef<string[]>([]);
   const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
+    if (isRetry) {
+      setIsRetrying(true);
+    } else {
+      setIsTtsLoading(true);
+    }
+    
     try {
-      if (isRetry) {
-        setIsRetrying(true);
-      }
-      
-      // Use Next.js local proxy to avoid CORS and align with server route
-      const res = await fetch(`/api/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) {
-        // Handle different error cases
-        if (res.status === 503) {
-          throw new Error('Audio service temporarily unavailable. Please try again later.');
-        } else if (res.status === 400) {
-          throw new Error('Invalid request to audio service.');
-        } else {
-          throw new Error(`Audio service error: ${res.status}`);
+      // Retry function with exponential backoff
+      async function makeTtsRequest(text: string, retries = 3, delay = 1000): Promise<Response> {
+        for (let i = 0; i < retries; i++) {
+          try {
+            let response = await fetch(`/api/tts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+
+            if (response.status === 503) {
+              console.warn(`TTS attempt ${i + 1} failed with 503. Retrying in ${delay}ms...`);
+              if (i < retries - 1) {
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2; // Exponential backoff
+                continue;
+              } else {
+                throw new Error('Audio service temporarily unavailable. Please try again later.');
+              }
+            }
+
+            if (!response.ok) {
+              // Handle different error cases
+              if (response.status === 400) {
+                throw new Error('Invalid request to audio service.');
+              } else {
+                throw new Error(`Audio service error: ${response.status}`);
+              }
+            }
+          return response;
+        } catch (error) {
+          console.error("TTS Fetch Error:", error);
+          if (i < retries - 1) {
+            console.warn(`TTS attempt ${i + 1} failed. Retrying in ${delay}ms...`);
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2; // Exponential backoff
+          } else {
+            throw error; // Re-throw error after final retry
+          }
         }
       }
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      objectUrlsRef.current.push(url);
-      return url;
-    } finally {
-      if (isRetry) {
-        setIsRetrying(false);
-      }
+      // This should never be reached, but TypeScript requires it
+      throw new Error('Unexpected error in TTS request');
     }
-  }, []);
 
+    const res = await makeTtsRequest(text, 3, 1000);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    objectUrlsRef.current.push(url);
+    return url;
+  } finally {
+    if (isRetry) {
+      setIsRetrying(false);
+    } else {
+      setIsTtsLoading(false);
+    }
+  }
+}, []);
   // Cleanup audio and revoke object URLs on unmount to prevent leaks
   useEffect(() => {
     return () => {
@@ -583,18 +616,58 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
   const fetchTTSBlobUrl = useCallback(async (text: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tts`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
-      });
-      if (!res.ok) throw new Error(`Audio error ${res.status}`);
-      const blob = await res.blob();
-      return URL.createObjectURL(blob);
-    } finally {
-      setIsLoading(false);
+      // Retry function with exponential backoff
+      async function makeTtsRequest(text: string, retries = 3, delay = 1000): Promise<Response> {
+        for (let i = 0; i < retries; i++) {
+          try {
+            let response = await fetch(`/api/tts`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text }),
+            });
+
+            if (response.status === 503) {
+              console.warn(`TTS attempt ${i + 1} failed with 503. Retrying in ${delay}ms...`);
+              if (i < retries - 1) {
+                await new Promise(res => setTimeout(res, delay));
+                delay *= 2; // Exponential backoff
+                continue;
+              } else {
+                throw new Error('Audio service temporarily unavailable. Please try again later.');
+              }
+            }
+
+            if (!response.ok) {
+              // Handle different error cases
+              if (response.status === 400) {
+                throw new Error('Invalid request to audio service.');
+              } else {
+                throw new Error(`Audio service error: ${response.status}`);
+              }
+            }
+          return response;
+        } catch (error) {
+          console.error("TTS Fetch Error:", error);
+          if (i < retries - 1) {
+            console.warn(`TTS attempt ${i + 1} failed. Retrying in ${delay}ms...`);
+            await new Promise(res => setTimeout(res, delay));
+            delay *= 2; // Exponential backoff
+          } else {
+            throw error; // Re-throw error after final retry
+          }
+        }
+      }
+      // This should never be reached, but TypeScript requires it
+      throw new Error('Unexpected error in TTS request');
     }
-  }, []);
+
+    const res = await makeTtsRequest(text, 3, 1000);
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } finally {
+    setIsLoading(false);
+  }
+}, []);
 
   const togglePlay = useCallback(async () => {
     try {
@@ -689,6 +762,8 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  placeholder?: string;
+  action?: () => void;
 }
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
@@ -744,16 +819,69 @@ interface AnimatedAIChatProps {
     maxHeight: 200,
   });
 
+  // Function to handle mode button clicks and activate command palette with placeholder text
+  const handleModeClick = (mode: string) => {
+    switch (mode) {
+      case "maths":
+        setValue("/Maths ");
+        break;
+      case "chat":
+        setValue("/Chat ");
+        break;
+      case "quick":
+        setValue("/quick ");
+        break;
+      case "default":
+      default:
+        setValue("/default ");
+        break;
+    }
+    setShowCommandPalette(true);
+    // Focus the textarea after setting the value
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
+
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths" },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat" },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("default") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
-
   const modeSuggestions = [
+    {
+      icon: <PersonStandingIcon className="w-4 h-4" />,
+      label: "Structured Lesson",
+      description: "Detailed and structured breakdown of your topic.",
+      action: () => handleModeClick("default"),
+      placeholder: "Please input a topic for structured learning"
+    },
+    {
+      icon: <BookOpen className="w-4 h-4" />,
+      label: "Maths Tutor",
+      description: "Add maths equations for simple solutions with explainer",
+      action: () => handleModeClick("maths"),
+      placeholder: "Please input a maths question"
+    },
+    {
+      icon: <Play className="w-4 h-4" />,
+      label: "Chat",
+      description: "Chat and ask your friendly AI",
+      action: () => handleModeClick("chat"),
+      placeholder: "Please input your question"
+    },
+    {
+      icon: <Sparkles className="w-4 h-4" />,
+      label: "Quick Answer",
+      description: "Concise explanation",
+      action: () => handleModeClick("quick"),
+      placeholder: "Please input your question for a quick answer"
+    },
     {
       icon: <Video className="w-4 h-4" />,
       label: "Explanation Mode",
@@ -799,6 +927,20 @@ interface AnimatedAIChatProps {
     
     loadAge();
   }, []);
+
+  // Function to get the appropriate placeholder based on the current mode
+  const getModePlaceholder = (): string => {
+    if (value.startsWith("/default")) {
+      return "Please input a topic for structured learning";
+    } else if (value.startsWith("/Maths")) {
+      return "Please input a maths question";
+    } else if (value.startsWith("/Chat")) {
+      return "Please input your question";
+    } else if (value.startsWith("/quick")) {
+      return "Please input your question for a quick answer";
+    }
+    return "What would you like to learn today?";
+  };
 
   useEffect(() => {
     if (value.startsWith("/") && !value.includes(" ")) {
@@ -1251,8 +1393,12 @@ interface AnimatedAIChatProps {
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        setValue(s.prefix + " ");
-                        setShowCommandPalette(false);
+                        if (s.action) {
+                          s.action();
+                        } else {
+                          setValue(s.prefix + " ");
+                          setShowCommandPalette(false);
+                        }
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
@@ -1276,7 +1422,7 @@ interface AnimatedAIChatProps {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="What would you like to learn today?"
+                placeholder={getModePlaceholder()}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
