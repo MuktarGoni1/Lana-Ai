@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { env } from './env'
 import { Database } from '@/types/supabase'
 
@@ -14,7 +14,7 @@ console.log('[db.ts] Initializing Supabase client')
 console.log('[db.ts] Supabase URL:', url)
 
 // Create Supabase client with proper configuration
-const supabase = createBrowserClient<Database>(url, key, {
+const supabase = createClient<Database>(url, key, {
   auth: {
     detectSessionInUrl: true,
     persistSession: true,
@@ -31,28 +31,14 @@ const supabase = createBrowserClient<Database>(url, key, {
 console.log('[db.ts] Supabase client created successfully')
 console.log('[db.ts] Supabase auth object type:', typeof supabase.auth)
 if (supabase.auth) {
-  console.log('[db.ts] signInWithOAuth property:', supabase.auth.signInWithOAuth)
-  console.log('[db.ts] typeof signInWithOAuth:', typeof supabase.auth.signInWithOAuth)
+  console.log('[db.ts] onAuthStateChange property:', supabase.auth.onAuthStateChange)
+  console.log('[db.ts] typeof onAuthStateChange:', typeof supabase.auth.onAuthStateChange)
   
   // List all available methods
   const authMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(supabase.auth)).filter(
     name => typeof (supabase.auth as any)[name] === 'function'
   )
   console.log('[db.ts] Available auth methods:', authMethods)
-  
-  // Check if signInWithOAuth exists
-  if (typeof supabase.auth.signInWithOAuth !== 'function') {
-    console.warn('[db.ts] signInWithOAuth method is not available on supabase.auth')
-    console.warn('[db.ts] This might be due to the Supabase client configuration')
-    
-    // Try to find alternative methods
-    const alternativeMethods = authMethods.filter(method => 
-      method.toLowerCase().includes('oauth') || 
-      method.toLowerCase().includes('signin') ||
-      method.toLowerCase().includes('login')
-    )
-    console.log('[db.ts] Potential alternative methods:', alternativeMethods)
-  }
 }
 
 export { supabase }

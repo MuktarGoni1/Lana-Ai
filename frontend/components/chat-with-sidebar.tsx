@@ -1,6 +1,7 @@
 // components/chat-with-sidebar.tsx
 "use client"
 
+import React from "react"
 import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
@@ -100,18 +101,29 @@ function ChatWithSidebarContent() {
   
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
-    const id = localStorage.getItem("lana_sid") || uuid()
-    localStorage.setItem("lana_sid", id)
-    setSid(id)
+    const initSessionId = async () => {
+      // For guest users, generate a standard session ID
+      // For authenticated users, we'll namespace it with their user ID
+      let id = localStorage.getItem("lana_sid");
+      
+      if (!id) {
+        id = uuid();
+        localStorage.setItem("lana_sid", id);
+      }
+      
+      setSid(id);
+      
+      // Check for topic parameter from term-plan navigation
+      const topicParam = searchParams.get("topic");
+      if (topicParam) {
+        setQuestion(topicParam);
+        setView("chat");
+        // Clean up URL without causing a page reload
+        window.history.replaceState({}, '', '/');
+      }
+    };
     
-    // Check for topic parameter from term-plan navigation
-    const topicParam = searchParams.get("topic")
-    if (topicParam) {
-      setQuestion(topicParam)
-      setView("chat")
-      // Clean up URL without causing a page reload
-      window.history.replaceState({}, '', '/')
-    }
+    initSessionId();
   }, [])
 
   /* 2️⃣ Fetch history whenever sid changes */
@@ -193,8 +205,16 @@ function ChatWithSidebarContent() {
           const newSid = `${user.id}:${currentSid}`;
           localStorage.setItem("lana_sid", newSid);
           setSid(newSid);
+        } else if (!currentSid) {
+          // If no SID exists, create a new one with user ID prefix
+          const newSid = `${user.id}:${uuid()}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error namespacing session ID:', error);
+      }
+      
       if (sid) {
         debouncedFetchHistory(true); // use debounced version
       }
@@ -216,7 +236,13 @@ function ChatWithSidebarContent() {
     if (!sid) return
     try {
       // Generate a fresh session id locally instead of calling a non-existent /reset
-      const newSid = uuid()
+      let newSid = uuid();
+      
+      // For authenticated users, namespace the session ID with their user ID
+      if (user?.id) {
+        newSid = `${user.id}:${newSid}`;
+      }
+      
       localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
       await debouncedFetchHistory() // use debounced version

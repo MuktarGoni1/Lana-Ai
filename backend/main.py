@@ -58,18 +58,14 @@ _GROQ_CLIENT = Groq(api_key=settings.groq_api_key) if (Groq and settings.groq_ap
 _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
 # Add CORS middleware
-# Avoid invalid configuration: credentials + wildcard origins
-_allow_origins = settings.cors_origins or ["*"]
-_allow_credentials = True
-if "*" in _allow_origins:
-    # Starlette requires explicit origins when credentials are allowed
-    _allow_credentials = False
+# Use secure CORS configuration
+_allow_origins = settings.cors_origins or ["http://localhost:3000", "http://localhost:3001", "https://lana-ai.onrender.com"]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allow_origins,
-    allow_credentials=_allow_credentials,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -122,9 +118,21 @@ def sanitize_text(text: str) -> str:
     import re, html
     if not text:
         return ""
+    # Escape HTML entities
     text = html.escape(text)
+    # Remove any script tags and other potentially dangerous content
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<iframe[^>]*>.*?</iframe>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<object[^>]*>.*?</object>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<embed[^>]*>.*?</embed>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'vbscript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'onload=', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'onerror=', '', text, flags=re.IGNORECASE)
+    # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
-    return text
+    # Limit length to prevent abuse
+    return text[:1000]
 
 
 class ClassificationItem(BaseModel):
@@ -168,6 +176,17 @@ class StructuredLessonRequest(BaseModel):
         v = sanitize_text(v.strip())
         if len(v) < 2:
             raise ValueError("Topic too short")
+        if len(v) > 100:
+            raise ValueError("Topic too long")
+        # Prevent injection attempts
+        if any(char in v for char in ['<', '>', '&lt;', '&gt;', 'script', 'javascript']):
+            raise ValueError("Invalid characters in topic")
+        return v
+
+    @field_validator("age")
+    def _val_age(cls, v):
+        if v is not None and (v < 1 or v > 100):
+            raise ValueError("Age must be between 1 and 100")
         return v
 
 

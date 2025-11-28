@@ -1,6 +1,7 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
 import TermPlanPage from '../app/term-plan/page';
 
 // Mock next/navigation

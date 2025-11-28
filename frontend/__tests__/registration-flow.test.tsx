@@ -1,8 +1,8 @@
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
 import userEvent from '@testing-library/user-event';
-import ParentFlow from '../app/register/form/page'; // Adjust path as needed
-import ChildFlow from '../app/register/form/page'; // Adjust path as needed
+import React from 'react';
+import RegisterForm from '../app/register/form/page'; // Import the default export
 
 // Mock next/navigation
 jest.mock('next/navigation', () => ({
@@ -49,7 +49,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('parent'),
       });
 
-      render(<ParentFlow />);
+      render(<RegisterForm />);
       
       expect(screen.getByText('Parent Registration')).toBeInTheDocument();
       expect(screen.getByLabelText('Email Address')).toBeInTheDocument();
@@ -62,7 +62,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('parent'),
       });
 
-      render(<ParentFlow />);
+      render(<RegisterForm />);
       
       const emailInput = screen.getByLabelText('Email Address');
       const submitButton = screen.getByRole('button', { name: 'Send Magic Link' });
@@ -99,7 +99,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('parent'),
       });
 
-      render(<ParentFlow />);
+      render(<RegisterForm />);
       
       const emailInput = screen.getByLabelText('Email Address');
       const submitButton = screen.getByRole('button', { name: 'Send Magic Link' });
@@ -125,7 +125,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('parent'),
       });
 
-      render(<ParentFlow />);
+      render(<RegisterForm />);
       
       const emailInput = screen.getByLabelText('Email Address');
       const submitButton = screen.getByRole('button', { name: 'Send Magic Link' });
@@ -150,7 +150,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('child'),
       });
 
-      render(<ChildFlow />);
+      render(<RegisterForm />);
       
       expect(screen.getByText('Student Registration')).toBeInTheDocument();
       expect(screen.getByLabelText('Your Email')).toBeInTheDocument();
@@ -167,7 +167,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('child'),
       });
 
-      render(<ChildFlow />);
+      render(<RegisterForm />);
       
       const submitButton = screen.getByRole('button', { name: 'Create Account' });
       
@@ -197,7 +197,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('child'),
       });
 
-      render(<ChildFlow />);
+      render(<RegisterForm />);
       
       const childEmailInput = screen.getByLabelText('Your Email');
       const guardianEmailInput = screen.getByLabelText('Parent/Guardian Email');
@@ -236,7 +236,7 @@ describe('Registration Flow Tests', () => {
         get: jest.fn().mockReturnValue('child'),
       });
 
-      render(<ChildFlow />);
+      render(<RegisterForm />);
       
       const childEmailInput = screen.getByLabelText('Your Email');
       const guardianEmailInput = screen.getByLabelText('Parent/Guardian Email');

@@ -12,9 +12,9 @@ services:
       - key: NODE_VERSION
         value: 18
       - key: NEXT_PUBLIC_SUPABASE_URL
-        value: https://ieqqsgpaivxmcgcflanu.supabase.co
+        sync: false
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImllcXFzZ3BhaXZ4bWNnY2ZsYW51Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgzODI5ODAsImV4cCI6MjA3Mzk1ODk4MH0.H0XLpSpgQ7Fypy7iOFu4aY7zsQ47eDkaeh6Y5ci0HQc
+        sync: false
       - key: NEXT_PUBLIC_API_BASE
         value: https://lana-ai.onrender.com
       - key: NEXT_PUBLIC_USE_PROXY

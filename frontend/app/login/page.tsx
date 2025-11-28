@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
 import { z } from "zod";

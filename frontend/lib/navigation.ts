@@ -22,8 +22,8 @@ export function navigateToHomepage(user: User | null, router: any) {
     // If user is not authenticated, go to landing page
     if (!user) {
       console.log('[Navigation] No user found, redirecting to landing page');
-      if (router && typeof router.push === 'function') {
-        router.push('/landing-page');
+      if (router && typeof router.replace === 'function') {
+        router.replace('/landing-page');
       } else {
         // Fallback: use window.location
         if (typeof window !== 'undefined') {
@@ -38,8 +38,8 @@ export function navigateToHomepage(user: User | null, router: any) {
     const targetPath = '/homepage';
 
     // Navigate to target path
-    if (router && typeof router.push === 'function') {
-      router.push(targetPath);
+    if (router && typeof router.replace === 'function') {
+      router.replace(targetPath);
     } else {
       // Fallback: use window.location
       if (typeof window !== 'undefined') {
@@ -50,14 +50,25 @@ export function navigateToHomepage(user: User | null, router: any) {
     console.error('[Navigation] Error during navigation:', error);
     // Fallback: always go to landing page if there's an error (not homepage to avoid loops)
     try {
-      if (router && typeof router.push === 'function') {
+      if (router && typeof router.replace === 'function') {
+        router.replace('/landing-page');
+      } else if (router && typeof router.push === 'function') {
         router.push('/landing-page');
       } else if (typeof window !== 'undefined') {
         window.location.assign('/landing-page');
       }
     } catch (fallbackError) {
-      console.error('[Navigation] Error during fallback navigation:', fallbackError);
-      // Last resort: do nothing, let the user manually navigate
+      // Try push as last resort before window.location
+      try {
+        if (router && typeof router.push === 'function') {
+          router.push('/landing-page');
+        } else if (typeof window !== 'undefined') {
+          window.location.assign('/landing-page');
+        }
+      } catch (lastResortError) {
+        console.error('[Navigation] Error during last resort navigation:', lastResortError);
+        // Final fallback: do nothing, let the user manually navigate
+      }
     }
   }
 }

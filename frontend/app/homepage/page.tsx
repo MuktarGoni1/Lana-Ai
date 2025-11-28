@@ -302,102 +302,73 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
   const objectUrlsRef = useRef<string[]>([]);
   const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
-    // Retry function with exponential backoff
-    async function makeTtsRequest(text: string, retries = 3, delay = 1000): Promise<Response> {
-      for (let i = 0; i < retries; i++) {
-        try {
-          // Validate input
-          if (!text || !text.trim()) {
-            throw new Error("No text provided for text-to-speech");
-          }
-          
-          // Check rate limit before making request
-          const endpoint = '/api/tts/';
-          if (!rateLimiter.isAllowed(endpoint)) {
-            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
-            throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
-          }
-          
-          let response = await fetch(`${API_BASE}/api/tts/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ text: text.trim() }),
-          });
-
-        if (response.status === 503) {
-          console.warn(`TTS attempt ${i + 1} failed with 503. Retrying in ${delay}ms...`);
-          if (i < retries - 1) {
-            await new Promise(res => setTimeout(res, delay));
-            delay *= 2; // Exponential backoff
-            continue;
-          } else {
-            throw new Error('Audio service temporarily unavailable. Please try again later.');
-          }
+    try {
+      if (isRetry) {
+        setIsRetrying(true);
+      }
+      
+      // Validate input
+      if (!text || !text.trim()) {
+        throw new Error("No text provided for text-to-speech");
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/tts/';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      const res = await fetch(`${API_BASE}/api/tts/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: text.trim() }),
+      });
+      
+      if (!res.ok) {
+        // Handle different error cases with more specific messages
+        let errorMessage = 'Audio service error';
+        switch (res.status) {
+          case 400:
+            errorMessage = 'Invalid request to audio service.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait before trying again.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          case 503:
+            errorMessage = 'Audio service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = `Audio service error: ${res.status}`;
         }
-
-        if (!response.ok) {
-          // Handle different error cases with more specific messages
-          let errorMessage = 'Audio service error';
-          switch (response.status) {
-            case 400:
-              errorMessage = 'Invalid request to audio service.';
-              break;
-            case 429:
-              errorMessage = 'Too many requests. Please wait before trying again.';
-              break;
-            case 500:
-              errorMessage = 'Server error. Please try again later.';
-              break;
-            default:
-              errorMessage = `Audio service error: ${response.status}`;
-          }
-          throw new Error(errorMessage);
-        }
-        return response;
-      } catch (error) {
-        console.error("TTS Fetch Error:", error);
-        if (i < retries - 1) {
-          console.warn(`TTS attempt ${i + 1} failed. Retrying in ${delay}ms...`);
-          await new Promise(res => setTimeout(res, delay));
-          delay *= 2; // Exponential backoff
-        } else {
-          throw error; // Re-throw error after final retry
-        }
+        throw new Error(errorMessage);
+      }
+      
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty audio response");
+      }
+      
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
+      return url;
+    } catch (error) {
+      console.error("TTS Error:", error);
+      setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
+      // Don't throw for retry attempts, just return null
+      if (isRetry) {
+        return null;
+      }
+      throw error;
+    } finally {
+      if (isRetry) {
+        setIsRetrying(false);
       }
     }
-    // This should never be reached, but TypeScript requires it
-    throw new Error('Unexpected error in TTS request');
-  }
-
-  try {
-    if (isRetry) {
-      setIsRetrying(true);
-    }
-    
-    const res = await makeTtsRequest(text, 3, 1000);
-    
-    const blob = await res.blob();
-    if (!blob || blob.size === 0) {
-      throw new Error("Received empty audio response");
-    }
-    
-    const url = URL.createObjectURL(blob);
-    objectUrlsRef.current.push(url);
-    return url;
-  } catch (error) {
-    console.error("TTS Error:", error);
-    setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
-    // Don't throw for retry attempts, just return null
-    if (isRetry) {
-      return null;
-    }
-    throw error;
-  } finally {
-    if (isRetry) {
-      setIsRetrying(false);
-    }
-  }
-}, []);
+  }, []);
 
   // Improved cleanup audio and revoke object URLs on unmount to prevent leaks
   useEffect(() => {
