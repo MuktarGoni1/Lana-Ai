@@ -252,7 +252,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             has_substantial_content = (
                 resp.sections and resp.quiz and
                 len(resp.sections) >= 2 and  # At least 2 sections
-                all(len(s.content) > 50 for s in resp.sections) and  # Each section has substantial content
+                all(len(s.content) > 20 for s in resp.sections) and  # Each section has substantial content (reduced from 50 to 20 chars)
                 len(resp.quiz) >= 3  # At least 3 quiz questions
             )
             

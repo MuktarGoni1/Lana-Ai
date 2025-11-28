@@ -1,4 +1,4 @@
-
+import os
 from typing import List, Optional
 from pydantic import BaseModel, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -75,5 +75,3 @@ def load_settings() -> Settings:
         "redis_password": os.getenv("REDIS_PASSWORD"),
     }
     return Settings(**values)
-
-import os

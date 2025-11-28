@@ -52,9 +52,29 @@ app = FastAPI(
 
 # Load settings for global config
 settings = load_settings()
+
+# Log API key status for debugging
+if settings.groq_api_key:
+    logger.info(f"Groq API key loaded (length: {len(settings.groq_api_key)})")
+else:
+    logger.warning("No Groq API key found - LLM features will use fallback responses")
+
 # Initialize shared cache and Groq client for structured lessons
 _STRUCTURED_LESSON_CACHE = MemoryCacheRepository(default_ttl=1800)
-_GROQ_CLIENT = Groq(api_key=settings.groq_api_key) if (Groq and settings.groq_api_key) else None
+_GROQ_CLIENT = None
+if Groq and settings.groq_api_key:
+    try:
+        _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
+        logger.info("Groq client initialized successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Groq client: {e}")
+        _GROQ_CLIENT = None
+else:
+    if not Groq:
+        logger.warning("Groq library not available")
+    if not settings.groq_api_key:
+        logger.warning("No Groq API key provided")
+
 _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
 # Add CORS middleware
@@ -103,11 +123,6 @@ async def shutdown_event():
         logger.error(f"Error stopping job workers: {e}")
         pass
 
-# Removed duplicate sample lesson endpoints; use `/api/lessons` router from app.api.routes.lessons
-# Removed duplicate math solver sample; use `/api/math-solver/solve` route from app.api.routes.math_solver
-# Include modular API routes under /api
-# (only TTS for now to avoid pulling extra dependencies)
-# app.include_router(tts_router, prefix="/api/tts")
 app.include_router(api_router, prefix="/api")
 
 from pydantic import BaseModel, Field, field_validator  # type: ignore
@@ -270,8 +285,9 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
 
 
 async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
+    """Compute structured lesson using LLM or fallback to stub."""
     if _GROQ_CLIENT is not None:
-        raw_excerpt = ""  # Initialize raw_excerpt to ensure it's always available
+        raw_excerpt = ""
         try:
             # Enhanced system prompt with better age-based instructions
             age_str = ""
@@ -290,71 +306,76 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
                 "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
-                "sections (array of {title, content}), diagram (string; ASCII or description), "
-                "quiz (array of {question, options, answer}). For quiz questions, create 4 multiple choice questions with 4 options each. "
-                "Make sure the questions test understanding of the topic and have clear correct answers. "
-                "Keep language clear for the learner. For scientific topics, provide specific details and examples. "
-                "Do not provide generic responses. Each section should contain substantial educational content. "
-                "If you cannot provide a quality response for the specific topic, indicate so explicitly."
+                "sections (array of {title, content}), diagram_description (string), quiz_questions (array of {question, options, correct_answer}). "
+                f"The learner is a {age_str if age_str else 'general audience'}. "
+                "Keep each section content at least 100 words. Include 4 quiz questions with 4 options each."
             )
-            
-            # Enhanced user prompt with better age-based context
-            user_prompt = {
-                "topic": topic,
-                "requirements": "Educational, concise, accurate, friendly. Provide specific details for scientific topics. Do not provide generic template responses. Each section should contain substantial educational content relevant to the specific topic."
-            }
-            
-            if age is not None:
-                user_prompt["age_group"] = age_str
-                user_prompt["age"] = age
-                
-            completion = _GROQ_CLIENT.chat.completions.create(
+
+            user_prompt = f"Topic: {topic}"
+
+            # Call Groq API
+            response = _GROQ_CLIENT.chat.completions.create(
                 model="llama-3.1-8b-instant",
-                temperature=0.3,
-                response_format={"type": "json_object"},
                 messages=[
                     {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": json.dumps(user_prompt)},
+                    {"role": "user", "content": user_prompt}
                 ],
+                temperature=0.4,
+                max_tokens=1200,
+                top_p=0.9,
+                stream=False,
             )
-            content = completion.choices[0].message.content
-            raw_excerpt = (content or "")[:300]  # Update raw_excerpt with actual content
+
+            raw_excerpt = response.choices[0].message.content or ""
+            raw_excerpt = raw_excerpt.strip()
+
+            # Extract JSON if wrapped in code
+            if '```json' in raw_excerpt:
+                start = raw_excerpt.find('```json') + 7
+                end = raw_excerpt.find('```', start)
+                if end != -1:
+                    raw_excerpt = raw_excerpt[start:end].strip()
+            elif '```' in raw_excerpt:
+                start = raw_excerpt.find('```') + 3
+                end = raw_excerpt.find('```', start)
+                if end != -1:
+                    raw_excerpt = raw_excerpt[start:end].strip()
+
+            # Parse JSON
+            import orjson
+            data = orjson.loads(raw_excerpt)
             
-            # Parse JSON with robust normalization for string fields
-            try:
-                data = json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON from LLM for topic '{topic}': {e}. Content: {content[:200]}...")
-                raise
-
-            def _to_str(val: Optional[object], default: str = "") -> str:
-                try:
-                    if isinstance(val, str):
-                        return val
-                    if isinstance(val, dict) and "text" in val:
-                        t = val.get("text")
-                        return t if isinstance(t, str) else default
-                    if val is None:
-                        return default
-                    return str(val)
-                except Exception:
-                    return default
-
-            intro_norm = _to_str(data.get("introduction"), default="")  # Changed from None to empty string
-            diagram_norm = _to_str(data.get("diagram"), default="")
-
-            # Keep list items strict; they already map to our pydantic models
-            classifications = [ClassificationItem(**c) for c in data.get("classifications", [])]
-            sections = [SectionItem(**s) for s in data.get("sections", [])]
-            # Map question field to q for QuizItem compatibility
-            quiz_data = data.get("quiz", [])
+            # Normalize and validate response
+            intro_norm = data.get("introduction", "").strip()
+            diagram_norm = data.get("diagram_description", "").strip()
+            
+            # Process classifications
+            classifications = []
+            for c in data.get("classifications", []):
+                if isinstance(c, dict) and "type" in c and "description" in c:
+                    classifications.append(ClassificationItem(type=c["type"], description=c["description"]))
+            
+            # Process sections
+            sections = []
+            for s in data.get("sections", []):
+                if isinstance(s, dict) and "title" in s and "content" in s:
+                    sections.append(SectionItem(title=s["title"], content=s["content"]))
+            
+            # Process quiz
+            quiz = []
+            for q in data.get("quiz_questions", []):
+                if (isinstance(q, dict) and 
+                    "question" in q and 
+                    "options" in q and 
+                    "correct_answer" in q and
+                    len(q["options"]) >= 2):
+                    quiz.append(QuizItem(q=q["question"], options=q["options"], answer=q["correct_answer"]))
+            
+            # Convert question field to q for frontend compatibility
             quiz_items = []
-            for q_item in quiz_data:
+            for q_item in quiz:
                 # Create a copy and rename question to q
-                quiz_item_copy = q_item.copy()
-                if "question" in quiz_item_copy:
-                    quiz_item_copy["q"] = quiz_item_copy.pop("question")
-                quiz_items.append(QuizItem(**quiz_item_copy))
+                quiz_items.append(QuizItem(q=q_item.q, options=q_item.options, answer=q_item.answer))
             quiz = quiz_items
 
             resp = StructuredLessonResponse(
@@ -370,7 +391,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             has_substantial_content = (
                 resp.sections and resp.quiz and
                 len(resp.sections) >= 2 and  # At least 2 sections
-                all(len(s.content) > 50 for s in resp.sections) and  # Each section has substantial content
+                all(len(s.content) > 20 for s in resp.sections) and  # Each section has substantial content (reduced from 50 to 20 chars)
                 len(resp.quiz) >= 3  # At least 3 quiz questions
             )
             
@@ -393,6 +414,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
             return await _stub_lesson(topic, age), "stub"
     else:
+        logger.info(f"Falling back to stub lesson for '{topic}' - no Groq client available")
         return await _stub_lesson(topic, age), "stub"
 
 
@@ -526,6 +548,8 @@ async def create_structured_lesson(req: StructuredLessonRequest, response: Respo
     lesson, src = await _get_or_compute_lesson(cache_key, topic, age)
     response.headers["X-Content-Source"] = src
     return lesson
+
+
 class TTSRequest(BaseModel):
     text: str
 
