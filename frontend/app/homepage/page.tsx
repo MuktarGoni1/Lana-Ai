@@ -313,12 +313,13 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       }
       
       // Check rate limit before making request
-      const endpoint = '/api/tts/';
+      const endpoint = '/api/tts';
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
         throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
       }
       
+      // Use the API base for TTS requests to ensure proper routing
       const res = await fetch(`${API_BASE}/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

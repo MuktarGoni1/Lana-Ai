@@ -72,6 +72,6 @@ const rateLimiter = new RateLimiter();
 
 // Set default limits for common endpoints
 rateLimiter.setLimit('/api/structured-lesson/stream', 5, 60000); // 5 requests per minute
-rateLimiter.setLimit('/api/tts', 10, 60000); // 10 requests per minute
+rateLimiter.setLimit('/api/tts', 1, 60000); // 1 request per minute
 
 export default rateLimiter;
