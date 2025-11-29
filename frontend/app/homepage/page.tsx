@@ -301,6 +301,81 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   }, [lesson]);
 
   const objectUrlsRef = useRef<string[]>([]);
+  
+  const fetchLessonTTSBlobUrl = useCallback(async (lesson: any, mode: string = "full", sectionIndex?: number, isRetry = false) => {
+    try {
+      if (isRetry) {
+        setIsRetrying(true);
+      }
+      
+      // Validate input
+      if (!lesson) {
+        throw new Error("No lesson provided for text-to-speech");
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/tts/lesson';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`${API_BASE}/api/tts/lesson`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          lesson: lesson,
+          mode: mode,
+          section_index: sectionIndex
+        }),
+      });
+      
+      if (!res.ok) {
+        // Handle different error cases with more specific messages
+        let errorMessage = 'Audio service error';
+        switch (res.status) {
+          case 400:
+            errorMessage = 'Invalid request to audio service.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait before trying again.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          case 503:
+            errorMessage = 'Audio service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = `Audio service error: ${res.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty audio response");
+      }
+      
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
+      return url;
+    } catch (error) {
+      console.error("Lesson TTS Error:", error);
+      setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
+      // Don't throw for retry attempts, just return null
+      if (isRetry) {
+        return null;
+      }
+      throw error;
+    } finally {
+      if (isRetry) {
+        setIsRetrying(false);
+      }
+    }
+  }, []);
+  
   const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
     try {
       if (isRetry) {
@@ -418,6 +493,32 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     try {
       setIsTtsLoading(true);
       setTtsError(null); // Clear previous errors
+      
+      // If we have a structured lesson, use the lesson TTS endpoint
+      if (lesson) {
+        // For structured lessons, we can generate audio for the entire lesson
+        const firstUrl = await fetchLessonTTSBlobUrl(lesson, "full");
+        
+        if (!firstUrl) {
+          // If first attempt failed, try once more after a short delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const retryUrl = await fetchLessonTTSBlobUrl(lesson, "full", undefined, true /* isRetry */);
+          if (retryUrl) {
+            setAudioUrl(retryUrl);
+            setAudioQueue([retryUrl]);
+            setCurrentIndex(0);
+          } else {
+            throw new Error("Failed to generate audio after retry");
+          }
+        } else {
+          setAudioUrl(firstUrl);
+          setAudioQueue([firstUrl]);
+          setCurrentIndex(0);
+        }
+        return;
+      }
+      
+      // Fallback to text-based TTS if no structured lesson
       if (!segments.length) {
         throw new Error("No content available for text-to-speech");
       }
@@ -462,7 +563,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     } finally {
       setIsTtsLoading(false);
     }
-  }, [segments, fetchTTSBlobUrl]);
+  }, [lesson, segments, fetchTTSBlobUrl, fetchLessonTTSBlobUrl]);
 
   const playTTS = useCallback(() => {
     const src = audioQueue[currentIndexRef.current] || audioUrl;

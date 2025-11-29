@@ -463,75 +463,6 @@ async def warm_up_structured_lessons():
 @app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
 async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
     """Create a structured lesson from a topic and optional age constraints."""
-    def _stub(topic: str) -> StructuredLessonResponse:
-        # Create age-appropriate introduction
-        age_str = ""
-        if age is not None:
-            if age <= 2:
-                age_str = "in a simple, fun way"
-            elif age <= 5:
-                age_str = "in a clear, friendly way"
-            elif age <= 12:
-                age_str = "in an engaging way"
-            elif age <= 18:
-                age_str = "in a detailed way"
-            else:
-                age_str = "in depth"
-        
-        intro = f"Let's learn about {topic} {age_str}!"
-        classifications = [ClassificationItem(type="Category", description=topic.title())]
-        
-        # Create age-appropriate sections
-        if age is not None and age <= 5:
-            sections = [
-                SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
-                SectionItem(title="Details", content=f"Deeper look at {topic}."),
-            ]
-        elif age is not None and age <= 12:
-            sections = [
-                SectionItem(title="What is it?", content=f"{topic} - key ideas and examples."),
-                SectionItem(title="How does it work?", content=f"Understanding how {topic} works."),
-                SectionItem(title="Why is it important?", content=f"Learning why {topic} matters."),
-            ]
-        else:
-            sections = [
-                SectionItem(title="Introduction", content=f"Understanding {topic} - key concepts and definitions."),
-                SectionItem(title="Key Principles", content=f"Core principles and theories of {topic}."),
-                SectionItem(title="Applications", content=f"How {topic} is applied in real-world scenarios."),
-            ]
-        
-        # Generate age-appropriate quiz questions
-        if age is not None and age <= 5:
-            quiz = [
-                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-            ]
-        elif age is not None and age <= 12:
-            quiz = [
-                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"Why is {topic} important?", options=[f"A) It helps us understand the world", f"B) It has practical applications", f"C) It builds critical thinking", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"How can {topic} be used?", options=[f"A) In school projects", f"B) In daily life", f"C) In future careers", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"What should you remember about {topic}?", options=[f"A) Key definitions", f"B) Main concepts", f"C) Real-world examples", "D) All of the above"], answer="D) All of the above"),
-            ]
-        else:
-            quiz = [
-                QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-                QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-            ]
-        
-        return StructuredLessonResponse(
-            id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
-            introduction=intro,
-            classifications=classifications,
-            sections=sections,
-            diagram="",
-            quiz=quiz,
-        )
-
     topic = req.topic
     age = req.age
     # Build cache key and try cache first
@@ -553,22 +484,6 @@ async def create_structured_lesson(req: StructuredLessonRequest, response: Respo
 class TTSRequest(BaseModel):
     text: str
 
-
-class TTSResponse(BaseModel):
-    message: str
-    text: str
-    audio_url: str
-
-
-@app.post("/api/tts/synthesize_stub", response_model=TTSResponse, tags=["Text-to-Speech"]) 
-async def synthesize_speech(req: TTSRequest):
-    """Stub TTS endpoint demonstrating Pydantic request/response models."""
-    return TTSResponse(
-        message="TTS synthesis stub",
-        text=req.text,
-        audio_url="This would be a URL to the synthesized audio",
-    )
-    # History endpoints moved to app.api.routes.history
 
 # Health endpoint for tests
 @app.get("/health")
@@ -643,7 +558,6 @@ class InMemoryChatRepository(IChatRepository):
     async def get_history(self, sid: str, limit: int = 100) -> List[Dict[str, Any]]:
         messages = self._store.get(sid, [])
         return messages[:limit]
-
 
 
 @app.post("/api/structured-lesson/stream", tags=["Lessons"])
