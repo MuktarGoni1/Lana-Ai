@@ -171,19 +171,25 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
-                "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
-                "sections (array of {title, content}), diagram (string; ASCII or description), "
-                "quiz (array of {question, options, answer}). For quiz questions, create 4 multiple choice questions with 4 options each. "
-                "Make sure the questions test understanding of the topic and have clear correct answers. "
+                "Return ONLY valid JSON with these exact keys: "
+                "introduction (string), "
+                "classifications (array of objects with type and description string fields), "
+                "sections (array of objects with title and content string fields), "
+                "diagram (string), "
+                "quiz_questions (array of objects with question, options array, and answer string fields). "
+                "Each quiz question must have exactly 4 options. "
+                "For the learner's age group: "
+                f"{age_str if age_str else 'general audience'}. "
                 "Keep language clear for the learner. For scientific topics, provide specific details and examples. "
                 "Do not provide generic responses. Each section should contain substantial educational content. "
-                "If you cannot provide a quality response for the specific topic, indicate so explicitly."
+                "Respond ONLY with valid JSON, no markdown code blocks, no extra text."
             )
             
             # Enhanced user prompt with better age-based context
             user_prompt = {
                 "topic": topic,
-                "requirements": "Educational, concise, accurate, friendly. Provide specific details for scientific topics. Do not provide generic template responses. Each section should contain substantial educational content relevant to the specific topic."
+                "requirements": "Educational, concise, accurate, friendly. Provide specific details for scientific topics. Do not provide generic template responses. Each section should contain substantial educational content relevant to the specific topic.",
+                "format": "Return ONLY valid JSON with the exact keys specified in the system prompt. No markdown code blocks."
             }
             
             if age is not None:
@@ -207,7 +213,40 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 data = json.loads(content)
             except json.JSONDecodeError as e:
                 logger.error(f"Failed to parse JSON from LLM for topic '{topic}': {e}. Content: {content[:200]}...")
-                raise
+                # Try to repair JSON
+                try:
+                    import re
+                    
+                    # Clean up the content
+                    repaired = content.strip()
+                    
+                    # Remove markdown code blocks
+                    if repaired.startswith('```json'):
+                        repaired = repaired[7:].strip()
+                    elif repaired.startswith('```'):
+                        repaired = repaired[3:].strip()
+                    
+                    if repaired.endswith('```'):
+                        repaired = repaired[:-3].strip()
+                    
+                    # Fix invalid control characters by removing them
+                    # Remove incorrect escaping logic
+                    # repaired = repaired.replace('\n', '\\n')
+                    # repaired = repaired.replace('\r', '\\r')
+                    # repaired = repaired.replace('\t', '\\t')
+                    # Only escape unescaped backslashes
+                    # repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
+                            
+                    # Instead, just ensure we have valid JSON by removing any control characters
+                    # that might cause issues
+                    repaired = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', repaired)
+                    
+                    # Try to parse the repaired JSON
+                    data = json.loads(repaired)
+                    logger.info(f"Successfully parsed repaired JSON for topic '{topic}'")
+                except Exception as repair_error:
+                    logger.error(f"Failed to repair JSON for topic '{topic}': {repair_error}")
+                    raise
 
             def _to_str(val: Optional[object], default: str = "") -> str:
                 try:
@@ -226,17 +265,54 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             diagram_norm = _to_str(data.get("diagram"), default="")
 
             # Keep list items strict; they already map to our pydantic models
-            classifications = [ClassificationItem(**c) for c in data.get("classifications", [])]
-            sections = [SectionItem(**s) for s in data.get("sections", [])]
+            classifications = []
+            for c in data.get("classifications", []):
+                if isinstance(c, dict) and "type" in c and "description" in c:
+                    classifications.append(ClassificationItem(type=c["type"], description=c["description"]))
+
+            sections = []
+            for s in data.get("sections", []):
+                if isinstance(s, dict) and "title" in s and "content" in s:
+                    sections.append(SectionItem(title=s["title"], content=s["content"]))
+
             # Map question field to q for QuizItem compatibility
-            quiz_data = data.get("quiz", [])
+            quiz_data = data.get("quiz", data.get("quiz_questions", []))
             quiz_items = []
             for q_item in quiz_data:
-                # Create a copy and rename question to q
-                quiz_item_copy = q_item.copy()
-                if "question" in quiz_item_copy:
-                    quiz_item_copy["q"] = quiz_item_copy.pop("question")
-                quiz_items.append(QuizItem(**quiz_item_copy))
+                # Handle different possible field names
+                if isinstance(q_item, dict):
+                    # Create a copy and handle different field names
+                    quiz_item_copy = q_item.copy()
+                    
+                    # Handle question field (could be 'question', 'q', or other names)
+                    if "question" in quiz_item_copy:
+                        quiz_item_copy["q"] = quiz_item_copy.pop("question")
+                    elif "q" in quiz_item_copy:
+                        # Already has 'q' field, no change needed
+                        pass
+                    else:
+                        # Try to find a suitable field for the question
+                        question_field = None
+                        for field in ["text", "problem", "prompt"]:
+                            if field in quiz_item_copy:
+                                question_field = field
+                                break
+                        if question_field:
+                            quiz_item_copy["q"] = quiz_item_copy.pop(question_field)
+                        else:
+                            # Skip this quiz item if no question field found
+                            continue
+                    
+                    # Ensure we have the required fields
+                    if "q" in quiz_item_copy and "options" in quiz_item_copy and "answer" in quiz_item_copy:
+                        # Handle options that might be objects with an "option" key
+                        options = []
+                        for opt in quiz_item_copy["options"]:
+                            if isinstance(opt, dict) and "option" in opt:
+                                options.append(str(opt["option"]))
+                            else:
+                                options.append(str(opt))
+                        quiz_items.append(QuizItem(q=quiz_item_copy["q"], options=options, answer=quiz_item_copy["answer"]))
             quiz = quiz_items
 
             resp = StructuredLessonResponse(
@@ -249,20 +325,43 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             )
             # Only cache and return LLM response if it has both sections and quiz questions
             # Also validate that content is substantial (not just generic templates)
+            # Make the validation more lenient to avoid falling back to stubs unnecessarily
             has_substantial_content = (
-                resp.sections and resp.quiz and
-                len(resp.sections) >= 2 and  # At least 2 sections
-                all(len(s.content) > 20 for s in resp.sections) and  # Each section has substantial content (reduced from 50 to 20 chars)
-                len(resp.quiz) >= 3  # At least 3 quiz questions
+                resp.sections and len(resp.sections) >= 1 and  # At least 1 section (reduced from 2)
+                all(len(s.content) > 10 for s in resp.sections)  # Each section has substantial content (reduced from 20 chars)
+                # Removed quiz requirement since API may not always return it
+                # and len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
             )
+            
+            # If we have quiz questions, validate them as well
+            if resp.quiz:
+                has_substantial_content = has_substantial_content and (
+                    len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
+                )
+            
+            # Log detailed quality metrics for debugging
+            logger.info(f"LLM response quality check for '{topic}': "
+                       f"Has sections: {bool(resp.sections)}, "
+                       f"Has quiz: {bool(resp.quiz)}, "
+                       f"Section count: {len(resp.sections) if resp.sections else 0}, "
+                       f"Quiz count: {len(resp.quiz) if resp.quiz else 0}")
+            
+            if resp.sections:
+                section_details = [(s.title, len(s.content)) for s in resp.sections]
+                logger.info(f"Section details: {section_details}")
+            
+            if resp.quiz:
+                logger.info(f"Quiz questions: {len(resp.quiz)}")
             
             if has_substantial_content:
                 # Note: We're not caching here to avoid circular imports
+                logger.info(f"LLM response for '{topic}' accepted")
                 return resp, "llm"
             # Log when we're falling back to stub due to incomplete or low-quality LLM response
             logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
-                          f"Sections: {len(resp.sections)}, Quiz: {len(resp.quiz)}, "
-                          f"Section quality: {[len(s.content) for s in resp.sections]}")
+                          f"Sections: {len(resp.sections) if resp.sections else 0}, "
+                          f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
+                          f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
             return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks

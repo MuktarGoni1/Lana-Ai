@@ -1168,8 +1168,18 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
         e.preventDefault();
         if (activeSuggestion >= 0) {
           const cmd = commandSuggestions[activeSuggestion];
-          setValue(cmd.prefix + " ");
-          setShowCommandPalette(false);
+          if (cmd.action) {
+            cmd.action();
+          } else {
+            setValue(cmd.prefix + " ");
+            setShowCommandPalette(false);
+            // Focus the textarea after selection
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+              }
+            }, 0);
+          }
         }
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
@@ -1301,6 +1311,12 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                           setValue(s.prefix + " ");
                           setShowCommandPalette(false);
                         }
+                        // Focus the textarea after selection
+                        setTimeout(() => {
+                          if (textareaRef.current) {
+                            textareaRef.current.focus();
+                          }
+                        }, 0);
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>

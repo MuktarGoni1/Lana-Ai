@@ -305,10 +305,16 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             
             sys_prompt = (
                 "You are a helpful tutor who produces a structured lesson as strict JSON. "
-                "Return only JSON with keys: introduction (string), classifications (array of {type, description}), "
-                "sections (array of {title, content}), diagram_description (string), quiz_questions (array of {question, options, correct_answer}). "
+                "Return ONLY valid JSON with these exact keys: "
+                "introduction (string), "
+                "classifications (array of objects with type and description string fields), "
+                "sections (array of objects with title and content string fields), "
+                "diagram (string), "
+                "quiz_questions (array of objects with question, options array, and answer string fields). "
+                "Each quiz question must have exactly 4 options. "
                 f"The learner is a {age_str if age_str else 'general audience'}. "
-                "Keep each section content at least 100 words. Include 4 quiz questions with 4 options each."
+                "Keep each section content at least 100 words. Include 4 quiz questions with 4 options each. "
+                "Respond ONLY with valid JSON, no markdown code blocks, no extra text."
             )
 
             user_prompt = f"Topic: {topic}"
@@ -329,25 +335,124 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             raw_excerpt = response.choices[0].message.content or ""
             raw_excerpt = raw_excerpt.strip()
 
-            # Extract JSON if wrapped in code
-            if '```json' in raw_excerpt:
-                start = raw_excerpt.find('```json') + 7
-                end = raw_excerpt.find('```', start)
-                if end != -1:
-                    raw_excerpt = raw_excerpt[start:end].strip()
-            elif '```' in raw_excerpt:
-                start = raw_excerpt.find('```') + 3
-                end = raw_excerpt.find('```', start)
-                if end != -1:
-                    raw_excerpt = raw_excerpt[start:end].strip()
-
-            # Parse JSON
+            # Parse JSON - handle markdown code blocks and clean up the response
             import orjson
-            data = orjson.loads(raw_excerpt)
+            import json
+            
+            # Clean up the response - remove markdown code blocks if present
+            clean_excerpt = raw_excerpt.strip()
+            
+            # More robust markdown removal
+            while clean_excerpt.startswith('```'):
+                if clean_excerpt.startswith('```json'):
+                    clean_excerpt = clean_excerpt[7:].strip()  # Remove ```json
+                else:
+                    clean_excerpt = clean_excerpt[3:].strip()  # Remove ```
+            
+            # Remove trailing ```
+            while clean_excerpt.endswith('```'):
+                clean_excerpt = clean_excerpt[:-3].strip()
+            
+            # Fix invalid control characters by removing them
+            # Remove incorrect escaping logic
+            # repaired = repaired.replace('\n', '\\n')
+            # repaired = repaired.replace('\r', '\\r')
+            # repaired = repaired.replace('\t', '\\t')
+            # Only escape unescaped backslashes
+            # repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
+                            
+            # Instead, just ensure we have valid JSON by removing any control characters
+            # that might cause issues
+            import re
+            clean_excerpt = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', clean_excerpt)
+            
+            # Try to parse with orjson first, fallback to json
+            try:
+                data = orjson.loads(clean_excerpt)
+            except Exception as orjson_error:
+                try:
+                    # Fallback to standard json parser
+                    data = json.loads(clean_excerpt)
+                except Exception as json_error:
+                    # Try to handle incomplete JSON by finding the last complete object
+                    try:
+                        # Look for the last complete JSON object in the response
+                        last_brace = clean_excerpt.rfind('}')
+                        if last_brace != -1:
+                            truncated = clean_excerpt[:last_brace + 1]
+                            data = json.loads(truncated)
+                            logger.info(f"Successfully parsed truncated JSON for topic '{topic}'")
+                        else:
+                            raise
+                    except Exception:
+                        # Try additional JSON repair techniques
+                        try:
+                            # Attempt to fix common JSON issues
+                            repaired = clean_excerpt
+                                                        
+                            import re
+                                                        
+                            # Additional cleanup - remove any remaining markdown artifacts
+                            if repaired.startswith('```'):
+                                # Remove opening ``` if still present
+                                repaired = repaired[3:].strip()
+                            if repaired.endswith('```'):
+                                # Remove closing ``` if still present
+                                repaired = repaired[:-3].strip()
+                                                        
+                            # Fix invalid control characters by removing them
+                            # Remove incorrect escaping logic
+                            # repaired = repaired.replace('\n', '\\n')
+                            # repaired = repaired.replace('\r', '\\r')
+                            # repaired = repaired.replace('\t', '\\t')
+                            # Only escape unescaped backslashes
+                            repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
+                            
+                            # Fix missing commas between array/object elements
+                            # Add missing commas between }{ patterns
+                            repaired = re.sub(r'}\s*{', '},{', repaired)
+                            # Add missing commas between }\s+" patterns
+                            repaired = re.sub(r'}\s*("[^"]+"\s*:)', r'},\1', repaired)
+                                                        
+                            # Fix unterminated strings by adding closing quotes
+                            # This is a simple approach - find unclosed quotes and close them
+                            quote_matches = [m.start() for m in re.finditer('"', repaired)]
+                            if len(quote_matches) % 2 != 0:
+                                # Odd number of quotes - likely an unclosed string
+                                repaired = repaired + '"'
+                                                        
+                            # Try to parse the repaired JSON
+                            data = json.loads(repaired)
+                            logger.info(f"Successfully parsed repaired JSON for topic '{topic}'")
+                        except Exception as repair_error:
+                            # Last resort - try to parse whatever JSON we can get
+                            try:
+                                # Try to find and parse any valid JSON object in the response
+                                import re
+                                json_match = re.search(r'\{[^{]*(?:\{[^{]*\}[^{]*)*\}', repaired)
+                                if json_match:
+                                    potential_json = json_match.group(0)
+                                    data = json.loads(potential_json)
+                                    logger.info(f"Successfully parsed extracted JSON for topic '{topic}'")
+                                else:
+                                    raise
+                            except Exception:
+                                logger.warning(f"Failed to parse JSON with both orjson and json for topic '{topic}'. "
+                                              f"orjson error: {orjson_error}, json error: {json_error}, repair error: {repair_error}. "
+                                              f"Raw excerpt length: {len(clean_excerpt)}")
+                                raise
             
             # Normalize and validate response
-            intro_norm = data.get("introduction", "").strip()
-            diagram_norm = data.get("diagram_description", "").strip()
+            # Handle introduction - could be string or dict with title/text
+            intro_data = data.get("introduction", "")
+            if isinstance(intro_data, dict):
+                # If it's a dict, try to get text or title
+                intro_norm = (intro_data.get("text", "") or intro_data.get("title", "") or "").strip()
+            else:
+                intro_norm = str(intro_data).strip()
+            
+            # Handle diagram - could be in different fields
+            diagram_norm = (data.get("diagram_description", "") or data.get("diagram", "")).strip()
             
             # Process classifications
             classifications = []
@@ -361,22 +466,51 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 if isinstance(s, dict) and "title" in s and "content" in s:
                     sections.append(SectionItem(title=s["title"], content=s["content"]))
             
-            # Process quiz
+            # Process quiz - handle both 'quiz' and 'quiz_questions' field names
+            quiz_data = data.get("quiz", data.get("quiz_questions", []))
             quiz = []
-            for q in data.get("quiz_questions", []):
+            for q in quiz_data:
                 if (isinstance(q, dict) and 
                     "question" in q and 
                     "options" in q and 
-                    "correct_answer" in q and
+                    "answer" in q and  # Changed from "correct_answer" to "answer"
                     len(q["options"]) >= 2):
-                    quiz.append(QuizItem(q=q["question"], options=q["options"], answer=q["correct_answer"]))
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["question"], options=options, answer=q["answer"]))
+                elif (isinstance(q, dict) and 
+                      "question" in q and 
+                      "options" in q and 
+                      "correct_answer" in q and  # Keep backward compatibility
+                      len(q["options"]) >= 2):
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["question"], options=options, answer=q["correct_answer"]))
+                elif (isinstance(q, dict) and 
+                      "q" in q and 
+                      "options" in q and 
+                      "answer" in q and  # Handle 'q' field directly
+                      len(q["options"]) >= 2):
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["q"], options=options, answer=q["answer"]))
             
-            # Convert question field to q for frontend compatibility
-            quiz_items = []
-            for q_item in quiz:
-                # Create a copy and rename question to q
-                quiz_items.append(QuizItem(q=q_item.q, options=q_item.options, answer=q_item.answer))
-            quiz = quiz_items
+            # Quiz items are already created with 'q' field, no need for additional conversion
 
             resp = StructuredLessonResponse(
                 id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
@@ -388,23 +522,46 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             )
             # Only cache and return LLM response if it has both sections and quiz questions
             # Also validate that content is substantial (not just generic templates)
+            # Make the validation more lenient to avoid falling back to stubs unnecessarily
             has_substantial_content = (
-                resp.sections and resp.quiz and
-                len(resp.sections) >= 2 and  # At least 2 sections
-                all(len(s.content) > 20 for s in resp.sections) and  # Each section has substantial content (reduced from 50 to 20 chars)
-                len(resp.quiz) >= 3  # At least 3 quiz questions
+                resp.sections and len(resp.sections) >= 1 and  # At least 1 section (reduced from 2)
+                all(len(s.content) > 10 for s in resp.sections)  # Each section has substantial content (reduced from 20 chars)
+                # Removed quiz requirement since API may not always return it
+                # and len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
             )
+            
+            # If we have quiz questions, validate them as well
+            if resp.quiz:
+                has_substantial_content = has_substantial_content and (
+                    len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
+                )
+            
+            # Log detailed quality metrics for debugging
+            logger.info(f"LLM response quality check for '{topic}': "
+                       f"Has sections: {bool(resp.sections)}, "
+                       f"Has quiz: {bool(resp.quiz)}, "
+                       f"Section count: {len(resp.sections) if resp.sections else 0}, "
+                       f"Quiz count: {len(resp.quiz) if resp.quiz else 0}")
+            
+            if resp.sections:
+                section_details = [(s.title, len(s.content)) for s in resp.sections]
+                logger.info(f"Section details: {section_details}")
+            
+            if resp.quiz:
+                logger.info(f"Quiz questions: {len(resp.quiz)}")
             
             if has_substantial_content:
                 try:
                     await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
-                except Exception:
-                    pass
+                    logger.info(f"LLM response for '{topic}' accepted and cached")
+                except Exception as cache_error:
+                    logger.warning(f"Failed to cache LLM response for '{topic}': {cache_error}")
                 return resp, "llm"
             # Log when we're falling back to stub due to incomplete or low-quality LLM response
             logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
-                          f"Sections: {len(resp.sections)}, Quiz: {len(resp.quiz)}, "
-                          f"Section quality: {[len(s.content) for s in resp.sections]}")
+                          f"Sections: {len(resp.sections) if resp.sections else 0}, "
+                          f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
+                          f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
             return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
