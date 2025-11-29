@@ -38,9 +38,38 @@ export default function AutoLoginPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Redirect all authenticated users to homepage
+        // Check for last visited page in cookies
+        let lastVisited = null;
+        if (typeof window !== 'undefined') {
+          // Try to get from localStorage first (fallback for older browsers)
+          lastVisited = localStorage.getItem('lana_last_visited');
+          
+          // Try to get from cookies (newer approach)
+          const cookies = document.cookie.split(';');
+          for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'lana_last_visited') {
+              lastVisited = decodeURIComponent(value);
+              break;
+            }
+          }
+        }
+
+        // Store the last visited page in localStorage as well for redundancy
+        if (typeof window !== 'undefined' && lastVisited) {
+          localStorage.setItem('lana_last_visited', lastVisited);
+        }
+
+        // Redirect to last visited page if available and not an auth page, otherwise homepage
+        const redirectPath = lastVisited && 
+                             !lastVisited.startsWith('/login') && 
+                             !lastVisited.startsWith('/register') && 
+                             !lastVisited.startsWith('/auth') && 
+                             lastVisited !== '/landing-page' ? 
+                             lastVisited : '/homepage';
+
         setTimeout(() => {
-          router.push("/homepage");
+          router.push(redirectPath);
         }, 1000);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);

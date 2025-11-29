@@ -158,6 +158,21 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dest)
     }
 
+    // Store the last visited page for authenticated users (excluding auth paths)
+    if (sessionExists && !isAuthPath && !isAsset && pathname !== '/landing-page') {
+      console.log('[Middleware] Storing last visited page:', pathname)
+      // Set a cookie with the current path
+      res.cookies.set('lana_last_visited', pathname, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        httpOnly: false, // Allow client-side access
+        sameSite: 'lax',
+        path: '/',
+      })
+      
+      // Also set in a custom header for client-side access as fallback
+      res.headers.set('x-last-visited', pathname)
+    }
+
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
@@ -181,17 +196,41 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dest)
     }
 
-    // If authenticated and trying to access the landing page, send to homepage
+    // If authenticated and trying to access the landing page, send to last visited page or homepage
     if (sessionExists && pathname === '/landing-page') {
-      console.log('[Middleware] Authenticated user accessing landing page, redirecting to homepage')
-      const dest = new URL('/homepage', req.url)
+      console.log('[Middleware] Authenticated user accessing landing page, redirecting to last visited or homepage')
+      
+      // Try to get last visited from cookies
+      const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisitedCookie && 
+                           !lastVisitedCookie.startsWith('/login') && 
+                           !lastVisitedCookie.startsWith('/register') && 
+                           !lastVisitedCookie.startsWith('/auth') && 
+                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie : '/homepage';
+      
+      const dest = new URL(redirectPath, req.url)
       return NextResponse.redirect(dest)
     }
 
-    // If authenticated and hitting root, redirect to homepage
+    // If authenticated and hitting root, redirect to last visited page or homepage
     if (sessionExists && pathname === '/') {
-      console.log('[Middleware] Authenticated user accessing root, redirecting to homepage')
-      const dest = new URL('/homepage', req.url)
+      console.log('[Middleware] Authenticated user accessing root, redirecting to last visited or homepage')
+      
+      // Try to get last visited from cookies
+      const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisitedCookie && 
+                           !lastVisitedCookie.startsWith('/login') && 
+                           !lastVisitedCookie.startsWith('/register') && 
+                           !lastVisitedCookie.startsWith('/auth') && 
+                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie : '/homepage';
+      
+      const dest = new URL(redirectPath, req.url)
       return NextResponse.redirect(dest)
     }
 

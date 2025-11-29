@@ -451,8 +451,23 @@ function LoginContent() {
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       // Check onboarding status
-      // For now, we'll redirect to homepage
-      router.push("/homepage");
+      // For now, we'll redirect to the last visited page or homepage
+      let lastVisited = null;
+      
+      // Try to get from localStorage
+      if (typeof window !== 'undefined') {
+        lastVisited = localStorage.getItem('lana_last_visited');
+      }
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisited && 
+                           !lastVisited.startsWith('/login') && 
+                           !lastVisited.startsWith('/register') && 
+                           !lastVisited.startsWith('/auth') && 
+                           lastVisited !== '/landing-page' ? 
+                           lastVisited : '/homepage';
+      
+      router.push(redirectPath);
     }
   }, [isAuthenticated, isLoading, router]);
 

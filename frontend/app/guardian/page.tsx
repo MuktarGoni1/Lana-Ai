@@ -189,7 +189,7 @@ export default function GuardianDashboard() {
   }
 
   async function copyInvite() {
-    const link = `${window.location.origin}/register`
+    const link = "https://www.lanamind.com/register"
     try {
       await navigator.clipboard.writeText(link)
       setCopied(true)

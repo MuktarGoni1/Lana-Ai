@@ -149,7 +149,7 @@ export class AuthService {
           email: trimmed,
           options: {
             shouldCreateUser: false, // Don't create a new user if they don't exist
-            emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+            emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
           },
         });
 
@@ -190,7 +190,7 @@ export class AuthService {
         email: trimmedEmail,
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
         },
       });
 

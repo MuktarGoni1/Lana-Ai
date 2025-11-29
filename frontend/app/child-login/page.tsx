@@ -59,7 +59,7 @@ export default function ChildLoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
         },
       })
       

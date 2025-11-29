@@ -1,4 +1,4 @@
-# Byte-compiled / optimized / DLL files
+git filter-branch --force --index-filter "git rm --cached --ignore-unmatch frontend/.env.local backend/.env" --prune-empty --tag-name-filter cat -- --all# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class

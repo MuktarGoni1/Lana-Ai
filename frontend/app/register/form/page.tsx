@@ -318,9 +318,7 @@ function ParentFlow() {
     setIsLoading(true)
     try {
       // Use a default origin for server-side rendering
-      const redirectTo = isClient 
-        ? `${window.location.origin}/auth/auto-login`
-        : `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/auto-login`
+      const redirectTo = "https://www.lanamind.com/auth/auto-login"
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
