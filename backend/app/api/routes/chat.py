@@ -78,6 +78,7 @@ class StructuredLessonResponse(BaseModel):
     quiz: List[QuizItem]
 
 async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+    logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
     # Create age-appropriate introduction
     age_str = ""
     if age is not None:
@@ -138,7 +139,7 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
         ]
     
     import uuid
-    return StructuredLessonResponse(
+    response = StructuredLessonResponse(
         id=str(uuid.uuid4()),
         introduction=intro,
         classifications=classifications,
@@ -146,6 +147,8 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
         diagram="",
         quiz=quiz,
     )
+    logger.info(f"Stub lesson generated successfully for '{topic}'")
+    return response
 
 # In-memory cache for lessons (similar to what's in main.py)
 _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
@@ -182,8 +185,9 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 f"{age_str if age_str else 'general audience'}. "
                 "Keep language clear for the learner. For scientific topics, provide specific details and examples. "
                 "Do not provide generic responses. Each section should contain substantial educational content. "
-                "Respond ONLY with valid JSON, no markdown code blocks, no extra text."
-            )
+                "IMPORTANT: Respond ONLY with valid JSON, no markdown code blocks, no extra text, no explanations. "
+                "Start your response with '{' and end with '}'. "
+                "Example format: {\"introduction\": \"...\", \"classifications\":[{\"type\":\"...\",\"description\":\"...\"}], \"sections\":[{\"title\":\"...\",\"content\":\"...\"}], \"diagram\":\"...\", \"quiz_questions\":[{\"question\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"answer\":\"...\"}]}")
             
             # Enhanced user prompt with better age-based context
             user_prompt = {

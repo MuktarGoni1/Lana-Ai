@@ -59,6 +59,10 @@ if settings.groq_api_key:
 else:
     logger.warning("No Groq API key found - LLM features will use fallback responses")
 
+# Log all relevant settings for debugging
+logger.info(f"Supabase URL configured: {bool(settings.supabase_url)}")
+logger.info(f"Google API key configured: {bool(settings.google_api_key)}")
+
 # Initialize shared cache and Groq client for structured lessons
 _STRUCTURED_LESSON_CACHE = MemoryCacheRepository(default_ttl=1800)
 _GROQ_CLIENT = None
@@ -66,6 +70,16 @@ if Groq and settings.groq_api_key:
     try:
         _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
         logger.info("Groq client initialized successfully")
+        # Test the client with a simple request
+        try:
+            test_response = _GROQ_CLIENT.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=10
+            )
+            logger.info("Groq client test successful")
+        except Exception as test_error:
+            logger.error(f"Groq client test failed: {test_error}")
     except Exception as e:
         logger.error(f"Failed to initialize Groq client: {e}")
         _GROQ_CLIENT = None
@@ -215,6 +229,7 @@ class StructuredLessonResponse(BaseModel):
 
 
 async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+    logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
     # Create age-appropriate introduction
     age_str = ""
     if age is not None:
@@ -274,7 +289,7 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
             QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
         ]
     
-    return StructuredLessonResponse(
+    response = StructuredLessonResponse(
         id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
         introduction=intro,
         classifications=classifications,
@@ -282,6 +297,8 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
         diagram="",
         quiz=quiz,
     )
+    logger.info(f"Stub lesson generated successfully for '{topic}'")
+    return response
 
 
 async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
@@ -314,8 +331,9 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 "Each quiz question must have exactly 4 options. "
                 f"The learner is a {age_str if age_str else 'general audience'}. "
                 "Keep each section content at least 100 words. Include 4 quiz questions with 4 options each. "
-                "Respond ONLY with valid JSON, no markdown code blocks, no extra text."
-            )
+                "IMPORTANT: Respond ONLY with valid JSON, no markdown code blocks, no extra text, no explanations. "
+                "Start your response with '{' and end with '}'. "
+                "Example format: {\"introduction\": \"...\", \"classifications\":[{\"type\":\"...\",\"description\":\"...\"}], \"sections\":[{\"title\":\"...\",\"content\":\"...\"}], \"diagram\":\"...\", \"quiz_questions\":[{\"question\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"answer\":\"...\"}]}")
 
             user_prompt = f"Topic: {topic}"
 
@@ -334,6 +352,9 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
 
             raw_excerpt = response.choices[0].message.content or ""
             raw_excerpt = raw_excerpt.strip()
+            
+            # Log the raw response for debugging
+            logger.info(f"Raw LLM response for topic '{topic}': {raw_excerpt[:200]}...")
 
             # Parse JSON - handle markdown code blocks and clean up the response
             import orjson
@@ -562,6 +583,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                           f"Sections: {len(resp.sections) if resp.sections else 0}, "
                           f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
                           f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
+            logger.warning(f"Content validation failed for '{topic}' - sections: {bool(resp.sections)}, quiz: {bool(resp.quiz)}")
             return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
@@ -569,6 +591,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
             except Exception:
                 logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
+            logger.warning(f"Falling back to stub lesson for '{topic}' due to LLM error")
             return await _stub_lesson(topic, age), "stub"
     else:
         logger.info(f"Falling back to stub lesson for '{topic}' - no Groq client available")

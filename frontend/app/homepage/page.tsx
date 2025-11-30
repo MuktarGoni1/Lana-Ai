@@ -788,7 +788,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("default") },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
     { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
     { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },

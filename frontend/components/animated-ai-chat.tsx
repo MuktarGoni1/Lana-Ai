@@ -798,32 +798,11 @@ interface AnimatedAIChatProps {
 
   const modeSuggestions = [
     {
-      icon: <PersonStandingIcon className="w-4 h-4" />,
-      label: "Structured Lesson",
-      description: "Detailed and structured breakdown of your topic.",
-      action: () => handleModeClick("default"),
-      placeholder: "Please input a topic for structured learning"
-    },
-    {
       icon: <BookOpen className="w-4 h-4" />,
       label: "Maths Tutor",
       description: "Add maths equations for simple solutions with explainer",
       action: () => handleModeClick("maths"),
       placeholder: "Please input a maths question"
-    },
-    {
-      icon: <Play className="w-4 h-4" />,
-      label: "Chat",
-      description: "Chat and ask your friendly AI",
-      action: () => handleModeClick("chat"),
-      placeholder: "Please input your question"
-    },
-    {
-      icon: <Sparkles className="w-4 h-4" />,
-      label: "Quick Answer",
-      description: "Concise explanation",
-      action: () => handleModeClick("quick"),
-      placeholder: "Please input your question for a quick answer"
     },
     {
       icon: <Video className="w-4 h-4" />,
