@@ -6,7 +6,7 @@ async function testFrontendConnection() {
   
   try {
     // Test 1: Check if we can connect to the backend
-    const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+    const { API_BASE } = await import('./lib/api-config.js');
     console.log('API Base URL:', API_BASE);
     
     // Test 2: Check backend health

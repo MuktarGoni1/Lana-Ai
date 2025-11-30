@@ -30,10 +30,8 @@ import { isGuestClient } from '@/lib/guest';
 import { createClient } from '@/lib/supabase/client';
 
 // Centralized API base with optional proxying via Next.js rewrites
-// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
-const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
-  ? ''
-  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -776,17 +774,17 @@ interface AnimatedAIChatProps {
   const handleModeClick = (mode: string) => {
     switch (mode) {
       case "maths":
-        setValue("/Maths ");
+        setValue("/Maths");
         break;
       case "chat":
-        setValue("/Chat ");
+        setValue("/Chat");
         break;
       case "quick":
-        setValue("/quick ");
+        setValue("/quick");
         break;
       case "default":
       default:
-        setValue("/default ");
+        setValue("/default");
         break;
     }
     setShowCommandPalette(true);
@@ -899,13 +897,13 @@ interface AnimatedAIChatProps {
   // Function to get the appropriate placeholder based on the current mode
   const getModePlaceholder = (): string => {
     if (value.startsWith("/default")) {
-      return "Please input a topic for structured learning";
+      return "/default - Please input a topic for structured learning";
     } else if (value.startsWith("/Maths")) {
-      return "Please input a maths question";
+      return "/Maths - Please input a maths question";
     } else if (value.startsWith("/Chat")) {
-      return "Please input your question";
+      return "/Chat - Please input your question";
     } else if (value.startsWith("/quick")) {
-      return "Please input your question for a quick answer";
+      return "/quick - Please input your question for a quick answer";
     }
     return "What would you like to learn today?";
   };
@@ -1224,7 +1222,7 @@ interface AnimatedAIChatProps {
           if (cmd.action) {
             cmd.action();
           } else {
-            setValue(cmd.prefix + " ");
+            setValue(cmd.prefix);
             setShowCommandPalette(false);
             // Focus the textarea after selection
             setTimeout(() => {
@@ -1368,7 +1366,7 @@ interface AnimatedAIChatProps {
                         if (s.action) {
                           s.action();
                         } else {
-                          setValue(s.prefix + " ");
+                          setValue(s.prefix);
                           setShowCommandPalette(false);
                         }
                         // Focus the textarea after selection

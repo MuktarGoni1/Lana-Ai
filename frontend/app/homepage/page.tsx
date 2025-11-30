@@ -32,8 +32,8 @@ import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
 import { useToast } from '@/hooks/use-toast';
 
 // Centralized API base for both components in this file
-// Using the same pattern as other files in the project for consistency
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || (typeof window !== 'undefined' ? window.location.origin : '');
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
@@ -796,32 +796,11 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
   const modeSuggestions = [
     {
-      icon: <PersonStandingIcon className="w-4 h-4" />,
-      label: "Structured Lesson",
-      description: "Detailed and structured breakdown of your topic.",
-      action: () => handleModeClick("default"),
-      placeholder: "Please input a topic for structured learning"
-    },
-    {
       icon: <BookOpen className="w-4 h-4" />,
       label: "Maths Tutor",
       description: "Add maths equations for simple solutions with explainer",
       action: () => handleModeClick("maths"),
       placeholder: "Please input a maths question"
-    },
-    {
-      icon: <Play className="w-4 h-4" />,
-      label: "Chat",
-      description: "Chat and ask your friendly AI",
-      action: () => handleModeClick("chat"),
-      placeholder: "Please input your question"
-    },
-    {
-      icon: <Sparkles className="w-4 h-4" />,
-      label: "Quick Answer",
-      description: "Concise explanation",
-      action: () => handleModeClick("quick"),
-      placeholder: "Please input your question for a quick answer"
     },
     {
       icon: <Video className="w-4 h-4" />,
@@ -844,17 +823,17 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const handleModeClick = (mode: string) => {
     switch (mode) {
       case "maths":
-        setValue("/Maths ");
+        setValue("/Maths");
         break;
       case "chat":
-        setValue("/Chat ");
+        setValue("/Chat");
         break;
       case "quick":
-        setValue("/quick ");
+        setValue("/quick");
         break;
       case "default":
       default:
-        setValue("/default ");
+        setValue("/default");
         break;
     }
     setShowCommandPalette(true);
@@ -929,13 +908,13 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   // Function to get the appropriate placeholder based on the current mode
   const getModePlaceholder = (): string => {
     if (value.startsWith("/default")) {
-      return "Please input a topic for structured learning";
+      return "/default - Please input a topic for structured learning";
     } else if (value.startsWith("/Maths")) {
-      return "Please input a maths question";
+      return "/Maths - Please input a maths question";
     } else if (value.startsWith("/Chat")) {
-      return "Please input your question";
+      return "/Chat - Please input your question";
     } else if (value.startsWith("/quick")) {
-      return "Please input your question for a quick answer";
+      return "/quick - Please input your question for a quick answer";
     }
     return "What would you like to learn today?";
   };
@@ -1171,7 +1150,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
           if (cmd.action) {
             cmd.action();
           } else {
-            setValue(cmd.prefix + " ");
+            setValue(cmd.prefix);
             setShowCommandPalette(false);
             // Focus the textarea after selection
             setTimeout(() => {
@@ -1308,7 +1287,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                         if (s.action) {
                           s.action();
                         } else {
-                          setValue(s.prefix + " ");
+                          setValue(s.prefix);
                           setShowCommandPalette(false);
                         }
                         // Focus the textarea after selection

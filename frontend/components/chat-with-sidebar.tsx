@@ -25,10 +25,8 @@ import type { User } from "@supabase/supabase-js"
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 
 // Centralized API base with optional proxying via Next.js rewrites
-// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
-const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
-  ? ''
-  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 
 // Lazy load heavy components
 const AnimatedAIChat = dynamic(() => import("@/components/animated-ai-chat").then(mod => mod.AnimatedAIChat), {
