@@ -763,16 +763,18 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("default") },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
     { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
     { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
-
   // Function to handle mode button clicks and activate command palette with placeholder text
   const handleModeClick = (mode: string) => {
     switch (mode) {
+      case "lesson":
+        setValue("/lesson");
+        break;
       case "maths":
         setValue("/Maths");
         break;
@@ -782,9 +784,8 @@ interface AnimatedAIChatProps {
       case "quick":
         setValue("/quick");
         break;
-      case "default":
       default:
-        setValue("/default");
+        // For any other mode, we don't set a specific value
         break;
     }
     setShowCommandPalette(true);
@@ -797,13 +798,6 @@ interface AnimatedAIChatProps {
   };
 
   const modeSuggestions = [
-    {
-      icon: <BookOpen className="w-4 h-4" />,
-      label: "Maths Tutor",
-      description: "Add maths equations for simple solutions with explainer",
-      action: () => handleModeClick("maths"),
-      placeholder: "Please input a maths question"
-    },
     {
       icon: <Video className="w-4 h-4" />,
       label: "Explanation Mode",
@@ -875,8 +869,8 @@ interface AnimatedAIChatProps {
 
   // Function to get the appropriate placeholder based on the current mode
   const getModePlaceholder = (): string => {
-    if (value.startsWith("/default")) {
-      return "/default - Please input a topic for structured learning";
+    if (value.startsWith("/lesson")) {
+      return "/lesson - Please input a topic for structured learning";
     } else if (value.startsWith("/Maths")) {
       return "/Maths - Please input a maths question";
     } else if (value.startsWith("/Chat")) {
