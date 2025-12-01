@@ -20,6 +20,7 @@ import {
   BookOpen,
   PersonStandingIcon,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
@@ -212,6 +213,9 @@ interface Lesson {
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
+  // Check if this is an error response
+  const isErrorResponse = lesson.introduction && lesson.introduction.includes("Unable to generate a detailed lesson");
+  
   // Lightly sanitize markdown-like tokens and normalize bullets per line
 
   const sanitizeLine = (line: string) => {
@@ -632,16 +636,22 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   }, [audioUrl, audioQueue, segments, fetchTTSBlobUrl]);
 
   return (
-    <div className="lesson-card bg-white/5 border border-white/10 rounded-xl p-6 space-y-6">
+    <div className={cn("lesson-card border rounded-xl p-6 space-y-6",
+      isErrorResponse 
+        ? "bg-red-500/10 border-red-500/20" 
+        : "bg-white/5 border-white/10"
+    )}>
       {/* header with logo and title */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/10 rounded-lg">
+          <div className={cn("p-2 rounded-lg",
+            isErrorResponse ? "bg-red-500/20" : "bg-white/10"
+          )}>
             <BookOpen className="w-5 h-5 text-white" />
           </div>
           <h2 className="text-xl font-semibold">Lesson Preview</h2>
         </div>
-        {lesson.quiz && lesson.quiz.length > 0 && (
+        {lesson.quiz && lesson.quiz.length > 0 && !isErrorResponse && (
           <button
             onClick={handleTakeQuiz}
             className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
@@ -654,88 +664,121 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
       {/* lesson content */}
       <div className="space-y-4 text-sm">
-        {lesson?.introduction && (
+        {isErrorResponse ? (
+          // Show error content
           <div className="space-y-2">
-            <h3 className="font-medium text-white/80">Introduction</h3>
-            <p className="text-white/70 leading-relaxed">
+            <h3 className="font-medium text-red-200">Service Temporarily Unavailable</h3>
+            <p className="text-red-100/90 leading-relaxed">
               {lesson.introduction}
             </p>
-          </div>
-        )}
-
-        {Array.isArray(lesson?.sections) && lesson.sections.length > 0 && (
-          <div className="space-y-3">
-            {lesson.sections.map((section, idx) => (
-              <div key={idx} className="space-y-2">
-                {section.title && (
-                  <h3 className="font-medium text-white/80">
-                    {normalizeTitle(section.title)}
-                  </h3>
-                )}
-                {section.content && (
-                  <p className="text-white/70 leading-relaxed">
-                    {section.content}
-                  </p>
-                )}
+            {lesson.sections && lesson.sections.length > 0 && (
+              <div className="mt-3 p-3 bg-red-500/10 rounded-lg">
+                <h4 className="font-medium text-red-200 mb-1">Suggestions</h4>
+                <p className="text-red-100/80 text-xs">
+                  {lesson.sections[0].content}
+                </p>
               </div>
-            ))}
+            )}
           </div>
-        )}
+        ) : (
+          // Show normal lesson content
+          <>
+            {lesson?.introduction && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-white/80">Introduction</h3>
+                <p className="text-white/70 leading-relaxed">
+                  {lesson.introduction}
+                </p>
+              </div>
+            )}
 
-        {lesson?.diagram && (
-          <div className="space-y-2">
-            <h3 className="font-medium text-white/80">Diagram</h3>
-            <pre className="text-white/70 bg-black/20 p-3 rounded-lg text-xs whitespace-pre-wrap">
-              {lesson.diagram}
-            </pre>
-          </div>
+            {Array.isArray(lesson?.sections) && lesson.sections.length > 0 && (
+              <div className="space-y-3">
+                {lesson.sections.map((section, idx) => (
+                  <div key={idx} className="space-y-2">
+                    {section.title && (
+                      <h3 className="font-medium text-white/80">
+                        {normalizeTitle(section.title)}
+                      </h3>
+                    )}
+                    {section.content && (
+                      <p className="text-white/70 leading-relaxed">
+                        {section.content}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {lesson?.diagram && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-white/80">Diagram</h3>
+                <pre className="text-white/70 bg-black/20 p-3 rounded-lg text-xs whitespace-pre-wrap">
+                  {lesson.diagram}
+                </pre>
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      {/* audio controls */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          onClick={isPlaying ? () => audioRef.current?.pause() : playTTS}
-          disabled={isTtsLoading || isRetrying}
-          className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
-        >
-          {isPlaying ? (
-            <Pause className="w-4 h-4" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-        </button>
-        
-        {isTtsLoading && (
-          <div className="flex items-center gap-2 text-white/50 text-sm">
-            <LoaderIcon className="w-4 h-4 animate-spin" />
-            <span>Generating audio...</span>
-          </div>
-        )}
-        
-        {isRetrying && (
-          <div className="flex items-center gap-2 text-white/50 text-sm">
-            <LoaderIcon className="w-4 h-4 animate-spin" />
-            <span>Retrying...</span>
-          </div>
-        )}
-        
-        {ttsError && (
-          <div className="flex items-center gap-2 text-red-400 text-sm">
-            <AlertCircle className="w-4 h-4" />
-            <span>{ttsError}</span>
-          </div>
-        )}
-        
-        {!isTtsLoading && !isRetrying && (
+      {/* audio controls or error message */}
+      {isErrorResponse ? (
+        <div className="flex items-center gap-3 pt-2">
           <button
-            onClick={preloadTTS}
-            className="text-xs text-white/50 hover:text-white/80 transition-colors"
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-sm bg-white/10 text-white rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1.5"
           >
-            Generate audio
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
           </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={isPlaying ? () => audioRef.current?.pause() : playTTS}
+            disabled={isTtsLoading || isRetrying}
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </button>
+          
+          {isTtsLoading && (
+            <div className="flex items-center gap-2 text-white/50 text-sm">
+              <LoaderIcon className="w-4 h-4 animate-spin" />
+              <span>Generating audio...</span>
+            </div>
+          )}
+          
+          {isRetrying && (
+            <div className="flex items-center gap-2 text-white/50 text-sm">
+              <LoaderIcon className="w-4 h-4 animate-spin" />
+              <span>Retrying...</span>
+            </div>
+          )}
+          
+          {ttsError && (
+            <div className="flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>{ttsError}</span>
+            </div>
+          )}
+          
+          {!isTtsLoading && !isRetrying && (
+            <button
+              onClick={preloadTTS}
+              className="text-xs text-white/50 hover:text-white/80 transition-colors"
+            >
+              Generate audio
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -78,65 +78,41 @@ class StructuredLessonResponse(BaseModel):
     quiz: List[QuizItem]
 
 async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+    """Generate a stub lesson with clear error messaging instead of generic templates."""
     logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
-    # Create age-appropriate introduction
-    age_str = ""
-    if age is not None:
-        if age <= 2:
-            age_str = "in a simple, fun way"
-        elif age <= 5:
-            age_str = "in a clear, friendly way"
-        elif age <= 12:
-            age_str = "in an engaging way"
-        elif age <= 18:
-            age_str = "in a detailed way"
-        else:
-            age_str = "in depth"
     
-    intro = f"Let's learn about {topic} {age_str}!"
-    classifications = [ClassificationItem(type="Category", description=topic.title())]
+    # Create a clear error message instead of generic template
+    error_message = f"Unable to generate a detailed lesson about '{topic}' at this time. This could be due to high demand or a temporary issue. Please try again later or ask about a different topic."
     
-    # Create age-appropriate sections
-    if age is not None and age <= 5:
-        sections = [
-            SectionItem(title="Overview", content=f"{topic} - key ideas and examples."),
-            SectionItem(title="Details", content=f"Deeper look at {topic}."),
-        ]
-    elif age is not None and age <= 12:
-        sections = [
-            SectionItem(title="What is it?", content=f"{topic} - key ideas and examples."),
-            SectionItem(title="How does it work?", content=f"Understanding how {topic} works."),
-            SectionItem(title="Why is it important?", content=f"Learning why {topic} matters."),
-        ]
-    else:
-        sections = [
-            SectionItem(title="Introduction", content=f"Understanding {topic} - key concepts and definitions."),
-            SectionItem(title="Key Principles", content=f"Core principles and theories of {topic}."),
-            SectionItem(title="Applications", content=f"How {topic} is applied in real-world scenarios."),
-        ]
+    # Create minimal valid response with clear error messaging
+    intro = error_message
+    classifications = []
     
-    # Generate age-appropriate quiz questions
-    if age is not None and age <= 5:
-        quiz = [
-            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-        ]
-    elif age is not None and age <= 12:
-        quiz = [
-            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"Why is {topic} important?", options=[f"A) It helps us understand the world", f"B) It has practical applications", f"C) It builds critical thinking", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"How can {topic} be used?", options=[f"A) In school projects", f"B) In daily life", f"C) In future careers", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"What should you remember about {topic}?", options=[f"A) Key definitions", f"B) Main concepts", f"C) Real-world examples", "D) All of the above"], answer="D) All of the above"),
-        ]
-    else:
-        quiz = [
-            QuizItem(q=f"What is {topic}?", options=[f"A) A {topic} concept", f"B) A {topic} skill", f"C) A {topic} application", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"Which is a key aspect of {topic}?", options=[f"A) {topic} principles", f"B) {topic} applications", f"C) {topic} benefits", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"How is {topic} typically used?", options=[f"A) In {topic} projects", f"B) For {topic} development", f"C) As a {topic} tool", "D) All of the above"], answer="D) All of the above"),
-            QuizItem(q=f"What should you know about {topic}?", options=[f"A) {topic} basics", f"B) {topic} advanced concepts", f"C) {topic} best practices", "D) All of the above"], answer="D) All of the above"),
-        ]
+    # Create sections with helpful information
+    sections = [
+        SectionItem(
+            title="Service Temporarily Unavailable", 
+            content=error_message
+        ),
+        SectionItem(
+            title="Try These Alternatives",
+            content="1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes\n4. Contact support if the issue persists"
+        )
+    ]
+    
+    # Create a helpful quiz
+    quiz = [
+        QuizItem(
+            q="What should you do when a lesson fails to generate?",
+            options=[
+                "A) Try rephrasing the question",
+                "B) Ask about a different topic", 
+                "C) Check back later",
+                "D) All of the above"
+            ],
+            answer="D) All of the above"
+        )
+    ]
     
     import uuid
     response = StructuredLessonResponse(
@@ -147,7 +123,7 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
         diagram="",
         quiz=quiz,
     )
-    logger.info(f"Stub lesson generated successfully for '{topic}'")
+    logger.info(f"Stub lesson generated with error messaging for '{topic}'")
     return response
 
 # In-memory cache for lessons (similar to what's in main.py)

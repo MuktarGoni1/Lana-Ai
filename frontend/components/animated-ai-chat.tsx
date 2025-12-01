@@ -17,6 +17,7 @@ import {
   Video,
   BookOpen,
   PersonStandingIcon,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
@@ -165,6 +166,9 @@ interface Lesson {
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
+  // Check if this is an error response
+  const isErrorResponse = lesson.introduction && lesson.introduction.includes("Unable to generate a detailed lesson");
+  
   // Lightly sanitize markdown-like tokens and normalize bullets per line
   const sanitizeLine = (line: string) => {
     return line
@@ -434,8 +438,20 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
-  if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
-    blocks.push({ content: lesson.introduction });
+  // Handle error responses differently
+  if (isErrorResponse) {
+    blocks.push({ 
+      title: "Service Temporarily Unavailable", 
+      content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
+    });
+    
+    // Add helpful suggestions
+    if (lesson.sections && lesson.sections.length > 0) {
+      blocks.push({ 
+        title: lesson.sections[0].title || "Suggestions", 
+        content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
+      });
+    }
   } else {
     if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
       blocks.push({
@@ -492,15 +508,23 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 max-w-3xl mx-auto"
     >
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 space-y-6">
+      <div className={cn("rounded-xl p-6 border space-y-6", 
+        isErrorResponse 
+          ? "bg-red-500/10 border-red-500/20" 
+          : "bg-white/5 backdrop-blur-sm border-white/10"
+      )}>
         {blocks.map((block, idx) => (
           <div key={idx} className="space-y-2">
             {block.title && (
-              <h3 className="font-bold text-white text-lg tracking-wide">
+              <h3 className={cn("font-bold tracking-wide", 
+                isErrorResponse ? "text-red-200 text-lg" : "text-white text-lg"
+              )}>
                 {block.title}
               </h3>
             )}
-            <div className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+            <div className={cn("text-sm leading-relaxed whitespace-pre-wrap font-sans", 
+              isErrorResponse ? "text-red-100/90" : "text-white/85"
+            )}>
               {block.content.split("\n").map((line, i) => (
                 <div key={i}>{sanitizeLine(line) || "\u00A0"}</div>
               ))}
@@ -513,45 +537,60 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         )}
       </div>
 
-      {/* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */}
-      {isStreamingComplete && (
-        <div className="flex justify-end mt-6 gap-3">
+      {/* Show error-specific message or normal controls */}
+      {isErrorResponse ? (
+        <div className="flex justify-end mt-6">
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading || isRetrying}
-            aria-pressed={isPlaying}
-            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={() => window.location.reload()}
+            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5"
           >
-            {isTtsLoading || isQueuePreloading || isRetrying ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {isTtsLoading || isQueuePreloading || isRetrying
-              ? "Preparing audio…"
-              : isPlaying
-              ? "Pause"
-              : audioUrl || audioQueue.length
-              ? "Play"
-              : "Prepare & Listen"}
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
           </motion.button>
-
-          {lesson.quiz && lesson.quiz.length > 0 && (
+        </div>
+      ) : (
+        /* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */
+        isStreamingComplete && (
+          <div className="flex justify-end mt-6 gap-3">
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={handleTakeQuiz}
-              className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              onClick={togglePlayPause}
+              disabled={isTtsLoading || isQueuePreloading || isRetrying}
+              aria-pressed={isPlaying}
+              className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Take Quiz
+              {isTtsLoading || isQueuePreloading || isRetrying ? (
+                <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="w-3.5 h-3.5" />
+              ) : (
+                <Play className="w-3.5 h-3.5" />
+              )}
+              {isTtsLoading || isQueuePreloading || isRetrying
+                ? "Preparing audio…"
+                : isPlaying
+                ? "Pause"
+                : audioUrl || audioQueue.length
+                ? "Play"
+                : "Prepare & Listen"}
             </motion.button>
-          )}
-        </div>
+
+            {lesson.quiz && lesson.quiz.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleTakeQuiz}
+                className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Take Quiz
+              </motion.button>
+            )}
+          </div>
+        )
       )}
     </motion.div>
   );
@@ -1075,7 +1114,30 @@ interface AnimatedAIChatProps {
       });
       clearTimeout(connectTimer);
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        // Handle specific HTTP errors with user-friendly messages
+        let errorMessage = "Failed to get response from server";
+        switch (response.status) {
+          case 400:
+            errorMessage = "Invalid request. Please try rephrasing your question.";
+            break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment and try again.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again later.";
+            break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
@@ -1156,8 +1218,10 @@ interface AnimatedAIChatProps {
       // Treat AbortError (timeout or manual abort) as benign, avoid retry loops
       if (e instanceof Error && e.name === "AbortError") {
         if (process.env.NODE_ENV === 'development') console.debug('[lesson-stream] aborted');
+        setError("Request was cancelled or timed out. Please try again.");
       } else {
-        setError(e instanceof Error ? e.message : "Streaming failed");
+        const errorMessage = e instanceof Error ? e.message : "Streaming failed";
+        setError(errorMessage);
         if (process.env.NODE_ENV === 'development') {
           console.error('[lesson-stream] catch', e)
         }
