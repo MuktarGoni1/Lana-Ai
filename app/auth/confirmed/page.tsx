@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/db";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/db"
+import { useToast } from "@/hooks/use-toast"
+import { navigateToHomepage } from "@/lib/navigation"
 
 export default function AuthConfirmedPage() {
   const router = useRouter();
@@ -28,16 +29,25 @@ export default function AuthConfirmedPage() {
         // Add the user to an authenticated users list based on role
         try {
           if (role === "guardian" && userEmail) {
-            const { error: upsertError } = await supabase
+            // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+            const sb: any = supabase;
+            const { error: upsertError } = await sb
               .from("guardians")
               .upsert({ email: userEmail, weekly_report: true, monthly_report: false }, { onConflict: "email" });
             if (upsertError) console.warn("[auth/confirmed] guardian upsert warn:", upsertError);
-          } else if (role === "child") {
+          } else if (role === "child" && userEmail) {
             // Child users typically inserted during registration; ensure existence by upserting minimal record
-            const { error: upsertError } = await supabase
-              .from("users")
-              .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
-            if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            // Cast supabase to any to bypass typing issues (following the pattern used in authService)
+            const sb: any = supabase;
+            try {
+              const { error: upsertError } = await sb
+                .from("users")
+                .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
+              if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            } catch (upsertError) {
+              // If the users table doesn't exist, that's okay - just log it
+              console.debug("[auth/confirmed] users table may not exist:", upsertError);
+            }
           }
         } catch (dbErr) {
           console.warn("[auth/confirmed] upsert error:", dbErr);
@@ -46,9 +56,9 @@ export default function AuthConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Show confirmation then redirect to login as specified
+        // Show confirmation then redirect to onboarding
         setTimeout(() => {
-          router.replace("/login");
+          router.push("/onboarding");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed] confirmation error:", err);
@@ -58,8 +68,8 @@ export default function AuthConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        // Fallback: send user to login
-        setTimeout(() => router.replace("/login"), 2500);
+        // Fallback: send user to onboarding
+        setTimeout(() => router.push("/onboarding"), 2500);
       }
     };
 
@@ -81,7 +91,7 @@ export default function AuthConfirmedPage() {
           <p className="text-white/40 text-xs">Signed in as {email}</p>
         )}
         <p className="text-white/60 text-sm">
-          Please visit <a href="/login" className="underline">login</a>. You will be redirected shortly.
+          Please visit <a href="/onboarding" className="underline">onboarding</a>. You will be redirected shortly.
         </p>
       </div>
     </div>

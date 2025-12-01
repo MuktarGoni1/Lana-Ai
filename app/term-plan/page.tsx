@@ -1,8 +1,10 @@
 "use client";
 
+import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -30,119 +32,52 @@ function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
   
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
+  // Authentication state is now handled by useEnhancedAuth hook
+  
+  // Check if this is a child user (no email) to adjust the flow
+  const [isChildUser, setIsChildUser] = useState(false);
 
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
-  const completeOnboardingAndRedirect = async () => {
-    setSaving(true);
-    try {
-      // Update user metadata to mark onboarding as complete
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        const { error } = await supabase.auth.updateUser({
-          data: { onboarding_complete: true },
-        });
-        if (error) {
-          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error);
-        }
-      }
-
-      // Cookie fallback to handle network failures and ensure middleware bypass
+  const [subjects, setSubjects] = useState<Subject[]>(() => {
+    // Load from localStorage on initial render
+    if (typeof window !== 'undefined') {
       try {
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-      } catch (cookieErr) {
-        console.warn('[term-plan] failed to set completion cookie:', cookieErr);
+        const saved = localStorage.getItem('lana_study_plan');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error('Failed to parse saved study plan:', e);
+        return [];
       }
-
-      // Success toast for UX feedback
-      toast({ title: 'Onboarding complete', description: 'Your plan is saved. Redirecting…' });
-
-      // Redirect to original destination if provided, otherwise homepage
-      if (returnTo) {
-        try {
-          const url = new URL(returnTo, window.location.origin);
-          // Normalize destinations that shouldn't lead back to marketing
-          const path = url.pathname;
-          if (path === '/' || path === '/landing-page') {
-            router.replace('/homepage');
-          } else {
-            router.replace(url.toString());
-          }
-        } catch {
-          // Malformed returnTo → default to homepage
-          router.replace('/homepage');
-        }
-      } else {
-        router.replace('/homepage');
-      }
-    } catch (err) {
-      console.error('[term-plan] completion error:', err);
-      toast({ title: 'Error', description: 'Could not finalize onboarding. Continuing anyway.' });
-      router.replace('/homepage');
-    } finally {
-      setSaving(false);
     }
-  };
-  // Backwards-compatible alias for existing button handlers
-  const handleComplete = completeOnboardingAndRedirect;
-  const [subjects, setSubjects] = useState<Subject[]>([]);
+    return [];
+  });
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
 
-  // Check authentication on component mount
+  // Save subjects to localStorage whenever they change
   useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          // No session, redirect to login
-          setAuthError("No active session found. Please log in.");
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-          return;
-        }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+    }
+  }, [subjects]);
 
-        // Verify the user is authenticated
-        const response = await fetch('/api/verify-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: session.user.email })
-        });
-
-        const result = await response.json();
-        
-        if (result.isAuthenticated) {
-          setIsAuthenticated(true);
-        } else {
-          setAuthError(result.message || "User is not authenticated");
-          setIsAuthenticated(false);
-        }
-      } catch (error: any) {
-        console.error('[term-plan] auth check error:', error);
-        setAuthError("Error checking authentication status");
-        setIsAuthenticated(false);
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-
-    checkAuth();
-  }, []);
+  // Check if user is a child user
+  useEffect(() => {
+    if (user) {
+      const isChild = user.email?.endsWith('@child.lana') || false;
+      setIsChildUser(isChild);
+    }
+  }, [user]);
 
   // Redirect if not authenticated
   useEffect(() => {
-    if (authChecked && !isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       // Delay the redirect slightly to show the error message
       const timer = setTimeout(() => {
         router.push("/login");
@@ -150,7 +85,185 @@ function TermPlanPageContent() {
       
       return () => clearTimeout(timer);
     }
-  }, [authChecked, isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
+
+  const saveToLocalAndCompleteOnboarding = async () => {
+    setSaving(true);
+    try {
+      console.log('[term-plan] Saving subjects and topics to localStorage');
+      console.log('[term-plan] Number of subjects to save:', subjects.length);
+      
+      // Save to localStorage
+      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
+      
+      toast({ 
+        title: 'Plan Saved Locally', 
+        description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
+      });
+      
+      // Complete onboarding
+      await completeOnboardingAndRedirect();
+    } catch (err: any) {
+      console.error('[term-plan] Error saving plan locally:', err.message);
+      console.error('[term-plan] Save error details:', err);
+      toast({ 
+        title: 'Save Error', 
+        description: 'Failed to save your study plan locally.',
+        variant: "destructive"
+      });
+      
+      // Still complete onboarding even if saving fails
+      await completeOnboardingAndRedirect();
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  const completeOnboardingAndRedirect = async () => {
+    setSaving(true);
+    try {
+      console.log('[term-plan] Starting onboarding completion process');
+      
+      // Update user metadata to mark onboarding as complete
+      if (user) {
+        console.log('[term-plan] Updating user metadata with onboarding_complete flag');
+        console.log('[term-plan] User ID:', user.id);
+        
+        const { error } = await supabase.auth.updateUser({
+          data: { onboarding_complete: true },
+        });
+        
+        if (error) {
+          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error.message);
+          console.warn('[term-plan] metadata update error details:', error);
+          toast({
+            title: "Notice",
+            description: "Unable to save onboarding status, but continuing anyway.",
+            variant: "default",
+          });
+        } else {
+          console.log('[term-plan] successfully updated user metadata with onboarding_complete flag');
+        }
+      } else {
+        console.warn('[term-plan] no user found when trying to update user metadata');
+        toast({
+          title: "Notice",
+          description: "Unable to save onboarding status, but continuing anyway.",
+          variant: "default",
+        });
+      }
+
+      // Cookie fallback to handle network failures and ensure middleware bypass
+      try {
+        console.log('[term-plan] Setting completion cookie');
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+        console.log('[term-plan] successfully set completion cookie');
+      } catch (cookieErr: any) {
+        console.warn('[term-plan] failed to set completion cookie:', cookieErr.message);
+        console.warn('[term-plan] cookie error details:', cookieErr);
+        toast({
+          title: "Notice",
+          description: "Unable to save onboarding status locally, but continuing anyway.",
+          variant: "default",
+        });
+      }
+
+      // Success toast for UX feedback
+      toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
+
+      // Redirect all users to onboarding flow
+      console.log('[term-plan] redirecting all users to onboarding flow');
+      router.push('/term-plan?onboarding=1');
+    } catch (err: any) {
+      console.error('[term-plan] completion error:', err.message);
+      console.error('[term-plan] completion error details:', err);
+      toast({ 
+        title: 'Onboarding Completed with Issues', 
+        description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
+      });
+      // Even if there's an error, redirect all users to onboarding flow
+      console.log('[term-plan] redirecting all users to onboarding flow despite error');
+      router.push('/term-plan?onboarding=1');
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // Save subjects and topics to localStorage before completing onboarding
+  const saveAndCompleteOnboarding = async () => {
+    setSaving(true);
+    try {
+      console.log('[term-plan] Saving subjects and topics');
+      console.log('[term-plan] Number of subjects to save:', subjects.length);
+      
+      // Try to save to backend first
+      try {
+        if (!user?.email) {
+          throw new Error('No authenticated user found');
+        }
+        
+        // Save to backend API
+        const response = await fetch('/api/study-plan', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: user.email,
+            subjects
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (!result.success) {
+          throw new Error(result.message || 'Failed to save study plan');
+        }
+        
+        console.log('[term-plan] Successfully saved subjects and topics to backend');
+        toast({ 
+          title: 'Plan Saved', 
+          description: 'Your study plan has been saved successfully.' 
+        });
+      } catch (err: any) {
+        // If backend save fails, save locally
+        console.error('[term-plan] Backend save failed, saving locally:', err.message);
+        localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+        toast({ 
+          title: 'Plan Saved Locally', 
+          description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
+        });
+      }
+      
+      // Complete onboarding
+      await completeOnboardingAndRedirect();
+    } catch (err: any) {
+      console.error('[term-plan] Error saving plan:', err.message);
+      console.error('[term-plan] Save error details:', err);
+      toast({ 
+        title: 'Save Error', 
+        description: 'Failed to save your study plan. Continuing to dashboard anyway.',
+        variant: "destructive"
+      });
+      
+      // Still complete onboarding even if saving fails
+      await completeOnboardingAndRedirect();
+    } finally {
+      setSaving(false);
+    }
+  };
+  
+  // Backwards-compatible alias for existing button handlers
+  const handleComplete = completeOnboardingAndRedirect;
+  
+  // Skip to homepage functionality
+  const handleSkipToHomepage = () => {
+    // Redirect all users to onboarding flow
+    console.log('[term-plan] skipping to onboarding flow for all users');
+    router.push('/term-plan?onboarding=1');
+  };
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -167,7 +280,8 @@ function TermPlanPageContent() {
       isExpanded: true
     };
     
-    setSubjects([...subjects, newSubject]);
+    const updatedSubjects = [...subjects, newSubject];
+    setSubjects(updatedSubjects);
     setSubjectInput("");
   };
 
@@ -185,42 +299,48 @@ function TermPlanPageContent() {
       })
     };
 
-    setSubjects(subjects.map(subject => 
+    const updatedSubjects = subjects.map(subject => 
       subject.id === subjectId 
         ? { ...subject, topics: [...subject.topics, newTopic] }
         : subject
-    ));
+    );
     
+    setSubjects(updatedSubjects);
     setTopicInputs({ ...topicInputs, [subjectId]: "" });
   };
 
   const toggleSubject = (subjectId: string) => {
-    setSubjects(subjects.map(subject =>
+    const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, isExpanded: !subject.isExpanded }
         : subject
-    ));
+    );
+    
+    setSubjects(updatedSubjects);
   };
 
   const deleteSubject = (subjectId: string) => {
-    setSubjects(subjects.filter(subject => subject.id !== subjectId));
+    const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
+    setSubjects(updatedSubjects);
   };
 
   const deleteTopic = (subjectId: string, topicId: string) => {
-    setSubjects(subjects.map(subject =>
+    const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
         : subject
-    ));
+    );
+    
+    setSubjects(updatedSubjects);
   };
 
   // Show loading state while checking authentication
-  if (!authChecked) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
-          <p className="text-white/30 text-sm">Checking authentication...</p>
+          <p className="text-white/30 text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -234,7 +354,7 @@ function TermPlanPageContent() {
           <X className="w-12 h-12 mx-auto text-red-500" />
           <h2 className="text-2xl font-semibold">Access Denied</h2>
           <p className="text-white/70">
-            {authError || "You must be authenticated to access this page."}
+            You must be authenticated to access this page.
           </p>
           <p className="text-white/50 text-sm">
             Redirecting to login page...
@@ -268,9 +388,13 @@ function TermPlanPageContent() {
           className="space-y-6"
         >
           <div className="space-y-2">
-            <h2 className="text-2xl font-semibold">Build Your Study Plan</h2>
+            <h2 className="text-2xl font-semibold">
+              {isChildUser ? "Welcome! Let's set up your learning plan" : "Build Your Study Plan"}
+            </h2>
             <p className="text-white/70">
-              Organize your subjects and topics for the term
+              {isChildUser 
+                ? "Create your personalized study plan to get started with your learning journey" 
+                : "Organize your subjects and topics for the term"}
             </p>
           </div>
 
@@ -354,7 +478,7 @@ function TermPlanPageContent() {
                                 [subject.id]: e.target.value
                               })}
                               onKeyDown={(e) => e.key === "Enter" && addTopic(subject.id)}
-                              placeholder="Add a topic (e.g., Limits &amp; Continuity)"
+                              placeholder="Add a topic (e.g., Limits & Continuity)"
                               className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 
                                        focus:outline-none focus:ring-2 focus:ring-white/20 
                                        placeholder:text-white/40 text-sm transition-all"
@@ -433,19 +557,33 @@ function TermPlanPageContent() {
         <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
             <button
-              onClick={handleComplete}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm"
+              onClick={handleSkipToHomepage}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
-              Skip for now
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                  Skipping...
+                </>
+              ) : (
+                "Skip to homepage"
+              )}
+              <ArrowRight className="ml-2 h-4 w-4" />
             </button>
             <button
-              onClick={async () => {
-                // TODO: Persist subjects/topics to Supabase tables
-                await handleComplete();
-              }}
-              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium"
+              onClick={saveAndCompleteOnboarding}
+              disabled={saving}
+              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
-              Save plan and continue
+              {saving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save plan and continue"
+              )}
             </button>
           </div>
         </div>

@@ -51,6 +51,21 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('[API Auth Check] Supabase Auth error:', error);
+        // Check if this is a connection timeout error
+        if (error.message && error.message.includes('timeout')) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              message: 'Network timeout while checking user authentication. Please try again.'
+            }),
+            {
+              status: 504,
+              headers: {
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+        }
         return new Response(
           JSON.stringify({
             success: false,
@@ -105,6 +120,21 @@ export async function POST(request: NextRequest) {
       );
     } catch (error: any) {
       console.error('[API Auth Check] Unexpected error:', error);
+      // Check if this is a connection timeout error
+      if (error.message && error.message.includes('timeout')) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: 'Network timeout while checking user authentication. Please try again.'
+          }),
+          {
+            status: 504,
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+      }
       return new Response(
         JSON.stringify({
           success: false,

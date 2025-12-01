@@ -4,6 +4,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
+import { AuthService } from '@/lib/services/authService';
 
 type AuthContextType = {
   user: User | null
@@ -73,30 +74,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string) => {
     setLoading(true);
     try {
-      // Instead of sending magic link, verify email and handle authentication directly
-      const response = await fetch('/api/auth/check-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
+      // Instead of just verifying email, use the AuthService login method
+      // which will send a magic link to verified users
+      const authService = new AuthService();
+      await authService.login(email);
       
-      if (!response.ok) {
-        throw new Error('Failed to verify email');
-      }
-      
-      const data = await response.json();
-      
-      if (!data.exists || !data.confirmed) {
-        throw new Error(data.message || 'Email not verified or confirmed');
-      }
-      
-      // If we get here, the user is authenticated
-      // In a real implementation, you would set up the session here
-      // For now, we'll just refresh the user data
-      await refreshUser();
-      
-      // Redirect to homepage
-      window.location.href = '/homepage';
+      // Inform user that a magic link has been sent
+      // In a real implementation, you might want to redirect to a "check your email" page
+      window.location.href = `/login?magic-link-sent=true&email=${encodeURIComponent(email)}`;
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;

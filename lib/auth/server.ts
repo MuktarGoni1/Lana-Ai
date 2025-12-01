@@ -17,6 +17,8 @@ export async function getCurrentUser(): Promise<User | null> {
     return null
   } catch (error) {
     console.error('Error getting current user:', error)
+    // If there's a connection timeout or network error, we should still check
+    // if there's a session cookie that indicates the user might be authenticated
     return null
   }
 }
@@ -36,11 +38,21 @@ export async function requireAuth(): Promise<User> {
 
 /**
  * Server-side utility to redirect authenticated users
- * Redirects to homepage if user is already authenticated
+ * Redirects to appropriate dashboard if user is already authenticated
  */
 export async function redirectIfAuthenticated(): Promise<void> {
   const user = await getCurrentUser()
   if (user) {
-    redirect('/landing-page')
+    // Check if user has completed onboarding
+    const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete)
+    
+    // If onboarding is not complete, redirect to term-plan for onboarding
+    if (!onboardingComplete) {
+      redirect('/term-plan?onboarding=1')
+      return
+    }
+    
+    // Redirect all authenticated users to homepage
+    redirect('/homepage')
   }
 }

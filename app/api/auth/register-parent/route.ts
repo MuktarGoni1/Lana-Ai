@@ -52,6 +52,13 @@ export async function POST(request: NextRequest) {
       if (insertError) {
         console.warn('[API Register Parent] Failed to create guardian record:', insertError)
         // Don't throw here as we still want to proceed with authentication
+      } else {
+        console.log('[API Register Parent] Successfully created guardian record')
+      }
+      
+      if (insertError) {
+        console.warn('[API Register Parent] Failed to create guardian record:', insertError)
+        // Don't throw here as we still want to proceed with authentication
       }
 
       // Sign in with OTP (this will send the magic link)

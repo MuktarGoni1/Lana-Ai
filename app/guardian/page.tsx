@@ -81,12 +81,23 @@ export default function GuardianDashboard() {
           continue;
         }
         
-        // Fetch child email from the public users table instead of admin API
-        const { data: userRow, error: userError }: { data: UsersRow | null; error: any } = await supabase
-          .from("users")
-          .select("email")
-          .eq("id", g.child_uid)
-          .single()
+        // Fetch child email - try to get it from auth metadata or use a fallback
+        // Note: The 'users' table may not exist in the actual database schema
+        let childEmail = "Anonymous child";
+        try {
+          const { data: userRow, error: userError }: { data: UsersRow | null; error: any } = await supabase
+            .from("users")
+            .select("email")
+            .eq("id", g.child_uid)
+            .single();
+          
+          if (!userError && userRow?.email) {
+            childEmail = userRow.email;
+          }
+        } catch (userQueryError) {
+          // If the users table doesn't exist or there's an error, that's okay
+          console.debug('[GuardianDashboard] Could not fetch child email from users table:', userQueryError);
+        }
 
         // Explicitly type the searches response
         const { data: searches, error: searchesError }: { data: ChildSearch[] | null; error: any } = await supabase
@@ -100,7 +111,7 @@ export default function GuardianDashboard() {
           child_uid: g.child_uid,
           weekly_report: g.weekly_report ?? false,
           monthly_report: g.monthly_report ?? false,
-          email: userRow?.email ?? "Anonymous child",
+          email: childEmail,
           searches: searches ?? [],
         })
       }
@@ -178,7 +189,7 @@ export default function GuardianDashboard() {
   }
 
   async function copyInvite() {
-    const link = `${window.location.origin}/register`
+    const link = "https://www.lanamind.com/register"
     try {
       await navigator.clipboard.writeText(link)
       setCopied(true)
@@ -264,7 +275,7 @@ export default function GuardianDashboard() {
           
           <div className="pt-4">
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/homepage")}
               className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-white/5 border border-white/10 text-white/70 hover:text-white transition-all duration-200 flex items-center gap-2 mx-auto"
             >
               <Home className="w-4 h-4" />
@@ -305,7 +316,7 @@ export default function GuardianDashboard() {
             </Button>
             
             <button
-              onClick={() => router.push("/")}
+              onClick={() => router.push("/homepage")}
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm flex items-center gap-2"
             >
               <Home className="w-4 h-4" />
