@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 // Add Sentry configuration
-const { withSentryConfig } = require('@sentry/nextjs');
+import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig = {
   typescript: {
@@ -126,4 +126,4 @@ const sentryWebpackPluginOptions = {
 };
 
 // Export the wrapped config
-module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);
+export default withSentryConfig(nextConfig, sentryWebpackPluginOptions);
