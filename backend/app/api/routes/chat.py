@@ -24,6 +24,14 @@ from app.repositories.interfaces import ICacheRepository
 _CACHE = MemoryCacheRepository()
 # We'll initialize the math service in the handler functions to avoid circular imports
 
+# Try to import Groq
+try:
+    from groq import Groq
+    GROQ_AVAILABLE = True
+except ImportError:
+    Groq = None
+    GROQ_AVAILABLE = False
+
 class ChatRequest(BaseModel):
     """Request model for chat messages."""
     user_id: str
@@ -303,21 +311,16 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 diagram=diagram_norm,
                 quiz=quiz,
             )
-            # Only cache and return LLM response if it has both sections and quiz questions
-            # Also validate that content is substantial (not just generic templates)
-            # Make the validation more lenient to avoid falling back to stubs unnecessarily
-            has_substantial_content = (
-                resp.sections and len(resp.sections) >= 1 and  # At least 1 section (reduced from 2)
-                all(len(s.content) > 10 for s in resp.sections)  # Each section has substantial content (reduced from 20 chars)
-                # Removed quiz requirement since API may not always return it
-                # and len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
+            # Accept LLM response if it has at least one section with content
+            # This is more lenient to avoid falling back to stubs unnecessarily
+            has_minimal_content = (
+                resp.sections and len(resp.sections) >= 1 and  # At least 1 section
+                any(len(s.content) > 10 for s in resp.sections)  # At least one section with meaningful content
             )
             
-            # If we have quiz questions, validate them as well
+            # If we have quiz questions, that's a bonus but not required
             if resp.quiz:
-                has_substantial_content = has_substantial_content and (
-                    len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
-                )
+                has_minimal_content = has_minimal_content and len(resp.quiz) >= 1  # At least 1 quiz question
             
             # Log detailed quality metrics for debugging
             logger.info(f"LLM response quality check for '{topic}': "
@@ -333,7 +336,7 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             if resp.quiz:
                 logger.info(f"Quiz questions: {len(resp.quiz)}")
             
-            if has_substantial_content:
+            if has_minimal_content:
                 # Note: We're not caching here to avoid circular imports
                 logger.info(f"LLM response for '{topic}' accepted")
                 return resp, "llm"
@@ -382,6 +385,15 @@ async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_c
         return "Please provide a topic for the lesson.", None
     
     try:
+        # Try to initialize Groq client if not provided and available
+        if groq_client is None and GROQ_AVAILABLE:
+            try:
+                from main import settings
+                if settings.groq_api_key:
+                    groq_client = Groq(api_key=settings.groq_api_key)
+            except Exception:
+                pass
+        
         # Use the structured lesson generation logic
         cache_key = hashlib.md5(f"{text}|{age}".encode()).hexdigest()[:16]
         lesson, src = await _get_or_compute_lesson(cache_key, text, age, groq_client)
@@ -426,6 +438,15 @@ async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=
         return "Please provide a math problem to solve.", None
     
     try:
+        # Try to initialize Groq client if not provided and available
+        if groq_client is None and GROQ_AVAILABLE:
+            try:
+                from main import settings
+                if settings.groq_api_key:
+                    groq_client = Groq(api_key=settings.groq_api_key)
+            except Exception:
+                pass
+        
         # Initialize math solver service
         math_service = MathSolverService(cache_repo=_CACHE, groq_client=groq_client)
         
@@ -485,6 +506,15 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -
         return "Hello! What would you like to chat about?", None
     
     try:
+        # Try to initialize Groq client if not provided and available
+        if groq_client is None and GROQ_AVAILABLE:
+            try:
+                from main import settings
+                if settings.groq_api_key:
+                    groq_client = Groq(api_key=settings.groq_api_key)
+            except Exception:
+                pass
+        
         if not groq_client:
             return "Chat mode requires the AI service to be configured.", None
         
@@ -524,6 +554,15 @@ async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client
         return "Please provide a question for a quick answer.", None
     
     try:
+        # Try to initialize Groq client if not provided and available
+        if groq_client is None and GROQ_AVAILABLE:
+            try:
+                from main import settings
+                if settings.groq_api_key:
+                    groq_client = Groq(api_key=settings.groq_api_key)
+            except Exception:
+                pass
+        
         if not groq_client:
             return "Quick answer mode requires the AI service to be configured.", None
         
@@ -573,6 +612,15 @@ async def chat_endpoint(request: ChatRequest):
             from main import _GROQ_CLIENT
         except ImportError:
             _GROQ_CLIENT = None
+        
+        # If _GROQ_CLIENT is None, try to initialize it
+        if _GROQ_CLIENT is None and GROQ_AVAILABLE:
+            try:
+                from main import settings
+                if settings.groq_api_key:
+                    _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
+            except Exception as e:
+                logger.warning(f"Could not initialize Groq client in chat endpoint: {e}")
         
         # Extract mode and clean text from message
         mode, clean_text = extract_mode(request.message)

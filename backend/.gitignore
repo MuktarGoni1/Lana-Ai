@@ -1,4 +1,4 @@
-git filter-branch --force --index-filter "git rm --cached --ignore-unmatch frontend/.env.local backend/.env" --prune-empty --tag-name-filter cat -- --all# Byte-compiled / optimized / DLL files
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
 *$py.class
@@ -128,6 +128,8 @@ dmypy.json
 # IDEs
 .vscode/
 .idea/
+*.swp
+*.swo
 
 # OS
 .DS_Store
@@ -135,3 +137,27 @@ Thumbs.db
 
 # Render config with sensitive data
 render.yaml
+
+# Test files and directories
+/tests/
+/test/
+*.test.*
+*.spec.*
+
+# Jest configuration
+jest/
+jest.config.*
+jest.setup.*
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+
+# Temp files
+*.tmp
+*.temp
+
+# Build artifacts
+dist/
+build/

@@ -152,13 +152,8 @@ class TTSService:
                                         voice_name=voice_name,
                                     )
                                 )
-                                # Removed unsupported parameters that cause validation errors
                             ),
-                        ),
-                        # Add request options for faster response
-                        request_options={
-                            "timeout": 10.0,  # 10 second timeout
-                        }
+                        )
                     )
                     parts = response.candidates[0].content.parts
                     pcm = parts[0].inline_data.data

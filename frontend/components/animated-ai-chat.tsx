@@ -5,6 +5,8 @@ import { cn, fetchWithTimeoutAndRetry } from "@/lib/utils";
 import { z } from "zod";
 import DOMPurify from "isomorphic-dompurify";
 import rateLimiter from "@/lib/rate-limiter";
+import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
+import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
 import {
   Paperclip,
   Command,
@@ -755,6 +757,31 @@ interface AnimatedAIChatProps {
   export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
+  
+  // Initialize with stored mode if available
+  useEffect(() => {
+    const storedMode = getSelectedMode();
+    if (storedMode) {
+      // Set the initial value based on the stored mode
+      switch (storedMode) {
+        case "lesson":
+          setValue("/lesson ");
+          break;
+        case "maths":
+          setValue("/Maths ");
+          break;
+        case "chat":
+          setValue("/Chat ");
+          break;
+        case "quick":
+          setValue("/quick ");
+          break;
+        default:
+          // For any other mode or default, we don't set a specific value
+          break;
+      }
+    }
+  }, []);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -810,18 +837,21 @@ interface AnimatedAIChatProps {
 
   // Function to handle mode button clicks and activate command palette with placeholder text
   const handleModeClick = (mode: string) => {
+    // Save the selected mode to session storage
+    saveSelectedMode(mode);
+    
     switch (mode) {
       case "lesson":
-        setValue("/lesson");
+        setValue("/lesson ");
         break;
       case "maths":
-        setValue("/Maths");
+        setValue("/Maths ");
         break;
       case "chat":
-        setValue("/Chat");
+        setValue("/Chat ");
         break;
       case "quick":
-        setValue("/quick");
+        setValue("/quick ");
         break;
       default:
         // For any other mode, we don't set a specific value
@@ -917,7 +947,8 @@ interface AnimatedAIChatProps {
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
-    return "What would you like to learn today?";
+    // Default to structured lesson mode
+    return "/lesson - Please input a topic for structured learning";
   };
 
   /* --- handlers ---------------------------------------------------- */
@@ -1059,12 +1090,32 @@ interface AnimatedAIChatProps {
         }, { timeoutMs: 10_000, retries: 2, retryDelayMs: 300 });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        const data: MathSolutionUI = {
-          problem: json.problem || q,
-          solution: json.solution || '',
-          steps: Array.isArray(json.steps) ? json.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
-          error: json.error || null,
-        };
+        // Validate and sanitize the math solution response
+        let data: MathSolutionUI;
+        if (!isValidMathSolutionResponse(json)) {
+          console.warn('[math-solver] Invalid math solution response structure', json);
+          // Try to sanitize the content
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          if (!isValidMathSolutionResponse(sanitizedSolution)) {
+            throw new Error("Received an invalid math solution format from the server.");
+          }
+          // Use sanitized content
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        } else {
+          // Even if valid, sanitize the content for display
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        }
         if (data.error) setError(data.error);
         setMathSolution(data);
         setIsTyping(false);
@@ -1188,6 +1239,25 @@ interface AnimatedAIChatProps {
               case "done":
                 // ULTRA-FAST processing - instant response
                 finalLesson = msg.lesson;
+                
+                // Validate and sanitize the lesson response
+                if (!isValidLessonResponse(finalLesson)) {
+                  console.warn('[lesson-stream] Invalid lesson response structure', finalLesson);
+                  // Try to sanitize the content
+                  const sanitizedLesson = sanitizeLessonContent(finalLesson);
+                  if (isValidLessonResponse(sanitizedLesson)) {
+                    finalLesson = sanitizedLesson;
+                  } else {
+                    // If still invalid, show an error
+                    setError("Received an invalid response format from the server. Please try again.");
+                    setIsTyping(false);
+                    return;
+                  }
+                } else {
+                  // Even if valid, sanitize the content for display
+                  finalLesson = sanitizeLessonContent(finalLesson);
+                }
+                
                 isComplete = true;
                 setLessonJson(finalLesson);
                 setShowVideoButton(true);

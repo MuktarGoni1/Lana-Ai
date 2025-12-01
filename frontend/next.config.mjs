@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+// Add Sentry configuration
+const { withSentryConfig } = require('@sentry/nextjs');
 
+const nextConfig = {
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -116,4 +118,12 @@ const nextConfig = {
   // outputFileTracingRoot: undefined,
 };
 
-export default nextConfig;
+// Sentry configuration
+const sentryWebpackPluginOptions = {
+  org: "lana-ai",
+  project: "lana-frontend",
+  silent: true,
+};
+
+// Export the wrapped config
+module.exports = withSentryConfig(nextConfig, sentryWebpackPluginOptions);

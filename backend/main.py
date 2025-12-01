@@ -80,6 +80,7 @@ if Groq and settings.groq_api_key:
             logger.info("Groq client test successful")
         except Exception as test_error:
             logger.error(f"Groq client test failed: {test_error}")
+            _GROQ_CLIENT = None  # Set to None if test fails
     except Exception as e:
         logger.error(f"Failed to initialize Groq client: {e}")
         _GROQ_CLIENT = None
@@ -517,21 +518,12 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                 diagram=diagram_norm,
                 quiz=quiz,
             )
-            # Only cache and return LLM response if it has both sections and quiz questions
-            # Also validate that content is substantial (not just generic templates)
-            # Make the validation more lenient to avoid falling back to stubs unnecessarily
-            has_substantial_content = (
-                resp.sections and len(resp.sections) >= 1 and  # At least 1 section (reduced from 2)
-                all(len(s.content) > 10 for s in resp.sections)  # Each section has substantial content (reduced from 20 chars)
-                # Removed quiz requirement since API may not always return it
-                # and len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
+            # Accept LLM response if it has at least one section with content
+            # This is more lenient to avoid falling back to stubs unnecessarily
+            has_minimal_content = (
+                resp.sections and len(resp.sections) >= 1 and  # At least 1 section
+                any(len(s.content) > 10 for s in resp.sections)  # At least one section with meaningful content
             )
-            
-            # If we have quiz questions, validate them as well
-            if resp.quiz:
-                has_substantial_content = has_substantial_content and (
-                    len(resp.quiz) >= 1  # At least 1 quiz question (reduced from 3)
-                )
             
             # Log detailed quality metrics for debugging
             logger.info(f"LLM response quality check for '{topic}': "
@@ -547,19 +539,19 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
             if resp.quiz:
                 logger.info(f"Quiz questions: {len(resp.quiz)}")
             
-            if has_substantial_content:
+            if has_minimal_content:
                 try:
                     await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
                     logger.info(f"LLM response for '{topic}' accepted and cached")
                 except Exception as cache_error:
                     logger.warning(f"Failed to cache LLM response for '{topic}': {cache_error}")
                 return resp, "llm"
+            
             # Log when we're falling back to stub due to incomplete or low-quality LLM response
             logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
                           f"Sections: {len(resp.sections) if resp.sections else 0}, "
                           f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
                           f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
-            logger.warning(f"Content validation failed for '{topic}' - sections: {bool(resp.sections)}, quiz: {bool(resp.quiz)}")
             return await _stub_lesson(topic, age), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
