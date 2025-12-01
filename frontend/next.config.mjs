@@ -104,7 +104,7 @@ const nextConfig = {
     return [
       // Exclude frontend API routes that should be handled locally
       { 
-        source: '/api/:path((?!auth/verify-email|check-user|verify-user|test-auth|deployment-test|supabase-test|avatar/streams|tts|quiz|subscription/status).*)', 
+        source: '/api/:path((?!auth/verify-email|check-user|verify-user|test-auth|deployment-test|supabase-test|avatar/streams|tts|quiz|subscription/status|structured-lesson).*)', 
         destination: `${apiBase}/api/:path*` 
       },
       // Ensure legacy calls to /history are correctly forwarded to /api/history
