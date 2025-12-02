@@ -94,7 +94,7 @@ _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
 # Add CORS middleware
 # Use secure CORS configuration
-_allow_origins = settings.cors_origins or ["http://localhost:3001", "https://lana-ai.onrender.com"]
+_allow_origins = settings.cors_origins or ["http://localhost:3001", "https://api.lanamind.com"]
 
 app.add_middleware(
     CORSMiddleware,

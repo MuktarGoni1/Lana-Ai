@@ -100,11 +100,38 @@ const nextConfig = {
   },
   async rewrites() {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-    if (!apiBase) return [];
+    if (!apiBase) {
+      console.warn('NEXT_PUBLIC_API_BASE not set, API proxying will not work');
+      return [];
+    }
+    
+    // Log the API base for debugging
+    console.log('API Base URL:', apiBase);
+    
+    // Define frontend API routes that should NOT be proxied to backend
+    const frontendRoutes = [
+      'auth/verify-email',
+      'check-user',
+      'verify-user',
+      'test-auth',
+      'deployment-test',
+      'supabase-test',
+      'avatar/streams',
+      'tts',
+      'quiz',
+      'subscription/status',
+      'structured-lesson/stream',
+      'structured-lesson'
+    ];
+    
+    // Log the exclusion pattern for debugging
+    const exclusionPattern = `/api/:path((?!${frontendRoutes.join('|')}).*)`;
+    console.log('API rewrite exclusion pattern:', exclusionPattern);
+    
     return [
       // Exclude frontend API routes that should be handled locally
       { 
-        source: '/api/:path((?!auth/verify-email|check-user|verify-user|test-auth|deployment-test|supabase-test|avatar/streams|tts|quiz|subscription/status|structured-lesson).*)', 
+        source: exclusionPattern, 
         destination: `${apiBase}/api/:path*` 
       },
       // Ensure legacy calls to /history are correctly forwarded to /api/history

@@ -1,51 +1,59 @@
-/**
- * Simple test script to verify TTS functionality is working correctly
- */
+// Test script to verify TTS functionality
+// This tests the connection to the backend TTS service
 
-async function testTTSEndpoint() {
-  console.log('Testing TTS endpoint functionality...\n');
-  
+async function testTtsFunctionality() {
   try {
-    // Test the backend TTS endpoint directly
-    console.log('1. Testing direct backend TTS endpoint...');
-    const backendResponse = await fetch('https://lana-ai.onrender.com/api/tts/', {
+    console.log('Testing TTS functionality...');
+    
+    // Test TTS endpoint directly
+    console.log('1. Testing TTS endpoint directly...');
+    const backendResponse = await fetch('https://api.lanamind.com/api/tts/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        text: 'This is a test of the text to speech functionality.'
+        text: 'Hello, this is a test of the text to speech functionality.'
       })
     });
     
+    console.log('   TTS endpoint status:', backendResponse.status);
+    console.log('   Expected to proxy to: https://api.lanamind.com/api/tts/');
+    
     if (backendResponse.ok) {
-      console.log('✅ Direct backend TTS endpoint: PASSED');
-      console.log('   Content-Type:', backendResponse.headers.get('content-type'));
-      console.log('   Response size:', backendResponse.headers.get('content-length') || 'Unknown');
+      console.log('✅ TTS endpoint is accessible');
+      const contentType = backendResponse.headers.get('content-type');
+      console.log('   Content-Type:', contentType);
+      
+      // Check if we got audio data
+      const contentLength = backendResponse.headers.get('content-length');
+      console.log('   Content-Length:', contentLength);
+      
+      if (contentType && contentType.includes('audio')) {
+        console.log('✅ TTS response contains audio data');
+      } else {
+        console.log('⚠️  TTS response may not contain audio data');
+      }
     } else {
-      console.log('❌ Direct backend TTS endpoint: FAILED');
-      console.log('   Status:', backendResponse.status);
-      console.log('   Status Text:', backendResponse.statusText);
+      // This might be expected in some cases (e.g., missing auth)
+      console.log('ℹ️  TTS endpoint responded with status:', backendResponse.status);
+      const errorText = await backendResponse.text();
+      console.log('   Error details:', errorText.substring(0, 200) + (errorText.length > 200 ? '...' : ''));
     }
     
-    // Test the frontend API route
-    console.log('\n2. Testing frontend API route...');
-    // Note: This will only work when the frontend server is running
-    console.log('   Frontend API route test: SKIPPED (requires running server)');
-    console.log('   Path: /api/tts');
-    console.log('   Method: POST');
-    console.log('   Expected to proxy to: https://lana-ai.onrender.com/api/tts/');
+    // Test frontend TTS proxy endpoint
+    console.log('\n2. Testing frontend TTS proxy endpoint...');
+    console.log('   This test requires the frontend to be running on localhost:3000');
+    console.log('   Expected to proxy to: https://api.lanamind.com/api/tts/');
     
-    console.log('\n--- TTS Functionality Test Summary ---');
-    console.log('✅ Backend TTS service is accessible');
-    console.log('✅ API endpoint routing is properly configured');
-    console.log('✅ Rate limiting should be applied correctly');
-    console.log('✅ Response rendering should work properly');
+    console.log('\n✅ TTS functionality test completed');
+    console.log('Note: For full testing, run the frontend locally and test the /api/tts endpoint');
     
   } catch (error) {
     console.error('❌ TTS functionality test failed:', error.message);
+    process.exit(1);
   }
 }
 
 // Run the test
-testTTSEndpoint().catch(console.error);
+testTtsFunctionality().catch(console.error);

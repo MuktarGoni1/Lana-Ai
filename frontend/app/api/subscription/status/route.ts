@@ -9,6 +9,8 @@ export async function GET() {
     const isPro = Boolean(session?.user?.user_metadata?.is_pro || session?.user?.user_metadata?.pro);
     return NextResponse.json({ is_pro: isPro }, { status: 200 });
   } catch (e: unknown) {
+    console.error('Subscription status check error:', e);
+    // Even in case of error, return a valid response to prevent breaking the UI
     return NextResponse.json({ is_pro: false }, { status: 200 });
   }
 }

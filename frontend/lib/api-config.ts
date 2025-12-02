@@ -18,7 +18,7 @@ export function getApiBase(): string {
     return '';
   } else {
     // In direct mode, use the configured API base or fallback to the live backend
-    return process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
+    return process.env.NEXT_PUBLIC_API_BASE || "https://api.lanamind.com";
   }
 }
 

@@ -18,6 +18,14 @@ export async function POST(req: Request) {
       const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
       const streamUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson/stream`;
       
+      // Validate backend URL
+      try {
+        new URL(streamUrl);
+      } catch (e) {
+        console.error('Invalid backend URL:', streamUrl);
+        return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
+      }
+      
       const backendResponse = await fetchWithTimeoutAndRetry(
         streamUrl,
         {
@@ -39,6 +47,15 @@ export async function POST(req: Request) {
             'Connection': 'keep-alive',
           },
         });
+      }
+
+      // Handle specific error cases
+      if (backendResponse.status === 404) {
+        console.error('Backend structured lesson stream endpoint not found:', streamUrl);
+        return NextResponse.json(
+          { error: 'Structured lesson stream service not found', details: 'The requested service endpoint is not available' },
+          { status: 404 }
+        );
       }
 
       // Non-OK from backend: return a clear error to the client
