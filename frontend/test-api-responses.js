@@ -2,10 +2,13 @@
 async function testApiResponses() {
   console.log("Testing frontend API response handling...");
   
+  // Import API base configuration
+  const { API_BASE } = await import('./lib/api-config.js');
+  
   try {
     // Test successful response
     console.log("\n1. Testing successful response...");
-    const healthResponse = await fetch('http://api.lanamind.com/health');
+    const healthResponse = await fetch(`${API_BASE}/health`);
     console.log(`Health endpoint status: ${healthResponse.status}`);
     const healthData = await healthResponse.json();
     console.log(`Health endpoint data:`, healthData);
@@ -15,7 +18,7 @@ async function testApiResponses() {
     
     // Test 404 error
     try {
-      const notFoundResponse = await fetch('http://api.lanamind.com/nonexistent');
+      const notFoundResponse = await fetch(`${API_BASE}/nonexistent`);
       console.log(`404 error status: ${notFoundResponse.status}`);
       const errorData = await notFoundResponse.json();
       console.log(`404 error data:`, errorData);
@@ -25,7 +28,7 @@ async function testApiResponses() {
     
     // Test structured lesson endpoint
     console.log("\n3. Testing structured lesson endpoint...");
-    const lessonResponse = await fetch('http://api.lanamind.com/api/structured-lesson', {
+    const lessonResponse = await fetch(`${API_BASE}/api/structured-lesson`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'

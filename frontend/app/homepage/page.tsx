@@ -325,7 +325,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`${API_BASE}/api/tts/lesson`, {
+      const res = await fetch(`/api/tts/lesson`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -399,7 +399,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`${API_BASE}/api/tts/`, {
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: text.trim() }),
@@ -979,7 +979,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     if (q.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
       const es = new EventSource(
-        `${API_BASE}/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
+        `/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
         { withCredentials: false }
       );
       es.onmessage = (ev) => {
@@ -1031,7 +1031,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
         return;
       }
       
-      const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
+      const response = await fetch(`/api/structured-lesson/stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: q, age: userAge }),

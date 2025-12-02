@@ -138,7 +138,7 @@ function ChatWithSidebarContent() {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
       const data = await api.get<ChatHistory[]>(
-        `${API_BASE}/history?sid=${sid}&limit=50`,
+        `/history?sid=${sid}&limit=50`,
         { headers },
         bypassCache
       );
