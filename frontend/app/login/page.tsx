@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/db";
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, CheckCircle, Loader2, Mail, User, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -24,6 +25,7 @@ const FormCard = ({ children }: { children: React.ReactNode }) => (
 const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
+    suppressHydrationWarning
     className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] 
              text-white placeholder-white/20 text-sm
              focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
@@ -34,6 +36,7 @@ const StyledInput = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
 const StyledSelect = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select
     {...props}
+    suppressHydrationWarning
     className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] 
              text-white text-sm appearance-none
              focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
@@ -49,6 +52,7 @@ const PrimaryButton = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
   <button
     {...props}
+    suppressHydrationWarning
     disabled={loading || props.disabled}
     className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
              hover:bg-white/90 transition-all duration-200
@@ -73,6 +77,7 @@ const BackButton = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
     onClick={onClick}
+    suppressHydrationWarning
     className="flex items-center gap-2 text-sm text-white/30 hover:text-white/50 
              transition-colors duration-200 mx-auto"
   >
@@ -101,51 +106,25 @@ const FormHeader = ({
   </div>
 );
 
-// --- Success State Component ---
-const SuccessState = ({ email, onReset }: { email: string; onReset: () => void }) => (
-  <FormWrapper>
-    <FormCard>
-      <div className="text-center space-y-6">
-        <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
-          <CheckCircle className="w-7 h-7 text-white/70" />
-        </div>
-        
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold text-white">
-            Check your inbox
-          </h1>
-          <p className="text-white/40 text-sm">
-            We've sent a magic link to
-          </p>
-          <p className="text-white/70 font-medium">
-            {email}
-          </p>
-        </div>
-
-        <div className="pt-4 space-y-3">
-          <p className="text-xs text-white/30">
-            Didn't receive it? Check your spam folder.
-          </p>
-          
-          <button 
-            onClick={onReset}
-            className="text-sm text-white/30 hover:text-white/50 transition-colors duration-200"
-          >
-            Use a different email
-          </button>
-        </div>
-      </div>
-    </FormCard>
-  </FormWrapper>
-);
-
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
+  const hookReturn = useEnhancedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
   const { toast } = useToast();
   const router = useRouter();
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[ParentFlow] useEnhancedAuth return value:', hookReturn);
+    console.log('[ParentFlow] loginWithGoogle value:', loginWithGoogle);
+    console.log('[ParentFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
+    
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[ParentFlow] loginWithGoogle is not a function');
+      console.error('[ParentFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -158,51 +137,79 @@ function ParentFlow() {
       return;
     }
     
-    setLoading(true);
     try {
-      const { error: signInError } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: { 
-          data: { role: "guardian" },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (signInError) throw signInError;
+      const result = await loginWithEmail(email.trim());
       
-      const { error: upsertError } = await supabase.from("guardians").upsert({
-        email: email.trim(),
-        weekly_report: true,
-        monthly_report: false,
-      }, { onConflict: 'email' });
-      if (upsertError) {
-        console.warn('[ParentFlow] Failed to create guardian record:', upsertError);
-        // Continue as auth was successful
+      if (result.success) {
+        // Navigate to unified magic link confirmation page
+        try {
+          router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        } catch (navErr) {
+          console.warn('[ParentFlow] navigation error, falling back:', navErr)
+          window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        }
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to send magic link. Please try again.", 
+          variant: "destructive" 
+        });
       }
-
-      setSent(true);
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
         description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
         variant: "destructive" 
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (sent) {
-    return <SuccessState email={email} onReset={() => { setSent(false); setEmail(""); }} />;
-  }
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Parent Login Page] Initiating Google login');
+      console.log('[Parent Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Parent Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Parent Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Parent Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Parent Login Page] Google login error:', error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleParentSubmit} className="space-y-6">
+        <form onSubmit={handleParentSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={Mail} 
-            title="Parent Registration" 
-            subtitle="Monitor your child's learning journey"
+            title="Parent Login" 
+            subtitle="Access your child's learning journey"
           />
           
           <div className="space-y-4">
@@ -220,9 +227,31 @@ function ParentFlow() {
               />
             </div>
             
-            <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
+            <PrimaryButton type="submit" loading={isLoading}>
+              Login
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </button>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -240,176 +269,154 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ 
-    childEmail: "", 
-    guardianEmail: "", 
-    nickname: "", 
-    age: "" as number | "", 
-    grade: "" 
-  });
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'age' ? (value === '' ? '' : Number(value)) : value 
-    }));
-  };
+  const hookReturn = useEnhancedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
+  const [email, setEmail] = useState("");
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[ChildFlow] useEnhancedAuth return value:', hookReturn);
+    console.log('[ChildFlow] loginWithGoogle value:', loginWithGoogle);
+    console.log('[ChildFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
+    
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[ChildFlow] loginWithGoogle is not a function');
+      console.error('[ChildFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { nickname, age, grade, childEmail, guardianEmail } = formData;
     
-    if (!childEmail || !guardianEmail || !nickname || !age || !grade) {
-      toast({ 
-        title: "Missing information", 
-        description: "Please fill in all fields.", 
-        variant: "destructive" 
-      });
+    // Validate form data
+    if (!email.trim()) {
+      toast({ title: "Email required", description: "Please enter your email address.", variant: "destructive" });
       return;
     }
     
-    setLoading(true);
     try {
-      const child_uid = crypto.randomUUID();
-      const password = crypto.randomUUID();
-
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: childEmail,
-        password,
-        options: { 
-          data: { role: "child", nickname, age, grade, guardian_email: guardianEmail },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      if (signUpError) throw signUpError;
+      const result = await loginWithEmail(email.trim());
       
-      const { error: insertError } = await supabase.from("users").insert({
-        id: child_uid,
-        email: childEmail,
-        user_metadata: { 
-          role: "child", 
-          nickname, 
-          age, 
-          grade, 
-          guardian_email: guardianEmail 
-        },
-      });
-      if (insertError) {
-        console.warn('[ChildFlow] Failed to create user record:', insertError);
-        // Continue as auth was successful
+      if (result.success) {
+        toast({ 
+          title: "Success", 
+          description: "Magic link sent to your email!" 
+        });
+        // Navigate to unified magic link confirmation page
+        try {
+          router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        } catch (navErr) {
+          console.warn('[ChildFlow] navigation error, falling back:', navErr)
+          window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        }
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to send magic link. Please try again.", 
+          variant: "destructive" 
+        });
       }
-      
-      localStorage.setItem('lana_sid', child_uid);
-      router.push("/onboarding");
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to create account. Please try again.", 
+        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
         variant: "destructive" 
       });
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Child Login Page] Initiating Google login');
+      console.log('[Child Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Child Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Child Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Child Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Child Login Page] Google login error:', error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
     }
   };
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleChildSubmit} className="space-y-6">
+        <form onSubmit={handleChildSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={User} 
-            title="Student Registration" 
-            subtitle="Start your personalized learning journey"
+            title="Child Login" 
+            subtitle="Continue your learning journey"
           />
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
-              <label htmlFor="childEmail" className="block text-xs text-white/40 mb-2">
-                Student email
+              <label htmlFor="email" className="block text-xs text-white/40 mb-2">
+                Email address
               </label>
               <StyledInput 
-                id="childEmail" 
-                name="childEmail" 
+                id="email" 
                 type="email" 
-                value={formData.childEmail} 
-                onChange={handleInputChange} 
-                placeholder="student@example.com" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder="child@example.com" 
                 required 
               />
             </div>
             
-            <div>
-              <label htmlFor="guardianEmail" className="block text-xs text-white/40 mb-2">
-                Parent email
-              </label>
-              <StyledInput 
-                id="guardianEmail" 
-                name="guardianEmail" 
-                type="email" 
-                value={formData.guardianEmail} 
-                onChange={handleInputChange} 
-                placeholder="parent@example.com" 
-                required 
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="nickname" className="block text-xs text-white/40 mb-2">
-                Nickname
-              </label>
-              <StyledInput 
-                id="nickname" 
-                name="nickname" 
-                value={formData.nickname} 
-                onChange={handleInputChange} 
-                placeholder="How should we call you?" 
-                required 
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="age" className="block text-xs text-white/40 mb-2">
-                  Age
-                </label>
-                <StyledInput 
-                  id="age" 
-                  name="age" 
-                  type="number" 
-                  min="6" 
-                  max="18" 
-                  value={formData.age} 
-                  onChange={handleInputChange} 
-                  placeholder="14" 
-                  required 
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="grade" className="block text-xs text-white/40 mb-2">
-                  Grade
-                </label>
-                <StyledSelect 
-                  id="grade" 
-                  name="grade" 
-                  value={formData.grade} 
-                  onChange={handleInputChange} 
-                  required
-                >
-                  <option value="" disabled>Select</option>
-                  {[...Array(7)].map((_, i) => (
-                    <option key={i+6} value={i+6}>Grade {i+6}</option>
-                  ))}
-                  <option value="college">College</option>
-                </StyledSelect>
-              </div>
-            </div>
-            
-            <PrimaryButton type="submit" loading={loading}>
-              Create Account
+            <PrimaryButton type="submit" loading={isLoading}>
+              Login
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3 disabled:opacity-50"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </button>
+            
+            <p className="text-xs text-white/20 text-center">
+              No password required • Secure authentication
+            </p>
           </div>
           
           <BackButton onClick={() => router.push("/register")} />
@@ -419,132 +426,199 @@ function ChildFlow() {
   );
 }
 
-// --- Email Login Flow ---
-function EmailLoginFlow() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const { toast } = useToast();
+// --- Main Login Flow ---
+function LoginContent() {
   const router = useRouter();
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
+  const searchParams = useSearchParams();
+  const flow = searchParams.get("flow");
+  const hookReturn = useEnhancedAuth();
+  const { isAuthenticated, isLoading, loginWithGoogle } = hookReturn;
+  const { toast } = useToast();
+  
+  // Add check for loginWithGoogle function
+  useEffect(() => {
+    console.log('[LoginContent] useEnhancedAuth return value:', hookReturn);
+    console.log('[LoginContent] loginWithGoogle value:', loginWithGoogle);
+    console.log('[LoginContent] typeof loginWithGoogle:', typeof loginWithGoogle);
     
-    if (!trimmed) {
+    if (typeof loginWithGoogle !== 'function') {
+      console.error('[LoginContent] loginWithGoogle is not a function');
+      console.error('[LoginContent] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
+    }
+  }, [loginWithGoogle, hookReturn]);
+
+  // Redirect authenticated users
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      // Check onboarding status
+      // For now, we'll redirect to the last visited page or homepage
+      let lastVisited = null;
+      
+      // Try to get from localStorage
+      if (typeof window !== 'undefined') {
+        lastVisited = localStorage.getItem('lana_last_visited');
+      }
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisited && 
+                           !lastVisited.startsWith('/login') && 
+                           !lastVisited.startsWith('/register') && 
+                           !lastVisited.startsWith('/auth') && 
+                           lastVisited !== '/landing-page' ? 
+                           lastVisited : '/homepage';
+      
+      router.push(redirectPath);
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  const handleGoogleLogin = async () => {
+    try {
+      console.log('[Login Page] Initiating Google login');
+      console.log('[Login Page] loginWithGoogle function:', loginWithGoogle);
+      console.log('[Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
+      
+      if (typeof loginWithGoogle !== 'function') {
+        const error = new Error('loginWithGoogle is not a function');
+        console.error('[Login Page] Google login error:', error);
+        toast({ 
+          title: "Error", 
+          description: "Google login function is not available. Please try again later.", 
+          variant: "destructive" 
+        });
+        return;
+      }
+      
+      const result = await loginWithGoogle();
+      console.log('[Login Page] Google login result:', result);
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // Note: For OAuth, the redirect happens automatically
+    } catch (error: unknown) {
+      console.error('[Login Page] Google login error:', error);
       toast({ 
-        title: "Email required", 
-        description: "Please enter your email address.", 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
         variant: "destructive" 
       });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Check if user exists and send magic link
-      const { error } = await supabase.auth.signInWithOtp({
-        email: trimmed,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-      
-      if (error) throw error;
-      setSent(true);
-    } catch (error: unknown) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
-  if (sent) {
-    return <SuccessState email={email} onReset={() => { setSent(false); setEmail(""); }} />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (flow === "parent") {
+    return <ParentFlow />;
+  }
+  
+  if (flow === "child") {
+    return <ChildFlow />;
   }
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <FormHeader 
-            icon={Mail} 
-            title="Welcome back" 
-            subtitle="Sign in to continue learning"
-          />
+        <div className="space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
+              <Mail className="w-7 h-7 text-white/70" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-white">Welcome Back</h1>
+              <p className="text-white/40 text-sm">Sign in to continue your learning journey</p>
+            </div>
+          </div>
           
           <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-xs text-white/40 mb-2">
-                Email address
-              </label>
-              <StyledInput
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-              />
+            <button
+              onClick={() => router.push("/login?flow=parent")}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <Mail className="h-4 w-4" />
+              Sign in as Parent
+            </button>
+            
+            <button
+              onClick={() => router.push("/login?flow=child")}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <User className="h-4 w-4" />
+              Sign in as Child
+            </button>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
             </div>
             
-            <PrimaryButton type="submit" loading={loading}>
-              Send Magic Link
-            </PrimaryButton>
+            <button
+              onClick={handleGoogleLogin}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <Chrome className="h-4 w-4" />
+              Continue with Google
+            </button>
             
-            <p className="text-xs text-white/20 text-center">
-              No password required • Secure authentication
-            </p>
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => router.push("/register")}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200"
+            >
+              Create Account
+            </button>
           </div>
-
-          <div className="pt-6 border-t border-white/[0.05]">
-            <p className="text-sm text-white/30 text-center">
-              New to Lana?{" "}
-              <button 
-                type="button"
-                onClick={() => router.push("/register")}
-                className="text-white/60 hover:text-white/80 transition-colors duration-200"
-              >
-                Create an account
-              </button>
-            </p>
-          </div>
-        </form>
+        </div>
       </FormCard>
     </FormWrapper>
   );
 }
 
-// --- Main Component ---
-function RegisterFormContent() {
-  const searchParams = useSearchParams();
-  const role = searchParams.get("role");
-
-  if (role === "parent") return <ParentFlow />;
-  if (role === "child") return <ChildFlow />;
-  return <EmailLoginFlow />;
-}
-
-// --- Loading State ---
-const LoadingState = () => (
-  <FormWrapper>
-    <div className="flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
-        <p className="text-white/30 text-sm">Loading...</p>
-      </div>
-    </div>
-  </FormWrapper>
-);
-
-export default function RegisterForm() {
+export default function LoginPage() {
   return (
-    <Suspense fallback={<LoadingState />}>
-      <RegisterFormContent />
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
     </Suspense>
   );
 }

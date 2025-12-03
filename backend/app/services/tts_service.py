@@ -4,16 +4,25 @@ import io
 import logging
 import wave
 import hashlib
+import asyncio
 from typing import Optional
 
+# Import Google GenAI SDK with proper error handling
+# Using try/except ImportError to handle cases where the package is not installed
+GOOGLE_GENAI_AVAILABLE = False
 try:
-    from google import genai
-    from google.genai import types
-except Exception:
+    # Standard import pattern that works with basedpyright
+    import google.genai as genai
+    import google.genai.types as genai_types
+    GOOGLE_GENAI_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    # Fallback definitions for when the package is not available
     genai = None
-    types = None
+    genai_types = None
 
 from app.repositories.interfaces import ICacheRepository
+from app.config import TTS_MODEL, TTS_SAMPLE_RATE, TTS_CONCURRENT_LIMIT, TTS_CACHE_TTL
+from app.jobs.queue_config import get_tts_queue
 
 logger = logging.getLogger(__name__)
 
@@ -51,13 +60,18 @@ class TTSService:
     def __init__(self, cache_repo: Optional[ICacheRepository] = None, gemini_client=None):
         self.cache_repo = cache_repo or _InMemoryCache()
         self.gemini_client = gemini_client or self._init_gemini()
+        # Add concurrent request limiting
+        self._semaphore = asyncio.Semaphore(TTS_CONCURRENT_LIMIT)
+        # Pre-warm common phrases cache (but only in actual application context)
+        if not os.getenv("TESTING_MODE"):
+            self._prewarm_cache()
 
     def _init_gemini(self):
         api_key = os.getenv("GOOGLE_API_KEY")
         if not api_key:
             logger.warning("Google API key missing; TTS will use fallback.")
             return None
-        if genai is None:
+        if not GOOGLE_GENAI_AVAILABLE or genai is None:
             logger.warning("Google GenAI SDK not installed; TTS will use fallback.")
             return None
         try:
@@ -66,67 +80,101 @@ class TTSService:
             logger.error(f"Failed to init Gemini client: {e}")
             return None
 
+    def _prewarm_cache(self):
+        """Pre-warm cache with common phrases to reduce initial latency."""
+        # Disable pre-warming for now to avoid startup issues
+        pass
+
+    async def _prewarm_common_phrases(self):
+        """Pre-generate audio for common phrases."""
+        try:
+            common_phrases = [
+                "Welcome to Lana AI",
+                "Let's learn together",
+                "Great job!",
+                "Try again",
+                "Well done",
+                "Correct answer",
+                "Let me explain"
+            ]
+            for phrase in common_phrases:
+                # Generate with default voice
+                try:
+                    await self.generate_speech(phrase, "leda")
+                except Exception:
+                    pass  # Ignore errors during pre-warming
+        except Exception:
+            pass  # Ignore any pre-warming errors
+
     async def synthesize(self, text: str, voice_name: str = "leda") -> str:
         """Generate base64-encoded audio from text for API response."""
         audio_bytes = await self.generate_speech(text, voice_name)
         return base64.b64encode(audio_bytes).decode("utf-8")
 
+    async def create_tts_job(self, text: str, voice_name: str = "leda"):
+        """Create a TTS generation job and return the job ID."""
+        tts_queue = get_tts_queue()
+        
+        job_data = {
+            "text": text,
+            "voice_name": voice_name
+        }
+        
+        job = await tts_queue.add("tts-generation", job_data)
+        return job.id
+
     async def generate_speech(self, text: str, voice_name: str = "leda") -> bytes:
         """Generate speech from text; uses cache, Gemini TTS, and WAV fallback."""
-        # Normalize and default voice name
-        voice_name = (voice_name or "leda")
-        # Cache key
-        cache_key = hashlib.md5(f"{text}:{voice_name}".encode()).hexdigest()[:16]
-        cached_audio = await self.cache_repo.get(cache_key, namespace="tts")
-        if cached_audio:
-            logger.info("TTS cache hit")
-            return cached_audio
+        # Use semaphore to limit concurrent requests
+        async with self._semaphore:
+            # Normalize and default voice name
+            voice_name = (voice_name or "leda")
+            # Cache key
+            cache_key = hashlib.md5(f"{text}:{voice_name}".encode()).hexdigest()[:16]
+            cached_audio = await self.cache_repo.get(cache_key, namespace="tts")
+            if cached_audio:
+                logger.info("TTS cache hit")
+                return cached_audio
 
-        # Try Gemini TTS
-        if self.gemini_client and types is not None:
-            try:
-                response = self.gemini_client.models.generate_content(
-                    model="gemini-2.5-flash-preview-tts",
-                    contents=text,
-                    config=types.GenerateContentConfig(
-                        response_modalities=["AUDIO"],
-                        speech_config=types.SpeechConfig(
-                            voice_config=types.VoiceConfig(
-                                prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                    voice_name=voice_name,
+            # Try Gemini TTS with optimized settings
+            if (self.gemini_client and GOOGLE_GENAI_AVAILABLE and 
+                genai_types is not None):
+                try:
+                    # Use optimized model and configuration for faster response
+                    response = self.gemini_client.models.generate_content(
+                        model=TTS_MODEL,  # Configurable model
+                        contents=text,
+                        config=genai_types.GenerateContentConfig(
+                            response_modalities=["AUDIO"],
+                            speech_config=genai_types.SpeechConfig(
+                                voice_config=genai_types.VoiceConfig(
+                                    prebuilt_voice_config=genai_types.PrebuiltVoiceConfig(
+                                        voice_name=voice_name,
+                                    )
                                 )
-                            )
-                        ),
-                    ),
-                )
-                parts = response.candidates[0].content.parts
-                pcm = parts[0].inline_data.data
-                if isinstance(pcm, str):
-                    pcm = base64.b64decode(pcm)
-                # Build WAV from PCM
-                buf = io.BytesIO()
-                with wave.open(buf, "wb") as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(24000)
-                    wf.writeframes(pcm)
-                audio_data = buf.getvalue()
-                await self.cache_repo.set(cache_key, audio_data, namespace="tts")
-                return audio_data
-            except Exception as e:
-                logger.error(f"Gemini TTS error: {e}")
+                            ),
+                        )
+                    )
+                    parts = response.candidates[0].content.parts
+                    pcm = parts[0].inline_data.data
+                    if isinstance(pcm, str):
+                        pcm = base64.b64decode(pcm)
+                    # Build WAV from PCM with optimized settings
+                    buf = io.BytesIO()
+                    with wave.open(buf, "wb") as wf:
+                        wf.setnchannels(1)
+                        wf.setsampwidth(2)
+                        wf.setframerate(TTS_SAMPLE_RATE)  # Configurable sample rate
+                        wf.writeframes(pcm)
+                    audio_data = buf.getvalue()
+                    # Cache with longer TTL for better reuse
+                    await self.cache_repo.set(cache_key, audio_data, ttl=TTS_CACHE_TTL, namespace="tts")
+                    return audio_data
+                except Exception as e:
+                    logger.error(f"Gemini TTS error: {e}")
+                    # Re-raise the exception to signal failure instead of silent fallback
+                    raise RuntimeError(f"TTS generation failed: {str(e)}") from e
 
-        # Fallback: generate minimal WAV silence
-        logger.info("Using TTS fallback (silence WAV)")
-        sample_rate = 22050
-        duration_seconds = max(1.0, len(text) * 0.05)
-        samples = int(sample_rate * duration_seconds)
-        buf = io.BytesIO()
-        with wave.open(buf, "wb") as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
-            wf.writeframes(b"\x00\x00" * samples)
-        audio_data = buf.getvalue()
-        await self.cache_repo.set(cache_key, audio_data, namespace="tts")
-        return audio_data
+            # If we reach here, TTS service is not properly configured
+            logger.error("TTS service not properly configured - no Gemini client available")
+            raise RuntimeError("Text-to-speech service is currently unavailable. Please check system configuration.")

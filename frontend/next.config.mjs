@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
+// Add Sentry configuration
+import { withSentryConfig } from '@sentry/nextjs';
 
+const nextConfig = {
   typescript: {
     // !! WARN !!
     // Dangerously allow production builds to successfully complete even if
@@ -90,14 +92,65 @@ const nextConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: isProd ? 'public, max-age=300, s-maxage=300' : 'no-store',
+            value: 'no-store',
           },
         ],
       },
     ]
   },
+  async rewrites() {
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
+    if (!apiBase) {
+      console.warn('NEXT_PUBLIC_API_BASE not set, API proxying will not work');
+      return [];
+    }
+    
+    // Log the API base for debugging
+    console.log('API Base URL:', apiBase);
+    
+    // Define frontend API routes that should NOT be proxied to backend
+    const frontendRoutes = [
+      'auth/verify-email',
+      'check-user',
+      'verify-user',
+      'test-auth',
+      'deployment-test',
+      'supabase-test',
+      'avatar/streams',
+      'tts',
+      'quiz',
+      'subscription/status',
+      'structured-lesson/stream',
+      'structured-lesson'
+    ];
+    
+    // Log the exclusion pattern for debugging
+    const exclusionPattern = `/api/:path((?!${frontendRoutes.join('|')}).*)`;
+    console.log('API rewrite exclusion pattern:', exclusionPattern);
+    
+    return [
+      // Exclude frontend API routes that should be handled locally
+      { 
+        source: exclusionPattern, 
+        destination: `${apiBase}/api/:path*` 
+      },
+      // Ensure legacy calls to /history are correctly forwarded to /api/history
+      { source: '/history', destination: `${apiBase}/api/history` },
+      // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused
+      { source: '/reset', destination: `${apiBase}/api/reset` },
+      { source: '/health', destination: `${apiBase}/health` },
+    ];
+  },
   // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
   // outputFileTracingRoot: undefined,
 };
 
-export default nextConfig;
+// Sentry configuration
+const sentryWebpackPluginOptions = {
+  org: "lana-ai",
+  project: "lana-frontend",
+  silent: true,
+};
+
+// Export the wrapped config
+export default withSentryConfig(nextConfig, sentryWebpackPluginOptions);

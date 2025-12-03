@@ -2,20 +2,38 @@
 
 import { useToast } from "@/hooks/use-toast";
 import { apiClient } from "@/lib/api-client";
+import { ApiError, NetworkError } from "@/lib/errors";
 
 export function useApi() {
   const { toast } = useToast();
+
+  const handleError = (error: unknown) => {
+    let title = "Request Failed";
+    let description = "An unexpected error occurred.";
+
+    if (error instanceof ApiError) {
+      title = `Error: ${error.status}`;
+      description = error.message;
+    } else if (error instanceof NetworkError) {
+      title = "Network Error";
+      description = error.message;
+    } else if (error instanceof Error) {
+      description = error.message;
+    }
+
+    toast({
+      title,
+      description,
+      variant: "destructive",
+    });
+  };
 
   return {
     async get<T>(url: string, options?: RequestInit, bypassCache = false): Promise<T> {
       try {
         return await apiClient.get<T>(url, options, bypassCache);
       } catch (error) {
-        toast({
-          title: "Request Failed",
-          description: error instanceof Error ? error.message : "Unknown error occurred",
-          variant: "destructive",
-        });
+        handleError(error);
         throw error;
       }
     },
@@ -24,11 +42,7 @@ export function useApi() {
       try {
         return await apiClient.post<T, U>(url, body, options);
       } catch (error) {
-        toast({
-          title: "Request Failed",
-          description: error instanceof Error ? error.message : "Unknown error occurred",
-          variant: "destructive",
-        });
+        handleError(error);
         throw error;
       }
     }

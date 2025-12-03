@@ -35,9 +35,16 @@ class HistoryService:
 
         Raises ForbiddenError if the session doesn't belong to the user (S-2).
         """
-        # Basic IDOR protection: session IDs must be namespaced by user
-        if not sid.startswith(f"{user_id}:"):
-            raise ForbiddenError("Session does not belong to user")
+        # Handle guest users - they can only access their own guest sessions
+        if user_id.startswith("guest-"):
+            # For guest users, the session ID should match their user ID
+            if sid != user_id:
+                raise ForbiddenError("Guest users can only access their own sessions")
+        else:
+            # For authenticated users, session IDs must be namespaced by user
+            if not sid.startswith(f"{user_id}:"):
+                raise ForbiddenError("Session does not belong to user")
+        
         msgs = await self.repo.get_history(sid, limit=limit)
         return [
             {
@@ -52,7 +59,16 @@ class HistoryService:
         """Append a message to a session after role and ownership checks."""
         if role not in {"user", "assistant"}:
             raise ForbiddenError("Invalid role")
-        if not sid.startswith(f"{user_id}:"):
-            raise ForbiddenError("Session does not belong to user")
+        
+        # Handle guest users - they can only access their own guest sessions
+        if user_id.startswith("guest-"):
+            # For guest users, the session ID should match their user ID
+            if sid != user_id:
+                raise ForbiddenError("Guest users can only access their own sessions")
+        else:
+            # For authenticated users, session IDs must be namespaced by user
+            if not sid.startswith(f"{user_id}:"):
+                raise ForbiddenError("Session does not belong to user")
+        
         content = sanitize_text(content)
         return await self.repo.append_message(sid, role, content)

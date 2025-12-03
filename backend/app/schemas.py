@@ -36,6 +36,14 @@ class TTSResponse(BaseModel):
     error: Optional[str] = None
 
 
+class StructuredLessonTTSRequest(BaseModel):
+    """Request model for text-to-speech synthesis from structured lesson."""
+    lesson: dict  # The complete lesson object
+    mode: Optional[str] = "full"  # full, summary, or section
+    section_index: Optional[int] = None  # Specific section index for section mode
+    voice: Optional[str] = "default"
+
+
 class LessonRequest(BaseModel):
     """Request model for lesson generation."""
     topic: str

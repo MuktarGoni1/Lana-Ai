@@ -1,13 +1,20 @@
 import time
 from typing import Tuple, Dict, Any
-import aioredis
+# Gracefully handle redis import
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    redis = None
+    REDIS_AVAILABLE = False
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette import status
 
-from backend.main import settings, REDIS_AVAILABLE
+from app.settings import load_settings
+settings = load_settings()
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -26,17 +33,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.endpoint_limits = {
             "/api/structured-lesson": {"per_minute": 20, "per_hour": 300},
             "/api/structured-lesson/stream": {"per_minute": 20, "per_hour": 300},
-            "/api/tts": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/lesson": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/synthesize": {"per_minute": 15, "per_hour": 150},
+            "/api/tts/stream": {"per_minute": 15, "per_hour": 150},
             "/api/solve-math": {"per_minute": 30, "per_hour": 400},
         }
 
     async def _get_redis_client(self):
         """Get or create a Redis client."""
+        global REDIS_AVAILABLE
         if not REDIS_AVAILABLE:
             return None
-        if self._redis_client is None or self._redis_client.closed:
+        if self._redis_client is None:
             try:
-                self._redis_client = await aioredis.from_url(
+                self._redis_client = redis.Redis.from_url(
                     settings.redis_url, encoding="utf-8", decode_responses=True
                 )
             except Exception as e:
@@ -56,44 +67,49 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return request.client.host if request.client else "unknown"
 
-    async def check_rate_limit(
+    def check_rate_limit(
         self, key: str, limit: int, window: int
     ) -> Tuple[bool, int]:
         """Check rate limit using Redis or in-memory fallback."""
-        redis = await self._get_redis_client()
+        redis = self._get_redis_client()
         current_time = time.time()
 
         if redis:
             # Use Redis for rate limiting
-            # Remove scores older than 'window' seconds ago
-            await redis.zremrangebyscore(key, 0, current_time - window)
-            # Add current request timestamp
-            await redis.zadd(key, {current_time: current_time})
-            # Set expiration for the key to prevent it from living forever
-            await redis.expire(key, window + 5)  # +5 seconds buffer
+            try:
+                # Remove scores older than 'window' seconds ago
+                redis.zremrangebyscore(key, 0, current_time - window)
+                # Add current request timestamp
+                redis.zadd(key, {current_time: current_time})
+                # Set expiration for the key to prevent it from living forever
+                redis.expire(key, window + 5)  # +5 seconds buffer
 
-            count = await redis.zcard(key)
-            return count <= limit, count
-        else:
-            # Fallback to in-memory store
-            # Cleanup old entries periodically
-            if current_time - self.last_cleanup > 300:
-                await self.cleanup_memory_store()
-                self.last_cleanup = current_time
+                count = redis.zcard(key)
+                return count <= limit, count
+            except Exception as e:
+                # Fall back to in-memory store if Redis fails
+                print(f"Redis error: {e}")
+                pass
 
-            if key not in self.memory_store:
-                self.memory_store[key] = []
+        # Fallback to in-memory store
+        # Cleanup old entries periodically
+        if current_time - self.last_cleanup > 300:
+            self.cleanup_memory_store()
+            self.last_cleanup = current_time
 
-            # Remove old entries
-            window_start = current_time - window
-            self.memory_store[key] = [
-                t for t in self.memory_store[key] if t > window_start
-            ]
+        if key not in self.memory_store:
+            self.memory_store[key] = []
 
-            # Add current request
-            self.memory_store[key].append(current_time)
+        # Remove old entries
+        window_start = current_time - window
+        self.memory_store[key] = [
+            t for t in self.memory_store[key] if t > window_start
+        ]
 
-            return len(self.memory_store[key]) <= limit, len(self.memory_store[key])
+        # Add current request
+        self.memory_store[key].append(current_time)
+
+        return len(self.memory_store[key]) <= limit, len(self.memory_store[key])
 
     async def cleanup_memory_store(self):
         """Clean up old entries from memory store."""
@@ -132,7 +148,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         minute_key = f"{client_ip}:{endpoint}:minute"
         hour_key = f"{client_ip}:{endpoint}:hour"
 
-        minute_ok, minute_count = await self.check_rate_limit(
+        minute_ok, minute_count = self.check_rate_limit(
             minute_key, limits["per_minute"], 60
         )
 
@@ -154,7 +170,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 },
             )
 
-        hour_ok, hour_count = await self.check_rate_limit(
+        hour_ok, hour_count = self.check_rate_limit(
             hour_key, limits["per_hour"], 3600
         )
 

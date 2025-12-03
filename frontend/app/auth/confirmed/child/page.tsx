@@ -1,0 +1,85 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/db";
+import { useToast } from "@/hooks/use-toast";
+import { navigateToHomepage } from "@/lib/navigation";
+
+export default function ChildConfirmedPage() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [email, setEmail] = useState<string | null>(null);
+  const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
+
+  useEffect(() => {
+    const confirmAndRecord = async () => {
+      setStatus("confirming");
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+
+        const user = session?.user;
+        if (!user) throw new Error("No active session after email confirmation.");
+
+        const userEmail = user.email || null;
+        setEmail(userEmail);
+
+        // Ensure child user is recorded in users table
+        if (userEmail) {
+          // Cast supabase to any to bypass typing issues
+          const sb: any = supabase;
+          try {
+            const { error: upsertError } = await sb
+              .from("users")
+              .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
+            if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
+          } catch (upsertError) {
+            // If the users table doesn't exist, that's okay - just log it
+            console.debug("[auth/confirmed/child] users table may not exist:", upsertError);
+          }
+        }
+
+        setStatus("confirmed");
+        toast({ title: "Authentication confirmed", description: "Child account saved." });
+
+        // Redirect child to onboarding
+        setTimeout(() => {
+          router.push("/onboarding");
+        }, 2500);
+      } catch (err) {
+        console.error("[auth/confirmed/child] confirmation error:", err);
+        setStatus("error");
+        toast({
+          title: "Authentication issue",
+          description: err instanceof Error ? err.message : "Unable to confirm authentication.",
+          variant: "destructive",
+        });
+        setTimeout(() => router.push("/login"), 2500);
+      }
+    };
+
+    confirmAndRecord();
+  }, [router, toast]);
+
+  return (
+    <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center space-y-4">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold">Authentication Confirmed</h1>
+          <p className="text-white/50 text-sm">
+            {status === "confirming" && "Confirming your session…"}
+            {status === "confirmed" && "Welcome! Your child account is ready."}
+            {status === "error" && "We couldn’t confirm your session."}
+          </p>
+        </div>
+        {email && (
+          <p className="text-white/40 text-xs">Child: {email}</p>
+        )}
+        <p className="text-white/60 text-sm">
+          You will be redirected shortly.
+        </p>
+      </div>
+    </div>
+  );
+}

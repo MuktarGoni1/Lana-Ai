@@ -1,7 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
-import { cn } from "@/lib/utils";
+import { cn, fetchWithTimeoutAndRetry } from "@/lib/utils";
+import { z } from "zod";
+import DOMPurify from "isomorphic-dompurify";
+import rateLimiter from "@/lib/rate-limiter";
+import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
+import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
 import {
   Paperclip,
   Command,
@@ -13,18 +18,23 @@ import {
   Pause,
   Video,
   BookOpen,
+  PersonStandingIcon,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
 import { useMotionValue } from "framer-motion";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
-import { supabase } from '@/lib/db';
+import { getCurrentUserAge } from '@/lib/services/userService';
+import { isGuestClient } from '@/lib/guest';
+import { createClient } from '@/lib/supabase/client';
 
-// Centralized API base for both components in this file
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Centralized API base with optional proxying via Next.js rewrites
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -143,12 +153,13 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  question: string;
+  q: string;
   options: string[];
   answer: string;
 }
 
 interface Lesson {
+  id?: string;
   introduction?: string;
   classifications?: Array<{ type: string; description: string }>;
   sections?: LessonSection[];
@@ -157,6 +168,9 @@ interface Lesson {
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
+  // Check if this is an error response
+  const isErrorResponse = lesson.introduction && lesson.introduction.includes("Unable to generate a detailed lesson");
+  
   // Lightly sanitize markdown-like tokens and normalize bullets per line
   const sanitizeLine = (line: string) => {
     return line
@@ -177,10 +191,32 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
+      // Check if we have a lesson ID to use the new endpoint
+      if (lesson?.id) {
+        // Use the new endpoint that retrieves quiz by lesson ID
+        router.push(`/quiz?lessonId=${lesson.id}`);
         return;
       }
-      const data = encodeURIComponent(JSON.stringify(lesson.quiz));
+      
+      // Fallback to the old method if no lesson ID is available
+      if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
+        console.warn("No quiz data available", lesson?.quiz);
+        return;
+      }
+      
+      // Transform quiz data to match frontend expectations
+      const transformedQuiz = lesson.quiz.map((item: any) => ({
+        q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
+        options: Array.isArray(item.options) ? item.options : [],
+        answer: item.answer || ""
+      })).filter(item => item.q && item.options.length > 0);
+      
+      if (transformedQuiz.length === 0) {
+        console.warn("No valid quiz items after transformation", lesson.quiz);
+        return;
+      }
+      
+      const data = encodeURIComponent(JSON.stringify(transformedQuiz));
       router.push(`/quiz?data=${data}`);
     } catch (err) {
       console.error("Failed to navigate to quiz:", err);
@@ -188,7 +224,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   };
 
   // Removed verbose debug logging for production readiness.
-  let blocks: { title?: string; content: string }[] = [];
+  const blocks: { title?: string; content: string }[] = [];
 
   // TTS state and actions
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -219,7 +255,15 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         setIsRetrying(true);
       }
       
-      const res = await fetch(`${API_BASE}/api/tts/`, {
+      // Check rate limit before making request
+      const endpoint = '/api/tts';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -396,8 +440,20 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
-  if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
-    blocks.push({ content: lesson.introduction });
+  // Handle error responses differently
+  if (isErrorResponse) {
+    blocks.push({ 
+      title: "Service Temporarily Unavailable", 
+      content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
+    });
+    
+    // Add helpful suggestions
+    if (lesson.sections && lesson.sections.length > 0) {
+      blocks.push({ 
+        title: lesson.sections[0].title || "Suggestions", 
+        content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
+      });
+    }
   } else {
     if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
       blocks.push({
@@ -454,15 +510,23 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 max-w-3xl mx-auto"
     >
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 space-y-6">
+      <div className={cn("rounded-xl p-6 border space-y-6", 
+        isErrorResponse 
+          ? "bg-red-500/10 border-red-500/20" 
+          : "bg-white/5 backdrop-blur-sm border-white/10"
+      )}>
         {blocks.map((block, idx) => (
           <div key={idx} className="space-y-2">
             {block.title && (
-              <h3 className="font-bold text-white text-lg tracking-wide">
+              <h3 className={cn("font-bold tracking-wide", 
+                isErrorResponse ? "text-red-200 text-lg" : "text-white text-lg"
+              )}>
                 {block.title}
               </h3>
             )}
-            <div className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+            <div className={cn("text-sm leading-relaxed whitespace-pre-wrap font-sans", 
+              isErrorResponse ? "text-red-100/90" : "text-white/85"
+            )}>
               {block.content.split("\n").map((line, i) => (
                 <div key={i}>{sanitizeLine(line) || "\u00A0"}</div>
               ))}
@@ -475,46 +539,200 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         )}
       </div>
 
-      {/* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */}
-      {isStreamingComplete && (
-        <div className="flex justify-end mt-6 gap-3">
+      {/* Show error-specific message or normal controls */}
+      {isErrorResponse ? (
+        <div className="flex justify-end mt-6">
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading || isRetrying}
-            aria-pressed={isPlaying}
-            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={() => window.location.reload()}
+            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5"
           >
-            {isTtsLoading || isQueuePreloading || isRetrying ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {isTtsLoading || isQueuePreloading || isRetrying
-              ? "Preparing audio…"
-              : isPlaying
-              ? "Pause"
-              : audioUrl || audioQueue.length
-              ? "Play"
-              : "Prepare & Listen"}
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
           </motion.button>
-
-          {lesson.quiz && lesson.quiz.length > 0 && (
+        </div>
+      ) : (
+        /* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */
+        isStreamingComplete && (
+          <div className="flex justify-end mt-6 gap-3">
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={handleTakeQuiz}
-              className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              onClick={togglePlayPause}
+              disabled={isTtsLoading || isQueuePreloading || isRetrying}
+              aria-pressed={isPlaying}
+              className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Take Quiz
+              {isTtsLoading || isQueuePreloading || isRetrying ? (
+                <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="w-3.5 h-3.5" />
+              ) : (
+                <Play className="w-3.5 h-3.5" />
+              )}
+              {isTtsLoading || isQueuePreloading || isRetrying
+                ? "Preparing audio…"
+                : isPlaying
+                ? "Pause"
+                : audioUrl || audioQueue.length
+                ? "Play"
+                : "Prepare & Listen"}
             </motion.button>
-          )}
-        </div>
+
+            {lesson.quiz && lesson.quiz.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleTakeQuiz}
+                className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Take Quiz
+              </motion.button>
+            )}
+          </div>
+        )
       )}
+    </motion.div>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* NEW math solution card component                                   */
+/* ------------------------------------------------------------------ */
+
+interface MathStepUI {
+  description: string;
+  expression?: string | null;
+}
+
+interface MathSolutionUI {
+  problem: string;
+  solution: string;
+  steps?: MathStepUI[];
+  error?: string | null;
+}
+
+const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  const buildSummaryText = useCallback(() => {
+    const steps = (data.steps || []).slice(0, 2);
+    const stepText = steps
+      .map((s, i) => `${i + 1}. ${s.description}${s.expression ? ` (${s.expression})` : ''}`)
+      .join("; ");
+    return `For the problem: ${data.problem}. The final answer is ${data.solution}. Steps: ${stepText}.`;
+  }, [data]);
+
+  const fetchTTSBlobUrl = useCallback(async (text: string) => {
+    setIsLoading(true);
+    try {
+      // Check rate limit before making request
+      const endpoint = '/api/tts';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) throw new Error(`Audio error ${res.status}`);
+      const blob = await res.blob();
+      return URL.createObjectURL(blob);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const togglePlay = useCallback(async () => {
+    try {
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+        audioRef.current.onended = () => setIsPlaying(false);
+      }
+      if (!audioUrl) {
+        const text = buildSummaryText();
+        const url = await fetchTTSBlobUrl(text);
+        setAudioUrl(url);
+        audioRef.current.src = url;
+      }
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (e) {
+      console.error('Math TTS playback error', e);
+    }
+  }, [audioUrl, isPlaying, buildSummaryText, fetchTTSBlobUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+        audioRef.current = null;
+      }
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [audioUrl]);
+
+  if (data.error) {
+    return (
+      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm">
+        {data.error}
+      </div>
+    );
+  }
+
+  return (
+    <motion.div
+      className="lesson-card p-5 bg-white/5 rounded-xl border border-white/10"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25 }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg">Math Solution</h2>
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
+          onClick={togglePlay}
+          className="px-4 py-1.5 bg-white text-black rounded-md text-xs font-medium shadow hover:shadow-md"
+          disabled={isLoading}
+        >
+          {isLoading ? "Preparing…" : isPlaying ? "Pause" : "Play"}
+        </motion.button>
+      </div>
+      <div className="space-y-3">
+        <div className="text-white/80 text-sm">Problem</div>
+        <div className="bg-white/5 border border-white/10 rounded-md p-3 text-white/90 text-sm">{data.problem}</div>
+        <div className="text-white/80 text-sm mt-2">Final Answer</div>
+        <div className="bg-white/10 border border-white/20 rounded-md p-3 text-white text-base font-semibold">{data.solution}</div>
+        {data.steps && data.steps.length > 0 && (
+          <div className="mt-3">
+            <div className="text-white/80 text-sm mb-1">Steps</div>
+            <ul className="space-y-1 text-white/90 text-sm">
+              {data.steps.map((s, idx) => (
+                <li key={idx} className="flex gap-2">
+                  <span className="text-white/50">{idx + 1}.</span>
+                  <span>{s.description}{s.expression ? ` — ${s.expression}` : ''}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 };
@@ -527,6 +745,8 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  placeholder?: string;
+  action?: () => void;
 }
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
@@ -537,6 +757,31 @@ interface AnimatedAIChatProps {
   export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
+  
+  // Initialize with stored mode if available
+  useEffect(() => {
+    const storedMode = getSelectedMode();
+    if (storedMode) {
+      // Set the initial value based on the stored mode
+      switch (storedMode) {
+        case "lesson":
+          setValue("/lesson ");
+          break;
+        case "maths":
+          setValue("/Maths ");
+          break;
+        case "chat":
+          setValue("/Chat ");
+          break;
+        case "quick":
+          setValue("/quick ");
+          break;
+        default:
+          // For any other mode or default, we don't set a specific value
+          break;
+      }
+    }
+  }, []);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -547,11 +792,30 @@ interface AnimatedAIChatProps {
   const [inputFocused, setInputFocused] = useState(false);
   const [showVideoButton, setShowVideoButton] = useState(false);
   const [storedLong, setStoredLong] = useState("");
+  const streamingThrottleRef = useRef<{ latestShort?: string; latestLong?: string; lastFlushTs: number; timer?: ReturnType<typeof setTimeout> | null }>({ lastFlushTs: 0, timer: null });
+  const flushStreamingUpdates = useCallback(() => {
+    const latestShort = streamingThrottleRef.current.latestShort;
+    const latestLong = streamingThrottleRef.current.latestLong;
+    if (latestShort !== undefined) setStreamingText(latestShort);
+    if (latestLong !== undefined) setStoredLong(latestLong);
+    streamingThrottleRef.current.lastFlushTs = Date.now();
+    streamingThrottleRef.current.timer = null;
+  }, []);
+  useEffect(() => {
+    return () => {
+      if (streamingThrottleRef.current.timer) {
+        clearTimeout(streamingThrottleRef.current.timer);
+        streamingThrottleRef.current.timer = null;
+      }
+    };
+  }, []);
   const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const stallTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState<string | null>(null); 
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
@@ -565,12 +829,42 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <Video className="w-4 h-4" />, label: "Explain Mode", description: "Detailed video explanation", prefix: "/video" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Step-by-Step", description: "Break complex topics down", prefix: "/steps" },
-    { icon: <Play className="w-4 h-4" />, label: "Interactive Demo", description: "See it in action", prefix: "/demo" },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
+  // Function to handle mode button clicks and activate command palette with placeholder text
+  const handleModeClick = (mode: string) => {
+    // Save the selected mode to session storage
+    saveSelectedMode(mode);
+    
+    switch (mode) {
+      case "lesson":
+        setValue("/lesson ");
+        break;
+      case "maths":
+        setValue("/Maths ");
+        break;
+      case "chat":
+        setValue("/Chat ");
+        break;
+      case "quick":
+        setValue("/quick ");
+        break;
+      default:
+        // For any other mode, we don't set a specific value
+        break;
+    }
+    setShowCommandPalette(true);
+    // Focus the textarea after setting the value
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
 
   const modeSuggestions = [
     {
@@ -593,38 +887,30 @@ interface AnimatedAIChatProps {
   /* --- effects ----------------------------------------------------- */
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
-    const getUserAge = async () => {
+    const loadAge = async () => {
       try {
+        const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
         
         // Only proceed if user is properly authenticated
         if (session?.user) {
           // First try to get age from user metadata
-          const age = session.user.user_metadata?.age;
+          const age = (session.user as any).user_metadata?.age;
           if (age) {
             setUserAge(age);
             return;
           }
           
-          // If not in metadata, try to get from users table
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_metadata')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (userData?.user_metadata?.age) {
-            setUserAge(userData.user_metadata.age);
-          }
+          // If not in metadata, we don't have a users table, so we can't query it
+          // The age should be in the user metadata from Supabase auth
+          console.debug('User age not found in metadata, using null');
         }
-        // Remove the else block - no age-based features for unauthenticated users
-        // Age-based responses, term plans, and history are only for registered users
       } catch (error) {
         console.error('Error retrieving user age:', error);
       }
     };
     
-    getUserAge();
+    loadAge();
   }, []);
 
   useEffect(() => {
@@ -650,10 +936,42 @@ interface AnimatedAIChatProps {
     };
   }, [mouseX, mouseY]);
 
+  // Function to get the appropriate placeholder based on the current mode
+  const getModePlaceholder = (): string => {
+    if (value.startsWith("/lesson")) {
+      return "/lesson - Please input a topic for structured learning";
+    } else if (value.startsWith("/Maths")) {
+      return "/Maths - Please input a maths question";
+    } else if (value.startsWith("/Chat")) {
+      return "/Chat - Please input your question";
+    } else if (value.startsWith("/quick")) {
+      return "/quick - Please input your question for a quick answer";
+    }
+    // Default to structured lesson mode
+    return "/lesson - Please input a topic for structured learning";
+  };
+
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
     const q = value.trim();
     if (!q) return;
+
+    // Input validation using Zod
+    const messageSchema = z.object({
+      content: z.string().min(1, "Message cannot be empty").max(1000, "Message too long")
+    });
+
+    try {
+      messageSchema.parse({ content: q });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setError(`Invalid input: ${error.errors[0].message}`);
+        return;
+      }
+    }
+
+    // Sanitize input to prevent XSS
+    const sanitizedInput = DOMPurify.sanitize(q);
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -662,65 +980,227 @@ interface AnimatedAIChatProps {
     setStoredLong("");
     setShowVideoButton(false);
     setLessonJson(null);
+    setMathSolution(null);
     setError(null);
 
     // legacy video path
-    if (q.startsWith("/video")) {
+    if (sanitizedInput.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
-      const es = new EventSource(
-        `${API_BASE}/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
-        { withCredentials: false }
-      );
-      es.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data);
-          if (data.error) {
-            setError("Error: " + data.error);
-            es.close();
+
+      let sseReconnectAttempts = 0;
+      let sseLastMsgAt = Date.now();
+      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+      const connectSSE = () => {
+        const es = new EventSource(
+          `/ask/stream?q=${encodeURIComponent(sanitizedInput)}&sid=${encodeURIComponent(sid)}`,
+          { withCredentials: false }
+        );
+
+        es.onmessage = (ev) => {
+          sseLastMsgAt = Date.now();
+          try {
+            const data = JSON.parse(ev.data);
+            if (data.error) {
+              setError("Error: " + data.error);
+              es.close();
+              setIsTyping(false);
+              return;
+            }
+
+            // Throttle UI updates to ~20fps
+            if (data.short !== undefined) streamingThrottleRef.current.latestShort = data.short;
+            if (data.long) streamingThrottleRef.current.latestLong = data.long;
+
+            const now = Date.now();
+            const delta = now - (streamingThrottleRef.current.lastFlushTs || 0);
+            if (delta >= 50) {
+              flushStreamingUpdates();
+            } else if (!streamingThrottleRef.current.timer) {
+              streamingThrottleRef.current.timer = setTimeout(() => flushStreamingUpdates(), 50 - delta);
+            }
+
+            if (data.done) {
+              try { es.close(); } catch {}
+              if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+              setIsTyping(false);
+              setShowVideoButton(true);
+            }
+          } catch (e) {
+            console.error('Error parsing EventSource data:', e);
+            setError('Failed to parse response data');
+            try { es.close(); } catch {}
+            if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
             setIsTyping(false);
-            return;
           }
-          if (data.short !== undefined) setStreamingText(data.short);
-          if (data.long) setStoredLong(data.long);
-          if (data.done) {
-            es.close();
+        };
+
+        es.onerror = (e) => {
+          console.error('EventSource error:', e);
+          try { es.close(); } catch {}
+          if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+          if (sseReconnectAttempts < 2) {
+            const backoff = 300 * Math.pow(2, sseReconnectAttempts);
+            sseReconnectAttempts++;
+            setTimeout(connectSSE, backoff);
+          } else {
+            setError("Connection failed");
             setIsTyping(false);
-            setShowVideoButton(true);
           }
-        } catch (e) {
-          console.error('Error parsing EventSource data:', e);
-          setError('Failed to parse response data');
-          es.close();
-          setIsTyping(false);
-        }
+        };
+
+        // Heartbeat: reconnect if no messages in 8s
+        if (heartbeatTimer) { clearInterval(heartbeatTimer); }
+        heartbeatTimer = setInterval(() => {
+          if (Date.now() - sseLastMsgAt > 8000) {
+            try { es.close(); } catch {}
+            if (sseReconnectAttempts < 2) {
+              const backoff = 300 * Math.pow(2, sseReconnectAttempts);
+              sseReconnectAttempts++;
+              setTimeout(connectSSE, backoff);
+            } else {
+              if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+              setError("Connection timed out");
+              setIsTyping(false);
+            }
+          }
+        }, 1000);
+
+        abortRef.current?.signal.addEventListener("abort", () => {
+          try { es.close(); } catch {}
+          if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
+        });
       };
-      es.onerror = (e) => {
-        console.error('EventSource error:', e);
-        setError("Connection failed");
-        es.close();
-        setIsTyping(false);
-      };
-      abortRef.current.signal.addEventListener("abort", () => es.close());
+
+      connectSSE();
       return;
+    }
+
+    // Fast math detection and solver path
+    const MATH_RE = /\b(solve|simplify|factor|expand|integrate|derivative|equation|sqrt|log|sin|cos|tan|polynomial|quadratic|linear|matrix|\d+[-+/^=]|\w+\s=)\b/i;
+    if (MATH_RE.test(sanitizedInput)) {
+      try {
+        setIsTyping(true);
+        const savePromise = saveSearch(sanitizedInput.trim()).catch(() => {});
+        const res = await fetchWithTimeoutAndRetry(`/api/math-solver/solve`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ problem: sanitizedInput, show_steps: true }),
+          signal: abortRef.current.signal,
+        }, { timeoutMs: 10_000, retries: 2, retryDelayMs: 300 });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+        // Validate and sanitize the math solution response
+        let data: MathSolutionUI;
+        if (!isValidMathSolutionResponse(json)) {
+          console.warn('[math-solver] Invalid math solution response structure', json);
+          // Try to sanitize the content
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          if (!isValidMathSolutionResponse(sanitizedSolution)) {
+            throw new Error("Received an invalid math solution format from the server.");
+          }
+          // Use sanitized content
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        } else {
+          // Even if valid, sanitize the content for display
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        }
+        if (data.error) setError(data.error);
+        setMathSolution(data);
+        setIsTyping(false);
+        await savePromise;
+        return;
+      } catch (e: any) {
+        setError(e?.message || 'Math solving failed');
+        setIsTyping(false);
+        return;
+      }
     }
 
     // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
-        console.info('[lesson-stream] request', { API_BASE, topic: q, age: userAge })
+        console.info('[lesson-stream] request', { API_BASE, topic: sanitizedInput, age: userAge })
       }
-      const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
+      // Add explicit SSE Accept header and a connection timeout to avoid hanging
+      const connectTimer = setTimeout(() => {
+        try { abortRef.current?.abort(); } catch {}
+      }, Number(process.env.NEXT_PUBLIC_STREAM_TIMEOUT_MS ?? 15000));
+      // Build payload — omit age for guest users to remove age restrictions
+      const isGuest = isGuestClient()
+      const payload: any = { topic: sanitizedInput }
+      if (!isGuest && typeof userAge === 'number') {
+        payload.age = userAge
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/structured-lesson/stream';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+        setIsTyping(false);
+        return;
+      }
+      
+      const response = await fetch(`/api/structured-lesson/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: q, age: userAge }),
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "text/event-stream",
+        },
+        body: JSON.stringify(payload),
         signal: abortRef.current.signal,
       });
+      clearTimeout(connectTimer);
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        // Handle specific HTTP errors with user-friendly messages
+        let errorMessage = "Failed to get response from server";
+        switch (response.status) {
+          case 400:
+            errorMessage = "Invalid request. Please try rephrasing your question.";
+            break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment and try again.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again later.";
+            break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
+        }
+        throw new Error(errorMessage);
+      }
 
       const reader = response.body!.getReader();
       const decoder = new TextDecoder();
+
+      // Detect stalled streams and abort to trigger retry
+      let lastChunkAt = Date.now();
+      const stallMs = Number(process.env.NEXT_PUBLIC_STREAM_STALL_MS ?? 8000);
+      stallTickerRef.current = setInterval(() => {
+        if (Date.now() - lastChunkAt > stallMs) {
+          try { abortRef.current?.abort(); } catch {}
+        }
+      }, 1000);
 
       let buffer = "";
       let finalLesson: Lesson | null = null;
@@ -729,7 +1209,7 @@ interface AnimatedAIChatProps {
       setIsTyping(true)
       
       // Start save search immediately (parallel processing)
-      const savePromise = saveSearch(q.trim()).then(saveResult => {
+      const savePromise = saveSearch(sanitizedInput.trim()).then(saveResult => {
         console.log('✅ saveSearch result:', saveResult)
         if (saveResult?.message) {
           setSaveMessage(saveResult.message)
@@ -744,6 +1224,7 @@ interface AnimatedAIChatProps {
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        lastChunkAt = Date.now();
 
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
@@ -758,13 +1239,32 @@ interface AnimatedAIChatProps {
               case "done":
                 // ULTRA-FAST processing - instant response
                 finalLesson = msg.lesson;
+                
+                // Validate and sanitize the lesson response
+                if (!isValidLessonResponse(finalLesson)) {
+                  console.warn('[lesson-stream] Invalid lesson response structure', finalLesson);
+                  // Try to sanitize the content
+                  const sanitizedLesson = sanitizeLessonContent(finalLesson);
+                  if (isValidLessonResponse(sanitizedLesson)) {
+                    finalLesson = sanitizedLesson;
+                  } else {
+                    // If still invalid, show an error
+                    setError("Received an invalid response format from the server. Please try again.");
+                    setIsTyping(false);
+                    return;
+                  }
+                } else {
+                  // Even if valid, sanitize the content for display
+                  finalLesson = sanitizeLessonContent(finalLesson);
+                }
+                
                 isComplete = true;
                 setLessonJson(finalLesson);
                 setShowVideoButton(true);
                 setIsTyping(false);
                 if (process.env.NODE_ENV === 'development') {
                   const introPreview = (finalLesson?.introduction || '').slice(0, 120)
-                  console.info('[lesson-stream] done', { topicSent: q, introPreview })
+                  console.info('[lesson-stream] done', { topicSent: sanitizedInput, introPreview })
                 }
                 
                 // Ensure save completes
@@ -785,19 +1285,30 @@ interface AnimatedAIChatProps {
         }
       }
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") console.log("aborted");
-      else setError(e instanceof Error ? e.message : "Streaming failed");
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[lesson-stream] catch', e)
-      }
-      
-      if (retryCount < MAX_RETRIES) {
-        setTimeout(() => {
-          setRetryCount(prev => prev + 1);
-          handleSendMessage();
-        }, 1000 * (retryCount + 1)); 
+      // Treat AbortError (timeout or manual abort) as benign, avoid retry loops
+      if (e instanceof Error && e.name === "AbortError") {
+        if (process.env.NODE_ENV === 'development') console.debug('[lesson-stream] aborted');
+        setError("Request was cancelled or timed out. Please try again.");
+      } else {
+        const errorMessage = e instanceof Error ? e.message : "Streaming failed";
+        setError(errorMessage);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[lesson-stream] catch', e)
+        }
+        // Only retry on non-abort errors
+        if (retryCount < MAX_RETRIES) {
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+            handleSendMessage();
+          }, 1000 * (retryCount + 1)); 
+        }
       }
     } finally {
+      // Cleanup stall detection
+      if (stallTickerRef.current) {
+        try { clearInterval(stallTickerRef.current); } catch {}
+        stallTickerRef.current = null;
+      }
       setIsTyping(false);
       setValue('')
     }
@@ -815,8 +1326,18 @@ interface AnimatedAIChatProps {
         e.preventDefault();
         if (activeSuggestion >= 0) {
           const cmd = commandSuggestions[activeSuggestion];
-          setValue(cmd.prefix + " ");
-          setShowCommandPalette(false);
+          if (cmd.action) {
+            cmd.action();
+          } else {
+            setValue(cmd.prefix);
+            setShowCommandPalette(false);
+            // Focus the textarea after selection
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+              }
+            }, 0);
+          }
         }
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
@@ -850,7 +1371,7 @@ interface AnimatedAIChatProps {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, ease: "easeOut" }}
         >
-        {/* Save message notification - positioned above logo */}
+        {/* Save message notification - positioned above logo */
         <AnimatePresence>
           {saveMessage && (
             <motion.div 
@@ -860,12 +1381,17 @@ interface AnimatedAIChatProps {
               transition={{ duration: 0.3 }}
               className="mb-6"
             >
-              <div className={cn(
+              <div
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+                className={cn(
                 "border rounded-xl p-3 text-sm max-w-md mx-auto",
                 saveMessage.includes('saved') || saveMessage.includes('history') 
                   ? "bg-green-500/10 border-green-500/20 text-green-200" 
                   : "bg-blue-500/10 border-blue-500/20 text-blue-200"
-              )}>
+              )}
+              >
                 {saveMessage}
                 {saveMessage.includes('consider registering') && (
                   <button 
@@ -879,8 +1405,10 @@ interface AnimatedAIChatProps {
             </motion.div>
           )}
         </AnimatePresence>
-
+     }
         {/* Hero section */}
+
+
         <div className="text-center space-y-6">
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -942,8 +1470,18 @@ interface AnimatedAIChatProps {
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        setValue(s.prefix + " ");
-                        setShowCommandPalette(false);
+                        if (s.action) {
+                          s.action();
+                        } else {
+                          setValue(s.prefix);
+                          setShowCommandPalette(false);
+                        }
+                        // Focus the textarea after selection
+                        setTimeout(() => {
+                          if (textareaRef.current) {
+                            textareaRef.current.focus();
+                          }
+                        }, 0);
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
@@ -967,7 +1505,7 @@ interface AnimatedAIChatProps {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="What would you like to learn today?"
+                placeholder={getModePlaceholder()}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
@@ -980,6 +1518,9 @@ interface AnimatedAIChatProps {
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
+                  role="alert"
+                  aria-live="assertive"
+                  aria-atomic="true"
                   className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm"
                 >
                   {error}
@@ -999,6 +1540,12 @@ interface AnimatedAIChatProps {
                   lesson={lessonJson} 
                   isStreamingComplete={!isTyping} 
                 />
+              </div>
+            )}
+
+            {mathSolution && (
+              <div className="px-4 pb-4">
+                <MathSolutionCard data={mathSolution} />
               </div>
             )}
 

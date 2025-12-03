@@ -50,5 +50,22 @@ See `lib/env.ts` for validation and helpful warnings in development.
 - Public routes include: `/landing-page`, `/login`, `/register`, `/onboarding`, `/child-login`.
 - Unauthenticated users are redirected to `/landing-page` when visiting protected routes.
 
+## API Route Mappings
+
+- `POST /api/tts` → Proxies to backend `POST /api/tts/` (audio/wav streaming).
+- `POST /api/tts/synthesize` → Backend JSON response with base64 audio and duration.
+- `GET /api/tts/stream` → Backend progressive audio/wav streaming.
+- `POST /api/math-solver/solve` → Backend math solver with SymPy and Groq gate.
+- `POST /api/structured-lesson/stream` → Backend SSE stream with `type: "done"` payload.
+- `GET /api/history?sid=<userId:session>` → Backend history (requires Bearer Supabase JWT).
+- `GET /api/subscription/status` → Frontend route returns `is_pro` from Supabase user metadata.
+- `POST /api/avatar/streams/[id]/talk` → Frontend route proxies to D-ID talks API.
+
+## Known Gaps & Notes
+
+- Avatar stream routes (`POST /api/avatar/streams`, `DELETE /api/avatar/streams/:id`, `POST /api/avatar/streams/:id/ice`, `POST /api/avatar/streams/:id/sdp`, `GET /api/avatar/streams/health`) are referenced by the UI but only `talk` is currently implemented. Add missing routes if enabling full avatar streaming.
+- History requires `sid` to be namespaced with the Supabase user id (format: `<userId>:<localId>`). The homepage now auto-prefixes when authenticated.
+- Backend auth now accepts both HS256 tokens (internal) and Supabase RS256 JWTs via JWKs.
+
 For broader guidance on conventions and hygiene, read:
 - `docs/development-habits.md` — routing hygiene, environment hygiene, DX & tooling.

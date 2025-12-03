@@ -6,6 +6,7 @@ import orjson
 # from groq import AsyncGroq
 from sympy import Eq, sympify, solve, simplify
 import re
+import hashlib
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,14 @@ def is_math(q: str) -> bool:
 from app.repositories.interfaces import ICacheRepository
 from app.schemas import MathProblemRequest, MathSolutionResponse, MathStep
 
+def _normalize_question(q: str) -> str:
+    q = (q or "").strip()
+    return re.sub(r"\s+", " ", q).lower()
+
+def _cache_key_for(question: str) -> str:
+    norm = _normalize_question(question)
+    return hashlib.md5(norm.encode()).hexdigest()[:24]
+
 
 class MathSolverService:
     """Math problem solving service."""
@@ -36,13 +45,38 @@ class MathSolverService:
         - If Groq returns a JSON with {"type":"math"}, solve via SymPy.
         - Otherwise, return the educational JSON directly.
         Fallbacks: SymPy first; LLM solver if SymPy fails."""
+        # Cache lookup
+        key = _cache_key_for(question)
+        try:
+            cached = await self.cache_repo.get(key, namespace="math")
+            if cached is not None:
+                if isinstance(cached, dict) and "problem" in cached and "solution" in cached:
+                    return MathSolutionResponse(**cached)
+                return cached
+        except Exception:
+            pass
         # Fast regex-based math detection
         if is_math(question):
             try:
-                return await self._solve_with_sympy(question)
+                solved = await self._solve_with_sympy(question)
+                try:
+                    await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                except Exception:
+                    pass
+                return solved
             except Exception as e:
                 logger.info(f"SymPy failed for detected math; using LLM: {e}")
-                return await self._solve_with_llm(question)
+                llm_result = await self._solve_with_llm(question)
+                try:
+                    payload = (
+                        llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                            llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                        )
+                    )
+                    await self.cache_repo.set(key, payload, namespace="math")
+                except Exception:
+                    pass
+                return llm_result
 
         # Groq-based gate path
         if self.groq_client:
@@ -55,10 +89,25 @@ class MathSolverService:
                     if isinstance(parsed, dict) and parsed.get("type") == "math":
                         topic = parsed.get("topic", question)
                         try:
-                            return await self._solve_with_sympy(topic)
+                            solved = await self._solve_with_sympy(topic)
+                            try:
+                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                            except Exception:
+                                pass
+                            return solved
                         except Exception as e:
                             logger.info(f"SymPy failed after gate, using LLM: {e}")
-                            return await self._solve_with_llm(question)
+                            llm_result = await self._solve_with_llm(question)
+                            try:
+                                payload = (
+                                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                                        llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                    )
+                                )
+                                await self.cache_repo.set(key, payload, namespace="math")
+                            except Exception:
+                                pass
+                            return llm_result
                     else:
                         return parsed
                 except Exception:
@@ -67,26 +116,76 @@ class MathSolverService:
                         try:
                             data = json.loads(text)
                             topic = data.get("topic", question)
-                            return await self._solve_with_sympy(topic)
+                            solved = await self._solve_with_sympy(topic)
+                            try:
+                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                            except Exception:
+                                pass
+                            return solved
                         except Exception:
                             try:
-                                return await self._solve_with_sympy(question)
+                                solved = await self._solve_with_sympy(question)
+                                try:
+                                    await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                                except Exception:
+                                    pass
+                                return solved
                             except Exception as e:
                                 logger.info(f"SymPy failed after gate non-JSON, using LLM: {e}")
-                                return await self._solve_with_llm(question)
+                                llm_result = await self._solve_with_llm(question)
+                                try:
+                                    payload = (
+                                        llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                                            llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                        )
+                                    )
+                                    await self.cache_repo.set(key, payload, namespace="math")
+                                except Exception:
+                                    pass
+                                return llm_result
                     else:
                         try:
-                            return await self._solve_with_sympy(question)
+                            solved = await self._solve_with_sympy(question)
+                            try:
+                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                            except Exception:
+                                pass
+                            return solved
                         except Exception as e:
                             logger.info(f"SymPy failed after gate non-JSON, using LLM: {e}")
-                            return await self._solve_with_llm(question)
+                            llm_result = await self._solve_with_llm(question)
+                            try:
+                                payload = (
+                                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                                        llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                    )
+                                )
+                                await self.cache_repo.set(key, payload, namespace="math")
+                            except Exception:
+                                pass
+                            return llm_result
 
         # No Groq or empty gate response: original behavior
         try:
-            return await self._solve_with_sympy(question)
+            solved = await self._solve_with_sympy(question)
+            try:
+                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+            except Exception:
+                pass
+            return solved
         except Exception as e:
             logger.info(f"SymPy failed, using LLM: {e}")
-            return await self._solve_with_llm(question)
+            llm_result = await self._solve_with_llm(question)
+            try:
+                payload = (
+                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                        llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                    )
+                )
+                await self.cache_repo.set(key, payload, namespace="math")
+            except Exception:
+                pass
+            return llm_result
 
     async def _solve_with_sympy(self, question: str) -> MathSolutionResponse:
         """Solve using SymPy."""

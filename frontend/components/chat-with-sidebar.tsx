@@ -1,7 +1,8 @@
 // components/chat-with-sidebar.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import React from "react"
+import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -17,11 +18,15 @@ import Logo from "@/components/logo"
 import { useRouter, useSearchParams } from "next/navigation"
 import { apiClient } from "@/lib/api-client"
 import { useApi } from "@/hooks/use-api"
+import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
+import type { User } from "@supabase/supabase-js"
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 
-// Centralized API base for this component
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+// Centralized API base with optional proxying via Next.js rewrites
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 
 // Lazy load heavy components
 const AnimatedAIChat = dynamic(() => import("@/components/animated-ai-chat").then(mod => mod.AnimatedAIChat), {
@@ -56,100 +61,197 @@ interface ChatHistory {
   timestamp: string
 }
 
+// Add a debounce helper function
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
 function ChatWithSidebarContent() {
   const [view, setView] = useState<"chat" | "video-learning">("chat")
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  const [user, setUser] = useState<any>(null)
+  // Replace individual auth state variables with useEnhancedAuth hook
+  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
   const [role, setRole] = useState<string | null>(null)
+  const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
   
+  // Create a debounced version of fetchHistory
+  const debouncedFetchHistory = useCallback(
+    debounce((forceRefresh = false) => {
+      fetchHistory(forceRefresh);
+    }, 1000), // 1 second debounce
+    []
+  );
+  
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
-    const id = localStorage.getItem("lana_sid") || uuid()
-    localStorage.setItem("lana_sid", id)
-    setSid(id)
+    const initSessionId = async () => {
+      // For guest users, generate a standard session ID
+      // For authenticated users, we'll namespace it with their user ID
+      let id = localStorage.getItem("lana_sid");
+      
+      if (!id) {
+        id = uuid();
+        localStorage.setItem("lana_sid", id);
+      }
+      
+      setSid(id);
+      
+      // Check for topic parameter from term-plan navigation
+      const topicParam = searchParams.get("topic");
+      if (topicParam) {
+        setQuestion(topicParam);
+        setView("chat");
+        // Clean up URL without causing a page reload
+        window.history.replaceState({}, '', '/');
+      }
+    };
     
-    // Check for topic parameter from term-plan navigation
-    const topicParam = searchParams.get("topic")
-    if (topicParam) {
-      setQuestion(topicParam)
-      setView("chat")
-      // Clean up URL without causing a page reload
-      window.history.replaceState({}, '', '/')
-    }
+    initSessionId();
   }, [])
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async () => {
-    if (!sid) return
-    setLoadingHistory(true)
-    setHistoryError(null)
+  const fetchHistory = async (forceRefresh = false) => {
+    if (!sid) return;
+    setLoadingHistory(true);
+    setHistoryError(null);
     try {
-      // Use cached data if available, bypass cache every 30 seconds
-      const bypassCache = Date.now() % 30000 < 100; // Bypass cache ~every 30 seconds
-      const data = await api.get<ChatHistory[]>(`${API_BASE}/history?sid=${sid}`, undefined, bypassCache);
-      setHistory(data);
-    } catch (error: unknown) {
-      console.error('Failed to fetch history:', error);
-      setHistory([]);
-      setHistoryError('Unable to load chat history. Please check your connection.');
-      toast({
-        title: "Connection Error",
-        description: "Unable to load chat history. Please check your connection.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingHistory(false)
-    }
-  }
-
-  useEffect(() => {
-    if (sid) fetchHistory()
-    
-    // Set up periodic refresh of history data
-    const refreshInterval = setInterval(() => {
-      if (sid) fetchHistory();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(refreshInterval);
-  }, [sid])
-
-  // Fetch user session
-  useEffect(() => {
-    const fetchUserSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        setRole(session.user.user_metadata?.role || null);
+      const bypassCache = forceRefresh || (Date.now() % 30000 < 100);
+      const headers: Record<string, string> = {};
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
       }
-    };
-    fetchUserSession();
-  }, []);
+      const data = await api.get<ChatHistory[]>(
+        `/history?sid=${sid}&limit=50`,
+        { headers },
+        bypassCache
+      );
+      setHistory(data);
+    } catch (e) {
+      if (e instanceof ApiError) {
+        switch (e.status) {
+          case 401:
+            // Don't show error message for authenticated users
+            if (!isAuthenticated) {
+              setHistoryError("Please login or register to save search history.");
+            }
+            break;
+          case 403:
+            setHistoryError("Access denied. Please login with proper credentials.");
+            break;
+          case 404:
+            setHistoryError("History not found.");
+            break;
+          case 429:
+            // Handle rate limiting - don't show error to user, just silently fail
+            console.warn("Rate limit exceeded for history fetch");
+            break;
+          case 500:
+            setHistoryError("Server error. Please try again later.");
+            break;
+          default:
+            // Only show error messages to unauthenticated users for other errors
+            if (!isAuthenticated) {
+              setHistoryError("Failed to fetch history.");
+            }
+        }
+      } else {
+        // Only show error messages to unauthenticated users for network errors
+        if (!isAuthenticated) {
+          setHistoryError("Failed to fetch history.");
+        }
+      }
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
+  // Fetch user session - simplified with useEnhancedAuth
+  useEffect(() => {
+    if (user) {
+      setRole(user.user_metadata?.role || null)
+      // Get access token
+      const getAccessToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setAccessToken(session.access_token || null)
+        }
+      }
+      getAccessToken()
+      
+      // Ensure session id is namespaced by user id to satisfy backend auth checks
+      try {
+        const currentSid = localStorage.getItem("lana_sid");
+        const uidPrefix = `${user.id}:`;
+        if (currentSid && !currentSid.startsWith(uidPrefix)) {
+          const newSid = `${user.id}:${currentSid}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
+        } else if (!currentSid) {
+          // If no SID exists, create a new one with user ID prefix
+          const newSid = `${user.id}:${uuid()}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
+        }
+      } catch (error) {
+        console.error('Error namespacing session ID:', error);
+      }
+      
+      if (sid) {
+        debouncedFetchHistory(true); // use debounced version
+      }
+    }
+    
+    if (sid && accessToken) {
+      debouncedFetchHistory(true); // use debounced version
+      // Reduce polling frequency to avoid rate limiting
+      // Changed from 30 seconds to 5 minutes (300000ms)
+      const refreshInterval = setInterval(() => {
+        if (sid && accessToken) debouncedFetchHistory(false); // use debounced version
+      }, 300000); // 5 minutes instead of 30 seconds
+      return () => clearInterval(refreshInterval);
+    }
+  }, [user, sid, accessToken, debouncedFetchHistory]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
     if (!sid) return
     try {
-      await api.post(`${API_BASE}/reset`, { sid });
-      // Clear any cached history data
-      apiClient.clearCache();
-      await fetchHistory();
-      setView("chat");
+      // Generate a fresh session id locally instead of calling a non-existent /reset
+      let newSid = uuid();
+      
+      // For authenticated users, namespace the session ID with their user ID
+      if (user?.id) {
+        newSid = `${user.id}:${newSid}`;
+      }
+      
+      localStorage.setItem("lana_sid", newSid)
+      setSid(newSid)
+      await debouncedFetchHistory() // use debounced version
+      setView("chat")
     } catch (error) {
-      console.error("Failed to reset chat:", error);
+      console.error("Failed to start new chat:", error)
       toast({
         title: "Error",
         description: "Failed to start a new chat. Please try again.",
         variant: "destructive",
-      });
+      })
     }
   }
 
@@ -160,7 +262,7 @@ function ChatWithSidebarContent() {
 
   const handleBack = () => {
     setView("chat")
-    fetchHistory()
+    debouncedFetchHistory() // use debounced version
   }
 
   /* 4️⃣ Routing */
@@ -209,7 +311,7 @@ function ChatWithSidebarContent() {
               </SidebarGroupContent>
             </SidebarGroup>
   
-            {/* Live History */}
+            {/* Live History - Secure Authentication Check */}
             <SidebarGroup>
               <SidebarGroupLabel className="text-white/70 flex items-center gap-2">
                 <History className="size-4" />
@@ -217,40 +319,68 @@ function ChatWithSidebarContent() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {loadingHistory && (
+                  {/* Authentication Check - Show login prompt for unauthenticated users */}
+                  {!isAuthenticated && !authLoading && !loadingHistory && (
                     <SidebarMenuItem>
-                      <div className="flex items-center gap-2 p-2 text-white/50">
-                        <div className="w-4 h-4 border-2 border-white/10 border-t-white/30 rounded-full animate-spin" />
-                        <span className="text-sm">Loading...</span>
+                      <div className="flex flex-col items-center gap-3 p-4 text-center">
+                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10">
+                          <LogIn className="w-6 h-6 text-white/60" />
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-sm text-white/80 font-medium">
+                            Please login or register to save search history.
+                          </p>
+                          <SidebarMenuButton
+                            onClick={() => router.push("/login")}
+                            className="w-full justify-center bg-white/10 hover:bg-white/20 text-white border border-white/20"
+                          >
+                            <LogIn className="w-4 h-4" />
+                            <span>Login or Register</span>
+                          </SidebarMenuButton>
+                        </div>
                       </div>
                     </SidebarMenuItem>
                   )}
                   
-                  {historyError && (
-                    <SidebarMenuItem>
-                      <div className="flex items-center gap-2 p-2 text-red-400">
-                        <AlertCircle className="size-4" />
-                        <span className="text-sm">Failed to load history</span>
-                      </div>
-                    </SidebarMenuItem>
+                  {/* Authenticated users see full History functionality */}
+                  {isAuthenticated && (
+                    <>
+                      {loadingHistory && (
+                        <SidebarMenuItem>
+                          <div className="flex items-center gap-2 p-2 text-white/50">
+                            <div className="w-4 h-4 border-2 border-white/10 border-t-white/30 rounded-full animate-spin" />
+                            <span className="text-sm">Loading...</span>
+                          </div>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {historyError && historyError !== 'Authentication required' && (
+                        <SidebarMenuItem>
+                          <div className="flex items-center gap-2 p-2 text-red-400">
+                            <AlertCircle className="size-4" />
+                            <span className="text-sm">Failed to load history</span>
+                          </div>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {history.length === 0 && !loadingHistory && (
+                        <SidebarMenuItem>
+                          <span className="text-xs text-white/50 px-2">No history yet</span>
+                        </SidebarMenuItem>
+                      )}
+                      
+                      {(Array.isArray(history) ? history : []).map((chat) => (
+                        <SidebarMenuItem key={chat.id}>
+                          <SidebarMenuButton
+                            onClick={() => handleSelect(chat.title)}
+                            className="items-start py-2 text-white/80 hover:text-white hover:bg-white/5"
+                          >
+                            <span className="font-medium text-sm truncate">{chat.title}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </>
                   )}
-                  
-                  {history.length === 0 && !loadingHistory && (
-                    <SidebarMenuItem>
-                      <span className="text-xs text-white/50 px-2">No history yet</span>
-                    </SidebarMenuItem>
-                  )}
-                  
-                  {(Array.isArray(history) ? history : []).map((chat) => (
-                    <SidebarMenuItem key={chat.id}>
-                      <SidebarMenuButton
-                        onClick={() => handleSelect(chat.title)}
-                        className="items-start py-2 text-white/80 hover:text-white hover:bg-white/5"
-                      >
-                        <span className="font-medium text-sm truncate">{chat.title}</span>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
@@ -291,7 +421,7 @@ function ChatWithSidebarContent() {
               {role === "guardian" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => router.push("/guardian")}
+                    onClick={() => router.push("/homepage")}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <Mail className="w-4 h-4" />
@@ -302,11 +432,11 @@ function ChatWithSidebarContent() {
   
               {/* Auth action - Log out if authenticated, Log in if not */}
               <SidebarMenuItem>
-                {user ? (
+                {isAuthenticated ? (
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();
-                      router.push("/login");
+                      router.push("/homepage");
                     }}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
@@ -343,7 +473,7 @@ function ChatWithSidebarContent() {
               }>
                 <AnimatedAIChat
                   onNavigateToVideoLearning={handleSelect}
-                  onSend={fetchHistory}
+                  onSend={debouncedFetchHistory}
                 />
               </Suspense>
             ) : (

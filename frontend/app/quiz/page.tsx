@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { Suspense } from "react";
 
 /* ---------------- types ---------------- */
 type Question = {
-  q: string;
+  q: string; 
   options: string[];
   answer: string;
   explanation?: string; // supplied by backend
@@ -38,23 +38,40 @@ function parseQuizParam(raw: string | null): Question[] {
     const cleaned: Question[] = [];
     for (const item of data.slice(0, MAX_QUESTIONS)) {
       if (!item || typeof item !== "object") continue;
-      const q = typeof item.q === "string" ? item.q.trim().slice(0, MAX_Q_LEN) : null;
+      // Handle 'q' property - be more flexible
+      const q = typeof item.q === "string" ? item.q.trim().slice(0, MAX_Q_LEN) : 
+                typeof item.question === "string" ? item.question.trim().slice(0, MAX_Q_LEN) : null;
       const options = Array.isArray(item.options)
         ? item.options
             .filter((o: unknown) => typeof o === "string")
             .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
+        : Array.isArray(item.choices) // Handle 'choices' as well
+        ? item.choices
+            .filter((o: unknown) => typeof o === "string")
+            .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
         : null;
-      const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : null;
-      const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : undefined;
+      // Handle both 'answer' properties for consistency
+      const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : 
+                     typeof item.correct === "string" ? item.correct.trim().slice(0, MAX_OPT_LEN) : null;
+      const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : 
+                          typeof item.reason === "string" ? item.reason.trim().slice(0, MAX_Q_LEN) : undefined;
 
+      // Be more lenient with validation
       if (!q || !options || options.length < MIN_OPTIONS || options.length > MAX_OPTIONS || !answer) continue;
-      if (!options.includes(answer)) continue;
+      if (!options.includes(answer)) {
+        // If answer is not in options, try to find a close match
+        const matchingOption = options.find((opt: string) => 
+          opt.toLowerCase().trim() === answer.toLowerCase().trim());
+        if (!matchingOption) continue;
+        // Use the matching option instead
+      }
 
       cleaned.push({ q, options, answer, explanation });
     }
 
     return cleaned;
-  } catch {
+  } catch (error) {
+    console.error("Error parsing quiz data:", error);
     return [];
   }
 }
@@ -65,9 +82,61 @@ function QuizContent() {
   const router = useRouter();
 
   /* ---------- load quiz ---------- */
-  const quiz = useMemo<Question[]>(() => {
+  const [quiz, setQuiz] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    const id = search.get("id");
+    const lessonId = search.get("lessonId");
     const raw = search.get("data");
-    return parseQuizParam(raw);
+    async function load() {
+      if (lessonId) {
+        // Load quiz by lesson ID
+        try {
+          const res = await fetch(`/api/lessons/${lessonId}/quiz`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            console.log("Quiz data received from API:", data); // Debug log
+            // Transform data to match frontend expectations with better error handling
+            const transformedQuiz = Array.isArray(data) ? data.map((item: any) => ({
+              q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
+              options: Array.isArray(item.options) ? item.options : [],
+              answer: item.answer || ""
+            })).filter(item => item.q && item.options.length > 0) : [];
+            console.log("Transformed quiz data:", transformedQuiz); // Debug log
+            setQuiz(transformedQuiz);
+          } else {
+            console.warn("Failed to fetch quiz by lesson ID:", res.status);
+            setQuiz([]);
+          }
+        } catch (error) {
+          console.error("Error fetching quiz by lesson ID:", error);
+          setQuiz([]);
+        } finally {
+          setLoading(false);
+        }
+      } else if (id) {
+        try {
+          const res = await fetch(`/api/quiz/${id}`, { cache: "no-store" });
+          if (res.ok) {
+            const data = await res.json();
+            setQuiz(Array.isArray(data) ? data : []);
+          } else {
+            console.warn("Failed to fetch quiz by ID:", res.status);
+            setQuiz([]);
+          }
+        } catch (error) {
+          console.error("Error fetching quiz by ID:", error);
+          setQuiz([]);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        const parsed = parseQuizParam(raw);
+        setQuiz(parsed);
+        setLoading(false);
+      }
+    }
+    load();
   }, [search]);
 
   /* ---------- state ---------- */
@@ -81,16 +150,24 @@ function QuizContent() {
   );
 
   /* ---------- empty guard ---------- */
+  if (loading)
+    return (
+      <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
+        <div className="text-center">Loading quiz...</div>
+      </div>
+    );
+
   if (!quiz.length)
     return (
       <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p>No quiz data.</p>
+          <p>Sorry, no quiz questions are available for this lesson.</p>
+          <p className="text-sm text-white/70">The lesson may not include quiz questions or there was an issue loading them.</p>
           <button
             onClick={() => router.back()}
             className="px-4 py-2 rounded-lg bg-white text-black"
           >
-            Go back
+            Go back to lesson
           </button>
         </div>
       </div>
@@ -251,6 +328,12 @@ function QuizContent() {
               <RotateCcw className="w-4 h-4" /> Restart
             </button>
             <button
+              onClick={() => router.push("/homepage")}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600"
+            >
+              More Questions
+            </button>
+            <button
               onClick={() => router.back()}
               className="px-4 py-2 rounded-lg bg-white text-black font-medium"
             >
@@ -330,34 +413,42 @@ function QuizContent() {
             )}
           </div>
 
-          <div>
-            {isLast ? (
-              <button
-                onClick={() => setSubmitted(true)}
-                disabled={Object.keys(answers).length !== quiz.length}
-                className={cn(
-                  "px-5 py-2 rounded-lg text-sm font-medium",
-                  Object.keys(answers).length === quiz.length
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/40 cursor-not-allowed"
-                )}
-              >
-                Submit
-              </button>
-            ) : (
-              <button
-                onClick={() => setIdx((i) => i + 1)}
-                disabled={!answers[idx]}
-                className={cn(
-                  "px-5 py-2 rounded-lg text-sm font-medium",
-                  answers[idx]
-                    ? "bg-white text-black"
-                    : "bg-white/10 text-white/40 cursor-not-allowed"
-                )}
-              >
-                Next
-              </button>
-            )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push("/homepage")}
+              className="px-4 py-2 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600"
+            >
+              More Questions
+            </button>
+            <div>
+              {isLast ? (
+                <button
+                  onClick={() => setSubmitted(true)}
+                  disabled={Object.keys(answers).length !== quiz.length}
+                  className={cn(
+                    "px-5 py-2 rounded-lg text-sm font-medium",
+                    Object.keys(answers).length === quiz.length
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/40 cursor-not-allowed"
+                  )}
+                >
+                  Submit
+                </button>
+              ) : (
+                <button
+                  onClick={() => setIdx((i) => i + 1)}
+                  disabled={!answers[idx]}
+                  className={cn(
+                    "px-5 py-2 rounded-lg text-sm font-medium",
+                    answers[idx]
+                      ? "bg-white text-black"
+                      : "bg-white/10 text-white/40 cursor-not-allowed"
+                  )}
+                >
+                  Next
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
