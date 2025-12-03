@@ -25,13 +25,22 @@ function setGuestCookie(req: NextRequest, res: NextResponse) {
 export async function middleware(req: NextRequest) {
   try {
     const host = req.headers.get('host') || ''
-    if (host === 'lanamind.com') {
-      const url = new URL(req.url)
-      url.hostname = 'www.lanamind.com'
-      return NextResponse.redirect(url)
+    const url = new URL(req.url)
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lanamind.com'
+    const canonical = new URL(siteUrl)
+    canonical.pathname = url.pathname
+    canonical.search = url.search
+    const needsCanonicalRedirect = (
+      host === 'lanamind.com' ||
+      url.hostname !== canonical.hostname ||
+      url.protocol !== 'https:' ||
+      url.port !== ''
+    )
+    if (needsCanonicalRedirect) {
+      return NextResponse.redirect(canonical, { status: 308 })
     }
-    const url = req.nextUrl
-    const pathname = url.pathname
+    const nextUrl = req.nextUrl
+    const pathname = nextUrl.pathname
 
     // Log for debugging
     console.log('[Middleware] Processing request:', {
