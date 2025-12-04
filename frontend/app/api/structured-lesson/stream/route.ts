@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
+import rateLimiter from '@/lib/rate-limiter';
 
 export async function POST(req: Request) {
   try {
+    // Check rate limiting for streaming endpoint
+    const endpoint = '/api/structured-lesson/stream';
+    if (!rateLimiter.isAllowed(endpoint)) {
+      const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
+      const secondsUntilReset = Math.ceil(timeUntilReset / 1000);
+      
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          message: `Too many requests. Please try again in ${secondsUntilReset} seconds.`,
+          retryAfter: secondsUntilReset
+        }, 
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { topic, age } = body;
 

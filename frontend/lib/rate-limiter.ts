@@ -82,6 +82,7 @@ const rateLimiter = new RateLimiter();
 // More generous limits for local development
 const isDevelopment = process.env.NODE_ENV === 'development';
 rateLimiter.setLimit('/api/structured-lesson', isDevelopment ? 10 : 5, 60000); // 10 requests per minute in dev, 5 in prod
+rateLimiter.setLimit('/api/structured-lesson/stream', isDevelopment ? 5 : 5, 60000); // 5 requests per minute for streaming
 rateLimiter.setLimit('/api/tts', isDevelopment ? 3 : 1, 60000); // 3 requests per minute in dev, 1 in prod
 rateLimiter.setLimit('/api/tts/lesson', isDevelopment ? 3 : 1, 60000); // 3 requests per minute in dev, 1 in prod
 
