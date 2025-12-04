@@ -1154,7 +1154,7 @@ interface AnimatedAIChatProps {
         return;
       }
       
-      const response = await fetch(`/api/structured-lesson/stream`, {
+      const response = await fetch(API_BASE ? `${API_BASE}/api/structured-lesson/stream` : '/api/structured-lesson/stream', {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
