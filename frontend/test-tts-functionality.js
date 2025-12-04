@@ -1,13 +1,16 @@
 // Test script to verify TTS functionality
 // This tests the connection to the backend TTS service
 
+// Import API base configuration
+const { API_BASE } = require('./lib/api-config.js');
+
 async function testTtsFunctionality() {
   try {
     console.log('Testing TTS functionality...');
     
     // Test TTS endpoint directly
     console.log('1. Testing TTS endpoint directly...');
-    const backendResponse = await fetch('https://api.lanamind.com/api/tts/', {
+    const backendResponse = await fetch(`${API_BASE}/api/tts/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -18,7 +21,7 @@ async function testTtsFunctionality() {
     });
     
     console.log('   TTS endpoint status:', backendResponse.status);
-    console.log('   Expected to proxy to: https://api.lanamind.com/api/tts/');
+    console.log('   Expected to proxy to:', `${API_BASE}/api/tts/`);
     
     if (backendResponse.ok) {
       console.log('✅ TTS endpoint is accessible');
@@ -44,7 +47,7 @@ async function testTtsFunctionality() {
     // Test frontend TTS proxy endpoint
     console.log('\n2. Testing frontend TTS proxy endpoint...');
     console.log('   This test requires the frontend to be running on localhost:3000');
-    console.log('   Expected to proxy to: https://api.lanamind.com/api/tts/');
+    console.log('   Expected to proxy to:', `${API_BASE}/api/tts/`);
     
     console.log('\n✅ TTS functionality test completed');
     console.log('Note: For full testing, run the frontend locally and test the /api/tts endpoint');
