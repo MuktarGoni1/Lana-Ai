@@ -81,7 +81,7 @@ const rateLimiter = new RateLimiter();
 // Set default limits for common endpoints
 // More generous limits for local development
 const isDevelopment = process.env.NODE_ENV === 'development';
-rateLimiter.setLimit('/api/structured-lesson/stream', isDevelopment ? 10 : 5, 60000); // 10 requests per minute in dev, 5 in prod
+rateLimiter.setLimit('/api/structured-lesson', isDevelopment ? 10 : 5, 60000); // 10 requests per minute in dev, 5 in prod
 rateLimiter.setLimit('/api/tts', isDevelopment ? 3 : 1, 60000); // 3 requests per minute in dev, 1 in prod
 rateLimiter.setLimit('/api/tts/lesson', isDevelopment ? 3 : 1, 60000); // 3 requests per minute in dev, 1 in prod
 

@@ -1154,11 +1154,12 @@ interface AnimatedAIChatProps {
         return;
       }
       
-      const response = await fetch(API_BASE ? `${API_BASE}/api/structured-lesson/stream` : '/api/structured-lesson/stream', {
+      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "text/event-stream",
+          "Accept": "application/json",
         },
         body: JSON.stringify(payload),
         signal: abortRef.current.signal,
@@ -1190,100 +1191,51 @@ interface AnimatedAIChatProps {
         throw new Error(errorMessage);
       }
 
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-
-      // Detect stalled streams and abort to trigger retry
-      let lastChunkAt = Date.now();
-      const stallMs = Number(process.env.NEXT_PUBLIC_STREAM_STALL_MS ?? 8000);
-      stallTickerRef.current = setInterval(() => {
-        if (Date.now() - lastChunkAt > stallMs) {
-          try { abortRef.current?.abort(); } catch {}
-        }
-      }, 1000);
-
-      let buffer = "";
-      let finalLesson: Lesson | null = null;
-      let isComplete = false;
+      // Handle non-streaming response (regular JSON)
+      const finalLesson = await response.json();
       
-      setIsTyping(true)
+      // Validate and sanitize the lesson response
+      if (!isValidLessonResponse(finalLesson)) {
+        console.warn('[lesson] Invalid lesson response structure', finalLesson);
+        // Try to sanitize the content
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        if (!isValidLessonResponse(sanitizedLesson)) {
+          // If still invalid, show an error
+          setError("Received an invalid response format from the server. Please try again.");
+          setIsTyping(false);
+          return;
+        }
+        setLessonJson(sanitizedLesson);
+      } else {
+        // Even if valid, sanitize the content for display
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        setLessonJson(sanitizedLesson);
+      }
+      
+      setShowVideoButton(true);
+      setIsTyping(false);
+      
+      if (process.env.NODE_ENV === 'development') {
+        const introPreview = (finalLesson?.introduction || '').slice(0, 120);
+        console.info('[lesson] done', { topicSent: sanitizedInput, introPreview });
+      }
       
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(sanitizedInput.trim()).then(saveResult => {
-        console.log('✅ saveSearch result:', saveResult)
+        console.log('✅ saveSearch result:', saveResult);
         if (saveResult?.message) {
-          setSaveMessage(saveResult.message)
-          setShowSaveMessage(true)
+          setSaveMessage(saveResult.message);
+          setShowSaveMessage(true);
           setTimeout(() => {
-            setShowSaveMessage(false)
-            setTimeout(() => setSaveMessage(null), 300)
-          }, 5000)
+            setShowSaveMessage(false);
+            setTimeout(() => setSaveMessage(null), 300);
+          }, 5000);
         }
       }).catch(console.error);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        lastChunkAt = Date.now();
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const ln of lines) {
-          if (!ln.startsWith("data:")) continue;
-          try {
-            const msg = JSON.parse(ln.slice(5).trim());
-
-            switch (msg.type) {
-              case "done":
-                // ULTRA-FAST processing - instant response
-                finalLesson = msg.lesson;
-                
-                // Validate and sanitize the lesson response
-                if (!isValidLessonResponse(finalLesson)) {
-                  console.warn('[lesson-stream] Invalid lesson response structure', finalLesson);
-                  // Try to sanitize the content
-                  const sanitizedLesson = sanitizeLessonContent(finalLesson);
-                  if (isValidLessonResponse(sanitizedLesson)) {
-                    finalLesson = sanitizedLesson;
-                  } else {
-                    // If still invalid, show an error
-                    setError("Received an invalid response format from the server. Please try again.");
-                    setIsTyping(false);
-                    return;
-                  }
-                } else {
-                  // Even if valid, sanitize the content for display
-                  finalLesson = sanitizeLessonContent(finalLesson);
-                }
-                
-                isComplete = true;
-                setLessonJson(finalLesson);
-                setShowVideoButton(true);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  const introPreview = (finalLesson?.introduction || '').slice(0, 120)
-                  console.info('[lesson-stream] done', { topicSent: sanitizedInput, introPreview })
-                }
-                
-                // Ensure save completes
-                await savePromise;
-                return; 
-
-              case "error":
-                setError(msg.message);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn('[lesson-stream] error', msg)
-                }
-                return;
-            }
-          } catch (e) {
-            // Skip malformed messages
-          }
-        }
-      }
+      
+      // Ensure save completes
+      await savePromise;
+      return;
     } catch (e: unknown) {
       // Treat AbortError (timeout or manual abort) as benign, avoid retry loops
       if (e instanceof Error && e.name === "AbortError") {

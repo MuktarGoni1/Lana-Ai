@@ -228,7 +228,7 @@ export const apiClient = {
   async post<T, U>(url: string, body: U, options?: RequestInit): Promise<T> {
     return measureApiCall(url, 'POST', async () => {
       // Check rate limit before making request
-      // Extract endpoint from URL (e.g., /api/structured-lesson/stream)
+      // Extract endpoint from URL (e.g., /api/structured-lesson)
       const endpoint = new URL(url, 'http://localhost').pathname;
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
