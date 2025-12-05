@@ -1,81 +1,71 @@
-/** @type {import('next').NextConfig} */
-// Add Sentry configuration
-import { withSentryConfig } from '@sentry/nextjs';
+// next.config.mjs
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+import { withSentryConfig } from "@sentry/nextjs";
+
+/**
+ * @type {import('next').NextConfig}
+ */
 const nextConfig = {
-  typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    // !! WARN !!
-    // Use the supported option name in Next.js
-    ignoreBuildErrors: true,
-  },
-  images: {
-    unoptimized: false, // Enable image optimization
-  },
-  // Remove console logs in production
-  compiler: {
-    removeConsole: process.env.NODE_ENV === 'production',
-  },
-  // Disable production browser source maps for performance
-  productionBrowserSourceMaps: false,
-  allowedDevOrigins: ['192.168.0.187', 'localhost'],
-  // Bundle optimization: disable optimizePackageImports for dev stability
+  /* config options here */
+  reactStrictMode: true,
+  swcMinify: true,
   experimental: {
-    // optimizePackageImports disabled due to HMR/runtime issues
+    // Enable Turbopack for faster builds in development
+    turbo: {
+      rules: {
+        "*.svg": {
+          loaders: ["@svgr/webpack"],
+          as: "*.js",
+        },
+      },
+    },
+    // Enable experimental client trace metadata for better debugging
+    clientTraceMetadata: [
+      "next.config.mjs",
+      "sentry.client.config.ts",
+      "sentry.edge.config.ts",
+      "sentry.server.config.ts",
+    ],
   },
-  // Disable React compiler to prevent conflicts
-  reactCompiler: false,
-  // Turbopack configuration to fix HMR issues
-  turbopack: {
-    resolveExtensions: ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'],
+  // Configure image optimization
+  images: {
+    domains: ['ieqqsgpaivxmcgcflanu.supabase.co'], // Allow Supabase storage CDN
   },
-  // Turbopack is stable; remove deprecated experimental.turbo config
-  // If you need custom SVG handling, prefer using React components or next/image.
-  
-  // Performance optimizations
-  poweredByHeader: false,
-  compress: true,
-  
-  // Headers for better caching
+  // Configure headers for security
   async headers() {
-    const isProd = process.env.NODE_ENV === 'production'
-    // Allow http connections in development for LAN/IP access; keep strict in prod
-    const connectSrc = isProd
-      ? "connect-src 'self' https: wss:"
-      : "connect-src 'self' http: https: wss:"
-
-    // Build CSP dynamically
-    const csp = [
-      "default-src 'self'",
-      `script-src 'self' ${isProd ? '' : "'unsafe-eval'"} 'unsafe-inline'`,
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: https:",
-      "font-src 'self' data:",
-      connectSrc,
-      // Allow audio blobs/data URLs for TTS playback
-      "media-src 'self' blob: data:",
-      "object-src 'none'",
-      "base-uri 'self'",
-      "form-action 'self'",
-      "frame-ancestors 'none'",
-      // Only upgrade insecure requests in production (https)
-      ...(isProd ? ["upgrade-insecure-requests"] : []),
-    ].join('; ')
     return [
-      // Global security headers for app pages
       {
-        source: '/((?!_next|api).*)',
+        source: '/(.*)',
         headers: [
-          { key: 'X-Frame-Options', value: 'DENY' },
-          { key: 'X-Content-Type-Options', value: 'nosniff' },
-          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'geolocation=(), microphone=(), camera=(), payment=(), usb=()' },
-          // CSP: dev-friendly for LAN/IP, strict in production
-          { key: 'Content-Security-Policy', value: csp },
-          // HSTS only matters in production
-          ...(isProd ? [{ key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains; preload' }] : []),
+          {
+            key: 'X-DNS-Prefetch-Control',
+            value: 'on',
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-XSS-Protection',
+            value: '1; mode=block',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'origin-when-cross-origin',
+          },
         ],
       },
       {
@@ -98,15 +88,28 @@ const nextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      // Redirect incorrect structured lesson API calls to the correct endpoint
+      {
+        source: '/api/structured-lesson',
+        destination: 'https://api.lanamind.com/api/structured-lesson',
+        permanent: false,
+        basePath: false,
+      },
+      // Redirect streaming endpoint as well
+      {
+        source: '/api/structured-lesson/stream',
+        destination: 'https://api.lanamind.com/api/structured-lesson/stream',
+        permanent: false,
+        basePath: false,
+      },
+    ];
+  },
+
   async rewrites() {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-    if (!apiBase) {
-      console.warn('NEXT_PUBLIC_API_BASE not set, API proxying will not work');
-      return [];
-    }
-    
-    // Log the API base for debugging
-    console.log('API Base URL:', apiBase);
+    // Get the API base URL, defaulting to localhost for development
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
     
     // Define frontend API routes that should NOT be proxied to backend
     const frontendRoutes = [
@@ -120,7 +123,6 @@ const nextConfig = {
       'tts',
       'quiz',
       'subscription/status',
-      'structured-lesson/stream',
       'structured-lesson'
     ];
     

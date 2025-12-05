@@ -15,7 +15,7 @@ export async function POST(req: Request) {
 
     // Proxy the request to the backend service
     try {
-      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
       const ttsUrl = `${backendBase.replace(/\/$/, '')}/api/tts/`;
       
       // Validate backend URL

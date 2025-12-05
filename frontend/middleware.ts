@@ -24,23 +24,8 @@ function setGuestCookie(req: NextRequest, res: NextResponse) {
 // Centralized auth gating and role-based redirects
 export async function middleware(req: NextRequest) {
   try {
-    const host = req.headers.get('host') || ''
-    const url = new URL(req.url)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lanamind.com'
-    const canonical = new URL(siteUrl)
-    canonical.pathname = url.pathname
-    canonical.search = url.search
-    const needsCanonicalRedirect = (
-      host === 'lanamind.com' ||
-      url.hostname !== canonical.hostname ||
-      url.protocol !== 'https:' ||
-      url.port !== ''
-    )
-    if (needsCanonicalRedirect) {
-      return NextResponse.redirect(canonical, { status: 308 })
-    }
-    const nextUrl = req.nextUrl
-    const pathname = nextUrl.pathname
+    const url = req.nextUrl
+    const pathname = url.pathname
 
     // Log for debugging
     console.log('[Middleware] Processing request:', {
