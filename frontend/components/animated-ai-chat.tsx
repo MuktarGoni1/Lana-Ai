@@ -1146,7 +1146,7 @@ interface AnimatedAIChatProps {
       }
       
       // Check rate limit before making request
-      const endpoint = '/api/structured-lesson/stream';
+      const endpoint = '/api/structured-lesson';
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
         setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1154,7 +1154,9 @@ interface AnimatedAIChatProps {
         return;
       }
       
-      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      // Use relative path for frontend API routes to handle proxying
+      // The frontend API route at /api/structured-lesson will proxy to the backend
+      const lessonEndpoint = '/api/structured-lesson';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {

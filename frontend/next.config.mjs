@@ -88,15 +88,28 @@ const nextConfig = {
       },
     ]
   },
+  async redirects() {
+    return [
+      // Redirect incorrect structured lesson API calls to the correct endpoint
+      {
+        source: '/api/structured-lesson',
+        destination: 'https://api.lanamind.com/api/structured-lesson',
+        permanent: false,
+        basePath: false,
+      },
+      // Redirect streaming endpoint as well
+      {
+        source: '/api/structured-lesson/stream',
+        destination: 'https://api.lanamind.com/api/structured-lesson/stream',
+        permanent: false,
+        basePath: false,
+      },
+    ];
+  },
+
   async rewrites() {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE;
-    if (!apiBase) {
-      console.warn('NEXT_PUBLIC_API_BASE not set, API proxying will not work');
-      return [];
-    }
-    
-    // Log the API base for debugging
-    console.log('API Base URL:', apiBase);
+    // Get the API base URL, defaulting to localhost for development
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
     
     // Define frontend API routes that should NOT be proxied to backend
     const frontendRoutes = [
