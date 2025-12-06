@@ -1,37 +1,36 @@
 "use client"
 import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/db"
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 import { useToast } from "@/hooks/use-toast"
 import { Mail, Loader2 } from "lucide-react"
 
 export default function ChildLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user, isAuthenticated, loginWithEmail } = useEnhancedAuth()
   const [email, setEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [emailError, setEmailError] = useState("")
 
   // Check if user is already authenticated
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const role = session.user.user_metadata?.role
-        // Check if onboarding is complete
-        const onboardingComplete = Boolean(session.user.user_metadata?.onboarding_complete)
-        
-        if (role === "child") {
-          if (onboardingComplete) {
-            router.push("/homepage")
-          } else {
-            router.push("/term-plan?onboarding=1")
-          }
+    if (isAuthenticated && user) {
+      const role = user.user_metadata?.role
+      // Check if onboarding is complete
+      const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete)
+      
+      if (role === "child") {
+        if (onboardingComplete) {
+          router.push("/homepage")
         } else {
-          router.push("/onboarding") // parent → setup
+          router.push("/term-plan?onboarding=1")
         }
+      } else {
+        router.push("/onboarding") // parent → setup
       }
-    })
-  }, [router])
+    }
+  }, [isAuthenticated, user, router])
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -55,15 +54,10 @@ export default function ChildLoginPage() {
     setEmailError("")
     
     try {
-      // Send magic link
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
-        },
-      })
+      // Send magic link using enhanced auth service
+      const { success, error } = await loginWithEmail(email.trim())
       
-      if (error) throw error
+      if (!success) throw new Error(error || "Login failed")
       
       toast({
         title: "Magic link sent",

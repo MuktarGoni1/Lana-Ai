@@ -1096,7 +1096,6 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(q.trim()).then(saveResult => {
-        console.log('✅ saveSearch result:', saveResult);
         // Only show messages for unauthenticated users or actual errors
         if (saveResult?.message && (saveResult.suggestion || !saveResult.success)) {
           // Only show messages to unauthenticated users
@@ -1115,7 +1114,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       return;
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") {
-        console.log("Request aborted");
+        // Request aborted
         setError("Request cancelled");
       } else {
         const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred";

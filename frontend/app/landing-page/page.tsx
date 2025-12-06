@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useAuth } from "@/hooks/useAuth"
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 import {
 CheckCircle2,
 ArrowRight,
@@ -69,7 +69,7 @@ aria-label="Toggle theme"
 /* ---------- HEADER ---------- */
 function Header() {
 const [open, setOpen] = useState(false)
-const { user } = useAuth()
+const { user } = useEnhancedAuth()
 
 return (
 <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur">
@@ -145,7 +145,7 @@ return (
 
 /* ---------- HERO ---------- */
 function HeroSection() {
-const { user } = useAuth()
+const { user } = useEnhancedAuth()
 
 return (
 <section id="hero" className="py-20 md:py-32">
@@ -304,7 +304,7 @@ return (
 
 /* ---------- CTA ---------- */
 function CtaSection() {
-const { user } = useAuth()
+const { user } = useEnhancedAuth()
 
 return (
 <section id="get-started" className="py-20 md:py-32">

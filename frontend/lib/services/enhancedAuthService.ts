@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/db';
+import { InsertGuardian } from '@/types/supabase';
 import { type User } from '@supabase/supabase-js';
 
 export interface AuthState {
@@ -32,7 +33,9 @@ export class EnhancedAuthService {
   private initializeAuthListener() {
     // Listen for auth state changes
     supabase.auth.onAuthStateChange((event, session) => {
-      console.log('[EnhancedAuthService] Auth state changed:', event);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EnhancedAuthService] Auth state changed:', event);
+      }
       
       switch (event) {
         case 'SIGNED_IN':
@@ -153,10 +156,14 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/auto-login` 
+        : "https://www.lanamind.com/auth/auto-login";
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
+          emailRedirectTo: redirectTo,
         },
       });
 
@@ -186,8 +193,9 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      console.log('[EnhancedAuthService] Initiating Google login');
-      console.log('[EnhancedAuthService] Supabase auth object:', supabase.auth);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[EnhancedAuthService] Initiating Google login');
+      }
       
       // Check if supabase.auth exists
       if (!supabase.auth) {
@@ -214,10 +222,15 @@ export class EnhancedAuthService {
       
       // Call signInWithOAuth with the correct parameters
       console.log('[EnhancedAuthService] Calling signInWithOAuth with provider: google');
+      
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/auto-login` 
+        : "https://www.lanamind.com/auth/auto-login";
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: "https://www.lanamind.com/auth/auto-login",
+          redirectTo: redirectTo,
           scopes: 'openid email profile',
         },
       });
@@ -252,24 +265,28 @@ export class EnhancedAuthService {
       this.updateAuthState({ isLoading: true, error: null });
       
       // First create/update guardian record
-      const { error: insertError } = await supabase
-        .from("guardians")
+      const { error: insertError } = await (supabase
+        .from("guardians") as any)
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
           monthly_report: false,
-        } as any, { onConflict: 'email' });
+        }, { onConflict: 'email' });
 
       if (insertError) {
         console.warn('[EnhancedAuthService] Failed to create guardian record:', insertError);
       }
 
       // Send magic link
+      const redirectTo = typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/auto-login` 
+        : "https://www.lanamind.com/auth/auto-login";
+
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
+          emailRedirectTo: redirectTo,
         },
       });
 
@@ -295,7 +312,7 @@ export class EnhancedAuthService {
     }
   }
 
-  async registerChild(nickname: string, age: number, grade: string, guardianEmail: string): Promise<{ success: boolean; error?: string; data?: any }> {
+  async registerChild(nickname: string, age: number, grade: string, guardianEmail: string): Promise<{ success: boolean; error?: string; data?: Array<{ child_uid: string }> }> {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       

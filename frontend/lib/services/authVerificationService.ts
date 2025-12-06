@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { type User } from '@supabase/supabase-js';
 
 /**
  * Check if a specific email is authenticated in Supabase
@@ -6,11 +7,13 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
  */
 export async function verifyUserAuthentication(email: string): Promise<{
   isAuthenticated: boolean;
-  user?: any;
+  user?: User;
   message: string;
 }> {
   try {
-    console.log('[authVerificationService] Starting verification for email:', email);
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[authVerificationService] Starting verification for email:', email);
+    }
     
     if (!email) {
       return {
