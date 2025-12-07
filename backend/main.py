@@ -1,5 +1,6 @@
 """
-Production-grade FastAPI backend for Lana AI with true streaming support.
+Production-grade FastAPI backend for Lana AI.
+Optimized for 10k+ RPS with proper error handling, observability, and security.
 """
 
 from __future__ import annotations
@@ -12,9 +13,8 @@ import re
 import time
 import uuid
 from contextlib import asynccontextmanager
-from dataclasses import dataclass, field
 from functools import lru_cache
-from typing import Annotated, AsyncGenerator, Optional
+from typing import Annotated, Optional
 
 import orjson
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
@@ -76,7 +76,7 @@ def get_settings():
 
 
 # -----------------------------------------------------------------------------
-# Precompiled Regex Patterns
+# Precompiled Regex Patterns (avoid recompilation per request)
 # -----------------------------------------------------------------------------
 _SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL), ""),
@@ -85,22 +85,11 @@ _SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"<embed[^>]*>.*?</embed>", re.IGNORECASE | re.DOTALL), ""),
     (re.compile(r"javascript:", re.IGNORECASE), ""),
     (re.compile(r"vbscript:", re.IGNORECASE), ""),
-    (re.compile(r"on\w+=", re.IGNORECASE), ""),
+    (re.compile(r"on\w+=", re.IGNORECASE), ""),  # Consolidated event handlers
     (re.compile(r"\s+"), " "),
 ]
 _CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
 _MARKDOWN_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
-
-# Patterns for incremental JSON parsing
-_SECTION_PATTERN = re.compile(
-    r'\{\s*"title"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*,\s*"content"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\}',
-    re.DOTALL
-)
-_QUIZ_PATTERN = re.compile(
-    r'\{\s*"question"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*,\s*"options"\s*:\s*\[(.*?)\]\s*,\s*"answer"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"\s*\}',
-    re.DOTALL
-)
-_INTRO_PATTERN = re.compile(r'"introduction"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"', re.DOTALL)
 
 MAX_TEXT_LENGTH = 1000
 MAX_TOPIC_LENGTH = 100
@@ -111,14 +100,16 @@ def sanitize_text(text: str, max_length: int = MAX_TEXT_LENGTH) -> str:
     """Sanitize user input: escape HTML, remove dangerous patterns, normalize whitespace."""
     if not text:
         return ""
+    # Escape HTML entities first
     text = html.escape(text, quote=True)
+    # Apply precompiled patterns
     for pattern, replacement in _SANITIZE_PATTERNS:
         text = pattern.sub(replacement, text)
     return text.strip()[:max_length]
 
 
 # -----------------------------------------------------------------------------
-# Pydantic Models
+# Pydantic Models with validation
 # -----------------------------------------------------------------------------
 class ClassificationItem(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
@@ -180,6 +171,8 @@ class StructuredLessonRequest(BaseModel):
             raise ValueError("Topic too short")
         if len(v) > MAX_TOPIC_LENGTH:
             raise ValueError("Topic too long")
+        # Note: Validation happens BEFORE sanitization for length checks
+        # Sanitization is applied after to clean the content
         return sanitize_text(v, max_length=MAX_TOPIC_LENGTH)
 
 
@@ -205,52 +198,6 @@ class ReadinessResponse(BaseModel):
 
 
 # -----------------------------------------------------------------------------
-# SSE Event Types
-# -----------------------------------------------------------------------------
-@dataclass
-class SSEEvent:
-    """Server-Sent Event structure."""
-    event: str
-    data: dict
-    
-    def encode(self) -> str:
-        """Encode as SSE format."""
-        json_data = orjson.dumps(self.data).decode()
-        return f"event: {self.event}\ndata: {json_data}\n\n"
-
-
-# -----------------------------------------------------------------------------
-# Streaming State Tracker
-# -----------------------------------------------------------------------------
-@dataclass
-class StreamingLessonState:
-    """Tracks state during incremental lesson parsing."""
-    id: str = field(default_factory=lambda: str(uuid.uuid4()))
-    raw_buffer: str = ""
-    introduction: Optional[str] = None
-    classifications: list[ClassificationItem] = field(default_factory=list)
-    sections: list[SectionItem] = field(default_factory=list)
-    diagram: str = ""
-    quiz: list[QuizItem] = field(default_factory=list)
-    
-    # Track what we've already emitted to avoid duplicates
-    emitted_sections: int = 0
-    emitted_quiz: int = 0
-    intro_emitted: bool = False
-    
-    def to_response(self) -> StructuredLessonResponse:
-        """Convert to final response model."""
-        return StructuredLessonResponse(
-            id=self.id,
-            introduction=self.introduction,
-            classifications=self.classifications,
-            sections=self.sections,
-            diagram=self.diagram,
-            quiz=self.quiz,
-        )
-
-
-# -----------------------------------------------------------------------------
 # Application State & Dependencies
 # -----------------------------------------------------------------------------
 class AppState:
@@ -260,35 +207,37 @@ class AppState:
         self.settings = get_settings()
         self.cache = MemoryCacheRepository(default_ttl=1800, maxsize=10000)
         self.groq_client: Optional[Groq] = None
-        self.redis_client = None
+        self.redis_client: Optional[aioredis.Redis] = None
         self.inflight_lock = asyncio.Lock()
         self.inflight_lessons: dict[str, asyncio.Task] = {}
-        self.llm_semaphore = asyncio.Semaphore(50)
+        self.llm_semaphore = asyncio.Semaphore(50)  # Limit concurrent LLM calls
         self.is_ready = False
         self.startup_time = time.time()
         
+        # Metrics
         self.metrics = {
             "requests_total": 0,
             "errors_total": 0,
             "llm_calls_total": 0,
             "cache_hits_total": 0,
             "cache_misses_total": 0,
-            "stream_requests_total": 0,
         }
 
     async def initialize(self):
         """Initialize external connections."""
+        # Initialize Groq client
         if Groq and self.settings.groq_api_key:
             try:
                 self.groq_client = Groq(
                     api_key=self.settings.groq_api_key,
-                    timeout=60.0,  # Longer timeout for streaming
+                    timeout=30.0,
                 )
                 logger.info("Groq client initialized", extra={"trace_id": "startup"})
             except Exception as e:
                 logger.error(f"Failed to initialize Groq client: {e}", extra={"trace_id": "startup"})
         
-        if REDIS_AVAILABLE and hasattr(self.settings, 'redis_url') and self.settings.redis_url:
+        # Initialize Redis if available
+        if REDIS_AVAILABLE and self.settings.redis_url:
             try:
                 self.redis_client = await aioredis.from_url(
                     self.settings.redis_url,
@@ -309,11 +258,13 @@ class AppState:
         """Cleanup resources."""
         self.is_ready = False
         
+        # Cancel inflight tasks
         async with self.inflight_lock:
             for task in self.inflight_lessons.values():
                 task.cancel()
             self.inflight_lessons.clear()
         
+        # Close Redis
         if self.redis_client:
             await self.redis_client.close()
         
@@ -324,6 +275,7 @@ class AppState:
         if not self.groq_client:
             return False
         try:
+            # Use a very short timeout for health check
             loop = asyncio.get_event_loop()
             await asyncio.wait_for(
                 loop.run_in_executor(None, lambda: self.groq_client.models.list()),
@@ -336,7 +288,7 @@ class AppState:
     async def check_redis_health(self) -> bool:
         """Non-blocking health check for Redis."""
         if not self.redis_client:
-            return True
+            return True  # Redis is optional
         try:
             await asyncio.wait_for(self.redis_client.ping(), timeout=2.0)
             return True
@@ -344,6 +296,7 @@ class AppState:
             return False
 
 
+# Global app state instance
 _app_state: Optional[AppState] = None
 
 
@@ -354,11 +307,15 @@ def get_app_state() -> AppState:
     return _app_state
 
 
+# Type alias for dependency injection
 AppStateDep = Annotated[AppState, Depends(get_app_state)]
 
 
+# -----------------------------------------------------------------------------
+# Request Context Middleware
+# -----------------------------------------------------------------------------
 async def add_trace_id(request: Request):
-    """Add trace ID to request state."""
+    """Add trace ID to request state and logging context."""
     trace_id = request.headers.get("X-Trace-ID", str(uuid.uuid4())[:8])
     request.state.trace_id = trace_id
     return trace_id
@@ -368,7 +325,7 @@ TraceIdDep = Annotated[str, Depends(add_trace_id)]
 
 
 # -----------------------------------------------------------------------------
-# Prompt Building
+# Lesson Generation Logic
 # -----------------------------------------------------------------------------
 def _get_age_category(age: Optional[int]) -> str:
     """Map age to category for prompt customization."""
@@ -388,303 +345,167 @@ def _build_system_prompt(age: Optional[int]) -> str:
     age_desc = _get_age_category(age)
     return (
         "You are Lana, a helpful tutor. Produce a structured lesson as strict JSON only. "
-        "Return ONLY valid JSON with these exact keys in this order: "
-        '"introduction" (string, 2-3 sentences overview), '
+        "Return ONLY valid JSON with these exact keys: "
+        '"introduction" (string), '
         '"classifications" (array of {type, description}), '
-        '"sections" (array of {title, content} - include 3-4 sections with content >= 100 words each), '
-        '"diagram" (string, optional ASCII or text description), '
-        '"quiz_questions" (array of {question, options: [exactly 4 strings], answer} - include 3-4 questions). '
+        '"sections" (array of {title, content} with content >= 100 words each), '
+        '"diagram" (string, optional), '
+        '"quiz_questions" (array of {question, options: [4 strings], answer}). '
         f"Target audience: {age_desc}. "
-        "Start response with {{ and end with }}. "
+        "Include 3-4 quiz questions. Start response with {{ and end with }}. "
         "No markdown, no code fences, no explanations—pure JSON only."
     )
 
 
-# -----------------------------------------------------------------------------
-# Incremental JSON Parser
-# -----------------------------------------------------------------------------
-class IncrementalLessonParser:
-    """
-    Parses streaming JSON and extracts lesson components incrementally.
-    Emits events as complete objects are detected.
-    """
+def _parse_llm_response(raw: str) -> dict:
+    """Parse LLM JSON response with robust error handling."""
+    if not raw:
+        raise ValueError("Empty response")
     
-    def __init__(self, state: StreamingLessonState):
-        self.state = state
-        self._last_processed_len = 0
+    # Remove markdown fences
+    cleaned = _MARKDOWN_FENCE_PATTERN.sub("", raw).strip()
     
-    def feed(self, chunk: str) -> list[SSEEvent]:
-        """
-        Feed a new chunk and return any newly detected complete objects.
-        """
-        self.state.raw_buffer += chunk
-        events = []
-        
-        buffer = self.state.raw_buffer
-        
-        # Try to extract introduction
-        if not self.state.intro_emitted:
-            intro_match = _INTRO_PATTERN.search(buffer)
-            if intro_match:
-                intro_text = self._unescape_json_string(intro_match.group(1))
-                self.state.introduction = sanitize_text(intro_text, max_length=2000)
-                self.state.intro_emitted = True
-                events.append(SSEEvent(
-                    event="introduction",
-                    data={"content": self.state.introduction}
-                ))
-        
-        # Try to extract sections incrementally
-        section_matches = list(_SECTION_PATTERN.finditer(buffer))
-        new_sections = section_matches[self.state.emitted_sections:]
-        
-        for match in new_sections:
-            try:
-                title = self._unescape_json_string(match.group(1))
-                content = self._unescape_json_string(match.group(2))
-                section = SectionItem(
-                    title=sanitize_text(title, max_length=200),
-                    content=sanitize_text(content, max_length=5000)
-                )
-                self.state.sections.append(section)
-                self.state.emitted_sections += 1
-                events.append(SSEEvent(
-                    event="section",
-                    data={
-                        "index": len(self.state.sections) - 1,
-                        "section": section.model_dump()
-                    }
-                ))
-            except Exception:
-                pass  # Skip malformed sections
-        
-        # Try to extract quiz questions incrementally
-        quiz_matches = list(_QUIZ_PATTERN.finditer(buffer))
-        new_quiz = quiz_matches[self.state.emitted_quiz:]
-        
-        for match in new_quiz:
-            try:
-                question = self._unescape_json_string(match.group(1))
-                options_raw = match.group(2)
-                answer = self._unescape_json_string(match.group(3))
-                
-                # Parse options array
-                options = self._parse_options(options_raw)
-                
-                if len(options) >= 2:
-                    quiz_item = QuizItem(
-                        q=sanitize_text(question, max_length=500),
-                        options=[sanitize_text(o, max_length=200) for o in options[:4]],
-                        answer=sanitize_text(answer, max_length=200)
-                    )
-                    self.state.quiz.append(quiz_item)
-                    self.state.emitted_quiz += 1
-                    events.append(SSEEvent(
-                        event="quiz",
-                        data={
-                            "index": len(self.state.quiz) - 1,
-                            "quiz": quiz_item.model_dump()
-                        }
-                    ))
-            except Exception:
-                pass  # Skip malformed quiz items
-        
-        return events
+    # Remove control characters
+    cleaned = _CONTROL_CHAR_PATTERN.sub("", cleaned)
     
-    def finalize(self) -> list[SSEEvent]:
-        """
-        Parse any remaining content and extract classifications, diagram.
-        Returns final events.
-        """
-        events = []
-        
+    # Try parsing
+    try:
+        return orjson.loads(cleaned)
+    except orjson.JSONDecodeError:
+        pass
+    
+    # Try to find valid JSON boundaries
+    start = cleaned.find("{")
+    end = cleaned.rfind("}") + 1
+    if start >= 0 and end > start:
         try:
-            # Clean up buffer and try full JSON parse
-            buffer = self.state.raw_buffer.strip()
-            buffer = _MARKDOWN_FENCE_PATTERN.sub("", buffer).strip()
-            buffer = _CONTROL_CHAR_PATTERN.sub("", buffer)
-            
-            # Find JSON boundaries
-            start = buffer.find("{")
-            end = buffer.rfind("}") + 1
-            if start >= 0 and end > start:
-                try:
-                    data = orjson.loads(buffer[start:end])
-                    
-                    # Extract classifications if not already done
-                    if not self.state.classifications:
-                        for c in data.get("classifications", []):
-                            if isinstance(c, dict) and "type" in c and "description" in c:
-                                self.state.classifications.append(ClassificationItem(
-                                    type=sanitize_text(str(c["type"])),
-                                    description=sanitize_text(str(c["description"]))
-                                ))
-                        if self.state.classifications:
-                            events.append(SSEEvent(
-                                event="classifications",
-                                data={"classifications": [c.model_dump() for c in self.state.classifications]}
-                            ))
-                    
-                    # Extract diagram if present
-                    diagram = data.get("diagram", "")
-                    if diagram:
-                        self.state.diagram = sanitize_text(str(diagram), max_length=2000)
-                        events.append(SSEEvent(
-                            event="diagram",
-                            data={"content": self.state.diagram}
-                        ))
-                    
-                    # Fill in any missing introduction
-                    if not self.state.introduction and data.get("introduction"):
-                        self.state.introduction = sanitize_text(
-                            str(data["introduction"]), max_length=2000
-                        )
-                    
-                    # Fill in any missing sections
-                    if not self.state.sections:
-                        for s in data.get("sections", []):
-                            if isinstance(s, dict) and "title" in s and "content" in s:
-                                self.state.sections.append(SectionItem(
-                                    title=sanitize_text(str(s["title"])),
-                                    content=sanitize_text(str(s["content"]), max_length=5000)
-                                ))
-                    
-                    # Fill in any missing quiz
-                    if not self.state.quiz:
-                        quiz_raw = data.get("quiz_questions", []) or data.get("quiz", [])
-                        for q in quiz_raw:
-                            if isinstance(q, dict):
-                                question = q.get("question") or q.get("q", "")
-                                options = q.get("options", [])
-                                answer = q.get("answer", "")
-                                
-                                normalized_opts = []
-                                for opt in options[:4]:
-                                    if isinstance(opt, dict):
-                                        normalized_opts.append(str(opt.get("option", opt)))
-                                    else:
-                                        normalized_opts.append(str(opt))
-                                
-                                if question and len(normalized_opts) >= 2 and answer:
-                                    self.state.quiz.append(QuizItem(
-                                        q=sanitize_text(question),
-                                        options=[sanitize_text(o) for o in normalized_opts],
-                                        answer=sanitize_text(answer)
-                                    ))
-                                    
-                except orjson.JSONDecodeError:
-                    logger.warning("Failed to parse final JSON in finalize")
-        except Exception as e:
-            logger.warning(f"Error in finalize: {e}")
-        
-        return events
+            return orjson.loads(cleaned[start:end])
+        except orjson.JSONDecodeError:
+            pass
     
-    @staticmethod
-    def _unescape_json_string(s: str) -> str:
-        """Unescape JSON string escape sequences."""
-        try:
-            # Use JSON parser to properly unescape
-            return orjson.loads(f'"{s}"')
-        except Exception:
-            # Fallback: manual unescaping
-            return (
-                s.replace("\\n", "\n")
-                .replace("\\r", "\r")
-                .replace("\\t", "\t")
-                .replace('\\"', '"')
-                .replace("\\\\", "\\")
-            )
-    
-    @staticmethod
-    def _parse_options(options_str: str) -> list[str]:
-        """Parse options array from partial JSON string."""
-        options = []
-        # Match quoted strings
-        for match in re.finditer(r'"([^"\\]*(?:\\.[^"\\]*)*)"', options_str):
-            try:
-                opt = IncrementalLessonParser._unescape_json_string(match.group(1))
-                options.append(opt)
-            except Exception:
-                pass
-        return options
+    raise ValueError(f"Cannot parse JSON: {cleaned[:100]}...")
 
 
-# -----------------------------------------------------------------------------
-# Streaming Lesson Generator
-# -----------------------------------------------------------------------------
-async def stream_lesson_from_groq(
+def _extract_lesson_data(data: dict) -> StructuredLessonResponse:
+    """Extract and validate lesson data from parsed JSON."""
+    # Extract classifications
+    classifications = []
+    for c in data.get("classifications", []):
+        if isinstance(c, dict) and "type" in c and "description" in c:
+            classifications.append(ClassificationItem(
+                type=str(c["type"]),
+                description=str(c["description"])
+            ))
+    
+    # Extract sections
+    sections = []
+    for s in data.get("sections", []):
+        if isinstance(s, dict) and "title" in s and "content" in s:
+            sections.append(SectionItem(
+                title=str(s["title"]),
+                content=str(s["content"])
+            ))
+    
+    # Extract quiz
+    quiz = []
+    quiz_raw = data.get("quiz_questions", []) or data.get("quiz", [])
+    for q in quiz_raw:
+        if not isinstance(q, dict):
+            continue
+        question = q.get("question") or q.get("q", "")
+        options = q.get("options", [])
+        answer = q.get("answer", "")
+        
+        # Normalize options
+        normalized_opts = []
+        for opt in options[:4]:
+            if isinstance(opt, dict):
+                normalized_opts.append(str(opt.get("option", opt)))
+            else:
+                normalized_opts.append(str(opt))
+        
+        if question and len(normalized_opts) >= 2 and answer:
+            quiz.append(QuizItem(q=question, options=normalized_opts, answer=answer))
+    
+    return StructuredLessonResponse(
+        id=str(uuid.uuid4()),
+        introduction=sanitize_text(str(data.get("introduction", "")), max_length=2000),
+        classifications=classifications,
+        sections=sections,
+        diagram=sanitize_text(str(data.get("diagram", "")), max_length=1000),
+        quiz=quiz,
+    )
+
+
+async def _call_groq_api(
     client: Groq,
     topic: str,
     age: Optional[int],
     semaphore: asyncio.Semaphore,
     trace_id: str,
-) -> AsyncGenerator[tuple[str, Optional[str]], None]:
-    """
-    Stream tokens from Groq API.
-    Yields (event_type, content) tuples.
-    event_type: "token" for content, "error" for errors, "done" when finished.
-    """
+) -> StructuredLessonResponse:
+    """Call Groq API with proper timeout, retry, and rate limiting."""
     async with semaphore:
         loop = asyncio.get_event_loop()
         
         sys_prompt = _build_system_prompt(age)
-        user_prompt = f"Create a comprehensive lesson about: {topic}"
+        user_prompt = f"Create a lesson about: {topic}"
         
-        try:
-            # Create streaming completion in thread pool
-            def create_stream():
-                return client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": sys_prompt},
-                        {"role": "user", "content": user_prompt},
-                    ],
-                    temperature=0.4,
-                    max_tokens=2000,
-                    top_p=0.9,
-                    stream=True,  # Enable streaming
+        # Retry logic with exponential backoff
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                # Run blocking call in thread pool with timeout
+                response = await asyncio.wait_for(
+                    loop.run_in_executor(
+                        None,
+                        lambda: client.chat.completions.create(
+                            model="llama-3.1-8b-instant",
+                            messages=[
+                                {"role": "system", "content": sys_prompt},
+                                {"role": "user", "content": user_prompt},
+                            ],
+                            temperature=0.4,
+                            max_tokens=1500,
+                            top_p=0.9,
+                        )
+                    ),
+                    timeout=30.0,
                 )
-            
-            # Get the stream object
-            stream = await asyncio.wait_for(
-                loop.run_in_executor(None, create_stream),
-                timeout=10.0  # Timeout for initial connection
-            )
-            
-            # Yield tokens as they arrive
-            def iter_stream():
-                for chunk in stream:
-                    if chunk.choices and chunk.choices[0].delta.content:
-                        yield chunk.choices[0].delta.content
-            
-            # Process stream with timeout per chunk
-            buffer = []
-            last_yield = time.time()
-            
-            for token in iter_stream():
-                buffer.append(token)
                 
-                # Yield accumulated tokens every 50ms or when buffer is large
-                if len(buffer) >= 10 or (time.time() - last_yield) > 0.05:
-                    combined = "".join(buffer)
-                    buffer = []
-                    last_yield = time.time()
-                    yield ("token", combined)
-                    await asyncio.sleep(0)  # Allow other coroutines to run
-            
-            # Yield any remaining buffer
-            if buffer:
-                yield ("token", "".join(buffer))
-            
-            yield ("done", None)
-            
-        except asyncio.TimeoutError:
-            logger.error(f"Groq streaming timeout for topic '{topic}'", extra={"trace_id": trace_id})
-            yield ("error", "Request timed out. Please try again.")
-            
-        except Exception as e:
-            logger.error(f"Groq streaming error: {e}", extra={"trace_id": trace_id})
-            yield ("error", f"Generation failed: {str(e)[:100]}")
+                raw = response.choices[0].message.content or ""
+                data = _parse_llm_response(raw)
+                lesson = _extract_lesson_data(data)
+                
+                # Quality check
+                if not lesson.introduction or len(lesson.sections) < 1:
+                    raise ValueError("Low quality response")
+                
+                logger.info(
+                    f"LLM lesson generated for '{topic}'",
+                    extra={"trace_id": trace_id, "sections": len(lesson.sections)}
+                )
+                return lesson
+                
+            except asyncio.TimeoutError:
+                logger.warning(
+                    f"Groq timeout attempt {attempt + 1}/{max_retries}",
+                    extra={"trace_id": trace_id}
+                )
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+                
+            except Exception as e:
+                logger.warning(
+                    f"Groq error attempt {attempt + 1}/{max_retries}: {e}",
+                    extra={"trace_id": trace_id}
+                )
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(2 ** attempt)
+        
+        raise RuntimeError("Max retries exceeded")
 
 
 def _create_stub_lesson(topic: str) -> StructuredLessonResponse:
@@ -711,78 +532,6 @@ def _create_stub_lesson(topic: str) -> StructuredLessonResponse:
     )
 
 
-# -----------------------------------------------------------------------------
-# Non-Streaming Lesson Generation (for /api/structured-lesson)
-# -----------------------------------------------------------------------------
-async def _call_groq_api(
-    client: Groq,
-    topic: str,
-    age: Optional[int],
-    semaphore: asyncio.Semaphore,
-    trace_id: str,
-) -> StructuredLessonResponse:
-    """Call Groq API with proper timeout, retry, and rate limiting."""
-    async with semaphore:
-        loop = asyncio.get_event_loop()
-        
-        sys_prompt = _build_system_prompt(age)
-        user_prompt = f"Create a comprehensive lesson about: {topic}"
-        
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                response = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
-                        lambda: client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": sys_prompt},
-                                {"role": "user", "content": user_prompt},
-                            ],
-                            temperature=0.4,
-                            max_tokens=2000,
-                            top_p=0.9,
-                            stream=False,
-                        )
-                    ),
-                    timeout=45.0,
-                )
-                
-                raw = response.choices[0].message.content or ""
-                
-                # Parse using the incremental parser
-                state = StreamingLessonState()
-                parser = IncrementalLessonParser(state)
-                parser.feed(raw)
-                parser.finalize()
-                
-                lesson = state.to_response()
-                
-                if not lesson.introduction or len(lesson.sections) < 1:
-                    raise ValueError("Low quality response")
-                
-                logger.info(
-                    f"LLM lesson generated for '{topic}'",
-                    extra={"trace_id": trace_id, "sections": len(lesson.sections)}
-                )
-                return lesson
-                
-            except asyncio.TimeoutError:
-                logger.warning(f"Groq timeout attempt {attempt + 1}/{max_retries}", extra={"trace_id": trace_id})
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(2 ** attempt)
-                
-            except Exception as e:
-                logger.warning(f"Groq error attempt {attempt + 1}/{max_retries}: {e}", extra={"trace_id": trace_id})
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(2 ** attempt)
-        
-        raise RuntimeError("Max retries exceeded")
-
-
 async def get_or_compute_lesson(
     state: AppState,
     cache_key: str,
@@ -803,11 +552,12 @@ async def get_or_compute_lesson(
     
     state.metrics["cache_misses_total"] += 1
     
-    # Single-flight pattern
+    # Single-flight: check if already computing
     async with state.inflight_lock:
         if cache_key in state.inflight_lessons:
             task = state.inflight_lessons[cache_key]
         else:
+            # Create new task
             task = asyncio.create_task(
                 _compute_lesson_task(state, cache_key, topic, age, trace_id)
             )
@@ -816,6 +566,7 @@ async def get_or_compute_lesson(
     try:
         return await task
     finally:
+        # Cleanup
         async with state.inflight_lock:
             state.inflight_lessons.pop(cache_key, None)
 
@@ -861,10 +612,12 @@ async def lifespan(app: FastAPI):
     """Application lifespan: startup and shutdown logic."""
     global _app_state
     
+    # Startup
     logger.info("Starting Lana AI Backend...", extra={"trace_id": "startup"})
     _app_state = AppState()
     await _app_state.initialize()
     
+    # Start job workers (non-blocking)
     try:
         await start_job_workers()
         logger.info("Job workers started", extra={"trace_id": "startup"})
@@ -876,6 +629,7 @@ async def lifespan(app: FastAPI):
     
     yield
     
+    # Shutdown
     logger.info("Shutting down...", extra={"trace_id": "shutdown"})
     try:
         await stop_job_workers()
@@ -889,7 +643,7 @@ async def lifespan(app: FastAPI):
 async def _warm_up_cache(state: AppState):
     """Background task to warm up the lesson cache."""
     try:
-        await asyncio.sleep(1)
+        await asyncio.sleep(1)  # Let startup complete
         cache_key = hashlib.md5(b"warmup|10").hexdigest()[:16]
         await get_or_compute_lesson(state, cache_key, "warmup sample", 10, "warmup")
         logger.info("Cache warmup complete", extra={"trace_id": "warmup"})
@@ -908,6 +662,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# CORS configuration - explicit origins
 _settings = get_settings()
 _allowed_origins = _settings.cors_origins or [
     "http://localhost:3001",
@@ -938,13 +693,16 @@ async def root():
 
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health():
-    """Liveness probe."""
+    """Liveness probe - returns immediately if process is running."""
     return HealthResponse(status="ok")
 
 
 @app.get("/ready", response_model=ReadinessResponse, tags=["Health"])
 async def readiness(state: AppStateDep):
-    """Readiness probe - checks external dependencies."""
+    """
+    Readiness probe - checks external dependencies.
+    Returns 503 if any critical check fails.
+    """
     checks = {
         "groq": await state.check_groq_health(),
         "redis": await state.check_redis_health(),
@@ -958,6 +716,7 @@ async def readiness(state: AppStateDep):
     )
     
     if not checks["groq"]:
+        # Groq is critical - return 503
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=response.model_dump(),
@@ -988,7 +747,7 @@ async def create_structured_lesson(
     state: AppStateDep,
     trace_id: TraceIdDep,
 ):
-    """Create a structured lesson from a topic and optional age (non-streaming)."""
+    """Create a structured lesson from a topic and optional age."""
     state.metrics["requests_total"] += 1
     
     cache_key = hashlib.md5(f"{req.topic}|{req.age}".encode()).hexdigest()[:16]
@@ -1009,173 +768,35 @@ async def structured_lesson_stream(
     state: AppStateDep,
     trace_id: TraceIdDep,
 ):
-    """
-    Stream a structured lesson as Server-Sent Events.
+    """Stream a structured lesson as Server-Sent Events."""
     
-    Events emitted:
-    - `start`: Stream started, includes lesson ID
-    - `token`: Raw token chunk from LLM (for typing animation)
-    - `introduction`: Introduction text extracted
-    - `section`: A complete section extracted (includes index)
-    - `quiz`: A complete quiz question extracted (includes index)
-    - `classifications`: All classifications extracted
-    - `diagram`: Diagram content extracted
-    - `complete`: Final complete lesson object
-    - `error`: Error occurred
-    - `done`: Stream finished
-    
-    Client can render incrementally as events arrive.
-    """
-    state.metrics["stream_requests_total"] += 1
-    
-    cache_key = hashlib.md5(f"{req.topic}|{req.age}".encode()).hexdigest()[:16]
-    
-    async def event_generator() -> AsyncGenerator[str, None]:
-        lesson_state = StreamingLessonState()
-        parser = IncrementalLessonParser(lesson_state)
-        
+    async def event_generator():
         try:
-            # Check cache first
-            try:
-                cached = await state.cache.get(cache_key, namespace="lessons")
-                if cached:
-                    state.metrics["cache_hits_total"] += 1
-                    lesson = StructuredLessonResponse(**cached)
-                    
-                    # Emit cached lesson as complete immediately
-                    yield SSEEvent("start", {
-                        "id": lesson.id or str(uuid.uuid4()),
-                        "source": "cache",
-                        "cached": True
-                    }).encode()
-                    
-                    yield SSEEvent("complete", {
-                        "lesson": lesson.model_dump(exclude_none=True)
-                    }).encode()
-                    
-                    yield SSEEvent("done", {"success": True}).encode()
-                    return
-            except Exception as e:
-                logger.debug(f"Cache check error: {e}", extra={"trace_id": trace_id})
-            
-            state.metrics["cache_misses_total"] += 1
-            
-            # Check if Groq client is available
-            if not state.groq_client:
-                stub = _create_stub_lesson(req.topic)
-                yield SSEEvent("start", {"id": stub.id, "source": "stub"}).encode()
-                yield SSEEvent("complete", {"lesson": stub.model_dump(exclude_none=True)}).encode()
-                yield SSEEvent("done", {"success": True}).encode()
-                return
-            
-            # Start streaming
-            yield SSEEvent("start", {
-                "id": lesson_state.id,
-                "source": "llm",
-                "topic": req.topic,
-            }).encode()
-            
-            state.metrics["llm_calls_total"] += 1
-            token_count = 0
-            error_occurred = False
-            
-            # Stream tokens from Groq
-            async for event_type, content in stream_lesson_from_groq(
-                state.groq_client,
-                req.topic,
-                req.age,
-                state.llm_semaphore,
-                trace_id,
-            ):
-                # Check if client disconnected
-                if await request.is_disconnected():
-                    logger.info(f"Client disconnected during stream", extra={"trace_id": trace_id})
-                    return
-                
-                if event_type == "token" and content:
-                    token_count += len(content)
-                    
-                    # Emit raw token for typing animation
-                    yield SSEEvent("token", {"content": content}).encode()
-                    
-                    # Feed to parser and emit any extracted objects
-                    events = parser.feed(content)
-                    for evt in events:
-                        yield evt.encode()
-                
-                elif event_type == "error":
-                    error_occurred = True
-                    state.metrics["errors_total"] += 1
-                    yield SSEEvent("error", {"message": content}).encode()
-                
-                elif event_type == "done":
-                    pass  # Will handle finalization below
-            
-            if error_occurred:
-                # Fall back to stub on error
-                stub = _create_stub_lesson(req.topic)
-                yield SSEEvent("complete", {"lesson": stub.model_dump(exclude_none=True)}).encode()
-                yield SSEEvent("done", {"success": False}).encode()
-                return
-            
-            # Finalize parsing
-            final_events = parser.finalize()
-            for evt in final_events:
-                yield evt.encode()
-            
-            # Build final lesson
-            lesson = lesson_state.to_response()
-            
-            # Quality check
-            if not lesson.introduction or len(lesson.sections) < 1:
-                logger.warning(
-                    f"Low quality streamed response for '{req.topic}'",
-                    extra={"trace_id": trace_id}
-                )
-                # Still return what we got, but mark it
-                yield SSEEvent("warning", {
-                    "message": "Response quality may be limited"
-                }).encode()
-            
-            # Cache the result
-            try:
-                await state.cache.set(cache_key, lesson.model_dump(), namespace="lessons")
-            except Exception as e:
-                logger.debug(f"Cache set error: {e}", extra={"trace_id": trace_id})
-            
-            # Emit complete lesson
-            yield SSEEvent("complete", {
-                "lesson": lesson.model_dump(exclude_none=True),
-                "token_count": token_count,
-            }).encode()
-            
-            yield SSEEvent("done", {"success": True}).encode()
-            
-            logger.info(
-                f"Streamed lesson complete for '{req.topic}': "
-                f"{len(lesson.sections)} sections, {len(lesson.quiz)} quiz items, "
-                f"{token_count} tokens",
-                extra={"trace_id": trace_id}
+            cache_key = hashlib.md5(f"{req.topic}|{req.age}".encode()).hexdigest()[:16]
+            lesson, source = await get_or_compute_lesson(
+                state, cache_key, req.topic, req.age, trace_id
             )
             
+            lesson_dict = lesson.model_dump(exclude_none=True)
+            payload = orjson.dumps({"type": "done", "lesson": lesson_dict, "source": source})
+            yield f"data: {payload.decode()}\n\n"
+            
         except asyncio.CancelledError:
-            logger.info("Stream cancelled by client", extra={"trace_id": trace_id})
+            logger.info("SSE client disconnected", extra={"trace_id": trace_id})
             raise
         except Exception as e:
             state.metrics["errors_total"] += 1
-            logger.exception(f"Stream error: {e}", extra={"trace_id": trace_id})
-            yield SSEEvent("error", {"message": f"Stream failed: {str(e)[:100]}"}).encode()
-            yield SSEEvent("done", {"success": False}).encode()
+            error_payload = orjson.dumps({"type": "error", "message": str(e)})
+            yield f"data: {error_payload.decode()}\n\n"
     
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
         headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
             "X-Trace-ID": trace_id,
-            "Content-Type": "text/event-stream; charset=utf-8",
         },
     )
 
@@ -1187,7 +808,10 @@ async def reset_cache(
     x_api_key: Annotated[Optional[str], Header()] = None,
     namespaces: Optional[list[str]] = None,
 ):
-    """Reset in-memory caches. Requires API key authentication."""
+    """
+    Reset in-memory caches. Requires API key authentication.
+    """
+    # Simple API key auth for admin endpoints
     settings = get_settings()
     expected_key = getattr(settings, "admin_api_key", None)
     
@@ -1204,7 +828,10 @@ async def reset_cache(
         else:
             state.cache._caches.clear()
         
-        logger.info(f"Cache reset: {namespaces or 'all'}", extra={"trace_id": trace_id})
+        logger.info(
+            f"Cache reset: {namespaces or 'all'}",
+            extra={"trace_id": trace_id}
+        )
         return {"ok": True, "namespaces": namespaces or "all"}
     except Exception as e:
         logger.error(f"Cache reset failed: {e}", extra={"trace_id": trace_id})

@@ -4,21 +4,22 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+import { useRobustAuth } from "@/contexts/RobustAuthContext";
 
 export default function AutoLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { checkAuthStatus } = useRobustAuth();
   const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
 
   useEffect(() => {
     const autoLogin = async () => {
       setStatus("confirming");
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
-
-        const user = session?.user;
+        // Force refresh the authentication status
+        const authResult = await checkAuthStatus(true);
+        
+        const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
 
         // Check if user has completed onboarding
@@ -96,7 +97,7 @@ export default function AutoLoginPage() {
     };
 
     autoLogin();
-  }, [router, toast]);
+  }, [router, toast, checkAuthStatus]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">

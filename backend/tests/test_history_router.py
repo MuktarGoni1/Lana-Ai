@@ -1,7 +1,12 @@
+import sys
+import os
+# Add the parent directory to the path so we can import the main module
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 from fastapi.testclient import TestClient
 import pytest
 
-from backend.main import app
+from main import app
 from app.api.routes.history import get_current_user, CurrentUser, get_history_service
 from app.services.history_service import HistoryService, ForbiddenError
 

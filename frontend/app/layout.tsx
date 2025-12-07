@@ -6,7 +6,9 @@ import { ClientProviders } from './providers'
 import { ThemeProvider } from 'next-themes'
 import { LocalChildrenManager } from '@/components/local-children-manager'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { RobustAuthProvider } from '@/contexts/RobustAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
+import { SessionMonitor } from '@/components/auth/SessionMonitor'
 
 export const metadata: Metadata = {
   title: 'lana-ai',
@@ -22,11 +24,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <AuthProvider>
-            <ClientProviders>
-              {children}
-              <LocalChildrenManager />
-              <SessionTimeoutHandler />
-            </ClientProviders>
+            <RobustAuthProvider>
+              <ClientProviders>
+                {children}
+                <LocalChildrenManager />
+                <SessionTimeoutHandler />
+                <SessionMonitor />
+              </ClientProviders>
+            </RobustAuthProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>
