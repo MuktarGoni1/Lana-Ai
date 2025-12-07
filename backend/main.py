@@ -1,6 +1,5 @@
 """
 Production-grade FastAPI backend for Lana AI with true streaming support.
-Optimized for 10k+ RPS with proper error handling, observability, and security.
 """
 
 from __future__ import annotations
@@ -259,7 +258,7 @@ class AppState:
     
     def __init__(self):
         self.settings = get_settings()
-        self.cache = MemoryCacheRepository(default_ttl=1800, max_size=10000)
+        self.cache = MemoryCacheRepository(default_ttl=1800, maxsize=10000)
         self.groq_client: Optional[Groq] = None
         self.redis_client = None
         self.inflight_lock = asyncio.Lock()
