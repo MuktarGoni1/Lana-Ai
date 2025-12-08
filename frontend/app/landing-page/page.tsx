@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useAuth } from "@/hooks/useAuth"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 import {
 CheckCircle2,
 ArrowRight,
@@ -70,7 +70,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useAuth()
+  const { user } = useUnifiedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 backdrop-blur">
@@ -181,7 +181,7 @@ function Header() {
 
 /* ---------- HERO ---------- */
 function HeroSection() {
-  const { user } = useAuth()
+  const { user } = useUnifiedAuth()
 
   return (
     <section id="hero" className="py-20 md:py-32">
@@ -369,7 +369,7 @@ function PricingSection() {
 
 /* ---------- CTA ---------- */
 function CtaSection() {
-  const { user } = useAuth()
+  const { user } = useUnifiedAuth()
 
   return (
     <section id="get-started" className="py-20 md:py-32">

@@ -42,6 +42,9 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
+// Mock setTimeout to execute immediately
+jest.useFakeTimers();
+
 describe('Onboarding Flow Tests', () => {
   const mockPush = jest.fn();
   const mockReplace = jest.fn();
@@ -60,6 +63,10 @@ describe('Onboarding Flow Tests', () => {
         toast: mockToast,
       }),
     }));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('Term Plan Page', () => {
@@ -288,6 +295,9 @@ describe('Onboarding Flow Tests', () => {
       });
 
       render(<TermPlanPage />);
+      
+      // Fast-forward the timer
+      jest.advanceTimersByTime(3000);
       
       await waitFor(() => {
         expect(mockPush).toHaveBeenCalledWith('/login');

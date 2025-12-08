@@ -1,8 +1,8 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import AuthGuard from '@/components/auth-guard';
-import GuestGuard from '@/components/guest-guard';
-import { AuthProvider } from '@/contexts/AuthContext';
+import AuthGuard from '../components/auth-guard';
+import GuestGuard from '../components/guest-guard';
+import { UnifiedAuthProvider } from '../contexts/UnifiedAuthContext';
 import '@testing-library/jest-dom';
 
 // Mock Supabase client
@@ -25,6 +25,31 @@ jest.mock('next/navigation', () => ({
   })
 }));
 
+// Mock the enhanced auth service
+jest.mock('@/lib/services/enhancedAuthService', () => {
+  return {
+    EnhancedAuthService: {
+      getInstance: () => ({
+        subscribe: jest.fn().mockImplementation((callback) => {
+          callback({
+            user: { id: '1', email: 'test@example.com' },
+            isAuthenticated: true,
+            isLoading: false,
+            error: null
+          });
+          return jest.fn(); // unsubscribe function
+        }),
+        checkAuthStatus: jest.fn().mockResolvedValue({
+          user: { id: '1', email: 'test@example.com' },
+          isAuthenticated: true,
+          isLoading: false,
+          error: null
+        })
+      })
+    }
+  };
+});
+
 describe('Auth Guards', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -39,11 +64,11 @@ describe('Auth Guards', () => {
       });
 
       render(
-        <AuthProvider>
+        <UnifiedAuthProvider>
           <AuthGuard>
             <div data-testid="protected-content">Protected Content</div>
           </AuthGuard>
-        </AuthProvider>
+        </UnifiedAuthProvider>
       );
 
       await waitFor(() => {
@@ -59,11 +84,11 @@ describe('Auth Guards', () => {
       });
 
       render(
-        <AuthProvider>
+        <UnifiedAuthProvider>
           <AuthGuard>
             <div data-testid="protected-content">Protected Content</div>
           </AuthGuard>
-        </AuthProvider>
+        </UnifiedAuthProvider>
       );
 
       // Wait for redirect to happen
@@ -84,11 +109,11 @@ describe('Auth Guards', () => {
       });
 
       render(
-        <AuthProvider>
+        <UnifiedAuthProvider>
           <GuestGuard>
             <div data-testid="guest-content">Guest Content</div>
           </GuestGuard>
-        </AuthProvider>
+        </UnifiedAuthProvider>
       );
 
       await waitFor(() => {
@@ -104,11 +129,11 @@ describe('Auth Guards', () => {
       });
 
       render(
-        <AuthProvider>
+        <UnifiedAuthProvider>
           <GuestGuard>
             <div data-testid="guest-content">Guest Content</div>
           </GuestGuard>
-        </AuthProvider>
+        </UnifiedAuthProvider>
       );
 
       // Wait for redirect to happen

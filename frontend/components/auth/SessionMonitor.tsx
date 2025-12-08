@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useCallback } from 'react';
-import { useRobustAuth } from '@/contexts/RobustAuthContext';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 export function SessionMonitor() {
-  const { checkAuthStatus, isAuthenticated, user } = useRobustAuth();
+  const { checkAuthStatus, isAuthenticated, user } = useUnifiedAuth();
   const { toast } = useToast();
 
   // Function to handle session checks

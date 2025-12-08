@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
+import { authLogger } from './authLogger';
 
 export interface AuthState {
   user: User | null;
@@ -31,17 +32,33 @@ export class EnhancedAuthService {
 
   private initializeAuthListener() {
     // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
+    supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[EnhancedAuthService] Auth state changed:', event);
       
       switch (event) {
         case 'SIGNED_IN':
+          // Check if this was a guest user who just converted
+          let guestId = null;
+          if (typeof window !== 'undefined') {
+            guestId = localStorage.getItem('lana_guest_id');
+          }
+          
           this.updateAuthState({
             user: session?.user || null,
             isAuthenticated: !!session?.user,
             isLoading: false,
             error: null
           });
+          
+          // Log guest conversion completion if this was a guest user
+          if (guestId && session?.user) {
+            await authLogger.logGuestConversionComplete(session.user.id, session.user.email);
+            
+            // Clear the guest cookie since conversion is complete
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('lana_guest_id');
+            }
+          }
           break;
           
         case 'SIGNED_OUT':
@@ -153,6 +170,17 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, email);
+      }
+      
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
@@ -166,6 +194,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: error.message 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, error.message, email);
+        }
+        
         return { success: false, error: error.message };
       }
 
@@ -178,6 +212,17 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, email);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }
@@ -251,6 +296,17 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, email);
+      }
+      
       // First create/update guardian record
       const { error: insertError } = await supabase
         .from("guardians")
@@ -279,6 +335,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: error.message 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, error.message, email);
+        }
+        
         return { success: false, error: error.message };
       }
 
@@ -291,6 +353,17 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, email);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }
@@ -298,6 +371,17 @@ export class EnhancedAuthService {
   async registerChild(nickname: string, age: number, grade: string, guardianEmail: string): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
       this.updateAuthState({ isLoading: true, error: null });
+      
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, guardianEmail);
+      }
       
       const response = await fetch('/api/auth/register-child', {
         method: 'POST',
@@ -321,6 +405,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: errorMessage 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, errorMessage, guardianEmail);
+        }
+        
         return { success: false, error: errorMessage };
       }
 
@@ -341,6 +431,17 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, guardianEmail);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }

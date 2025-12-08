@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useRobustAuth } from "@/contexts/RobustAuthContext";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
@@ -109,7 +109,7 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const { loginWithEmail, isLoading } = useRobustAuth();
+  const { loginWithEmail, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -196,7 +196,7 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loginWithEmail, isLoading } = useRobustAuth();
+  const { loginWithEmail, isLoading } = useUnifiedAuth();
   const [email, setEmail] = useState("");
 
   const handleChildSubmit = async (e: React.FormEvent) => {
@@ -285,7 +285,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
-  const { isAuthenticated, isLoading } = useRobustAuth();
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
 
   // Redirect authenticated users
