@@ -262,7 +262,7 @@ export class EnhancedAuthService {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: "https://www.lanamind.com/auth/auto-login",
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
           scopes: 'openid email profile',
         },
       });
@@ -325,7 +325,7 @@ export class EnhancedAuthService {
         email: email.trim().toLowerCase(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
+          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
         },
       });
 

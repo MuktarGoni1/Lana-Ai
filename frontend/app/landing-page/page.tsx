@@ -238,13 +238,11 @@ function HeroSection() {
           </ul>
         </div>
         <div className="relative h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl">
-          <Image 
+          <img 
             src="/first-section.jpg" 
             alt="Lana AI hero" 
-            fill 
-            priority 
-            className="object-cover" 
-            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover w-full h-full"
+            loading="eager"
           />
         </div>
       </div>

@@ -1,21 +1,60 @@
 "use client";
 
-import React, { useEffect, useCallback } from 'react';
-import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
+// Create a safe version of useUnifiedAuth that doesn't throw during SSR
+function useSafeUnifiedAuth() {
+  const [authState, setAuthState] = useState<{
+    checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
+    isAuthenticated: boolean;
+    user: any;
+  } | null>(null);
+
+  useEffect(() => {
+    // Dynamically import the useUnifiedAuth hook only on the client side
+    const loadAuth = async () => {
+      try {
+        const { useUnifiedAuth } = await import('@/contexts/UnifiedAuthContext');
+        // Try to use the hook, but catch any errors
+        try {
+          const auth = useUnifiedAuth();
+          setAuthState({
+            checkAuthStatus: auth.checkAuthStatus,
+            isAuthenticated: auth.isAuthenticated,
+            user: auth.user,
+          });
+        } catch (error) {
+          // If useUnifiedAuth throws (e.g., outside provider), set to null state
+          setAuthState(null);
+        }
+      } catch (error) {
+        // If import fails, set to null state
+        setAuthState(null);
+      }
+    };
+
+    loadAuth();
+  }, []);
+
+  return authState;
+}
+
 export function SessionMonitor() {
-  const { checkAuthStatus, isAuthenticated, user } = useUnifiedAuth();
+  const auth = useSafeUnifiedAuth();
   const { toast } = useToast();
+  const [isInitialized, setIsInitialized] = useState(false);
 
   // Function to handle session checks
   const performSessionCheck = useCallback(async () => {
+    if (!auth) return;
+    
     try {
       console.log('[SessionMonitor] Performing periodic session check');
-      const result = await checkAuthStatus(true); // Force refresh
+      const result = await auth.checkAuthStatus(true); // Force refresh
       
       // If user was authenticated but is no longer, show notification
-      if (!result.isAuthenticated && isAuthenticated) {
+      if (!result.isAuthenticated && auth.isAuthenticated) {
         console.log('[SessionMonitor] User session expired or invalidated');
         toast({
           title: "Session Expired",
@@ -38,10 +77,14 @@ export function SessionMonitor() {
         variant: "destructive",
       });
     }
-  }, [checkAuthStatus, isAuthenticated, toast]);
+  }, [auth, toast]);
 
   // Set up periodic session monitoring
   useEffect(() => {
+    if (!auth || isInitialized) return;
+    
+    setIsInitialized(true);
+    
     // Check session immediately when component mounts
     performSessionCheck();
     
@@ -53,10 +96,12 @@ export function SessionMonitor() {
       console.log('[SessionMonitor] Cleaning up session monitoring');
       clearInterval(intervalId);
     };
-  }, [performSessionCheck]);
+  }, [auth, performSessionCheck, isInitialized]);
 
   // Set up visibility change listener to check session when user returns to tab
   useEffect(() => {
+    if (!auth) return;
+    
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log('[SessionMonitor] Tab became visible, checking session');
@@ -69,10 +114,12 @@ export function SessionMonitor() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [performSessionCheck]);
+  }, [auth, performSessionCheck]);
 
   // Set up online/offline event listeners
   useEffect(() => {
+    if (!auth) return;
+    
     const handleOnline = () => {
       console.log('[SessionMonitor] Browser went online, checking session');
       performSessionCheck();
@@ -98,7 +145,7 @@ export function SessionMonitor() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [performSessionCheck, toast]);
+  }, [auth, performSessionCheck, toast]);
 
   // This component doesn't render anything visible
   return null;

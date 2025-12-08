@@ -1,31 +1,71 @@
 "use client";
 
-import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { LogOut } from "lucide-react";
 
+// Create a safe version of useAuth that doesn't throw during SSR
+function useSafeAuth() {
+  const [authState, setAuthState] = useState<{
+    user: any;
+    loading: boolean;
+    signOut: () => Promise<void>;
+  } | null>(null);
+
+  useEffect(() => {
+    // Dynamically import the useAuth hook only on the client side
+    const loadAuth = async () => {
+      try {
+        const { useAuth } = await import("@/hooks/useAuth");
+        // Try to use the hook, but catch any errors
+        try {
+          const auth = useAuth();
+          setAuthState(auth);
+        } catch (error) {
+          // If useAuth throws (e.g., outside provider), set to null state
+          setAuthState({
+            user: null,
+            loading: false,
+            signOut: async () => {},
+          });
+        }
+      } catch (error) {
+        // If import fails, set to null state
+        setAuthState({
+          user: null,
+          loading: false,
+          signOut: async () => {},
+        });
+      }
+    };
+
+    loadAuth();
+  }, []);
+
+  return authState;
+}
+
 export function AuthIndicator() {
-  const { user, loading, signOut } = useAuth();
+  const auth = useSafeAuth();
   const [isVisible, setIsVisible] = useState(false);
 
   // Handle visibility with a slight delay to ensure auth state is loaded
   useEffect(() => {
-    if (!loading) {
-      setIsVisible(!!user);
+    if (auth && !auth.loading) {
+      setIsVisible(!!auth.user);
     }
-  }, [user, loading]);
+  }, [auth]);
+
+  if (!auth || auth.loading || !isVisible) {
+    return null;
+  }
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await auth.signOut();
     } catch (error) {
       console.error('Logout error:', error);
     }
   };
-
-  if (loading || !isVisible) {
-    return null;
-  }
 
   return (
     <div 

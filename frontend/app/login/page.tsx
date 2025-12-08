@@ -73,6 +73,34 @@ const PrimaryButton = ({
   </button>
 );
 
+const SecondaryButton = ({ 
+  loading, 
+  children, 
+  ...props 
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
+  <button
+    {...props}
+    suppressHydrationWarning
+    disabled={loading || props.disabled}
+    className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+             text-white font-medium text-sm
+             hover:bg-white/[0.1] transition-all duration-200
+             disabled:opacity-50 disabled:cursor-not-allowed
+             flex items-center justify-center gap-3"
+  >
+    {loading ? (
+      <>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading...</span>
+      </>
+    ) : (
+      <>
+        {children}
+      </>
+    )}
+  </button>
+);
+
 const BackButton = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
@@ -109,7 +137,7 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const { loginWithEmail, isLoading } = useUnifiedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -151,6 +179,27 @@ function ParentFlow() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await loginWithGoogle();
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // For Google login, the redirect happens automatically
+    } catch (error: unknown) {
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   return (
     <FormWrapper>
       <FormCard>
@@ -177,8 +226,22 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Login
+              Login with Email
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
+              <Chrome className="h-4 w-4" />
+              Login with Google
+            </SecondaryButton>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -196,7 +259,7 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loginWithEmail, isLoading } = useUnifiedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
   const [email, setEmail] = useState("");
 
   const handleChildSubmit = async (e: React.FormEvent) => {
@@ -239,6 +302,27 @@ function ChildFlow() {
     }
   };
 
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await loginWithGoogle();
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // For Google login, the redirect happens automatically
+    } catch (error: unknown) {
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
   return (
     <FormWrapper>
       <FormCard>
@@ -265,8 +349,22 @@ function ChildFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Login
+              Login with Email
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
+              <Chrome className="h-4 w-4" />
+              Login with Google
+            </SecondaryButton>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication

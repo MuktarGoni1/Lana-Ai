@@ -9,12 +9,48 @@ import { UserIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { User as SupabaseUser } from "@supabase/supabase-js"
 import { AuthGuard } from "@/components/auth/AuthGuard"
-import { useRobustAuth } from "@/contexts/RobustAuthContext"
+
+// Create a safe version of useRobustAuth that doesn't throw during SSR
+function useSafeRobustAuth() {
+  const [authState, setAuthState] = useState<{
+    user: SupabaseUser | null;
+    isAuthenticated: boolean;
+    isLoading: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    // Dynamically import the useRobustAuth hook only on the client side
+    const loadAuth = async () => {
+      try {
+        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
+        // Try to use the hook, but catch any errors
+        try {
+          const auth = useRobustAuth();
+          setAuthState({
+            user: auth.user,
+            isAuthenticated: auth.isAuthenticated,
+            isLoading: auth.isLoading,
+          });
+        } catch (error) {
+          // If useRobustAuth throws (e.g., outside provider), set to null state
+          setAuthState(null);
+        }
+      } catch (error) {
+        // If import fails, set to null state
+        setAuthState(null);
+      }
+    };
+
+    loadAuth();
+  }, []);
+
+  return authState;
+}
 
 export default function SettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, isAuthenticated, isLoading } = useRobustAuth()
+  const auth = useSafeRobustAuth()
   const [role, setRole]           = useState<"child" | "guardian" | null>(null)
   const [weekly, setWeekly]       = useState(true)
   const [monthly, setMonthly]     = useState(false)
@@ -23,19 +59,24 @@ export default function SettingsPage() {
 
   useEffect(() => {
     // Guard against unauthenticated access
-    if (!isLoading && !isAuthenticated) {
+    if (!auth) {
       router.push("/login")
       return
     }
     
-    if (user) {
-      const meta = user.user_metadata
+    if (!auth.isLoading && !auth.isAuthenticated) {
+      router.push("/login")
+      return
+    }
+    
+    if (auth.user) {
+      const meta = auth.user.user_metadata
       setRole(meta?.role ?? "child")
       setParentEmail(meta?.guardian_email ?? "")
       setDark(localStorage.getItem("theme") === "dark")
-      if (meta?.role === "guardian" && user.email) loadParentPrefs(user.email)
+      if (meta?.role === "guardian" && auth.user.email) loadParentPrefs(auth.user.email)
     }
-  }, [user, isAuthenticated, isLoading, router])
+  }, [auth, router])
 
   async function loadParentPrefs(email: string) {
     // Only load prefs if email is provided
@@ -62,7 +103,7 @@ export default function SettingsPage() {
   }
 
   // Show loading state while checking auth
-  if (isLoading) {
+  if (!auth || auth.isLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center">
@@ -111,7 +152,7 @@ export default function SettingsPage() {
           </section>
 
           {/* ----- Parent full controls ----- */}
-          {role === "guardian" && user?.email && (
+          {role === "guardian" && auth.user?.email && (
             <section className="space-y-4">
               <h2 className="text-xl font-semibold">Parent controls</h2>
               <button
@@ -123,7 +164,7 @@ export default function SettingsPage() {
                       .update({ 
                         'weekly_report': !weekly
                       })
-                      .eq("email", user.email!)
+                      .eq("email", auth.user!.email!)
                     if (result.error) throw result.error
                     setWeekly(!weekly)
                     toast({ title: "Updated", description: `Switched to ${!weekly ? "weekly" : "monthly"} reports.` })

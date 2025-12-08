@@ -4,9 +4,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { RobustAuthService, type RobustAuthState } from '@/lib/services/robustAuthService';
+import { consolidatedAuthService, type ConsolidatedAuthState } from '@/lib/services/consolidatedAuthService';
 
-interface UnifiedAuthContextType {
+interface ConsolidatedAuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -18,14 +18,15 @@ interface UnifiedAuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setUser: (user: User | null) => void;
-  checkAuthStatus: (forceRefresh?: boolean) => Promise<RobustAuthState>;
+  checkAuthStatus: (forceRefresh?: boolean) => Promise<ConsolidatedAuthState>;
   getUserRole: () => 'child' | 'guardian' | 'parent' | null;
   isOnboardingComplete: () => boolean;
+  completeOnboarding: () => Promise<{ success: boolean; error?: string }>;
 }
 
-const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
+const ConsolidatedAuthContext = createContext<ConsolidatedAuthContextType | undefined>(undefined);
 
-export function UnifiedAuthProvider({ children }: { children: React.ReactNode }) {
+export function ConsolidatedAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -33,15 +34,13 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
   const [lastChecked, setLastChecked] = useState<number | null>(null);
   const router = useRouter();
 
-  const authService = RobustAuthService.getInstance();
-
   // Refresh user data from Supabase
   const refreshUser = useCallback(async () => {
     try {
       const { data: { user: currentUser }, error } = await supabase.auth.getUser();
       
       if (error) {
-        console.error('[UnifiedAuthContext] Error refreshing user:', error);
+        console.error('[ConsolidatedAuthContext] Error refreshing user:', error);
         setUser(null);
         setIsAuthenticated(false);
         setError(error.message);
@@ -52,7 +51,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsAuthenticated(!!currentUser);
       setError(null);
     } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected error refreshing user:', error);
+      console.error('[ConsolidatedAuthContext] Unexpected error refreshing user:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -63,7 +62,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
   const checkAuthStatus = useCallback(async (forceRefresh = false) => {
     try {
       setIsLoading(true);
-      const state = await authService.checkAuthStatus(forceRefresh);
+      const state = await consolidatedAuthService.checkAuthStatus(forceRefresh);
       setUser(state.user);
       setIsAuthenticated(state.isAuthenticated);
       setError(state.error);
@@ -71,7 +70,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsLoading(false);
       return state;
     } catch (error) {
-      console.error('[UnifiedAuthContext] Error checking auth status:', error);
+      console.error('[ConsolidatedAuthContext] Error checking auth status:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -85,7 +84,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
         lastChecked: Date.now()
       };
     }
-  }, [authService]);
+  }, []);
 
   // Initialize auth state
   useEffect(() => {
@@ -96,7 +95,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     initializeAuth();
 
     // Listen for auth state changes
-    const unsubscribe = authService.subscribe((state) => {
+    const unsubscribe = consolidatedAuthService.subscribe((state) => {
       setUser(state.user);
       setIsAuthenticated(state.isAuthenticated);
       setIsLoading(state.isLoading);
@@ -107,54 +106,30 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     return () => {
       unsubscribe();
     };
-  }, [checkAuthStatus, authService]);
+  }, [checkAuthStatus]);
 
   const login = useCallback(async (email: string) => {
     try {
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
         },
       });
 
       if (error) throw error;
     } catch (error) {
-      console.error('[UnifiedAuthContext] Login error:', error);
+      console.error('[ConsolidatedAuthContext] Login error:', error);
       throw error;
     }
   }, []);
 
   const loginWithEmail = useCallback(async (email: string) => {
-    return await authService.loginWithEmail(email);
-  }, [authService]);
+    return await consolidatedAuthService.loginWithEmail(email);
+  }, []);
 
   const loginWithGoogle = useCallback(async () => {
-    try {
-      // Use the authService to handle Google login
-      // We'll implement this by calling the Supabase OAuth method directly
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
-          scopes: 'openid email profile',
-        },
-      });
-
-      if (error) {
-        console.error('[UnifiedAuthContext] Google login error:', error);
-        return { success: false, error: error.message };
-      }
-
-      // For OAuth, the redirect happens automatically
-      return { success: true };
-    } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected Google login error:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred during Google login' 
-      };
-    }
+    return await consolidatedAuthService.loginWithGoogle();
   }, []);
 
   const logout = useCallback(async () => {
@@ -167,7 +142,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsAuthenticated(false);
       router.push('/login');
     } catch (error) {
-      console.error('[UnifiedAuthContext] Logout error:', error);
+      console.error('[ConsolidatedAuthContext] Logout error:', error);
       throw error;
     }
   }, [router]);
@@ -194,6 +169,11 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     );
   }, [user]);
 
+  // Complete onboarding
+  const completeOnboarding = useCallback(async () => {
+    return await consolidatedAuthService.completeOnboarding();
+  }, []);
+
   const value = {
     user,
     isLoading,
@@ -208,20 +188,21 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     setUser,
     checkAuthStatus,
     getUserRole,
-    isOnboardingComplete
+    isOnboardingComplete,
+    completeOnboarding
   };
 
   return (
-    <UnifiedAuthContext.Provider value={value}>
+    <ConsolidatedAuthContext.Provider value={value}>
       {children}
-    </UnifiedAuthContext.Provider>
+    </ConsolidatedAuthContext.Provider>
   );
 }
 
-export function useUnifiedAuth() {
-  const context = useContext(UnifiedAuthContext);
+export function useConsolidatedAuth() {
+  const context = useContext(ConsolidatedAuthContext);
   if (context === undefined) {
-    throw new Error('useUnifiedAuth must be used within a UnifiedAuthProvider');
+    throw new Error('useConsolidatedAuth must be used within a ConsolidatedAuthProvider');
   }
   return context;
 }

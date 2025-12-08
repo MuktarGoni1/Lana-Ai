@@ -9,7 +9,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
-
+import { dataSyncService } from '@/lib/services/dataSyncService';
+import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler';
 /* ---------- Types ---------- */
 interface Topic {
   id: string;
@@ -62,12 +63,13 @@ function TermPlanPageContent() {
 
   // Save subjects to localStorage whenever they change
   useEffect(() => {
+    // Reset error handler on successful page load
+    resetErrorHandler();
+    
     if (typeof window !== 'undefined') {
       localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
     }
-  }, [subjects]);
-
-  // Check if user is a child user
+  }, [subjects]);  // Check if user is a child user
   useEffect(() => {
     if (user) {
       const isChild = user.email?.endsWith('@child.lana') || false;
@@ -78,12 +80,19 @@ function TermPlanPageContent() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // Delay the redirect slightly to show the error message
-      const timer = setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-      
-      return () => clearTimeout(timer);
+      try {
+        // Delay the redirect slightly to show the error message
+        const timer = setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      } catch (err: any) {
+        console.error('[term-plan] auth redirect error:', err.message);
+        console.error('[term-plan] auth redirect error details:', err);
+        // Use our error handler to reload the page instead of redirecting
+        handleErrorWithReload(err, "Authentication check failed. Reloading page to try again...");
+      }
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -107,14 +116,8 @@ function TermPlanPageContent() {
     } catch (err: any) {
       console.error('[term-plan] Error saving plan locally:', err.message);
       console.error('[term-plan] Save error details:', err);
-      toast({ 
-        title: 'Save Error', 
-        description: 'Failed to save your study plan locally.',
-        variant: "destructive"
-      });
-      
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
+      // Use our error handler to reload the page instead of continuing
+      handleErrorWithReload(err, "Failed to save study plan locally. Reloading page to try again...");
     } finally {
       setSaving(false);
     }
@@ -179,13 +182,8 @@ function TermPlanPageContent() {
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
-      toast({ 
-        title: 'Onboarding Completed with Issues', 
-        description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
-      });
-      // Even if there's an error, redirect to homepage
-      console.log('[term-plan] redirecting to homepage despite error');
-      router.push('/homepage');
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Onboarding completion failed. Reloading page to try again...");
     } finally {
       setSaving(false);
     }
@@ -199,57 +197,45 @@ function TermPlanPageContent() {
       console.log('[term-plan] Number of subjects to save:', subjects.length);
       
       // Try to save to backend first
-      try {
-        if (!user?.email) {
-          throw new Error('No authenticated user found');
-        }
-        
-        // Save to backend API
-        const response = await fetch('/api/study-plan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: user.email,
-            subjects
-          }),
-        });
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-          throw new Error(result.message || 'Failed to save study plan');
-        }
-        
-        console.log('[term-plan] Successfully saved subjects and topics to backend');
-        toast({ 
-          title: 'Plan Saved', 
-          description: 'Your study plan has been saved successfully.' 
-        });
-      } catch (err: any) {
-        // If backend save fails, save locally
-        console.error('[term-plan] Backend save failed, saving locally:', err.message);
-        localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
-        toast({ 
-          title: 'Plan Saved Locally', 
-          description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
-        });
+      if (!user?.email) {
+        throw new Error('No authenticated user found');
       }
+      
+      // Save to backend API
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          subjects
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save study plan');
+      }
+      
+      console.log('[term-plan] Successfully saved subjects and topics to backend');
+      toast({ 
+        title: 'Plan Saved', 
+        description: 'Your study plan has been saved successfully.' 
+      });
+      
+      // Clear local storage after successful save
+      localStorage.removeItem('lana_study_plan');
       
       // Complete onboarding
       await completeOnboardingAndRedirect();
     } catch (err: any) {
       console.error('[term-plan] Error saving plan:', err.message);
       console.error('[term-plan] Save error details:', err);
-      toast({ 
-        title: 'Save Error', 
-        description: 'Failed to save your study plan. Continuing to dashboard anyway.',
-        variant: "destructive"
-      });
       
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
+      // Use our error handler to reload the page instead of continuing
+      handleErrorWithReload(err, "Failed to save study plan. Reloading page to try again...");
     } finally {
       setSaving(false);
     }
@@ -260,9 +246,16 @@ function TermPlanPageContent() {
   
   // Skip to homepage functionality
   const handleSkipToHomepage = () => {
-    // Redirect to homepage when skipping
-    console.log('[term-plan] skipping to homepage');
-    router.push('/homepage');
+    try {
+      // Redirect to homepage when skipping
+      console.log('[term-plan] skipping to homepage');
+      router.push('/homepage');
+    } catch (err: any) {
+      console.error('[term-plan] skip error:', err.message);
+      console.error('[term-plan] skip error details:', err);
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Failed to skip to homepage. Reloading page to try again...");
+    }
   };
 
   const addSubject = () => {

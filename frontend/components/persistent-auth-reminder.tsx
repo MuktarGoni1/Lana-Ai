@@ -2,13 +2,53 @@
 
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ToastAction } from "@/components/ui/toast";
 
+// Create a safe version of useEnhancedAuth that doesn't throw during SSR
+function useSafeEnhancedAuth() {
+  const [authState, setAuthState] = useState<{
+    isAuthenticated: boolean;
+    isLoading: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    // Dynamically import the useEnhancedAuth hook only on the client side
+    const loadAuth = async () => {
+      try {
+        const { useEnhancedAuth } = await import("@/hooks/useEnhancedAuth");
+        // Try to use the hook, but catch any errors
+        try {
+          const auth = useEnhancedAuth();
+          setAuthState({
+            isAuthenticated: auth.isAuthenticated,
+            isLoading: auth.isLoading,
+          });
+        } catch (error) {
+          // If useEnhancedAuth throws (e.g., outside provider), set to null state
+          setAuthState({
+            isAuthenticated: false,
+            isLoading: false,
+          });
+        }
+      } catch (error) {
+        // If import fails, set to null state
+        setAuthState({
+          isAuthenticated: false,
+          isLoading: false,
+        });
+      }
+    };
+
+    loadAuth();
+  }, []);
+
+  return authState;
+}
+
 export function PersistentAuthReminder() {
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+  const auth = useSafeEnhancedAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [dismissCount, setDismissCount] = useState(0);
@@ -54,7 +94,7 @@ export function PersistentAuthReminder() {
 
   // Handle showing the reminder toast
   useEffect(() => {
-    if (!isLoading && !isAuthenticated && shouldShowReminder) {
+    if (auth && !auth.isLoading && !auth.isAuthenticated && shouldShowReminder) {
       // Show a toast reminder with login/signup options
       toast({
         title: "Unlock Your Full Learning Experience",
@@ -80,10 +120,10 @@ export function PersistentAuthReminder() {
         duration: 10000, // Show for 10 seconds
       });
     }
-  }, [isAuthenticated, isLoading, shouldShowReminder, toast, router]);
+  }, [auth, shouldShowReminder, toast, router]);
 
   // Don't render anything if authenticated or loading
-  if (isLoading || isAuthenticated) {
+  if (!auth || auth.isLoading || auth.isAuthenticated) {
     return null;
   }
 

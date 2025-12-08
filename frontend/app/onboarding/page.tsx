@@ -6,12 +6,14 @@ import { useToast } from "@/hooks/use-toast"
 import { Loader2, User, BookOpen, GraduationCap, ChevronLeft, ArrowRight, Plus, Trash2, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { InsertUser, InsertGuardian } from "@/types/supabase"
-import { skipToHomepage } from "@/lib/navigation"
+import { skipToHomepage, navigateToNextStep } from "@/lib/navigation"
 import { AuthService } from "@/lib/services/authService"
-
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
 export default function OnboardingPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user } = useEnhancedAuth()
   const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})
@@ -21,6 +23,9 @@ export default function OnboardingPage() {
   
   // Check for and sync local children data when component mounts
   useEffect(() => {
+    // Reset error handler on successful page load
+    resetErrorHandler();
+    
     const syncLocalChildren = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -52,12 +57,12 @@ export default function OnboardingPage() {
         }
       } catch (error) {
         console.error('[Onboarding] Error syncing local children:', error);
+        handleErrorWithReload(error, "Failed to sync local children data. Reloading page...");
       }
     };
     
     syncLocalChildren();
   }, []);
-
   // Validation functions
   const validateNickname = (value: string) => {
     if (!value.trim()) return "Nickname is required"
@@ -212,7 +217,7 @@ export default function OnboardingPage() {
           })
           // Still redirect to term-plan to continue onboarding
           console.log('[Onboarding] Redirecting to term-plan in offline mode');
-          router.push("/term-plan?onboarding=1")
+          navigateToNextStep(router, 'onboarding', null);
           return;
         }
         
@@ -228,7 +233,7 @@ export default function OnboardingPage() {
         })
         // Redirect to term-plan to complete onboarding
         console.log('[Onboarding] Redirecting to term-plan');
-        router.push("/term-plan?onboarding=1")
+        navigateToNextStep(router, 'onboarding', user || null);
       } catch (err: unknown) {
         // Handle registration failure by saving locally
         console.error('[Onboarding] Registration failed:', err);
@@ -246,7 +251,7 @@ export default function OnboardingPage() {
         
         // Still redirect to term-plan to continue onboarding
         console.log('[Onboarding] Redirecting to term-plan despite local save');
-        router.push("/term-plan?onboarding=1")
+        navigateToNextStep(router, 'onboarding', user || null);
       }
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);
@@ -259,25 +264,38 @@ export default function OnboardingPage() {
         description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
         variant: "destructive",
       })
-      // Even in case of error, continue onboarding to prevent blocking users
-      router.push("/term-plan?onboarding=1");
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Registration failed. Reloading page to try again...");
     } finally {
       setLoading(false)
     }
   }
-
   const handleBackToDashboard = () => {
-    router.push("/term-plan?onboarding=1")
+    try {
+      navigateToNextStep(router, 'onboarding', user || null);
+    } catch (err: any) {
+      console.error('[Onboarding] back to dashboard error:', err.message);
+      console.error('[Onboarding] back to dashboard error details:', err);
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Failed to navigate to dashboard. Reloading page to try again...");
+    }
   }
 
   const handleSkipToHomepage = () => {
-    // Get current user for navigation
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      skipToHomepage(router, user);
-    }).catch(() => {
-      // If we can't get the user, still navigate to homepage
-      router.push("/homepage");
-    });
+    try {
+      // Get current user for navigation
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        skipToHomepage(router, user);
+      }).catch(() => {
+        // If we can't get the user, still navigate to homepage
+        skipToHomepage(router, null);
+      });
+    } catch (err: any) {
+      console.error('[Onboarding] skip error:', err.message);
+      console.error('[Onboarding] skip error details:', err);
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Failed to skip to homepage. Reloading page to try again...");
+    }
   }
 
   const parseCsv = (csvText: string): { nickname: string; age: number; grade: string }[] => {
