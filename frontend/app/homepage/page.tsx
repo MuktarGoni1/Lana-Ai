@@ -111,12 +111,11 @@ export default function HomePage() {
     );
   }
 
-  // Redirect unauthenticated users to login
+  // Allow guest users on homepage with limited functionality
+  // Authenticated users get full access, guests get basic access
   if (!isAuthenticated) {
-    router.push("/login");
-    return null;
+    console.log('[Homepage] Guest access granted');
   }
-
   // Return the ChatWithSidebar component to maintain the sidebar
   return <ChatWithSidebar />;
 }

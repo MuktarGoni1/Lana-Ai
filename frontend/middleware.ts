@@ -51,6 +51,9 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed/child',
       '/auth/auto-login',
       '/quiz',
+      '/term-plan',
+      '/settings',
+      '/feedback'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -128,10 +131,7 @@ export async function middleware(req: NextRequest) {
     // Define protected routes
     const protectedPaths = [
       '/dashboard',
-      '/settings',
       '/guardian',
-      '/term-plan',
-      '/quiz',
       '/personalised-ai-tutor'
     ]
 

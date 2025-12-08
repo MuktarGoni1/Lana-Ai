@@ -9,6 +9,13 @@ export interface RobustAuthState {
   lastChecked: number | null;
 }
 
+// Configuration interface for the service
+interface RobustAuthConfig {
+  refreshInterval?: number; // in milliseconds
+  cacheTimeout?: number;    // in milliseconds
+  maxListeners?: number;
+}
+
 export class RobustAuthService {
   private static instance: RobustAuthService;
   private authState: RobustAuthState = {
@@ -21,16 +28,24 @@ export class RobustAuthService {
   private listeners: Array<(state: RobustAuthState) => void> = [];
   private refreshInterval: NodeJS.Timeout | null = null;
   private networkStatus: 'online' | 'offline' = 'online';
+  private offlineQueue: Array<() => Promise<any>> = [];
+  private readonly DEFAULT_CONFIG: Required<RobustAuthConfig> = {
+    refreshInterval: 5 * 60 * 1000, // 5 minutes
+    cacheTimeout: 30000, // 30 seconds
+    maxListeners: 100
+  };
+  private config: Required<RobustAuthConfig>;
 
-  private constructor() {
+  private constructor(config: RobustAuthConfig = {}) {
+    this.config = { ...this.DEFAULT_CONFIG, ...config };
     this.initializeAuthListener();
     this.initializeNetworkListener();
     this.startPeriodicRefresh();
   }
 
-  static getInstance(): RobustAuthService {
+  static getInstance(config?: RobustAuthConfig): RobustAuthService {
     if (!RobustAuthService.instance) {
-      RobustAuthService.instance = new RobustAuthService();
+      RobustAuthService.instance = new RobustAuthService(config);
     }
     return RobustAuthService.instance;
   }
@@ -102,6 +117,12 @@ export class RobustAuthService {
       window.addEventListener('online', () => {
         console.log('[RobustAuthService] Network online');
         this.networkStatus = 'online';
+        // Clear offline error when coming back online
+        if (this.authState.error?.includes('Network connection lost')) {
+          this.clearError();
+        }
+        // Process queued requests
+        this.processOfflineQueue();
         // When coming back online, refresh the auth status
         this.checkAuthStatus();
       });
@@ -118,29 +139,64 @@ export class RobustAuthService {
   }
 
   private startPeriodicRefresh() {
-    // Check auth status every 5 minutes
+    // Check auth status every configured interval with ±30s jitter
+    const jitter = Math.random() * 60000 - 30000; // ±30 seconds
+    const intervalWithJitter = this.config.refreshInterval + jitter;
+    
     this.refreshInterval = setInterval(() => {
       if (this.networkStatus === 'online') {
         this.checkAuthStatus();
       }
-    }, 5 * 60 * 1000); // 5 minutes
+    }, intervalWithJitter);
+  }
+
+  private clearError() {
+    if (this.authState.error) {
+      this.updateAuthState({ error: null });
+    }
+  }
+
+  private async processOfflineQueue() {
+    while (this.offlineQueue.length > 0 && this.networkStatus === 'online') {
+      const request = this.offlineQueue.shift();
+      if (request) {
+        try {
+          await request();
+        } catch (error) {
+          console.error('[RobustAuthService] Failed to process queued request:', error);
+        }
+      }
+    }
   }
 
   private updateAuthState(newState: Partial<RobustAuthState>) {
-    this.authState = {
+    const updatedState = {
       ...this.authState,
       ...newState,
       lastChecked: Date.now()
     };
     
-    // Notify all listeners
-    this.listeners.forEach(listener => listener(this.authState));
+    // Only notify listeners if state actually changed to prevent unnecessary updates
+    const currentStateStr = JSON.stringify(this.authState);
+    const updatedStateStr = JSON.stringify(updatedState);
+    
+    if (currentStateStr !== updatedStateStr) {
+      this.authState = updatedState;
+      // Notify all listeners
+      this.listeners.forEach(listener => {
+        try {
+          listener(this.authState);
+        } catch (error) {
+          console.error('[RobustAuthService] Error notifying listener:', error);
+        }
+      });
+    }
   }
 
   async checkAuthStatus(forceRefresh = false): Promise<RobustAuthState> {
-    // If we checked recently (within 30 seconds) and not forcing refresh, return current state
+    // If we checked recently (within cache timeout) and not forcing refresh, return current state
     if (!forceRefresh && this.authState.lastChecked && 
-        Date.now() - this.authState.lastChecked < 30000) {
+        Date.now() - this.authState.lastChecked < this.config.cacheTimeout) {
       return { ...this.authState };
     }
 
@@ -167,6 +223,7 @@ export class RobustAuthService {
         return { ...this.authState };
       }
       
+      this.clearError();
       this.updateAuthState({ 
         user: data?.user || null, 
         isAuthenticated: !!data?.user,
@@ -188,10 +245,18 @@ export class RobustAuthService {
   }
 
   subscribe(listener: (state: RobustAuthState) => void): () => void {
+    if (this.listeners.length >= this.config.maxListeners) {
+      console.warn('[RobustAuthService] Maximum listeners reached, possible memory leak');
+    }
+    
     this.listeners.push(listener);
     
     // Immediately notify the new listener with current state
-    listener(this.authState);
+    try {
+      listener(this.authState);
+    } catch (error) {
+      console.error('[RobustAuthService] Error notifying new listener:', error);
+    }
     
     // Return unsubscribe function
     return () => {
@@ -233,11 +298,55 @@ export class RobustAuthService {
         return { success: false, error: error.message };
       }
 
+      this.clearError();
       this.updateAuthState({ isLoading: false });
       return { success: true };
     } catch (error) {
       console.error('[RobustAuthService] Unexpected login error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.updateAuthState({ 
+        isLoading: false, 
+        error: errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
+  async loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.updateAuthState({ isLoading: true, error: null });
+      
+      const result = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          scopes: 'openid email profile',
+        },
+      });
+
+      // Handle case where result might be undefined
+      if (!result) {
+        throw new Error('No response from authentication service');
+      }
+
+      const { data, error } = result;
+
+      if (error) {
+        console.error('[RobustAuthService] Google login error:', error);
+        this.updateAuthState({ 
+          isLoading: false, 
+          error: error.message 
+        });
+        return { success: false, error: error.message };
+      }
+
+      // For OAuth, the redirect happens automatically
+      this.clearError();
+      this.updateAuthState({ isLoading: false });
+      return { success: true };
+    } catch (error) {
+      console.error('[RobustAuthService] Unexpected Google login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during Google login';
       this.updateAuthState({ 
         isLoading: false, 
         error: errorMessage 
@@ -276,6 +385,7 @@ export class RobustAuthService {
         localStorage.removeItem("lana_last_visited");
       }
 
+      this.clearError();
       this.updateAuthState({ 
         user: null, 
         isAuthenticated: false, 
@@ -317,6 +427,7 @@ export class RobustAuthService {
         return { success: false, error: error.message };
       }
 
+      this.clearError();
       this.updateAuthState({ 
         user: data?.session?.user || null,
         isAuthenticated: !!data?.session?.user,
@@ -341,5 +452,9 @@ export class RobustAuthService {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
+    // Clear listeners to prevent memory leaks
+    this.listeners = [];
+    // Clear offline queue
+    this.offlineQueue = [];
   }
 }

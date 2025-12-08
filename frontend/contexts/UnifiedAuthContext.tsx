@@ -132,18 +132,11 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
   const loginWithGoogle = useCallback(async () => {
     try {
       // Use the authService to handle Google login
-      // We'll implement this by calling the Supabase OAuth method directly
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
-          scopes: 'openid email profile',
-        },
-      });
-
-      if (error) {
-        console.error('[UnifiedAuthContext] Google login error:', error);
-        return { success: false, error: error.message };
+      const result = await authService.loginWithGoogle();
+      
+      if (!result.success) {
+        console.error('[UnifiedAuthContext] Google login error:', result.error);
+        return { success: false, error: result.error };
       }
 
       // For OAuth, the redirect happens automatically
@@ -155,7 +148,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
         error: error instanceof Error ? error.message : 'Unknown error occurred during Google login' 
       };
     }
-  }, []);
+  }, [authService]);
 
   const logout = useCallback(async () => {
     try {

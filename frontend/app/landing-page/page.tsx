@@ -89,6 +89,24 @@ function Header() {
                 {l}
               </Link>
             ))}
+            <Link 
+              href="/term-plan" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Term Plan
+            </Link>
+            <Link 
+              href="/feedback" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Feedback
+            </Link>
+            <Link 
+              href="/settings" 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Settings
+            </Link>
             <ThemeToggle />
             {user ? (
               <Link 
@@ -143,6 +161,27 @@ function Header() {
                 {l}
               </Link>
             ))}
+            <Link 
+              href="/term-plan" 
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+            >
+              Term Plan
+            </Link>
+            <Link 
+              href="/feedback" 
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+            >
+              Feedback
+            </Link>
+            <Link 
+              href="/settings" 
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+            >
+              Settings
+            </Link>
             <div className="mt-2 flex items-center gap-2 pt-2 border-t border-border">
               <ThemeToggle />
               {user ? (
@@ -459,6 +498,7 @@ function Footer() {
     Product: ["Features", "Pricing", "Demo", "API"],
     Company: ["About", "Blog", "Careers", "Contact"],
     Legal: ["Privacy", "Terms", "Security", "Cookies"],
+    Support: ["Term Plan", "Feedback", "Settings"]
   }
   return (
     <footer className="border-t border-border py-12 md:py-16">
@@ -507,7 +547,12 @@ function Footer() {
                 {links.map((l) => (
                   <li key={l}>
                     <Link 
-                      href="#" 
+                      href={
+                        l === "Term Plan" ? "/term-plan" :
+                        l === "Feedback" ? "/feedback" :
+                        l === "Settings" ? "/settings" :
+                        "#"
+                      }
                       className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
                     >
                       {l}

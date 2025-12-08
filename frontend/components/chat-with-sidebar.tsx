@@ -319,7 +319,7 @@ function ChatWithSidebarContent() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {/* Authentication Check - Show login prompt for unauthenticated users */}
+                  {/* Authentication Check - Show guest access message for unauthenticated users */}
                   {!isAuthenticated && !authLoading && !loadingHistory && (
                     <SidebarMenuItem>
                       <div className="flex flex-col items-center gap-3 p-4 text-center">
@@ -328,7 +328,10 @@ function ChatWithSidebarContent() {
                         </div>
                         <div className="space-y-2">
                           <p className="text-sm text-white/80 font-medium">
-                            Please login or register to save search history.
+                            Guest Mode - Limited Features
+                          </p>
+                          <p className="text-xs text-white/60">
+                            Login to save history and unlock full features
                           </p>
                           <SidebarMenuButton
                             onClick={() => router.push("/login")}
@@ -340,8 +343,7 @@ function ChatWithSidebarContent() {
                         </div>
                       </div>
                     </SidebarMenuItem>
-                  )}
-                  
+                  )}                  
                   {/* Authenticated users see full History functionality */}
                   {isAuthenticated && (
                     <>
@@ -400,7 +402,10 @@ function ChatWithSidebarContent() {
             <SidebarMenu>
               {/* Feedback */}
               <SidebarMenuItem>
-                <SidebarMenuButton className="text-white/60 hover:text-white/80 w-full justify-start gap-2">
+                <SidebarMenuButton 
+                  onClick={() => router.push("/feedback")}
+                  className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
+                >
                   <MessageSquare className="size-4" />
                   <span className="text-sm">Feedback</span>
                 </SidebarMenuButton>
