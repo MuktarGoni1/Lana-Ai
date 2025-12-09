@@ -13,13 +13,12 @@ import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
 export default function OnboardingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user } = useEnhancedAuth()
+  const { user, registerChild } = useEnhancedAuth()
   const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})
   const [csvFile, setCsvFile] = useState<File | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const authService = new AuthService()
   
   // Check for and sync local children data when component mounts
   useEffect(() => {
@@ -30,6 +29,9 @@ export default function OnboardingPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email) {
+          // Create authService instance here to avoid timing issues
+          const authService = new AuthService();
+          
           // Check if there are local children to sync
           const localChildren = authService.getLocalChildren();
           if (localChildren.length > 0) {
@@ -63,6 +65,7 @@ export default function OnboardingPage() {
     
     syncLocalChildren();
   }, []);
+  
   // Validation functions
   const validateNickname = (value: string) => {
     if (!value.trim()) return "Nickname is required"
@@ -78,6 +81,8 @@ export default function OnboardingPage() {
 
   const validateGrade = (value: string) => {
     if (!value) return "Grade is required"
+    const validGrades = ['6', '7', '8', '9', '10', '11', '12', 'college']
+    if (!validGrades.includes(value)) return "Invalid grade. Must be 6-12 or college"
     return ""
   }
 
@@ -193,7 +198,7 @@ export default function OnboardingPage() {
         if (children.length === 1) {
           // Single child registration
           const child = children[0]
-          result = await authService.registerChild(
+          result = await registerChild(
             child.nickname,
             Number(child.age),
             child.grade,
@@ -201,6 +206,8 @@ export default function OnboardingPage() {
           )
         } else {
           // Bulk child registration
+          // Create authService instance for bulk registration
+          const authService = new AuthService();
           const childrenData = children.map(child => ({
             nickname: child.nickname,
             age: Number(child.age),
@@ -270,6 +277,7 @@ export default function OnboardingPage() {
       setLoading(false)
     }
   }
+  
   const handleBackToDashboard = () => {
     try {
       navigateToNextStep(router, 'onboarding', user || null);
@@ -296,6 +304,15 @@ export default function OnboardingPage() {
       // Use our error handler to reload the page instead of redirecting
       handleErrorWithReload(err, "Failed to skip to homepage. Reloading page to try again...");
     }
+  }
+
+  // Add a simplified form for adding children later
+  const handleAddLater = () => {
+    toast({
+      title: "Adding Children Later",
+      description: "You can add children to your account anytime from the settings page.",
+    });
+    navigateToNextStep(router, 'onboarding', user || null);
   }
 
   const parseCsv = (csvText: string): { nickname: string; age: number; grade: string }[] => {
@@ -643,6 +660,14 @@ Bob,15,10`}
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />
                 Back
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddLater}
+                className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+              >
+                Add Later
               </Button>
               <Button
                 type="button"

@@ -201,6 +201,14 @@ function TermPlanPageContent() {
         throw new Error('No authenticated user found');
       }
       
+      // Save to localStorage as backup before attempting backend save
+      try {
+        localStorage.setItem('lana_study_plan_backup', JSON.stringify(subjects));
+        console.log('[term-plan] Backup saved to localStorage');
+      } catch (storageErr) {
+        console.warn('[term-plan] Failed to save backup to localStorage:', storageErr);
+      }
+      
       // Save to backend API
       const response = await fetch('/api/study-plan', {
         method: 'POST',
@@ -227,6 +235,7 @@ function TermPlanPageContent() {
       
       // Clear local storage after successful save
       localStorage.removeItem('lana_study_plan');
+      localStorage.removeItem('lana_study_plan_backup');
       
       // Complete onboarding
       await completeOnboardingAndRedirect();
@@ -234,8 +243,33 @@ function TermPlanPageContent() {
       console.error('[term-plan] Error saving plan:', err.message);
       console.error('[term-plan] Save error details:', err);
       
-      // Use our error handler to reload the page instead of continuing
-      handleErrorWithReload(err, "Failed to save study plan. Reloading page to try again...");
+      // Try to save locally as fallback
+      try {
+        localStorage.setItem('lana_study_plan_pending', JSON.stringify({
+          subjects,
+          timestamp: Date.now(),
+          email: user?.email
+        }));
+        console.log('[term-plan] Data saved locally as pending sync');
+        
+        toast({ 
+          title: 'Saved Locally', 
+          description: 'Study plan saved locally. Will sync when connection is restored.' 
+        });
+        
+        // Still complete onboarding even if backend save failed
+        await completeOnboardingAndRedirect();
+      } catch (localSaveErr: any) {
+        console.error('[term-plan] Failed to save locally:', localSaveErr.message);
+        toast({
+          title: "Save Failed",
+          description: "Failed to save your study plan. Please try again later.",
+          variant: "destructive",
+        });
+        
+        // Use our error handler to reload the page instead of continuing
+        handleErrorWithReload(err, "Failed to save study plan. Reloading page to try again...");
+      }
     } finally {
       setSaving(false);
     }

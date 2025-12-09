@@ -194,6 +194,14 @@ export class RobustAuthService {
   }
 
   async checkAuthStatus(forceRefresh = false): Promise<RobustAuthState> {
+    // If we're offline, return cached state but with error
+    if (this.networkStatus === 'offline' && !forceRefresh) {
+      return { 
+        ...this.authState,
+        error: 'Network connection lost. Authentication status may be stale.'
+      };
+    }
+    
     // If we checked recently (within cache timeout) and not forcing refresh, return current state
     if (!forceRefresh && this.authState.lastChecked && 
         Date.now() - this.authState.lastChecked < this.config.cacheTimeout) {
@@ -203,14 +211,8 @@ export class RobustAuthService {
     try {
       this.updateAuthState({ isLoading: true });
       
-      const result = await supabase.auth.getUser();
-      
-      // Handle case where result might be undefined
-      if (!result) {
-        throw new Error('No response from authentication service');
-      }
-      
-      const { data, error } = result;
+      // Use getUser() for secure user data instead of relying on session.user directly
+      const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
         console.error('[RobustAuthService] Error checking auth status:', error);
@@ -220,27 +222,46 @@ export class RobustAuthService {
           isLoading: false,
           error: error.message 
         });
-        return { ...this.authState };
+        return { 
+          user: null, 
+          isAuthenticated: false, 
+          isLoading: false,
+          error: error.message,
+          lastChecked: Date.now()
+        };
       }
       
-      this.clearError();
+      // Update auth state with fresh data
       this.updateAuthState({ 
-        user: data?.user || null, 
-        isAuthenticated: !!data?.user,
+        user, 
+        isAuthenticated: !!user, 
         isLoading: false,
         error: null
       });
       
-      return { ...this.authState };
+      return { 
+        user, 
+        isAuthenticated: !!user, 
+        isLoading: false,
+        error: null,
+        lastChecked: Date.now()
+      };
     } catch (error) {
       console.error('[RobustAuthService] Unexpected error checking auth status:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         user: null, 
         isAuthenticated: false, 
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: errorMessage
       });
-      return { ...this.authState };
+      return { 
+        user: null, 
+        isAuthenticated: false, 
+        isLoading: false,
+        error: errorMessage,
+        lastChecked: Date.now()
+      };
     }
   }
 

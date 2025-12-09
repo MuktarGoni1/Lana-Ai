@@ -19,6 +19,23 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
         <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                      console.log('[Service Worker] Registered with scope:', registration.scope);
+                    })
+                    .catch(function(error) {
+                      console.log('[Service Worker] Registration failed:', error);
+                    });
+                });
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

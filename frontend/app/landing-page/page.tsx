@@ -20,7 +20,7 @@ Linkedin,
 
 /* ---------- CONFIG ---------- */
 const FEATURES = [
-"Adaptive lessons tailored to your child's pace",
+"Personalised and Adaptive lessons tailored to your learning pace",
 "Real-time progress reports for parents",
 "Crystal-clear explanations by Lana AI",
 "Personalized learning avatar",
@@ -292,9 +292,9 @@ function HeroSection() {
 /* ---------- FEATURES ---------- */
 function FeaturesSection() {
   const features = [
-    { title: "Adaptive Lesson Structure", desc: "Lana AI personalizes every lesson based on your child's understanding level and learning pace." },
+    { title: "Adaptive Lesson Structure", desc: "Lana AI personalizes every lesson based on your understanding level and learning pace." },
     { title: "Crystal Clear Explanations", desc: "Complex concepts broken down into simple, easy-to-understand steps tailored to your child." },
-    { title: "Real-Time Performance Reports", desc: "Parents receive detailed insights into their child's progress, strengths, and areas for improvement." },
+    { title: "Real-Time Performance Reports", desc: "Parents can receive detailed insights into their child's progress, strengths, and areas for improvement." },
     { title: "Personalized AI Avatar", desc: "Meet Lana — your child's dedicated AI tutor that guides them through their entire learning journey." },
     { title: "Simplicity & Ease", desc: "An intuitive, distraction-free experience that keeps focus on learning for children and parents alike." },
   ]
@@ -303,7 +303,7 @@ function FeaturesSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Features</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground">Everything Your Child Needs to Succeed</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground">Everything You Need to Succeed in Learning</h2>
           <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg">
             Lana AI combines cutting-edge technology with proven educational methods to create a learning experience that's both effective and engaging.
           </p>
@@ -479,7 +479,7 @@ function ContactSection() {
             Email Sales
           </a>
           <a 
-            href="https://cal.com/your-team/lana" 
+            href="contact@lanamind.com" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
@@ -507,7 +507,7 @@ function Footer() {
           <div className="lg:col-span-2">
             <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
             <p className="text-muted-foreground text-sm mt-3 max-w-md">
-              Empowering children through personalized AI tutoring while keeping parents connected to their learning journey.
+              Empowering you and your child through personalized AI tutoring while keeping you connected to the learning journey.
             </p>
             <div className="flex gap-4 mt-5">
               <Link 
