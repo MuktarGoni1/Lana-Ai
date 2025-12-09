@@ -278,7 +278,7 @@ export class RobustAuthService {
       const result = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 
@@ -312,6 +312,54 @@ export class RobustAuthService {
     }
   }
 
+  async registerParent(email: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      this.updateAuthState({ isLoading: true, error: null });
+      
+      // Create/update guardian record first
+      const { error: insertError } = await supabase
+        .from("guardians")
+        .upsert({
+          email: email.trim().toLowerCase(),
+          weekly_report: true,
+          monthly_report: false,
+        } as any, { onConflict: 'email' });
+
+      if (insertError) {
+        console.warn('[RobustAuthService] Failed to create guardian record:', insertError);
+      }
+
+      // Send magic link
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: {
+          data: { role: "guardian" },
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
+        },
+      });
+
+      if (error) {
+        console.error('[RobustAuthService] Registration error:', error);
+        this.updateAuthState({ 
+          isLoading: false, 
+          error: error.message 
+        });
+        return { success: false, error: error.message };
+      }
+
+      this.updateAuthState({ isLoading: false });
+      return { success: true };
+    } catch (error: unknown) {
+      console.error('[RobustAuthService] Unexpected registration error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      this.updateAuthState({ 
+        isLoading: false, 
+        error: errorMessage 
+      });
+      return { success: false, error: errorMessage };
+    }
+  }
+
   async loginWithGoogle(): Promise<{ success: boolean; error?: string }> {
     try {
       this.updateAuthState({ isLoading: true, error: null });
@@ -319,7 +367,7 @@ export class RobustAuthService {
       const result = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          redirectTo: 'https://www.lanamind.com/auth/auto-login',
           scopes: 'openid email profile',
         },
       });

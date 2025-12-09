@@ -484,7 +484,7 @@ export class ConsolidatedAuthService {
         email: email.trim().toLowerCase(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 

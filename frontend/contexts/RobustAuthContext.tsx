@@ -111,7 +111,7 @@ export function RobustAuthProvider({ children }: { children: React.ReactNode }) 
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 

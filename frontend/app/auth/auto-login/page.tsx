@@ -61,21 +61,33 @@ export default function AutoLoginPage() {
       try {
         // Force refresh the authentication status
         const authResult = await auth.checkAuthStatus(true);
-        
+
         const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
 
         // Check if user has completed onboarding
         const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
-        
-        // If onboarding is not complete, redirect to onboarding
+
+        // If onboarding is not complete, redirect appropriately based on user type
         if (!onboardingComplete) {
           setStatus("confirmed");
-          toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
-
-          setTimeout(() => {
-            router.push("/onboarding");
-          }, 1000);
+          
+          // Check if this is a child user
+          const isChildUser = user.email?.endsWith('@child.lana') || false;
+          
+          if (isChildUser) {
+            // Child users go directly to term-plan
+            toast({ title: "Authentication confirmed", description: "Setting up your study plan..." });
+            setTimeout(() => {
+              router.push("/term-plan?onboarding=1");
+            }, 1000);
+          } else {
+            // Parent users go through onboarding flow
+            toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
+            setTimeout(() => {
+              router.push("/onboarding");
+            }, 1000);
+          }
           return;
         }
 

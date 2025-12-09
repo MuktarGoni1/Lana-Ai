@@ -84,7 +84,7 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
           grade: childData.grade, 
           guardian_email: guardianEmail 
         },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/confirmed/child`,
+        emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
       }
     })
 
