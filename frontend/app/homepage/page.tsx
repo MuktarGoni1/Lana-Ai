@@ -111,12 +111,11 @@ export default function HomePage() {
     );
   }
 
-  // Redirect unauthenticated users to login
+  // Allow guest users on homepage with limited functionality
+  // Authenticated users get full access, guests get basic access
   if (!isAuthenticated) {
-    router.push("/login");
-    return null;
+    console.log('[Homepage] Guest access granted');
   }
-
   // Return the ChatWithSidebar component to maintain the sidebar
   return <ChatWithSidebar />;
 }
@@ -1096,6 +1095,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(q.trim()).then(saveResult => {
+        console.log('✅ saveSearch result:', saveResult);
         // Only show messages for unauthenticated users or actual errors
         if (saveResult?.message && (saveResult.suggestion || !saveResult.success)) {
           // Only show messages to unauthenticated users
@@ -1114,7 +1114,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       return;
     } catch (e: unknown) {
       if (e instanceof Error && e.name === "AbortError") {
-        // Request aborted
+        console.log("Request aborted");
         setError("Request cancelled");
       } else {
         const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred";

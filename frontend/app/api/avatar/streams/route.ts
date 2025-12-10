@@ -16,11 +16,15 @@ function extractAwsAlbCookie(setCookieHeader?: string | null) {
 }
 
 interface Payload {
-  source_url: string;
-  compatibility_mode?: string;
-  stream_warmup?: boolean;
-  output_resolution?: number;
-  config?: { stitch?: boolean };
+  audio: string;
+  voice: string;
+  mouth: string;
+  gender: string;
+  pitch: string;
+  speed: string;
+  text: string;
+  session_id: string;
+  stream_id: string;
 }
 
 export async function POST(req: Request) {
@@ -29,6 +33,14 @@ export async function POST(req: Request) {
     const sourceUrl = body?.sourceImageUrl || process.env.DID_SOURCE_IMAGE_URL;
     if (!sourceUrl) {
       return NextResponse.json({ error: 'Missing DID_SOURCE_IMAGE_URL' }, { status: 400 });
+    }
+
+    interface Payload {
+      source_url: string;
+      compatibility_mode: string;
+      stream_warmup: boolean;
+      output_resolution: number;
+      config: { stitch: boolean };
     }
 
     const payload: Payload = {

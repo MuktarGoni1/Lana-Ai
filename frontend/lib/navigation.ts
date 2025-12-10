@@ -4,6 +4,7 @@
  */
 
 import { User } from '@supabase/supabase-js';
+import { handleErrorWithReload } from './error-handler';
 
 /**
  * Navigate to the appropriate homepage based on user role
@@ -48,28 +49,8 @@ export function navigateToHomepage(user: User | null, router: any) {
     }
   } catch (error) {
     console.error('[Navigation] Error during navigation:', error);
-    // Fallback: always go to landing page if there's an error (not homepage to avoid loops)
-    try {
-      if (router && typeof router.replace === 'function') {
-        router.replace('/landing-page');
-      } else if (router && typeof router.push === 'function') {
-        router.push('/landing-page');
-      } else if (typeof window !== 'undefined') {
-        window.location.assign('/landing-page');
-      }
-    } catch (fallbackError) {
-      // Try push as last resort before window.location
-      try {
-        if (router && typeof router.push === 'function') {
-          router.push('/landing-page');
-        } else if (typeof window !== 'undefined') {
-          window.location.assign('/landing-page');
-        }
-      } catch (lastResortError) {
-        console.error('[Navigation] Error during last resort navigation:', lastResortError);
-        // Final fallback: do nothing, let the user manually navigate
-      }
-    }
+    // Use our error handler to reload the page instead of redirecting to landing page
+    handleErrorWithReload(error, "Navigation failed. Reloading page to try again...");
   }
 }
 
@@ -108,8 +89,8 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     }
   } catch (error) {
     console.error('[Navigation] Error during step navigation:', error);
-    // Fallback: always go to homepage if there's an error
-    navigateToHomepage(user, router);
+    // Use our error handler to reload the page instead of redirecting
+    handleErrorWithReload(error, "Navigation to next step failed. Reloading page to try again...");
   }
 }
 
@@ -130,6 +111,12 @@ export function skipToHomepage(router: any, user: User | null) {
     console.warn('[Navigation] Could not store skip preference:', e);
   }
   
-  // Navigate to homepage
-  navigateToHomepage(user, router);
+  try {
+    // Navigate to homepage
+    navigateToHomepage(user, router);
+  } catch (error) {
+    console.error('[Navigation] Error during skip navigation:', error);
+    // Use our error handler to reload the page instead of redirecting
+    handleErrorWithReload(error, "Skip navigation failed. Reloading page to try again...");
+  }
 }

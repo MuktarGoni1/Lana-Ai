@@ -13,28 +13,24 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig = {
   /* config options here */
   reactStrictMode: true,
-  swcMinify: true,
   experimental: {
-    // Enable Turbopack for faster builds in development
-    turbo: {
-      rules: {
-        "*.svg": {
-          loaders: ["@svgr/webpack"],
-          as: "*.js",
-        },
-      },
-    },
     // Enable experimental client trace metadata for better debugging
     clientTraceMetadata: [
       "next.config.mjs",
-      "sentry.client.config.ts",
+      "instrumentation-client.ts",
       "sentry.edge.config.ts",
       "sentry.server.config.ts",
     ],
   },
   // Configure image optimization
   images: {
-    domains: ['ieqqsgpaivxmcgcflanu.supabase.co'], // Allow Supabase storage CDN
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ieqqsgpaivxmcgcflanu.supabase.co',
+        port: '',
+      },
+    ],
   },
   // Configure headers for security
   async headers() {

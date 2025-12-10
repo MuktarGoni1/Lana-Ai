@@ -145,15 +145,11 @@ export class AuthService {
         // User is authenticated, sign them in directly
         // For security, we still need to use Supabase's authentication flow
         // We'll send a magic link but with a custom redirect that handles automatic login
-        const redirectTo = typeof window !== 'undefined' 
-          ? `${window.location.origin}/auth/auto-login` 
-          : "https://www.lanamind.com/auth/auto-login";
-
         const { data, error } = await supabase.auth.signInWithOtp({
           email: trimmed,
           options: {
             shouldCreateUser: false, // Don't create a new user if they don't exist
-            emailRedirectTo: redirectTo,
+            emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
           },
         });
 
@@ -190,15 +186,11 @@ export class AuthService {
       }
 
       // Then send the magic link
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/auto-login` 
-        : "https://www.lanamind.com/auth/auto-login";
-
       const { data, error } = await supabase.auth.signInWithOtp({
         email: trimmedEmail,
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 

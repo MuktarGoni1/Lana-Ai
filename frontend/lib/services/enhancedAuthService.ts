@@ -1,6 +1,6 @@
 import { supabase } from '@/lib/db';
-import { InsertGuardian } from '@/types/supabase';
 import { type User } from '@supabase/supabase-js';
+import { authLogger } from './authLogger';
 
 export interface AuthState {
   user: User | null;
@@ -32,19 +32,33 @@ export class EnhancedAuthService {
 
   private initializeAuthListener() {
     // Listen for auth state changes
-    supabase.auth.onAuthStateChange((event, session) => {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[EnhancedAuthService] Auth state changed:', event);
-      }
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[EnhancedAuthService] Auth state changed:', event);
       
       switch (event) {
         case 'SIGNED_IN':
+          // Check if this was a guest user who just converted
+          let guestId = null;
+          if (typeof window !== 'undefined') {
+            guestId = localStorage.getItem('lana_guest_id');
+          }
+          
           this.updateAuthState({
             user: session?.user || null,
             isAuthenticated: !!session?.user,
             isLoading: false,
             error: null
           });
+          
+          // Log guest conversion completion if this was a guest user
+          if (guestId && session?.user) {
+            await authLogger.logGuestConversionComplete(session.user.id, session.user.email);
+            
+            // Clear the guest cookie since conversion is complete
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('lana_guest_id');
+            }
+          }
           break;
           
         case 'SIGNED_OUT':
@@ -156,14 +170,21 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/auto-login` 
-        : "https://www.lanamind.com/auth/auto-login";
-
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, email);
+      }
+      
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
         },
       });
 
@@ -173,6 +194,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: error.message 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, error.message, email);
+        }
+        
         return { success: false, error: error.message };
       }
 
@@ -185,6 +212,17 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, email);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }
@@ -193,9 +231,8 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[EnhancedAuthService] Initiating Google login');
-      }
+      console.log('[EnhancedAuthService] Initiating Google login');
+      console.log('[EnhancedAuthService] Supabase auth object:', supabase.auth);
       
       // Check if supabase.auth exists
       if (!supabase.auth) {
@@ -222,15 +259,10 @@ export class EnhancedAuthService {
       
       // Call signInWithOAuth with the correct parameters
       console.log('[EnhancedAuthService] Calling signInWithOAuth with provider: google');
-      
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/auto-login` 
-        : "https://www.lanamind.com/auth/auto-login";
-
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectTo,
+          redirectTo: 'https://www.lanamind.com/auth/auto-login',
           scopes: 'openid email profile',
         },
       });
@@ -264,29 +296,36 @@ export class EnhancedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, email);
+      }
+      
       // First create/update guardian record
-      const { error: insertError } = await (supabase
-        .from("guardians") as any)
+      const { error: insertError } = await supabase
+        .from("guardians")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
           monthly_report: false,
-        }, { onConflict: 'email' });
+        } as any, { onConflict: 'email' });
 
       if (insertError) {
         console.warn('[EnhancedAuthService] Failed to create guardian record:', insertError);
       }
 
       // Send magic link
-      const redirectTo = typeof window !== 'undefined' 
-        ? `${window.location.origin}/auth/auto-login` 
-        : "https://www.lanamind.com/auth/auto-login";
-
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: redirectTo,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 
@@ -296,6 +335,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: error.message 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, error.message, email);
+        }
+        
         return { success: false, error: error.message };
       }
 
@@ -308,13 +353,35 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, email);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }
 
-  async registerChild(nickname: string, age: number, grade: string, guardianEmail: string): Promise<{ success: boolean; error?: string; data?: Array<{ child_uid: string }> }> {
+  async registerChild(nickname: string, age: number, grade: string, guardianEmail: string): Promise<{ success: boolean; error?: string; data?: any }> {
     try {
       this.updateAuthState({ isLoading: true, error: null });
+      
+      // Check if this is a guest user converting to authenticated user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      // Log guest conversion start if this is a guest user
+      if (guestId) {
+        await authLogger.logGuestConversionStart(guestId, guardianEmail);
+      }
       
       const response = await fetch('/api/auth/register-child', {
         method: 'POST',
@@ -338,6 +405,12 @@ export class EnhancedAuthService {
           isLoading: false, 
           error: errorMessage 
         });
+        
+        // Log guest conversion failure if this was a guest user
+        if (guestId) {
+          await authLogger.logGuestConversionFailure(guestId, errorMessage, guardianEmail);
+        }
+        
         return { success: false, error: errorMessage };
       }
 
@@ -358,6 +431,17 @@ export class EnhancedAuthService {
         isLoading: false, 
         error: errorMessage 
       });
+      
+      // Log guest conversion failure if this was a guest user
+      let guestId = null;
+      if (typeof window !== 'undefined') {
+        guestId = localStorage.getItem('lana_guest_id');
+      }
+      
+      if (guestId) {
+        await authLogger.logGuestConversionFailure(guestId, errorMessage, guardianEmail);
+      }
+      
       return { success: false, error: errorMessage };
     }
   }

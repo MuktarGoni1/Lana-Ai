@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 export default function TestAuthPage() {
   const [testEmail, setTestEmail] = useState("");
   const [isRegistering, setIsRegistering] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const router = useRouter();
-  const { user, signIn, signOut } = useAuth();
+  const { user, loginWithEmail, logout } = useUnifiedAuth();
 
   const handleRegisterParent = async () => {
     if (!testEmail) return;
@@ -42,8 +42,12 @@ export default function TestAuthPage() {
     
     setIsLoggingIn(true);
     try {
-      await signIn(testEmail);
-      alert(`Magic link sent to ${testEmail}. Check your email and click the link to login.`);
+      const result = await loginWithEmail(testEmail);
+      if (result.success) {
+        alert(`Magic link sent to ${testEmail}. Check your email and click the link to login.`);
+      } else {
+        throw new Error(result.error || 'Failed to send magic link');
+      }
     } catch (error) {
       console.error('Login error:', error);
       alert('Failed to login. Please try again.');
@@ -54,7 +58,7 @@ export default function TestAuthPage() {
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
       alert('Logged out successfully.');
     } catch (error) {
       console.error('Logout error:', error);
