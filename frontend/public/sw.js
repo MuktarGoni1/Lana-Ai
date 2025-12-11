@@ -114,14 +114,14 @@ async function syncPendingData() {
       return;
     }
 
-    // Get pending data from localStorage
-    const pendingData = localStorage.getItem('lana_study_plan_pending');
+    // Get pending data from IndexedDB
+    const pendingData = await getPendingDataFromIndexedDB();
     if (!pendingData) {
       console.log('[Service Worker] No pending data to sync');
       return;
     }
 
-    const { subjects, email } = JSON.parse(pendingData);
+    const { subjects, email } = pendingData;
     
     // Try to sync with backend
     const response = await fetch('/api/study-plan', {
@@ -139,8 +139,8 @@ async function syncPendingData() {
     
     if (result.success) {
       console.log('[Service Worker] Pending data synced successfully');
-      // Remove pending data from localStorage
-      localStorage.removeItem('lana_study_plan_pending');
+      // Remove pending data from IndexedDB
+      await removePendingDataFromIndexedDB();
       
       // Send a message to clients to update UI
       self.clients.matchAll().then(clients => {
@@ -162,13 +162,62 @@ async function syncPendingData() {
 // Listen for messages from clients
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'CHECK_PENDING_SYNC') {
-    const pendingData = localStorage.getItem('lana_study_plan_pending');
-    event.source.postMessage({
-      type: 'PENDING_SYNC_STATUS',
-      hasPendingData: !!pendingData
+    getPendingDataFromIndexedDB().then(pendingData => {
+      event.source.postMessage({
+        type: 'PENDING_SYNC_STATUS',
+        hasPendingData: !!pendingData
+      });
     });
   } else if (event.data && event.data.type === 'MANUAL_SYNC') {
     console.log('[Service Worker] Manual sync requested');
     syncPendingData();
+  } else if (event.data && event.data.type === 'STORE_PENDING_DATA') {
+    storePendingDataInIndexedDB(event.data.data).then(() => {
+      console.log('[Service Worker] Pending data stored in IndexedDB');
+    }).catch(error => {
+      console.error('[Service Worker] Failed to store pending data:', error);
+    });
   }
 });
+
+// IndexedDB helper functions
+function openIndexedDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('LanaAI_DB', 1);
+    
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result);
+    
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('pendingData')) {
+        db.createObjectStore('pendingData', { keyPath: 'id' });
+      }
+    };
+  });
+}
+
+async function storePendingDataInIndexedDB(data) {
+  const db = await openIndexedDB();
+  const transaction = db.transaction(['pendingData'], 'readwrite');
+  const store = transaction.objectStore('pendingData');
+  return store.put({ id: 'study_plan_pending', ...data });
+}
+
+async function getPendingDataFromIndexedDB() {
+  const db = await openIndexedDB();
+  const transaction = db.transaction(['pendingData'], 'readonly');
+  const store = transaction.objectStore('pendingData');
+  return new Promise((resolve, reject) => {
+    const request = store.get('study_plan_pending');
+    request.onsuccess = () => resolve(request.result ? request.result : null);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function removePendingDataFromIndexedDB() {
+  const db = await openIndexedDB();
+  const transaction = db.transaction(['pendingData'], 'readwrite');
+  const store = transaction.objectStore('pendingData');
+  return store.delete('study_plan_pending');
+}

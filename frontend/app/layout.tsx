@@ -8,6 +8,7 @@ import { LocalChildrenManager } from '@/components/local-children-manager'
 import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
+import { PWAInstallButton } from '@/components/pwa-install-button'
 
 export const metadata: Metadata = {
   title: 'lana-ai',
@@ -19,6 +20,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
         <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="apple-touch-icon" href="/images/lana-logo-transparent.png" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="lana-ai" />
+        <meta name="application-name" content="lana-ai" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -45,6 +53,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <LocalChildrenManager />
               <SessionTimeoutHandler />
               <SessionMonitor />
+              <PWAInstallButton />
             </ClientProviders>
           </UnifiedAuthProvider>
         </ThemeProvider>

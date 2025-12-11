@@ -35,6 +35,26 @@ export class EnhancedAuthService {
     supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[EnhancedAuthService] Auth state changed:', event);
       
+      // Helper function to validate user session
+      const validateUserSession = (user: User | null): boolean => {
+        if (!user) return false;
+        
+        // Verify user has valid role and metadata
+        const hasValidMetadata = user.user_metadata && 
+          (user.user_metadata.role === 'child' || 
+           user.user_metadata.role === 'guardian' || 
+           user.user_metadata.role === 'parent');
+        
+        // Verify user has confirmed email
+        const hasConfirmedEmail = user.email && 
+          (user.app_metadata?.email_confirmed || 
+           user.user_metadata?.email_confirmed || 
+           user.confirmed_at !== null);
+        
+        // A valid session requires either valid metadata or confirmed email
+        return hasValidMetadata || hasConfirmedEmail;
+      };
+      
       switch (event) {
         case 'SIGNED_IN':
           // Check if this was a guest user who just converted
@@ -43,11 +63,14 @@ export class EnhancedAuthService {
             guestId = localStorage.getItem('lana_guest_id');
           }
           
+          // Validate the user session
+          const isValidSession = validateUserSession(session?.user || null);
+          
           this.updateAuthState({
             user: session?.user || null,
-            isAuthenticated: !!session?.user,
+            isAuthenticated: isValidSession,
             isLoading: false,
-            error: null
+            error: isValidSession ? null : 'Invalid session: User not properly authenticated'
           });
           
           // Log guest conversion completion if this was a guest user
@@ -58,6 +81,15 @@ export class EnhancedAuthService {
             if (typeof window !== 'undefined') {
               localStorage.removeItem('lana_guest_id');
             }
+          }
+          
+          // Log validation result in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[EnhancedAuthService] SIGNED_IN validation:', { 
+              isValidSession, 
+              userEmail: session?.user?.email,
+              userRole: session?.user?.user_metadata?.role
+            });
           }
           break;
           
@@ -71,31 +103,65 @@ export class EnhancedAuthService {
           break;
           
         case 'TOKEN_REFRESHED':
+          // Validate the refreshed session
+          const isRefreshedSessionValid = validateUserSession(session?.user || null);
+          
           this.updateAuthState({
             user: session?.user || null,
-            isAuthenticated: !!session?.user,
+            isAuthenticated: isRefreshedSessionValid,
             isLoading: false,
-            error: null
+            error: isRefreshedSessionValid ? null : 'Invalid session after token refresh'
           });
+          
+          // Log validation result in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[EnhancedAuthService] TOKEN_REFRESHED validation:', { 
+              isRefreshedSessionValid, 
+              userEmail: session?.user?.email
+            });
+          }
           break;
           
         case 'USER_UPDATED':
+          // Validate the updated user
+          const isUpdatedUserValid = validateUserSession(session?.user || null);
+          
           this.updateAuthState({
             user: session?.user || null,
-            isAuthenticated: !!session?.user,
+            isAuthenticated: isUpdatedUserValid,
             isLoading: false,
-            error: null
+            error: isUpdatedUserValid ? null : 'Invalid session after user update'
           });
+          
+          // Log validation result in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[EnhancedAuthService] USER_UPDATED validation:', { 
+              isUpdatedUserValid, 
+              userEmail: session?.user?.email,
+              userRole: session?.user?.user_metadata?.role
+            });
+          }
           break;
           
         default:
-          // For other events, just update the user if available
+          // For other events, validate and update the user if available
+          const isDefaultSessionValid = validateUserSession(session?.user || null);
+          
           this.updateAuthState({
             user: session?.user || null,
-            isAuthenticated: !!session?.user,
+            isAuthenticated: isDefaultSessionValid,
             isLoading: false,
-            error: null
+            error: isDefaultSessionValid ? null : 'Invalid session'
           });
+          
+          // Log validation result in development
+          if (process.env.NODE_ENV === 'development') {
+            console.log('[EnhancedAuthService] Default event validation:', { 
+              event, 
+              isDefaultSessionValid, 
+              userEmail: session?.user?.email
+            });
+          }
       }
     });
 
@@ -130,9 +196,37 @@ export class EnhancedAuthService {
         return;
       }
       
+      // Additional validation: Check if user has valid session
+      let isValidSession = false;
+      if (user) {
+        // Verify user has valid role and metadata
+        const hasValidMetadata = user.user_metadata && 
+          (user.user_metadata.role === 'child' || 
+           user.user_metadata.role === 'guardian' || 
+           user.user_metadata.role === 'parent');
+        
+        // Verify user has email (check for email confirmation in app_metadata or user metadata)
+        const hasConfirmedEmail = user.email && 
+          (user.app_metadata?.email_confirmed || 
+           user.user_metadata?.email_confirmed || 
+           user.confirmed_at !== null);
+        
+        // A valid session requires either valid metadata or confirmed email
+        isValidSession = hasValidMetadata || hasConfirmedEmail;
+        
+        // Log validation result in development
+        if (process.env.NODE_ENV === 'development') {
+          console.log('[EnhancedAuthService] Session validation:', { 
+            hasValidMetadata, 
+            hasConfirmedEmail, 
+            isValidSession 
+          });
+        }
+      }
+      
       this.updateAuthState({ 
         user, 
-        isAuthenticated: !!user, 
+        isAuthenticated: isValidSession, 
         isLoading: false,
         error: null
       });

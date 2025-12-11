@@ -94,7 +94,13 @@ export function PersistentAuthReminder() {
 
   // Handle showing the reminder toast
   useEffect(() => {
+    // Add extra safety check to ensure we never show reminders to authenticated users
     if (auth && !auth.isLoading && !auth.isAuthenticated && shouldShowReminder) {
+      // Log that we're showing a reminder to an unauthenticated user
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PersistentAuthReminder] Showing auth reminder to unauthenticated user');
+      }
+      
       // Show a toast reminder with login/signup options
       toast({
         title: "Unlock Your Full Learning Experience",
@@ -103,14 +109,26 @@ export function PersistentAuthReminder() {
           <div className="flex flex-col gap-2">
             <ToastAction 
               altText="Sign Up" 
-              onClick={() => router.push("/register")}
+              onClick={() => {
+                // Log signup action
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[PersistentAuthReminder] User clicked Sign Up');
+                }
+                router.push("/register");
+              }}
               className="w-full"
             >
               Sign Up
             </ToastAction>
             <ToastAction 
               altText="Login" 
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                // Log login action
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('[PersistentAuthReminder] User clicked Login');
+                }
+                router.push("/login");
+              }}
               className="w-full border border-input bg-transparent hover:bg-accent hover:text-accent-foreground"
             >
               Login
@@ -119,8 +137,25 @@ export function PersistentAuthReminder() {
         ),
         duration: 10000, // Show for 10 seconds
       });
+      
+      // Mark that we've shown the reminder
+      setShouldShowReminder(false);
+      
+      // Update dismiss count in localStorage
+      const newDismissCount = dismissCount + 1;
+      setDismissCount(newDismissCount);
+      localStorage.setItem("lana_auth_reminder_dismiss_count", newDismissCount.toString());
+      localStorage.setItem("lana_auth_reminder_last_dismiss", Date.now().toString());
     }
-  }, [auth, shouldShowReminder, toast, router]);
+    
+    // Extra safety: Even if somehow the condition above fails, double-check we never show reminders to authenticated users
+    if (auth && auth.isAuthenticated) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PersistentAuthReminder] Authenticated user detected, suppressing reminder');
+      }
+      setShouldShowReminder(false);
+    }
+  }, [auth, shouldShowReminder, toast, router, dismissCount]);
 
   // Don't render anything if authenticated or loading
   if (!auth || auth.isLoading || auth.isAuthenticated) {
