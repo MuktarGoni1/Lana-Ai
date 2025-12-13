@@ -1,6 +1,6 @@
 """
-Production-grade FastAPI backend for Lana AI.
-Optimized for 10k+ RPS with proper error handling, observability, and security.
+FastAPI backend for Lana AI.
+
 """
 
 from __future__ import annotations
@@ -43,6 +43,12 @@ from app.repositories.memory_cache_repository import MemoryCacheRepository
 from app.api.router import api_router
 from app.jobs.worker_manager import start_job_workers, stop_job_workers
 
+# Security imports
+from app.middleware.security_logger import security_logger
+
+# Database imports
+from app.db_manager import db_manager
+
 # -----------------------------------------------------------------------------
 # Logging Configuration
 # -----------------------------------------------------------------------------
@@ -52,6 +58,15 @@ logging.basicConfig(
     datefmt="%Y-%m-%dT%H:%M:%S%z",
 )
 logger = logging.getLogger(__name__)
+
+# Add security logger handler if not already present
+if not security_logger.handlers:
+    security_handler = logging.StreamHandler()
+    security_formatter = logging.Formatter(
+        '%(asctime)s - SECURITY - %(levelname)s - %(message)s'
+    )
+    security_handler.setFormatter(security_formatter)
+    security_logger.addHandler(security_handler)
 
 
 class TraceIdFilter(logging.Filter):
@@ -222,9 +237,19 @@ class AppState:
             "cache_hits_total": 0,
             "cache_misses_total": 0,
         }
+        
+        # Database manager
+        self.db_manager = db_manager
 
     async def initialize(self):
         """Initialize external connections."""
+        # Initialize database connection pool
+        try:
+            await self.db_manager.initialize()
+            logger.info("Database connection pool initialized", extra={"trace_id": "startup"})
+        except Exception as e:
+            logger.error(f"Failed to initialize database connection pool: {e}", extra={"trace_id": "startup"})
+        
         # Initialize Groq client
         if Groq and self.settings.groq_api_key:
             try:
@@ -268,6 +293,13 @@ class AppState:
         if self.redis_client:
             await self.redis_client.close()
         
+        # Close database connection pool
+        try:
+            await self.db_manager.close()
+            logger.info("Database connection pool closed", extra={"trace_id": "shutdown"})
+        except Exception as e:
+            logger.error(f"Error closing database connection pool: {e}", extra={"trace_id": "shutdown"})
+        
         logger.info("Application shutdown complete", extra={"trace_id": "shutdown"})
 
     async def check_groq_health(self) -> bool:
@@ -291,6 +323,15 @@ class AppState:
             return True  # Redis is optional
         try:
             await asyncio.wait_for(self.redis_client.ping(), timeout=2.0)
+            return True
+        except Exception:
+            return False
+    
+    async def check_database_health(self) -> bool:
+        """Non-blocking health check for Database."""
+        try:
+            # Simple query to check database connectivity
+            await self.db_manager.execute_query("SELECT 1")
             return True
         except Exception:
             return False
@@ -706,6 +747,7 @@ async def readiness(state: AppStateDep):
     checks = {
         "groq": await state.check_groq_health(),
         "redis": await state.check_redis_health(),
+        "database": await state.check_database_health(),
         "cache": True,
     }
     

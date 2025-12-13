@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     redis_db: int = 0
     redis_password: Optional[str] = None
 
+    # SMTP Settings for Email
+    smtp_server: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+
     @field_validator("cors_origins", mode="before")
     def parse_origins(cls, v):
         if isinstance(v, str):
@@ -73,5 +79,9 @@ def load_settings() -> Settings:
         "redis_port": int(os.getenv("REDIS_PORT", "6379")),
         "redis_db": int(os.getenv("REDIS_DB", "0")),
         "redis_password": os.getenv("REDIS_PASSWORD"),
+        "smtp_server": os.getenv("SMTP_SERVER", ""),
+        "smtp_port": int(os.getenv("SMTP_PORT", "587")),
+        "smtp_username": os.getenv("SMTP_USERNAME", ""),
+        "smtp_password": os.getenv("SMTP_PASSWORD", ""),
     }
     return Settings(**values)

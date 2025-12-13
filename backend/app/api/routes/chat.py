@@ -9,6 +9,7 @@ import re
 import logging
 import hashlib
 import asyncio
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -453,36 +454,42 @@ async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=
         # Use the existing math solver service
         result = await math_service.solve_problem(text)
         
-        # Format the solution as a string response
+        # Format concise step-by-step response
         response_parts = []
         
+        # Add brief steps if available
         if hasattr(result, 'steps') and result.steps:
-            for step in result.steps:
+            for i, step in enumerate(result.steps[:3], 1):  # Limit to 3 steps max
                 if step.description:
-                    response_parts.append(step.description)
+                    # Keep descriptions short and concise
+                    short_desc = step.description[:50] + "..." if len(step.description) > 50 else step.description
+                    response_parts.append(f"{i}. {short_desc}")
                 if step.expression:
-                    response_parts.append(f"  {step.expression}")
+                    response_parts.append(f"   {step.expression}")
         
+        # Add final answer
         if hasattr(result, 'solution') and result.solution:
-            response_parts.append(f"\nFinal Answer: {result.solution}")
+            response_parts.append(f"Answer: {result.solution}")
+        else:
+            response_parts.append("Could not solve this problem.")
         
-        response_text = "\n".join(response_parts)
+        response_text = "\n".join(response_parts) or "I couldn't solve this problem. Please check the format and try again."
         
-        # Generate a quiz question related to the math problem
+        # Generate a concise quiz question related to the math problem
         quiz_data = None
         try:
             if groq_client:
-                # Generate a quiz question about the concept
-                quiz_prompt = f"Create one multiple-choice quiz question (with answer) about the math concept in this problem: {text}"
+                # Generate a simple quiz question about the concept
+                quiz_prompt = f"Create a simple multiple-choice question about this math concept: {text}. Return ONLY valid JSON: {{\"q\": \"Brief question?\", \"options\": [\"A) Short option\", \"B) Short option\", \"C) Short option\", \"D) Short option\"], \"answer\": \"A) Short option\"}}"
                 
                 quiz_response = groq_client.chat.completions.create(
                     model="llama-3.1-8b-instant",
                     messages=[
-                        {"role": "system", "content": "Return ONLY valid JSON in this exact format: {\"q\": \"question text\", \"options\": [\"A) option1\", \"B) option2\", \"C) option3\", \"D) option4\"], \"answer\": \"A) option1\"}"},
+                        {"role": "system", "content": "Create brief, clear quiz questions with short options."},
                         {"role": "user", "content": quiz_prompt}
                     ],
                     temperature=0.3,
-                    max_tokens=200
+                    max_tokens=120  # Reduced token limit for concise output
                 )
                 
                 quiz_content = quiz_response.choices[0].message.content
@@ -498,7 +505,7 @@ async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=
         return response_text, quiz_data
     except Exception as e:
         logger.error(f"Error in maths tutor handler: {e}")
-        return f"Sorry, I couldn't solve the math problem: {text}. Please check the format and try again.", None
+        return f"Sorry, I couldn't solve that math problem. Please try again.", None
 
 async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, None]:
     """Handle chat mode - friendly open-ended conversation."""
@@ -518,32 +525,45 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -
         if not groq_client:
             return "Chat mode requires the AI service to be configured.", None
         
-        # Create age-appropriate system prompt
-        age_context = ""
+        # Create a simple, friendly system prompt for natural conversation
+        # Less restrictive and more conversational than previous versions
+        system_prompt = (
+            "You are Lana, a friendly and knowledgeable AI assistant for children and students. "
+            "You're chatting with a user and should respond naturally and conversationally. "
+            "Be helpful, patient, and encouraging. "
+            "Keep responses concise but engaging. "
+            "If the user asks for educational content, you can provide it in a conversational way. "
+            "If they want to just chat, that's fine too. "
+            "Match your tone and response style to the user's age if provided."
+        )
+        
+        # Add age context if available
         if age is not None:
             if age <= 5:
-                age_context = "The user is a young child. Use simple words and short sentences."
+                system_prompt += " The user is a young child. Use simple words, short sentences, and be playful."
             elif age <= 12:
-                age_context = "The user is a child. Use clear explanations and examples."
+                system_prompt += " The user is a child. Use clear explanations and examples they can relate to."
             elif age <= 18:
-                age_context = "The user is a teenager. You can use more complex concepts."
+                system_prompt += " The user is a teenager. You can discuss more complex topics and use age-appropriate language."
             else:
-                age_context = "The user is an adult. You can use advanced vocabulary and concepts."
+                system_prompt += " The user is an adult. You can use mature language and discuss advanced topics."
         
-        system_prompt = f"You are Lana AI, a friendly and knowledgeable educational assistant. {age_context} Respond in a conversational, helpful tone."
-        
+        # Make the conversation feel more natural with a relaxed approach
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text}
             ],
-            temperature=0.7,
-            max_tokens=500
+            temperature=0.8,  # Higher temperature for more creative, conversational responses
+            max_tokens=400,   # Reasonable limit for chat responses
+            top_p=0.9,       # Slightly higher top_p for more diverse responses
+            frequency_penalty=0.2,  # Slight penalty to reduce repetition
+            presence_penalty=0.2    # Slight penalty to encourage new topics
         )
         
         reply = response.choices[0].message.content
-        return reply or "I'm here to help! What else would you like to know?", None
+        return reply or "I'm here to chat! What's on your mind?", None
     except Exception as e:
         logger.error(f"Error in chat handler: {e}")
         return "Sorry, I'm having trouble chatting right now. Please try again.", None
@@ -566,32 +586,71 @@ async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client
         if not groq_client:
             return "Quick answer mode requires the AI service to be configured.", None
         
-        # Create age-appropriate system prompt
-        age_context = ""
+        # Create highly targeted age-appropriate system prompt for concise answers
         if age is not None:
             if age <= 5:
-                age_context = "The user is a young child. Use very simple words and short sentences."
+                # For young children - very simple language and short answers
+                system_prompt = (
+                    "You are Lana, a helpful AI assistant for young children. "
+                    "Provide extremely simple, clear answers in just 1 short sentence. "
+                    "Use basic words a 5-year-old can understand. "
+                    "No markdown, no formatting, just plain text. "
+                    "Example: 'The sky looks blue because of light.'"
+                )
             elif age <= 12:
-                age_context = "The user is a child. Use clear, simple explanations."
+                # For children - clear explanations in 1-2 sentences
+                system_prompt = (
+                    "You are Lana, a helpful AI assistant for children. "
+                    "Give clear, simple answers in 1-2 short sentences. "
+                    "Use words a child can understand. "
+                    "No markdown, no formatting, just plain text. "
+                    "Example: 'Plants need sunlight, water, and soil to grow healthy.'"
+                )
             elif age <= 18:
-                age_context = "The user is a teenager. You can use slightly more complex language."
+                # For teenagers - slightly more detailed but still concise
+                system_prompt = (
+                    "You are Lana, a helpful AI assistant for teenagers. "
+                    "Provide concise answers in 1-2 sentences. "
+                    "Be clear and to the point. "
+                    "No markdown, no formatting, just plain text. "
+                    "Example: 'Photosynthesis is how plants convert sunlight into energy to grow.'"
+                )
             else:
-                age_context = "The user is an adult. You can use standard vocabulary."
+                # For adults - concise but complete explanations
+                system_prompt = (
+                    "You are Lana, a helpful AI assistant. "
+                    "Give concise, accurate answers in 1-2 sentences. "
+                    "Be informative but brief. "
+                    "No markdown, no formatting, just plain text. "
+                    "Example: 'Quantum computing uses quantum bits (qubits) that can exist in multiple states simultaneously, unlike classical bits.'"
+                )
+        else:
+            # Default concise answer prompt for unknown age
+            system_prompt = (
+                "You are Lana, a helpful AI assistant. "
+                "Provide concise, clear answers in exactly 1-2 sentences. "
+                "Be direct and avoid unnecessary elaboration. "
+                "No markdown, no formatting, just plain text. "
+                "Example: 'The Earth orbits the Sun due to gravitational attraction.'"
+            )
         
-        system_prompt = f"You are Lana AI. Provide a concise answer in 1-2 short sentences. {age_context} Do not use markdown or formatting."
-        
+        # Configure for ultra-concise responses
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text}
             ],
-            temperature=0.3,
-            max_tokens=200
+            temperature=0.2,      # Low temperature for consistent, factual responses
+            max_tokens=150,        # Strict limit for brevity
+            top_p=0.8,            # Moderate diversity
+            frequency_penalty=0.3, # Penalize repetition
+            presence_penalty=0.0   # Neutral on topic exploration
         )
         
         reply = response.choices[0].message.content
-        return reply or "I don't have a quick answer for that. Try asking in a different way.", None
+        # Ensure we have a response, with a fallback
+        return reply or "I don't have a quick answer for that. Try rephrasing your question.", None
     except Exception as e:
         logger.error(f"Error in quick answer handler: {e}")
         return "Sorry, I couldn't provide a quick answer right now. Please try again.", None

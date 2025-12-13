@@ -9,11 +9,12 @@ logger = logging.getLogger(__name__)
 # Global queue instances
 lesson_queue = None
 tts_queue = None
+monthly_report_queue = None
 redis_connection = None
 
 def init_queues():
     """Initialize Redis connection and job queues."""
-    global lesson_queue, tts_queue, redis_connection
+    global lesson_queue, tts_queue, monthly_report_queue, redis_connection
     
     try:
         settings = load_settings()
@@ -44,6 +45,7 @@ def init_queues():
         # Create queues
         lesson_queue = Queue("lesson-generation", redis_connection)
         tts_queue = Queue("tts-generation", redis_connection)
+        monthly_report_queue = Queue("monthly-report-generation", redis_connection)
         
         logger.info("Job queues initialized successfully")
         
@@ -65,6 +67,13 @@ def get_tts_queue():
     if tts_queue is None:
         init_queues()
     return tts_queue
+
+def get_monthly_report_queue():
+    """Get the monthly report generation queue."""
+    global monthly_report_queue
+    if monthly_report_queue is None:
+        init_queues()
+    return monthly_report_queue
 
 def get_redis_connection():
     """Get the Redis connection."""

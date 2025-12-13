@@ -1,6 +1,7 @@
 aiocache==0.12.3
 # aioredis==2.0.1
 bullmq==2.16.1
+asyncpg==0.29.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
 aiosignal==1.4.0
