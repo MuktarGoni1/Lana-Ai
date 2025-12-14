@@ -63,7 +63,6 @@ def extract_mode(message: str) -> tuple[str, str]:
     
     # Default mode if no command found
     return "default", message.strip()
-
 # Stub lesson generation (similar to what's in main.py)
 class ClassificationItem(BaseModel):
     type: str
@@ -86,7 +85,7 @@ class StructuredLessonResponse(BaseModel):
     diagram: str = ""
     quiz: List[QuizItem]
 
-async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+async def _stub_lesson(topic: str, age: Optional[int] = None, user_id: str = "default_user") -> StructuredLessonResponse:
     """Generate a stub lesson with clear error messaging instead of generic templates."""
     logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
     
@@ -138,7 +137,7 @@ async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLesso
 # In-memory cache for lessons (similar to what's in main.py)
 _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
-async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int], groq_client) -> tuple[StructuredLessonResponse, str]:
+async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int], groq_client, user_id: str = "default_user") -> tuple[StructuredLessonResponse, str]:
     """Compute structured lesson using LLM or fallback to stub."""
     if groq_client is not None:
         raw_excerpt = ""
@@ -346,18 +345,19 @@ async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[i
                           f"Sections: {len(resp.sections) if resp.sections else 0}, "
                           f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
                           f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
-            return await _stub_lesson(topic, age), "stub"
+            return await _stub_lesson(topic, age, user_id), "stub"
         except Exception as e:
             # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
             try:
                 logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
             except Exception:
                 logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
-            return await _stub_lesson(topic, age), "stub"
+            return await _stub_lesson(topic, age, user_id), "stub"
     else:
-        return await _stub_lesson(topic, age), "stub"
+        return await _stub_lesson(topic, age, user_id), "stub"
 
-async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int], groq_client) -> tuple[StructuredLessonResponse, str]:
+
+async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int], groq_client, user_id: str = "default_user") -> tuple[StructuredLessonResponse, str]:
     """Get or compute lesson with deduplication."""
     fut = _INFLIGHT_LESSONS.get(cache_key)
     if fut and not fut.done():
@@ -367,12 +367,12 @@ async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int],
     _INFLIGHT_LESSONS[cache_key] = fut
     async def _run():
         try:
-            result = await _compute_structured_lesson(cache_key, topic, age, groq_client)
+            result = await _compute_structured_lesson(cache_key, topic, age, groq_client, user_id)
             fut.set_result(result)
         except Exception as e:
             logger.error(f"Structured lesson compute failed: {e}")
             import uuid
-            stub_result = await _stub_lesson(topic, age)
+            stub_result = await _stub_lesson(topic, age, user_id)
             stub_result.id = str(uuid.uuid4())
             fut.set_result((stub_result, "stub"))
         finally:
@@ -380,7 +380,8 @@ async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int],
     asyncio.create_task(_run())
     return await fut
 
-async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, Optional[List[Dict[str, Any]]]]:
+
+async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, Optional[List[Dict[str, Any]]]]:
     """Handle structured lesson mode - generates full topic walkthrough with quiz."""
     if not text:
         return "Please provide a topic for the lesson.", None
@@ -397,7 +398,7 @@ async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_c
         
         # Use the structured lesson generation logic
         cache_key = hashlib.md5(f"{text}|{age}".encode()).hexdigest()[:16]
-        lesson, src = await _get_or_compute_lesson(cache_key, text, age, groq_client)
+        lesson, src = await _get_or_compute_lesson(cache_key, text, age, groq_client, user_id)
         
         # Format the lesson as a string response
         response_parts = []
@@ -433,8 +434,8 @@ async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_c
         logger.error(f"Error in structured lesson handler: {e}")
         return f"Sorry, I couldn't generate a lesson about {text}. Please try another topic.", None
 
-async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, Optional[List[Dict[str, Any]]]]:
-    """Handle maths tutor mode - solves equations step-by-step with quiz."""
+async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, Optional[List[Dict[str, Any]]]]:
+    """Handle maths tutor mode - solves equations step-by-step."""
     if not text:
         return "Please provide a math problem to solve.", None
     
@@ -475,39 +476,15 @@ async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=
         
         response_text = "\n".join(response_parts) or "I couldn't solve this problem. Please check the format and try again."
         
-        # Generate a concise quiz question related to the math problem
+        # No quiz generation for maths tutor mode - focus on solving the math problem
         quiz_data = None
-        try:
-            if groq_client:
-                # Generate a simple quiz question about the concept
-                quiz_prompt = f"Create a simple multiple-choice question about this math concept: {text}. Return ONLY valid JSON: {{\"q\": \"Brief question?\", \"options\": [\"A) Short option\", \"B) Short option\", \"C) Short option\", \"D) Short option\"], \"answer\": \"A) Short option\"}}"
-                
-                quiz_response = groq_client.chat.completions.create(
-                    model="llama-3.1-8b-instant",
-                    messages=[
-                        {"role": "system", "content": "Create brief, clear quiz questions with short options."},
-                        {"role": "user", "content": quiz_prompt}
-                    ],
-                    temperature=0.3,
-                    max_tokens=120  # Reduced token limit for concise output
-                )
-                
-                quiz_content = quiz_response.choices[0].message.content
-                if quiz_content:
-                    try:
-                        quiz_json = json.loads(quiz_content)
-                        quiz_data = [quiz_json]
-                    except json.JSONDecodeError:
-                        pass
-        except Exception as e:
-            logger.warning(f"Could not generate quiz for math problem: {e}")
         
         return response_text, quiz_data
     except Exception as e:
         logger.error(f"Error in maths tutor handler: {e}")
         return f"Sorry, I couldn't solve that math problem. Please try again.", None
 
-async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, None]:
+async def chat_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, None]:
     """Handle chat mode - friendly open-ended conversation."""
     if not text:
         return "Hello! What would you like to chat about?", None
@@ -524,6 +501,16 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -
         
         if not groq_client:
             return "Chat mode requires the AI service to be configured.", None
+        
+        # Get conversation history
+        conversation_history = []
+        try:
+            from main import get_app_state
+            app_state = get_app_state()
+            conversation_history = await app_state.get_conversation_history(user_id)
+        except Exception:
+            # If we can't get history, continue without it
+            conversation_history = []
         
         # Create a simple, friendly system prompt for natural conversation
         # Less restrictive and more conversational than previous versions
@@ -548,13 +535,19 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -
             else:
                 system_prompt += " The user is an adult. You can use mature language and discuss advanced topics."
         
+        # Prepare messages with conversation history
+        messages = [{"role": "system", "content": system_prompt}]
+        
+        # Add conversation history
+        messages.extend(conversation_history)
+        
+        # Add current user message
+        messages.append({"role": "user", "content": text})
+        
         # Make the conversation feel more natural with a relaxed approach
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": text}
-            ],
+            messages=messages,
             temperature=0.8,  # Higher temperature for more creative, conversational responses
             max_tokens=400,   # Reasonable limit for chat responses
             top_p=0.9,       # Slightly higher top_p for more diverse responses
@@ -563,12 +556,21 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None) -
         )
         
         reply = response.choices[0].message.content
+        
+        # Add the exchange to conversation history
+        try:
+            await app_state.add_to_conversation_history(user_id, "user", text)
+            await app_state.add_to_conversation_history(user_id, "assistant", reply or "I'm here to chat! What's on your mind?")
+        except Exception:
+            # If we can't save history, continue without error
+            pass
+        
         return reply or "I'm here to chat! What's on your mind?", None
     except Exception as e:
         logger.error(f"Error in chat handler: {e}")
         return "Sorry, I'm having trouble chatting right now. Please try again.", None
 
-async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, None]:
+async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, None]:
     """Handle quick answer mode - concise bullet point answers."""
     if not text:
         return "Please provide a question for a quick answer.", None
@@ -656,7 +658,7 @@ async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client
         return "Sorry, I couldn't provide a quick answer right now. Please try again.", None
 
 MODE_MAP = {
-    "default": structured_lesson_handler,
+    "default": chat_handler,
     "maths": maths_tutor_handler,
     "chat": chat_handler,
     "quick": quick_answer_handler
@@ -686,13 +688,13 @@ async def chat_endpoint(request: ChatRequest):
         
         # Validate mode
         if mode not in MODE_MAP:
-            mode = "default"  # Default to structured lesson if mode not recognized
+            mode = "default"  # Default to chat mode if mode not recognized
         
         # Get the appropriate handler
         handler = MODE_MAP[mode]
         
-        # Call the handler with Groq client
-        reply, quiz_data = await handler(clean_text, request.age, _GROQ_CLIENT)
+        # Call the handler with Groq client and user_id
+        reply, quiz_data = await handler(clean_text, request.age, _GROQ_CLIENT, request.user_id)
         
         return ChatResponse(
             mode=mode,

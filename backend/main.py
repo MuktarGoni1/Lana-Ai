@@ -238,6 +238,11 @@ class AppState:
             "cache_misses_total": 0,
         }
         
+        # Conversation history storage (in-memory, limited size)
+        self.conversation_history: dict[str, list[dict]] = {}
+        self.history_lock = asyncio.Lock()
+        self.max_history_per_user = 20  # Limit history to 20 messages per user
+        
         # Database manager
         self.db_manager = db_manager
 
@@ -335,7 +340,33 @@ class AppState:
             return True
         except Exception:
             return False
-
+    
+    async def add_to_conversation_history(self, user_id: str, role: str, content: str):
+        """Add a message to the conversation history for a user."""
+        async with self.history_lock:
+            if user_id not in self.conversation_history:
+                self.conversation_history[user_id] = []
+            
+            self.conversation_history[user_id].append({
+                "role": role,
+                "content": content
+            })
+            
+            # Limit history size
+            if len(self.conversation_history[user_id]) > self.max_history_per_user:
+                # Keep the most recent messages
+                self.conversation_history[user_id] = self.conversation_history[user_id][-self.max_history_per_user:]
+    
+    async def get_conversation_history(self, user_id: str) -> list[dict]:
+        """Get the conversation history for a user."""
+        async with self.history_lock:
+            return self.conversation_history.get(user_id, []).copy()
+    
+    async def clear_conversation_history(self, user_id: str):
+        """Clear the conversation history for a user."""
+        async with self.history_lock:
+            if user_id in self.conversation_history:
+                del self.conversation_history[user_id]
 
 # Global app state instance
 _app_state: Optional[AppState] = None
