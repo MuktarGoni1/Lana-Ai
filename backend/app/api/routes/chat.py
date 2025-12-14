@@ -668,20 +668,28 @@ MODE_MAP = {
 async def chat_endpoint(request: ChatRequest):
     """Unified chat endpoint that handles different modes based on user input."""
     try:
-        # Import Groq client here to avoid circular imports
+        # Get the app state to access the Groq client
+        groq_client = None
         try:
-            from main import _GROQ_CLIENT
-        except ImportError:
-            _GROQ_CLIENT = None
-        
-        # If _GROQ_CLIENT is None, try to initialize it
-        if _GROQ_CLIENT is None and GROQ_AVAILABLE:
+            from main import get_app_state
+            app_state = get_app_state()
+            groq_client = app_state.groq_client
+        except Exception:
+            # If we can't get the app state, try the fallback approach
             try:
-                from main import settings
-                if settings.groq_api_key:
-                    _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
-            except Exception as e:
-                logger.warning(f"Could not initialize Groq client in chat endpoint: {e}")
+                from main import _GROQ_CLIENT
+                groq_client = _GROQ_CLIENT
+            except ImportError:
+                groq_client = None
+            
+            # If _GROQ_CLIENT is None, try to initialize it
+            if groq_client is None and GROQ_AVAILABLE:
+                try:
+                    from main import settings
+                    if settings.groq_api_key:
+                        groq_client = Groq(api_key=settings.groq_api_key)
+                except Exception as e:
+                    logger.warning(f"Could not initialize Groq client in chat endpoint: {e}")
         
         # Extract mode and clean text from message
         mode, clean_text = extract_mode(request.message)
@@ -694,7 +702,7 @@ async def chat_endpoint(request: ChatRequest):
         handler = MODE_MAP[mode]
         
         # Call the handler with Groq client and user_id
-        reply, quiz_data = await handler(clean_text, request.age, _GROQ_CLIENT, request.user_id)
+        reply, quiz_data = await handler(clean_text, request.age, groq_client, request.user_id)
         
         return ChatResponse(
             mode=mode,
