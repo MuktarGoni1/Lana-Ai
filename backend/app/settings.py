@@ -72,7 +72,7 @@ def load_settings() -> Settings:
         "api_port": int(os.getenv("API_PORT", "8000")),
         "api_debug": os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t"),
         "api_secret_key": os.getenv("API_SECRET_KEY", "change_me_in_prod"),
-        "cors_origins": os.getenv("CORS_ORIGINS", []) or [],
+        "cors_origins": os.getenv("CORS_ORIGINS", ""),
         "rate_limit_per_minute": int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
         "groq_api_key": os.getenv("GROQ_API_KEY", ""),
         "google_api_key": os.getenv("GOOGLE_API_KEY", ""),

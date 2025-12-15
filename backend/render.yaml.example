@@ -25,6 +25,6 @@ services:
       - key: SUPABASE_ANON_KEY
         sync: false
       - key: CORS_ORIGINS
-        value: https://api.lanamind.com,http://localhost:3000,http://localhost:3001
+        value: https://api.lanamind.com,https://lanamind.com,http://localhost:3000,http://localhost:3001,https://lana-ai.onrender.com
       - key: LOG_LEVEL
         value: INFO

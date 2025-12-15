@@ -98,14 +98,15 @@ export async function POST(req: Request) {
   }
 }
 
-// Allow CORS for local development
+// Handle CORS preflight requests
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? '*' : 'https://lanamind.com',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Trace-ID, X-API-Key',
+      'Access-Control-Allow-Credentials': 'true',
     },
   });
 }

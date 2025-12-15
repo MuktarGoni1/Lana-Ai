@@ -748,6 +748,9 @@ _allowed_origins = _settings.cors_origins or [
 if not _settings.cors_origins and not _settings.api_debug:
     logger.warning("CORS origins not explicitly configured in production environment")
 
+# Store CORS origins in app state for debugging
+app.state.cors_origins = _allowed_origins
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_allowed_origins,
@@ -774,6 +777,12 @@ async def root():
 async def health():
     """Liveness probe - returns immediately if process is running."""
     return HealthResponse(status="ok")
+
+@app.get("/debug/cors", tags=["Debug"])
+async def debug_cors(request: Request):
+    """Debug endpoint to check CORS configuration."""
+    origins = getattr(request.app.state, 'cors_origins', [])
+    return {"cors_origins": origins, "headers": dict(request.headers)}
 
 
 @app.get("/ready", response_model=ReadinessResponse, tags=["Health"])
