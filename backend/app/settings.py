@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     smtp_username: str = ""
     smtp_password: str = ""
 
+    # Frontend variables (ignored but accepted to prevent errors)
+    next_public_supabase_url: Optional[str] = None
+    next_public_supabase_anon_key: Optional[str] = None
+    next_public_api_base: Optional[str] = None
+    next_public_use_proxy: Optional[str] = None
+
     @field_validator("cors_origins", mode="before")
     def parse_origins(cls, v):
         if isinstance(v, str):

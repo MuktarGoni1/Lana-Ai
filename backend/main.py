@@ -740,6 +740,7 @@ _allowed_origins = _settings.cors_origins or [
     "http://localhost:3000",  
     "http://localhost:3001",
     "https://lanamind.com",  #  production frontend domain
+    "https://api.lanamind.com",  #  production API domain
     "https://lana-ai.onrender.com", 
 ]
 
