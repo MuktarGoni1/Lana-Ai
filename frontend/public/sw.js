@@ -34,6 +34,12 @@ self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') {
     return;
   }
+  
+  // Skip caching for API requests
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_next/data/')) {
+    return;
+  }
 
   event.respondWith(
     caches.match(event.request)
