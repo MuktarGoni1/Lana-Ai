@@ -8,12 +8,12 @@ import { Moon, LogOut } from "lucide-react"
 import { UserIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { User as SupabaseUser } from "@supabase/supabase-js"
-import { useRobustAuth } from "@/contexts/RobustAuthContext"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 
 export default function SettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, isAuthenticated, isLoading } = useRobustAuth()
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth()
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const [role, setRole] = useState<"child" | "guardian" | null>(null)
   const [weekly, setWeekly] = useState(true)
