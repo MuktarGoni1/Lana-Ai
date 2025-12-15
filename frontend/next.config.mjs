@@ -108,8 +108,7 @@ const nextConfig = {
       'avatar/streams',
       'tts',
       'quiz',
-      'subscription/status',
-      'structured-lesson'
+      'subscription/status'
     ];
     
     // Log the exclusion pattern for debugging

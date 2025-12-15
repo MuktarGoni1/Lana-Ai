@@ -1031,7 +1031,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
         return;
       }
       
-      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson/` : '/api/structured-lesson/';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

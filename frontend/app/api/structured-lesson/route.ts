@@ -5,7 +5,7 @@ import rateLimiter from '@/lib/rate-limiter';
 export async function POST(req: Request) {
   try {
     // Check rate limiting
-    const endpoint = '/api/structured-lesson';
+    const endpoint = '/api/structured-lesson/';
     if (!rateLimiter.isAllowed(endpoint)) {
       const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
       const secondsUntilReset = Math.ceil(timeUntilReset / 1000);
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
     // Proxy the request to the backend service
     try {
       const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-      const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+      const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson/`;
       
       // Validate backend URL
       try {
