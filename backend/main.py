@@ -737,9 +737,14 @@ app = FastAPI(
 # CORS configuration - explicit origins
 _settings = get_settings()
 _allowed_origins = _settings.cors_origins or [
+    "http://localhost:3000",  # Added standard Next.js dev port
     "http://localhost:3001",
     "https://api.lanamind.com",
 ]
+
+# Validate that we have explicit origins in production
+if not _settings.cors_origins and not _settings.api_debug:
+    logger.warning("CORS origins not explicitly configured in production environment")
 
 app.add_middleware(
     CORSMiddleware,

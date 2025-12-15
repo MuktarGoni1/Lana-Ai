@@ -105,7 +105,10 @@ const nextConfig = {
 
   async rewrites() {
     // Get the API base URL, defaulting to localhost for development
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+    // Updated to use HTTPS in production
+    const isProd = process.env.NODE_ENV === 'production';
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 
+      (isProd ? "https://api.lanamind.com" : "http://localhost:8000");
     
     // Define frontend API routes that should NOT be proxied to backend
     const frontendRoutes = [
