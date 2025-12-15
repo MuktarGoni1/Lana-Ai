@@ -737,9 +737,10 @@ app = FastAPI(
 # CORS configuration - explicit origins
 _settings = get_settings()
 _allowed_origins = _settings.cors_origins or [
-    "http://localhost:3000",  # Added standard Next.js dev port
+    "http://localhost:3000",  
     "http://localhost:3001",
-    "https://api.lanamind.com",
+    "https://lanamind.com",  #  production frontend domain
+    "https://lana-ai.onrender.com", 
 ]
 
 # Validate that we have explicit origins in production
