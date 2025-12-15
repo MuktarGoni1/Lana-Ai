@@ -263,7 +263,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`${API_BASE}/api/tts/`, {
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -639,7 +639,7 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`${API_BASE}/api/tts/`, {
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -993,7 +993,7 @@ interface AnimatedAIChatProps {
 
       const connectSSE = () => {
         const es = new EventSource(
-          `${API_BASE}/ask/stream?q=${encodeURIComponent(sanitizedInput)}&sid=${encodeURIComponent(sid)}`,
+          `/ask/stream?q=${encodeURIComponent(sanitizedInput)}&sid=${encodeURIComponent(sid)}`,
           { withCredentials: false }
         );
 
@@ -1082,7 +1082,7 @@ interface AnimatedAIChatProps {
       try {
         setIsTyping(true);
         const savePromise = saveSearch(sanitizedInput.trim()).catch(() => {});
-        const res = await fetchWithTimeoutAndRetry(`${API_BASE}/api/math-solver/solve`, {
+        const res = await fetchWithTimeoutAndRetry(`/api/math-solver/solve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ problem: sanitizedInput, show_steps: true }),
@@ -1156,7 +1156,7 @@ interface AnimatedAIChatProps {
       
       // Use relative path for frontend API routes to handle proxying
       // The frontend API route at /api/structured-lesson will proxy to the backend
-      const lessonEndpoint = `${API_BASE}/api/structured-lesson`;
+      const lessonEndpoint = '/api/structured-lesson';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {
