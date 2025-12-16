@@ -32,18 +32,9 @@ export async function POST(req: Request) {
 
     // Proxy the request to the backend service
     try {
-      // Check if we should use proxy mode (same logic as frontend)
-      const useProxy = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
-      
-      let lessonUrl: string;
-      if (useProxy) {
-        // In proxy mode, use relative path that will be handled by Next.js rewrites
-        lessonUrl = 'http://localhost:8000/api/structured-lesson/'; // Local backend in development
-      } else {
-        // In direct mode, use the configured API base
-        const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
-        lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson/`;
-      }
+      // Always use the configured API base - no proxy mode needed for production
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+      const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson/`;
       
       // Validate backend URL
       try {
@@ -52,6 +43,8 @@ export async function POST(req: Request) {
         console.error('Invalid backend URL:', lessonUrl);
         return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
       }
+      
+      console.log('Making request to backend:', lessonUrl);
       
       const backendResponse = await fetchWithTimeoutAndRetry(
         lessonUrl,
@@ -89,6 +82,7 @@ export async function POST(req: Request) {
         {
           error: 'Structured lesson service is temporarily unavailable',
           details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
+          status: backendResponse.status
         },
         { status: backendResponse.status }
       );
@@ -113,7 +107,7 @@ export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? '*' : 'https://lanamind.com',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Trace-ID, X-API-Key',
       'Access-Control-Allow-Credentials': 'true',

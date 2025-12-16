@@ -111,22 +111,18 @@ const nextConfig = {
       'subscription/status'
     ];
     
-    // Log the exclusion pattern for debugging
-    const exclusionPattern = `/api/:path((?!${frontendRoutes.join('|')}).*)`;
-    console.log('API rewrite exclusion pattern:', exclusionPattern);
-    
-    return [
-      // Exclude frontend API routes that should be handled locally
-      { 
-        source: exclusionPattern, 
-        destination: `${apiBase}/api/:path*` 
-      },
+    // Create individual rewrites for each backend API route to ensure proper handling
+    const backendRoutes = [
+      { source: '/api/structured-lesson', destination: `${apiBase}/api/structured-lesson` },
+      { source: '/api/structured-lesson/:path*', destination: `${apiBase}/api/structured-lesson/:path*` },
       // Ensure legacy calls to /history are correctly forwarded to /api/history
       { source: '/history', destination: `${apiBase}/api/history` },
       // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused
       { source: '/reset', destination: `${apiBase}/api/reset` },
       { source: '/health', destination: `${apiBase}/health` },
     ];
+    
+    return backendRoutes;
   },
   // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
   // outputFileTracingRoot: undefined,
