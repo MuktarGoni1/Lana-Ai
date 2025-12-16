@@ -748,6 +748,14 @@ interface CommandSuggestion {
   placeholder?: string;
   action?: () => void;
 }
+
+interface ChatResponse {
+  mode: string;
+  reply: string;
+  quiz?: any;
+  error?: string;
+}
+
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
@@ -982,6 +990,128 @@ interface AnimatedAIChatProps {
     setLessonJson(null);
     setMathSolution(null);
     setError(null);
+
+    // Handle mode-based routing for chat, quick, maths, and lesson modes
+    const modeMatch = sanitizedInput.match(/^\/(\w+)\s*(.*)/);
+    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'lesson';
+    const cleanText = modeMatch ? modeMatch[2] : sanitizedInput;
+
+    // For chat and quick modes, use the new chat API endpoint
+    if (mode === 'chat' || mode === 'quick') {
+      try {
+        // Get session ID for user identification
+        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        
+        // Get user age if available
+        let userAge = null;
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            userAge = (session.user as any).user_metadata?.age || null;
+          }
+        } catch (ageError) {
+          console.warn('Could not retrieve user age:', ageError);
+        }
+        
+        // Prepare request payload
+        const payload: any = {
+          userId: sid,
+          message: sanitizedInput,
+          age: userAge
+        };
+        
+        // Check rate limit before making request
+        const endpoint = '/api/chat';
+        if (!rateLimiter.isAllowed(endpoint)) {
+          const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+          setIsTyping(false);
+          return;
+        }
+        
+        // Make API call to chat endpoint
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: abortRef.current.signal,
+        });
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to get response from server";
+          switch (response.status) {
+            case 400:
+              errorMessage = "Invalid request. Please try rephrasing your question.";
+              break;
+            case 401:
+              errorMessage = "Authentication required. Please log in again.";
+              break;
+            case 429:
+              errorMessage = "Too many requests. Please wait a moment and try again.";
+              break;
+            case 500:
+              errorMessage = "Server error. Please try again later.";
+              break;
+            case 503:
+              errorMessage = "Service temporarily unavailable. Please try again later.";
+              break;
+            default:
+              errorMessage = `Server error (${response.status}). Please try again later.`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const chatResponse: ChatResponse = await response.json();
+        
+        // Handle the response based on mode
+        if (chatResponse.error) {
+          setError(chatResponse.error);
+        } else {
+          // For chat mode, display the reply directly
+          if (chatResponse.mode === 'chat') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          } 
+          // For quick mode, display the reply directly
+          else if (chatResponse.mode === 'quick') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+          // For other modes, we might want to handle differently
+          else {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+        }
+        
+        setIsTyping(false);
+        setShowVideoButton(true);
+        
+        // Save search history
+        const savePromise = saveSearch(sanitizedInput.trim()).catch(console.error);
+        await savePromise;
+        
+        return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") {
+          if (process.env.NODE_ENV === 'development') console.debug('[chat] aborted');
+          setError("Request was cancelled or timed out. Please try again.");
+        } else {
+          const errorMessage = e instanceof Error ? e.message : "Chat request failed";
+          setError(errorMessage);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[chat] error', e);
+          }
+        }
+      } finally {
+        setIsTyping(false);
+        setValue('');
+      }
+      return;
+    }
 
     // legacy video path
     if (sanitizedInput.startsWith("/video")) {
