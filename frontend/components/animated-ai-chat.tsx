@@ -993,7 +993,7 @@ interface AnimatedAIChatProps {
 
     // Handle mode-based routing for chat, quick, maths, and lesson modes
     const modeMatch = sanitizedInput.match(/^\/(\w+)\s*(.*)/);
-    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'lesson';
+    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'chat';
     const cleanText = modeMatch ? modeMatch[2] : sanitizedInput;
 
     // For chat and quick modes, use the new chat API endpoint

@@ -65,7 +65,7 @@ def extract_mode(message: str) -> tuple[str, str]:
         clean_text = match.group(2).strip()
         return mode, clean_text
     
-    # Default mode if no command found
+    # Default to chat mode if no command found
     return "chat", message.strip()
 
 def get_user_history(user_id: str, limit: int = 10) -> List[Dict[str, str]]:
@@ -277,7 +277,7 @@ async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client
         system_prompt = f"""You are Lana AI. Provide a concise answer in 1-3 short bullet points. 
 {age_context} 
 Format your response as short, clear bullet points. 
-Do not use markdown formatting. 
+Do not use code formatting. 
 Keep each bullet point brief and to the point.
 Example format:
 • Brief answer point 1
@@ -329,12 +329,16 @@ async def chat_endpoint(request: ChatRequest):
         # Extract mode and clean text from message
         mode, clean_text = extract_mode(request.message)
         
-        # Validate mode
+        # Validate mode - ensure we use the correct handler
         if mode not in MODE_MAP:
-            mode = "chat"  # Default to chat mode if mode not recognized
+            # If mode is not recognized, default to chat mode for conversational responses
+            mode = "chat"
         
         # Get the appropriate handler
         handler = MODE_MAP[mode]
+        
+        # Log the mode being used for debugging
+        logger.info(f"Using mode: {mode} for message: {request.message[:50]}...")
         
         # Call the handler with Groq client
         if mode == "chat":
