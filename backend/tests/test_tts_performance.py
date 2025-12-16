@@ -55,12 +55,11 @@ def test_tts_concurrent_limiting():
 def test_tts_configurable_parameters():
     """Test that TTS service uses configurable parameters."""
     # Verify that configuration parameters exist and have reasonable defaults
-    assert TTS_MODEL == "gemini-2.5-flash-preview-tts"
+    assert TTS_MODEL == "gemini-2.0-flash-tts"
     assert TTS_SAMPLE_RATE == 22050
     assert TTS_CHUNK_SIZE == 32768
     assert TTS_CONCURRENT_LIMIT == 10
     assert TTS_CACHE_TTL == 7200
-
 
 if __name__ == "__main__":
     test_tts_service_initialization()

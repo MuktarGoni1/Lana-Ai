@@ -24,48 +24,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "geolocation=(), microphone=(), camera=()"
         )
 
-        # Check if this is a documentation route
-        is_docs_route = (
-            request.url.path in ["/docs", "/redoc"] or
-            request.url.path.startswith("/docs/") or
-            request.url.path.startswith("/redoc/")
-        )
-
         # Content Security Policy
         # Use production CSP when not in debug mode
         if not _settings.api_debug:
-            if is_docs_route:
-                # More permissive CSP for documentation routes to allow Swagger UI resources
-                csp_policy = (
-                    "default-src 'self'; "
-                    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/; "
-                    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/; "
-                    "img-src 'self' data: https:; "
-                    "font-src 'self' data: https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/; "
-                    "connect-src 'self' https:; "
-                    "media-src 'self'; "
-                    "object-src 'none'; "
-                    "base-uri 'self'; "
-                    "form-action 'self'; "
-                    "frame-ancestors 'none'; "
-                    "upgrade-insecure-requests"
-                )
-            else:
-                # Strict CSP for all other routes
-                csp_policy = (
-                    "default-src 'self'; "
-                    "script-src 'self'; "
-                    "style-src 'self' 'unsafe-inline'; "
-                    "img-src 'self' data: https:; "
-                    "font-src 'self' data:; "
-                    "connect-src 'self' https:; "
-                    "media-src 'self'; "
-                    "object-src 'none'; "
-                    "base-uri 'self'; "
-                    "form-action 'self'; "
-                    "frame-ancestors 'none'; "
-                    "upgrade-insecure-requests"
-                )
+            csp_policy = (
+                "default-src 'self'; "
+                "script-src 'self'; "
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https:; "
+                "media-src 'self'; "
+                "object-src 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'; "
+                "frame-ancestors 'none'; "
+                "upgrade-insecure-requests"
+            )
             response.headers["Content-Security-Policy"] = csp_policy
 
         # HSTS (HTTP Strict Transport Security)

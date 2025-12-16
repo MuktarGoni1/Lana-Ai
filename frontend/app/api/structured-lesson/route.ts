@@ -5,7 +5,7 @@ import rateLimiter from '@/lib/rate-limiter';
 export async function POST(req: Request) {
   try {
     // Check rate limiting
-    const endpoint = '/api/structured-lesson/';
+    const endpoint = '/api/structured-lesson';
     if (!rateLimiter.isAllowed(endpoint)) {
       const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
       const secondsUntilReset = Math.ceil(timeUntilReset / 1000);
@@ -32,9 +32,8 @@ export async function POST(req: Request) {
 
     // Proxy the request to the backend service
     try {
-      // Always use the configured API base - no proxy mode needed for production
-      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
-      const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson/`;
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+      const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
       
       // Validate backend URL
       try {
@@ -43,8 +42,6 @@ export async function POST(req: Request) {
         console.error('Invalid backend URL:', lessonUrl);
         return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
       }
-      
-      console.log('Making request to backend:', lessonUrl);
       
       const backendResponse = await fetchWithTimeoutAndRetry(
         lessonUrl,
@@ -82,7 +79,6 @@ export async function POST(req: Request) {
         {
           error: 'Structured lesson service is temporarily unavailable',
           details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
-          status: backendResponse.status
         },
         { status: backendResponse.status }
       );
@@ -102,15 +98,14 @@ export async function POST(req: Request) {
   }
 }
 
-// Handle CORS preflight requests
+// Allow CORS for local development
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Trace-ID, X-API-Key',
-      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }

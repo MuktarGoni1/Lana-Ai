@@ -1,949 +1,736 @@
+# backend/main.py
 """
-FastAPI backend for Lana AI.
-
+Simplified FastAPI application for Lana AI Backend.
 """
 
-from __future__ import annotations
-
-import asyncio
-import hashlib
-import html
 import logging
-import re
-import time
+
+# FastAPI imports
+from fastapi import FastAPI, Response 
 import uuid
-from contextlib import asynccontextmanager
-from functools import lru_cache
-from typing import Annotated, Optional
-
-import orjson
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse, StreamingResponse
-from pydantic import BaseModel, Field, field_validator, ConfigDict
-
-# Attempt optional imports with graceful fallback
-try:
-    from groq import Groq
-except ImportError:
-    Groq = None  # type: ignore
-
-try:
-    import redis.asyncio as aioredis
-    REDIS_AVAILABLE = True
-except ImportError:
-    aioredis = None  # type: ignore
-    REDIS_AVAILABLE = False
-
-# Local imports
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from app.middleware.security_headers_middleware import SecurityHeadersMiddleware
 from app.middleware.request_timing_middleware import RequestTimingMiddleware, get_metrics_snapshot
-from app.settings import load_settings as _load_settings
+from app.settings import load_settings
 from app.repositories.memory_cache_repository import MemoryCacheRepository
+
 from app.api.router import api_router
+from fastapi.responses import StreamingResponse  # type: ignore
+import time
+import json
+import asyncio
+import hashlib
+try:
+    from groq import Groq  # type: ignore
+except Exception:
+    Groq = None
+
+
 from app.jobs.worker_manager import start_job_workers, stop_job_workers
 
-# Security imports
-from app.middleware.security_logger import security_logger
+# Redis availability check
+try:
+    import redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
 
-# Database imports
-from app.db_manager import db_manager
-
-# -----------------------------------------------------------------------------
-# Logging Configuration
-# -----------------------------------------------------------------------------
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - [%(trace_id)s] - %(message)s",
-    datefmt="%Y-%m-%dT%H:%M:%S%z",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
-# Add security logger handler if not already present
-if not security_logger.handlers:
-    security_handler = logging.StreamHandler()
-    security_formatter = logging.Formatter(
-        '%(asctime)s - SECURITY - %(levelname)s - %(message)s'
-    )
-    security_handler.setFormatter(security_formatter)
-    security_logger.addHandler(security_handler)
-
-
-class TraceIdFilter(logging.Filter):
-    """Inject trace_id into log records."""
-    def filter(self, record: logging.LogRecord) -> bool:
-        if not hasattr(record, "trace_id"):
-            record.trace_id = "no-trace"
-        return True
-
-
-for handler in logging.root.handlers:
-    handler.addFilter(TraceIdFilter())
-
-
-# -----------------------------------------------------------------------------
-# Settings (cached)
-# -----------------------------------------------------------------------------
-@lru_cache(maxsize=1)
-def get_settings():
-    """Load and cache application settings."""
-    return _load_settings()
-
-
-# -----------------------------------------------------------------------------
-# Precompiled Regex Patterns (avoid recompilation per request)
-# -----------------------------------------------------------------------------
-_SANITIZE_PATTERNS: list[tuple[re.Pattern, str]] = [
-    (re.compile(r"<script[^>]*>.*?</script>", re.IGNORECASE | re.DOTALL), ""),
-    (re.compile(r"<iframe[^>]*>.*?</iframe>", re.IGNORECASE | re.DOTALL), ""),
-    (re.compile(r"<object[^>]*>.*?</object>", re.IGNORECASE | re.DOTALL), ""),
-    (re.compile(r"<embed[^>]*>.*?</embed>", re.IGNORECASE | re.DOTALL), ""),
-    (re.compile(r"javascript:", re.IGNORECASE), ""),
-    (re.compile(r"vbscript:", re.IGNORECASE), ""),
-    (re.compile(r"on\w+=", re.IGNORECASE), ""),  # Consolidated event handlers
-    (re.compile(r"\s+"), " "),
-]
-_CONTROL_CHAR_PATTERN = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]")
-_MARKDOWN_FENCE_PATTERN = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
-
-MAX_TEXT_LENGTH = 1000
-MAX_TOPIC_LENGTH = 100
-MIN_TOPIC_LENGTH = 2
-
-
-def sanitize_text(text: str, max_length: int = MAX_TEXT_LENGTH) -> str:
-    """Sanitize user input: escape HTML, remove dangerous patterns, normalize whitespace."""
-    if not text:
-        return ""
-    # Escape HTML entities first
-    text = html.escape(text, quote=True)
-    # Apply precompiled patterns
-    for pattern, replacement in _SANITIZE_PATTERNS:
-        text = pattern.sub(replacement, text)
-    return text.strip()[:max_length]
-
-
-# -----------------------------------------------------------------------------
-# Pydantic Models with validation
-# -----------------------------------------------------------------------------
-class ClassificationItem(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    
-    type: str = Field(max_length=100)
-    description: str = Field(max_length=500)
-
-    @field_validator("type", "description", mode="before")
-    @classmethod
-    def sanitize(cls, v: str) -> str:
-        return sanitize_text(v) if isinstance(v, str) else ""
-
-
-class SectionItem(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    
-    title: str = Field(max_length=200)
-    content: str = Field(max_length=5000)
-
-    @field_validator("title", "content", mode="before")
-    @classmethod
-    def sanitize(cls, v: str) -> str:
-        return sanitize_text(v, max_length=5000) if isinstance(v, str) else ""
-
-
-class QuizItem(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    
-    q: str = Field(max_length=500)
-    options: list[str] = Field(min_length=2, max_length=6)
-    answer: str = Field(max_length=200)
-
-    @field_validator("q", "answer", mode="before")
-    @classmethod
-    def sanitize(cls, v: str) -> str:
-        return sanitize_text(v) if isinstance(v, str) else ""
-
-    @field_validator("options", mode="before")
-    @classmethod
-    def sanitize_options(cls, v: list) -> list[str]:
-        if not isinstance(v, list):
-            return []
-        return [sanitize_text(str(o)) for o in v[:6]]
-
-
-class StructuredLessonRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    
-    topic: str = Field(min_length=MIN_TOPIC_LENGTH, max_length=MAX_TOPIC_LENGTH)
-    age: Optional[int] = Field(default=None, ge=1, le=120)
-
-    @field_validator("topic", mode="before")
-    @classmethod
-    def validate_topic(cls, v: str) -> str:
-        if not isinstance(v, str):
-            raise ValueError("Topic must be a string")
-        v = v.strip()
-        if len(v) < MIN_TOPIC_LENGTH:
-            raise ValueError("Topic too short")
-        if len(v) > MAX_TOPIC_LENGTH:
-            raise ValueError("Topic too long")
-        # Note: Validation happens BEFORE sanitization for length checks
-        # Sanitization is applied after to clean the content
-        return sanitize_text(v, max_length=MAX_TOPIC_LENGTH)
-
-
-class StructuredLessonResponse(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    
-    id: Optional[str] = None
-    introduction: Optional[str] = None
-    classifications: list[ClassificationItem] = Field(default_factory=list)
-    sections: list[SectionItem] = Field(default_factory=list)
-    diagram: str = ""
-    quiz: list[QuizItem] = Field(default_factory=list)
-
-
-class HealthResponse(BaseModel):
-    status: str
-    version: str = "1.0.0"
-
-
-class ReadinessResponse(BaseModel):
-    status: str
-    checks: dict[str, bool]
-
-
-# -----------------------------------------------------------------------------
-# Application State & Dependencies
-# -----------------------------------------------------------------------------
-class AppState:
-    """Centralized application state with proper lifecycle management."""
-    
-    def __init__(self):
-        self.settings = get_settings()
-        self.cache = MemoryCacheRepository(default_ttl=1800, maxsize=10000)
-        self.groq_client: Optional[Groq] = None
-        self.redis_client: Optional[aioredis.Redis] = None
-        self.inflight_lock = asyncio.Lock()
-        self.inflight_lessons: dict[str, asyncio.Task] = {}
-        self.llm_semaphore = asyncio.Semaphore(50)  # Limit concurrent LLM calls
-        self.is_ready = False
-        self.startup_time = time.time()
-        
-        # Metrics
-        self.metrics = {
-            "requests_total": 0,
-            "errors_total": 0,
-            "llm_calls_total": 0,
-            "cache_hits_total": 0,
-            "cache_misses_total": 0,
-        }
-        
-        # Conversation history storage (in-memory, limited size)
-        self.conversation_history: dict[str, list[dict]] = {}
-        self.history_lock = asyncio.Lock()
-        self.max_history_per_user = 20  # Limit history to 20 messages per user
-        
-        # Database manager
-        self.db_manager = db_manager
-
-    async def initialize(self):
-        """Initialize external connections."""
-        # Initialize database connection pool
-        try:
-            await self.db_manager.initialize()
-            logger.info("Database connection pool initialized", extra={"trace_id": "startup"})
-        except Exception as e:
-            logger.error(f"Failed to initialize database connection pool: {e}", extra={"trace_id": "startup"})
-        
-        # Initialize Groq client
-        if Groq and self.settings.groq_api_key:
-            try:
-                self.groq_client = Groq(
-                    api_key=self.settings.groq_api_key,
-                    timeout=30.0,
-                )
-                logger.info("Groq client initialized", extra={"trace_id": "startup"})
-            except Exception as e:
-                logger.error(f"Failed to initialize Groq client: {e}", extra={"trace_id": "startup"})
-        
-        # Initialize Redis if available
-        if REDIS_AVAILABLE and self.settings.redis_url:
-            try:
-                self.redis_client = await aioredis.from_url(
-                    self.settings.redis_url,
-                    encoding="utf-8",
-                    decode_responses=True,
-                    socket_connect_timeout=5,
-                    socket_timeout=5,
-                )
-                await self.redis_client.ping()
-                logger.info("Redis connected", extra={"trace_id": "startup"})
-            except Exception as e:
-                logger.warning(f"Redis unavailable: {e}", extra={"trace_id": "startup"})
-                self.redis_client = None
-        
-        self.is_ready = True
-
-    async def shutdown(self):
-        """Cleanup resources."""
-        self.is_ready = False
-        
-        # Cancel inflight tasks
-        async with self.inflight_lock:
-            for task in self.inflight_lessons.values():
-                task.cancel()
-            self.inflight_lessons.clear()
-        
-        # Close Redis
-        if self.redis_client:
-            await self.redis_client.close()
-        
-        # Close database connection pool
-        try:
-            await self.db_manager.close()
-            logger.info("Database connection pool closed", extra={"trace_id": "shutdown"})
-        except Exception as e:
-            logger.error(f"Error closing database connection pool: {e}", extra={"trace_id": "shutdown"})
-        
-        logger.info("Application shutdown complete", extra={"trace_id": "shutdown"})
-
-    async def check_groq_health(self) -> bool:
-        """Non-blocking health check for Groq."""
-        if not self.groq_client:
-            return False
-        try:
-            # Use a very short timeout for health check
-            loop = asyncio.get_event_loop()
-            await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: self.groq_client.models.list()),
-                timeout=5.0
-            )
-            return True
-        except Exception:
-            return False
-
-    async def check_redis_health(self) -> bool:
-        """Non-blocking health check for Redis."""
-        if not self.redis_client:
-            return True  # Redis is optional
-        try:
-            await asyncio.wait_for(self.redis_client.ping(), timeout=2.0)
-            return True
-        except Exception:
-            return False
-    
-    async def check_database_health(self) -> bool:
-        """Non-blocking health check for Database."""
-        try:
-            # Simple query to check database connectivity
-            await self.db_manager.execute_query("SELECT 1")
-            return True
-        except Exception:
-            return False
-    
-    async def add_to_conversation_history(self, user_id: str, role: str, content: str):
-        """Add a message to the conversation history for a user."""
-        async with self.history_lock:
-            if user_id not in self.conversation_history:
-                self.conversation_history[user_id] = []
-            
-            self.conversation_history[user_id].append({
-                "role": role,
-                "content": content
-            })
-            
-            # Limit history size
-            if len(self.conversation_history[user_id]) > self.max_history_per_user:
-                # Keep the most recent messages
-                self.conversation_history[user_id] = self.conversation_history[user_id][-self.max_history_per_user:]
-    
-    async def get_conversation_history(self, user_id: str) -> list[dict]:
-        """Get the conversation history for a user."""
-        async with self.history_lock:
-            return self.conversation_history.get(user_id, []).copy()
-    
-    async def clear_conversation_history(self, user_id: str):
-        """Clear the conversation history for a user."""
-        async with self.history_lock:
-            if user_id in self.conversation_history:
-                del self.conversation_history[user_id]
-
-# Global app state instance
-_app_state: Optional[AppState] = None
-
-
-def get_app_state() -> AppState:
-    """Dependency to get application state."""
-    if _app_state is None:
-        raise RuntimeError("Application not initialized")
-    return _app_state
-
-
-# Type alias for dependency injection
-AppStateDep = Annotated[AppState, Depends(get_app_state)]
-
-
-# -----------------------------------------------------------------------------
-# Request Context Middleware
-# -----------------------------------------------------------------------------
-async def add_trace_id(request: Request):
-    """Add trace ID to request state and logging context."""
-    trace_id = request.headers.get("X-Trace-ID", str(uuid.uuid4())[:8])
-    request.state.trace_id = trace_id
-    return trace_id
-
-
-TraceIdDep = Annotated[str, Depends(add_trace_id)]
-
-
-# -----------------------------------------------------------------------------
-# Lesson Generation Logic
-# -----------------------------------------------------------------------------
-def _get_age_category(age: Optional[int]) -> str:
-    """Map age to category for prompt customization."""
-    if age is None:
-        return "general audience"
-    if age <= 5:
-        return "young child (use very simple words)"
-    if age <= 12:
-        return "child (use clear explanations)"
-    if age <= 18:
-        return "teenager"
-    return "adult"
-
-
-def _build_system_prompt(age: Optional[int]) -> str:
-    """Build the system prompt for lesson generation."""
-    age_desc = _get_age_category(age)
-    return (
-        "You are Lana, a helpful tutor. Produce a structured lesson as strict JSON only. "
-        "Return ONLY valid JSON with these exact keys: "
-        '"introduction" (string), '
-        '"classifications" (array of {type, description}), '
-        '"sections" (array of {title, content} with content >= 100 words each), '
-        '"diagram" (string, optional), '
-        '"quiz_questions" (array of {question, options: [4 strings], answer}). '
-        f"Target audience: {age_desc}. "
-        "Include 3-4 quiz questions. Start response with {{ and end with }}. "
-        "No markdown, no code fences, no explanations—pure JSON only."
-    )
-
-
-def _parse_llm_response(raw: str) -> dict:
-    """Parse LLM JSON response with robust error handling."""
-    if not raw:
-        raise ValueError("Empty response")
-    
-    # Remove markdown fences
-    cleaned = _MARKDOWN_FENCE_PATTERN.sub("", raw).strip()
-    
-    # Remove control characters
-    cleaned = _CONTROL_CHAR_PATTERN.sub("", cleaned)
-    
-    # Try parsing
-    try:
-        return orjson.loads(cleaned)
-    except orjson.JSONDecodeError:
-        pass
-    
-    # Try to find valid JSON boundaries
-    start = cleaned.find("{")
-    end = cleaned.rfind("}") + 1
-    if start >= 0 and end > start:
-        try:
-            return orjson.loads(cleaned[start:end])
-        except orjson.JSONDecodeError:
-            pass
-    
-    raise ValueError(f"Cannot parse JSON: {cleaned[:100]}...")
-
-
-def _extract_lesson_data(data: dict) -> StructuredLessonResponse:
-    """Extract and validate lesson data from parsed JSON."""
-    # Extract classifications
-    classifications = []
-    for c in data.get("classifications", []):
-        if isinstance(c, dict) and "type" in c and "description" in c:
-            classifications.append(ClassificationItem(
-                type=str(c["type"]),
-                description=str(c["description"])
-            ))
-    
-    # Extract sections
-    sections = []
-    for s in data.get("sections", []):
-        if isinstance(s, dict) and "title" in s and "content" in s:
-            sections.append(SectionItem(
-                title=str(s["title"]),
-                content=str(s["content"])
-            ))
-    
-    # Extract quiz
-    quiz = []
-    quiz_raw = data.get("quiz_questions", []) or data.get("quiz", [])
-    for q in quiz_raw:
-        if not isinstance(q, dict):
-            continue
-        question = q.get("question") or q.get("q", "")
-        options = q.get("options", [])
-        answer = q.get("answer", "")
-        
-        # Normalize options
-        normalized_opts = []
-        for opt in options[:4]:
-            if isinstance(opt, dict):
-                normalized_opts.append(str(opt.get("option", opt)))
-            else:
-                normalized_opts.append(str(opt))
-        
-        if question and len(normalized_opts) >= 2 and answer:
-            quiz.append(QuizItem(q=question, options=normalized_opts, answer=answer))
-    
-    return StructuredLessonResponse(
-        id=str(uuid.uuid4()),
-        introduction=sanitize_text(str(data.get("introduction", "")), max_length=2000),
-        classifications=classifications,
-        sections=sections,
-        diagram=sanitize_text(str(data.get("diagram", "")), max_length=1000),
-        quiz=quiz,
-    )
-
-
-async def _call_groq_api(
-    client: Groq,
-    topic: str,
-    age: Optional[int],
-    semaphore: asyncio.Semaphore,
-    trace_id: str,
-) -> StructuredLessonResponse:
-    """Call Groq API with proper timeout, retry, and rate limiting."""
-    async with semaphore:
-        loop = asyncio.get_event_loop()
-        
-        sys_prompt = _build_system_prompt(age)
-        user_prompt = f"Create a lesson about: {topic}"
-        
-        # Retry logic with exponential backoff
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                # Run blocking call in thread pool with timeout
-                response = await asyncio.wait_for(
-                    loop.run_in_executor(
-                        None,
-                        lambda: client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=[
-                                {"role": "system", "content": sys_prompt},
-                                {"role": "user", "content": user_prompt},
-                            ],
-                            temperature=0.4,
-                            max_tokens=1500,
-                            top_p=0.9,
-                        )
-                    ),
-                    timeout=30.0,
-                )
-                
-                raw = response.choices[0].message.content or ""
-                data = _parse_llm_response(raw)
-                lesson = _extract_lesson_data(data)
-                
-                # Quality check
-                if not lesson.introduction or len(lesson.sections) < 1:
-                    raise ValueError("Low quality response")
-                
-                logger.info(
-                    f"LLM lesson generated for '{topic}'",
-                    extra={"trace_id": trace_id, "sections": len(lesson.sections)}
-                )
-                return lesson
-                
-            except asyncio.TimeoutError:
-                logger.warning(
-                    f"Groq timeout attempt {attempt + 1}/{max_retries}",
-                    extra={"trace_id": trace_id}
-                )
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(2 ** attempt)
-                
-            except Exception as e:
-                logger.warning(
-                    f"Groq error attempt {attempt + 1}/{max_retries}: {e}",
-                    extra={"trace_id": trace_id}
-                )
-                if attempt == max_retries - 1:
-                    raise
-                await asyncio.sleep(2 ** attempt)
-        
-        raise RuntimeError("Max retries exceeded")
-
-
-def _create_stub_lesson(topic: str) -> StructuredLessonResponse:
-    """Create a stub lesson when LLM is unavailable."""
-    return StructuredLessonResponse(
-        id=str(uuid.uuid4()),
-        introduction=f"We couldn't generate a lesson about '{topic}' at this time. Please try again later.",
-        classifications=[],
-        sections=[
-            SectionItem(
-                title="Service Temporarily Unavailable",
-                content="Our lesson generation service is experiencing high demand or temporary issues. "
-                        "Please try again in a few moments, or try a different topic."
-            ),
-        ],
-        diagram="",
-        quiz=[
-            QuizItem(
-                q="What should you do when a lesson isn't available?",
-                options=["Try again later", "Try a different topic", "Contact support", "All of the above"],
-                answer="All of the above"
-            )
-        ],
-    )
-
-
-async def get_or_compute_lesson(
-    state: AppState,
-    cache_key: str,
-    topic: str,
-    age: Optional[int],
-    trace_id: str,
-) -> tuple[StructuredLessonResponse, str]:
-    """Get lesson from cache or compute with single-flight pattern."""
-    
-    # Check cache first
-    try:
-        cached = await state.cache.get(cache_key, namespace="lessons")
-        if cached:
-            state.metrics["cache_hits_total"] += 1
-            return StructuredLessonResponse(**cached), "cache"
-    except Exception as e:
-        logger.debug(f"Cache get error: {e}", extra={"trace_id": trace_id})
-    
-    state.metrics["cache_misses_total"] += 1
-    
-    # Single-flight: check if already computing
-    async with state.inflight_lock:
-        if cache_key in state.inflight_lessons:
-            task = state.inflight_lessons[cache_key]
-        else:
-            # Create new task
-            task = asyncio.create_task(
-                _compute_lesson_task(state, cache_key, topic, age, trace_id)
-            )
-            state.inflight_lessons[cache_key] = task
-    
-    try:
-        return await task
-    finally:
-        # Cleanup
-        async with state.inflight_lock:
-            state.inflight_lessons.pop(cache_key, None)
-
-
-async def _compute_lesson_task(
-    state: AppState,
-    cache_key: str,
-    topic: str,
-    age: Optional[int],
-    trace_id: str,
-) -> tuple[StructuredLessonResponse, str]:
-    """Compute lesson and cache result."""
-    source = "stub"
-    
-    if state.groq_client:
-        try:
-            state.metrics["llm_calls_total"] += 1
-            lesson = await _call_groq_api(
-                state.groq_client, topic, age, state.llm_semaphore, trace_id
-            )
-            source = "llm"
-        except Exception as e:
-            logger.error(f"LLM generation failed: {e}", extra={"trace_id": trace_id})
-            state.metrics["errors_total"] += 1
-            lesson = _create_stub_lesson(topic)
-    else:
-        lesson = _create_stub_lesson(topic)
-    
-    # Cache the result
-    try:
-        await state.cache.set(cache_key, lesson.model_dump(), namespace="lessons")
-    except Exception as e:
-        logger.debug(f"Cache set error: {e}", extra={"trace_id": trace_id})
-    
-    return lesson, source
-
-
-# -----------------------------------------------------------------------------
-# Lifespan Context Manager
-# -----------------------------------------------------------------------------
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan: startup and shutdown logic."""
-    global _app_state
-    
-    # Startup
-    logger.info("Starting Lana AI Backend...", extra={"trace_id": "startup"})
-    _app_state = AppState()
-    await _app_state.initialize()
-    
-    # Start job workers (non-blocking)
-    try:
-        await start_job_workers()
-        logger.info("Job workers started", extra={"trace_id": "startup"})
-    except Exception as e:
-        logger.error(f"Job worker startup failed: {e}", extra={"trace_id": "startup"})
-    
-    # Warm up cache in background
-    asyncio.create_task(_warm_up_cache(_app_state))
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down...", extra={"trace_id": "shutdown"})
-    try:
-        await stop_job_workers()
-    except Exception as e:
-        logger.error(f"Job worker shutdown error: {e}", extra={"trace_id": "shutdown"})
-    
-    await _app_state.shutdown()
-    _app_state = None
-
-
-async def _warm_up_cache(state: AppState):
-    """Background task to warm up the lesson cache."""
-    try:
-        await asyncio.sleep(1)  # Let startup complete
-        cache_key = hashlib.md5(b"warmup|10").hexdigest()[:16]
-        await get_or_compute_lesson(state, cache_key, "warmup sample", 10, "warmup")
-        logger.info("Cache warmup complete", extra={"trace_id": "warmup"})
-    except Exception as e:
-        logger.warning(f"Cache warmup failed: {e}", extra={"trace_id": "warmup"})
-
-
-# -----------------------------------------------------------------------------
-# FastAPI Application
-# -----------------------------------------------------------------------------
+# Create FastAPI application
 app = FastAPI(
     title="Lana AI API",
     description="Backend API for Lana AI educational platform",
     version="1.0.0",
-    default_response_class=ORJSONResponse,
-    lifespan=lifespan,
 )
 
-# CORS configuration - explicit origins
-_settings = get_settings()
-_allowed_origins = _settings.cors_origins or [
-    "http://localhost:3000",  
-    "http://localhost:3001",
-    "https://lanamind.com",  #  production frontend domain
-    "https://api.lanamind.com",  #  production API domain
-    "https://lana-ai.onrender.com", 
-]
+# Load settings for global config
+settings = load_settings()
 
-# Validate that we have explicit origins in production
-if not _settings.cors_origins and not _settings.api_debug:
-    logger.warning("CORS origins not explicitly configured in production environment")
+# Log API key status for debugging
+if settings.groq_api_key:
+    logger.info(f"Groq API key loaded (length: {len(settings.groq_api_key)})")
+else:
+    logger.warning("No Groq API key found - LLM features will use fallback responses")
 
-# Store CORS origins in app state for debugging
-app.state.cors_origins = _allowed_origins
+# Log all relevant settings for debugging
+logger.info(f"Supabase URL configured: {bool(settings.supabase_url)}")
+logger.info(f"Google API key configured: {bool(settings.google_api_key)}")
+
+# Initialize shared cache and Groq client for structured lessons
+_STRUCTURED_LESSON_CACHE = MemoryCacheRepository(default_ttl=1800)
+_GROQ_CLIENT = None
+if Groq and settings.groq_api_key:
+    try:
+        _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
+        logger.info("Groq client initialized successfully")
+        # Test the client with a simple request
+        try:
+            test_response = _GROQ_CLIENT.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[{"role": "user", "content": "test"}],
+                max_tokens=10
+            )
+            logger.info("Groq client test successful")
+        except Exception as test_error:
+            logger.error(f"Groq client test failed: {test_error}")
+            _GROQ_CLIENT = None  # Set to None if test fails
+    except Exception as e:
+        logger.error(f"Failed to initialize Groq client: {e}")
+        _GROQ_CLIENT = None
+else:
+    if not Groq:
+        logger.warning("Groq library not available")
+    if not settings.groq_api_key:
+        logger.warning("No Groq API key provided")
+
+_INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
+
+# Add CORS middleware
+# Use secure CORS configuration
+_allow_origins = settings.cors_origins or ["http://localhost:3001", "https://api.lanamind.com"]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=_allow_origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Trace-ID", "X-API-Key"],
-    expose_headers=["X-Content-Source", "X-Trace-ID"],
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+    allow_headers=["*"],
 )
 
+# Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+# Add request timing middleware
 app.add_middleware(RequestTimingMiddleware)
 
-
-# -----------------------------------------------------------------------------
-# Routes
-# -----------------------------------------------------------------------------
-@app.get("/", tags=["Root"], response_model=dict)
+# Root endpoint
+@app.get("/", tags=["Root"]) 
 async def root():
-    """Root endpoint - confirms API is accessible."""
+    """Simple root endpoint to confirm API is accessible."""
     return {"message": "Welcome to Lana AI API", "status": "online"}
 
+# Startup event to initialize job workers
+@app.on_event("startup")
+async def startup_event():
+    """Initialize job workers on startup."""
+    try:
+        await start_job_workers()
+        logger.info("Job workers started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start job workers: {e}")
+        # Don't raise the exception to avoid crashing the application
+        pass
 
-@app.get("/health", response_model=HealthResponse, tags=["Health"])
-async def health():
-    """Liveness probe - returns immediately if process is running."""
-    return HealthResponse(status="ok")
+# Shutdown event to stop job workers
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop job workers on shutdown."""
+    try:
+        await stop_job_workers()
+        logger.info("Job workers stopped successfully")
+    except Exception as e:
+        logger.error(f"Error stopping job workers: {e}")
+        pass
 
-@app.get("/debug/cors", tags=["Debug"])
-async def debug_cors(request: Request):
-    """Debug endpoint to check CORS configuration."""
-    origins = getattr(request.app.state, 'cors_origins', [])
-    return {"cors_origins": origins, "headers": dict(request.headers)}
+app.include_router(api_router, prefix="/api")
+
+from pydantic import BaseModel, Field, field_validator  # type: ignore
+from typing import List, Optional
 
 
-@app.get("/ready", response_model=ReadinessResponse, tags=["Health"])
-async def readiness(state: AppStateDep):
-    """
-    Readiness probe - checks external dependencies.
-    Returns 503 if any critical check fails.
-    """
-    checks = {
-        "groq": await state.check_groq_health(),
-        "redis": await state.check_redis_health(),
-        "database": await state.check_database_health(),
-        "cache": True,
-    }
+def sanitize_text(text: str) -> str:
+    import re, html
+    if not text:
+        return ""
+    # Escape HTML entities
+    text = html.escape(text)
+    # Remove any script tags and other potentially dangerous content
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<iframe[^>]*>.*?</iframe>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<object[^>]*>.*?</object>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<embed[^>]*>.*?</embed>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'vbscript:', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'onload=', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'onerror=', '', text, flags=re.IGNORECASE)
+    # Normalize whitespace
+    text = re.sub(r"\s+", " ", text).strip()
+    # Limit length to prevent abuse
+    return text[:1000]
+
+
+class ClassificationItem(BaseModel):
+    type: str
+    description: str
+
+    @field_validator("type", "description")
+    def _san(cls, v):
+        return sanitize_text(v)
+
+
+class SectionItem(BaseModel):
+    title: str
+    content: str
+
+    @field_validator("title", "content")
+    def _san(cls, v):
+        return sanitize_text(v)
+
+
+class QuizItem(BaseModel):
+    q: str
+    options: List[str]
+    answer: str
+
+    @field_validator("q", "answer") 
+    def _san(cls, v):
+        return sanitize_text(v)
+
+    @field_validator("options")
+    def _san_opts(cls, v):
+        return [sanitize_text(o) for o in v]
+
+
+class StructuredLessonRequest(BaseModel):
+    topic: str
+    age: Optional[int] = None
+
+    @field_validator("topic")
+    def _val_topic(cls, v):
+        v = sanitize_text(v.strip())
+        if len(v) < 2:
+            raise ValueError("Topic too short")
+        if len(v) > 100:
+            raise ValueError("Topic too long")
+        # Prevent injection attempts
+        if any(char in v for char in ['<', '>', '&lt;', '&gt;', 'script', 'javascript']):
+            raise ValueError("Invalid characters in topic")
+        return v
+
+    @field_validator("age")
+    def _val_age(cls, v):
+        if v is not None and (v < 1 or v > 100):
+            raise ValueError("Age must be between 1 and 100")
+        return v
+
+
+class StructuredLessonResponse(BaseModel):
+    id: Optional[str] = None
+    introduction: Optional[str] = None
+    classifications: List[ClassificationItem] = []
+    sections: List[SectionItem]
+    diagram: str = ""
+    quiz: List[QuizItem]
+
+
+async def _stub_lesson(topic: str, age: Optional[int] = None) -> StructuredLessonResponse:
+    """Generate a stub lesson with clear error messaging instead of generic templates."""
+    logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
     
-    all_ok = all(checks.values())
-    response = ReadinessResponse(
-        status="ready" if all_ok else "degraded",
-        checks=checks,
-    )
+    # Create a clear error message instead of generic template
+    error_message = f"Unable to generate a detailed lesson about '{topic}' at this time. This could be due to high demand or a temporary issue. Please try again later or ask about a different topic."
     
-    if not checks["groq"]:
-        # Groq is critical - return 503
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=response.model_dump(),
+    # Create minimal valid response with clear error messaging
+    intro = error_message
+    classifications = []
+    
+    # Create sections with helpful information
+    sections = [
+        SectionItem(
+            title="Service Temporarily Unavailable", 
+            content=error_message
+        ),
+        SectionItem(
+            title="Try These Alternatives",
+            content="1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes\n4. Contact support if the issue persists"
         )
+    ]
     
+    # Create a helpful quiz
+    quiz = [
+        QuizItem(
+            q="What should you do when a lesson fails to generate?",
+            options=[
+                "A) Try rephrasing the question",
+                "B) Ask about a different topic", 
+                "C) Check back later",
+                "D) All of the above"
+            ],
+            answer="D) All of the above"
+        )
+    ]
+    
+    response = StructuredLessonResponse(
+        id=str(uuid.uuid4()),  # Generate a unique ID for the lesson
+        introduction=intro,
+        classifications=classifications,
+        sections=sections,
+        diagram="",
+        quiz=quiz,
+    )
+    logger.info(f"Stub lesson generated with error messaging for '{topic}'")
     return response
 
 
-@app.get("/api/metrics", tags=["Observability"])
-async def metrics(state: AppStateDep, trace_id: TraceIdDep):
-    """Return application metrics."""
-    return {
-        "paths": get_metrics_snapshot(),
-        "app": state.metrics,
-        "uptime_seconds": time.time() - state.startup_time,
-    }
+async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
+    """Compute structured lesson using LLM or fallback to stub."""
+    if _GROQ_CLIENT is not None:
+        raw_excerpt = ""
+        try:
+
+            age_str = ""
+            if age is not None:
+                if age <= 2:
+                    age_str = "toddler"
+                elif age <= 5:
+                    age_str = "preschooler"
+                elif age <= 12:
+                    age_str = "child"
+                elif age <= 18:
+                    age_str = "teenager"
+                else:
+                    age_str = "adult"
+            
+            sys_prompt = (
+                "You are lana, a helpful tutor who produces a structured lesson as strict JSON. "
+                "Return ONLY valid JSON with these exact keys: "
+                "introduction (string), "
+                "classifications (array of objects with type and description string fields), "
+                "sections (array of objects with title and content string fields), "
+                "diagram (string), "
+                "quiz_questions (array of objects with question, options array, and answer string fields). "
+                "Each quiz question must have exactly 4 options. "
+                f"The learner is a {age_str if age_str else 'general audience'}. "
+                "Keep each section content at least 100 words. Include 4 quiz questions with 4 options each. "
+                "IMPORTANT: Respond ONLY with valid JSON, no markdown code blocks, no extra text, no explanations. "
+                "Start your response with '{' and end with '}'. "
+                "Example format: {\"introduction\": \"...\", \"classifications\":[{\"type\":\"...\",\"description\":\"...\"}], \"sections\":[{\"title\":\"...\",\"content\":\"...\"}], \"diagram\":\"...\", \"quiz_questions\":[{\"question\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"answer\":\"...\"}]}")
+
+            user_prompt = f"Topic: {topic}"
+
+            # Call Groq API
+            response = _GROQ_CLIENT.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[
+                    {"role": "system", "content": sys_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.4,
+                max_tokens=1200,
+                top_p=0.9,
+                stream=False,
+            )
+
+            raw_excerpt = response.choices[0].message.content or ""
+            raw_excerpt = raw_excerpt.strip()
+            
+            # Log the raw response for debugging
+            logger.info(f"Raw LLM response for topic '{topic}': {raw_excerpt[:200]}...")
+
+            # Parse JSON - handle markdown code blocks and clean up the response
+            import orjson
+            import json
+            
+            # Clean up the response - remove markdown code blocks if present
+            clean_excerpt = raw_excerpt.strip()
+            
+            # More robust markdown removal
+            while clean_excerpt.startswith('```'):
+                if clean_excerpt.startswith('```json'):
+                    clean_excerpt = clean_excerpt[7:].strip()  # Remove ```json
+                else:
+                    clean_excerpt = clean_excerpt[3:].strip()  # Remove ```
+            
+            # Remove trailing ```
+            while clean_excerpt.endswith('```'):
+                clean_excerpt = clean_excerpt[:-3].strip()
+            
+            # Fix invalid control characters by removing them
+            # Remove incorrect escaping logic
+            # repaired = repaired.replace('\n', '\\n')
+            # repaired = repaired.replace('\r', '\\r')
+            # repaired = repaired.replace('\t', '\\t')
+            # Only escape unescaped backslashes
+            # repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
+                            
+            # Instead, just ensure we have valid JSON by removing any control characters
+            # that might cause issues
+            import re
+            clean_excerpt = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', clean_excerpt)
+            
+            # Try to parse with orjson first, fallback to json
+            try:
+                data = orjson.loads(clean_excerpt)
+            except Exception as orjson_error:
+                try:
+                    # Fallback to standard json parser
+                    data = json.loads(clean_excerpt)
+                except Exception as json_error:
+                    # Try to handle incomplete JSON by finding the last complete object
+                    try:
+                        # Look for the last complete JSON object in the response
+                        last_brace = clean_excerpt.rfind('}')
+                        if last_brace != -1:
+                            truncated = clean_excerpt[:last_brace + 1]
+                            data = json.loads(truncated)
+                            logger.info(f"Successfully parsed truncated JSON for topic '{topic}'")
+                        else:
+                            raise
+                    except Exception:
+                        # Try additional JSON repair techniques
+                        try:
+                            # Attempt to fix common JSON issues
+                            repaired = clean_excerpt
+                                                        
+                            import re
+                                                        
+                            # Additional cleanup - remove any remaining markdown artifacts
+                            if repaired.startswith('```'):
+                                # Remove opening ``` if still present
+                                repaired = repaired[3:].strip()
+                            if repaired.endswith('```'):
+                                # Remove closing ``` if still present
+                                repaired = repaired[:-3].strip()
+                                                        
+                            repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
+                            
+                            repaired = re.sub(r'}\s*{', '},{', repaired)
+
+                            repaired = re.sub(r'}\s*("[^"]+"\s*:)', r'},\1', repaired)
+                                                        
+                            quote_matches = [m.start() for m in re.finditer('"', repaired)]
+                            if len(quote_matches) % 2 != 0:
+
+                                repaired = repaired + '"'
+                                                        
+                            # Try to parse the repaired JSON
+                            data = json.loads(repaired)
+                            logger.info(f"Successfully parsed repaired JSON for topic '{topic}'")
+                        except Exception as repair_error:
+                            # Last resort - try to parse whatever JSON we can get
+                            try:
+                                # Try to find and parse any valid JSON object in the response
+                                import re
+                                json_match = re.search(r'\{[^{]*(?:\{[^{]*\}[^{]*)*\}', repaired)
+                                if json_match:
+                                    potential_json = json_match.group(0)
+                                    data = json.loads(potential_json)
+                                    logger.info(f"Successfully parsed extracted JSON for topic '{topic}'")
+                                else:
+                                    raise
+                            except Exception:
+                                logger.warning(f"Failed to parse JSON with both orjson and json for topic '{topic}'. "
+                                              f"orjson error: {orjson_error}, json error: {json_error}, repair error: {repair_error}. "
+                                              f"Raw excerpt length: {len(clean_excerpt)}")
+                                raise
+            
+            # Normalize and validate response
+            # Handle introduction - could be string or dict with title/text
+            intro_data = data.get("introduction", "")
+            if isinstance(intro_data, dict):
+                # If it's a dict, try to get text or title
+                intro_norm = (intro_data.get("text", "") or intro_data.get("title", "") or "").strip()
+            else:
+                intro_norm = str(intro_data).strip()
+            
+            # Handle diagram - could be in different fields
+            diagram_norm = (data.get("diagram_description", "") or data.get("diagram", "")).strip()
+            
+            # Process classifications
+            classifications = []
+            for c in data.get("classifications", []):
+                if isinstance(c, dict) and "type" in c and "description" in c:
+                    classifications.append(ClassificationItem(type=c["type"], description=c["description"]))
+            
+            # Process sections
+            sections = []
+            for s in data.get("sections", []):
+                if isinstance(s, dict) and "title" in s and "content" in s:
+                    sections.append(SectionItem(title=s["title"], content=s["content"]))
+            
+            # Process quiz - handle both 'quiz' and 'quiz_questions' field names
+            quiz_data = data.get("quiz", data.get("quiz_questions", []))
+            quiz = []
+            for q in quiz_data:
+                if (isinstance(q, dict) and 
+                    "question" in q and 
+                    "options" in q and 
+                    "answer" in q and  # Changed from "correct_answer" to "answer"
+                    len(q["options"]) >= 2):
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["question"], options=options, answer=q["answer"]))
+                elif (isinstance(q, dict) and 
+                      "question" in q and 
+                      "options" in q and 
+                      "correct_answer" in q and  # Keep backward compatibility
+                      len(q["options"]) >= 2):
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["question"], options=options, answer=q["correct_answer"]))
+                elif (isinstance(q, dict) and 
+                      "q" in q and 
+                      "options" in q and 
+                      "answer" in q and  # Handle 'q' field directly
+                      len(q["options"]) >= 2):
+                    # Handle options that might be objects with an "option" key
+                    options = []
+                    for opt in q["options"]:
+                        if isinstance(opt, dict) and "option" in opt:
+                            options.append(str(opt["option"]))
+                        else:
+                            options.append(str(opt))
+                    quiz.append(QuizItem(q=q["q"], options=options, answer=q["answer"]))
+            
+            # Quiz items are already created with 'q' field, no need for additional conversion
+
+            resp = StructuredLessonResponse(
+                id=str(uuid.uuid4()),
+                introduction=intro_norm,
+                classifications=classifications,
+                sections=sections,
+                diagram=diagram_norm,
+                quiz=quiz,
+            )
+            # Accept LLM response if it has at least one section with content
+            # This is more lenient to avoid falling back to stubs unnecessarily
+            has_minimal_content = (
+                resp.sections and len(resp.sections) >= 1 and  # At least 1 section
+                any(len(s.content) > 10 for s in resp.sections)  # At least one section with meaningful content
+            )
+            
+            # Log detailed quality metrics for debugging
+            logger.info(f"LLM response quality check for '{topic}': "
+                       f"Has sections: {bool(resp.sections)}, "
+                       f"Has quiz: {bool(resp.quiz)}, "
+                       f"Section count: {len(resp.sections) if resp.sections else 0}, "
+                       f"Quiz count: {len(resp.quiz) if resp.quiz else 0}")
+            
+            if resp.sections:
+                section_details = [(s.title, len(s.content)) for s in resp.sections]
+                logger.info(f"Section details: {section_details}")
+            
+            if resp.quiz:
+                logger.info(f"Quiz questions: {len(resp.quiz)}")
+            
+            if has_minimal_content:
+                try:
+                    await _STRUCTURED_LESSON_CACHE.set(cache_key, resp.model_dump(), namespace="lessons")
+                    logger.info(f"LLM response for '{topic}' accepted and cached")
+                except Exception as cache_error:
+                    logger.warning(f"Failed to cache LLM response for '{topic}': {cache_error}")
+                return resp, "llm"
+            
+            # Log when we're falling back to stub due to incomplete or low-quality LLM response
+            logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
+                          f"Sections: {len(resp.sections) if resp.sections else 0}, "
+                          f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
+                          f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
+            return await _stub_lesson(topic, age), "stub"
+        except Exception as e:
+            # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
+            try:
+                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
+            except Exception:
+                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
+            logger.warning(f"Falling back to stub lesson for '{topic}' due to LLM error")
+            return await _stub_lesson(topic, age), "stub"
+    else:
+        logger.info(f"Falling back to stub lesson for '{topic}' - no Groq client available")
+        return await _stub_lesson(topic, age), "stub"
 
 
-@app.post(
-    "/api/structured-lesson",
-    response_model=StructuredLessonResponse,
-    response_model_exclude_none=True,
-    tags=["Lessons"],
-)
-async def create_structured_lesson(
-    req: StructuredLessonRequest,
-    response: Response,
-    state: AppStateDep,
-    trace_id: TraceIdDep,
-):
-    """Create a structured lesson from a topic and optional age."""
-    state.metrics["requests_total"] += 1
-    
-    cache_key = hashlib.md5(f"{req.topic}|{req.age}".encode()).hexdigest()[:16]
-    
-    lesson, source = await get_or_compute_lesson(
-        state, cache_key, req.topic, req.age, trace_id
-    )
-    
-    response.headers["X-Content-Source"] = source
-    response.headers["X-Trace-ID"] = trace_id
+async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int]) -> tuple[StructuredLessonResponse, str]:
+    fut = _INFLIGHT_LESSONS.get(cache_key)
+    if fut and not fut.done():
+        return await fut
+    loop = asyncio.get_event_loop()
+    fut = loop.create_future()
+    _INFLIGHT_LESSONS[cache_key] = fut
+    async def _run():
+        try:
+            result = await _compute_structured_lesson(cache_key, topic, age)
+            fut.set_result(result)
+        except Exception as e:
+            logger.error(f"Structured lesson compute failed: {e}")
+            fut.set_result((await _stub_lesson(topic, age), "stub"))
+        finally:
+            _INFLIGHT_LESSONS.pop(cache_key, None)
+    asyncio.create_task(_run())
+    return await fut
+
+
+@app.on_event("startup")
+async def warm_up_structured_lessons():
+    """Warm the structured lesson pipeline to reduce first-request latency.
+
+    If a Groq client is configured, this primes the model and cache by generating
+    one small sample lesson. Otherwise, it seeds the in-memory cache with a stub.
+    """
+    try:
+        sample_topics = ["warm-up sample"]
+        sample_age = 10
+        for t in sample_topics:
+            cache_key = hashlib.md5(f"{t}|{sample_age}".encode()).hexdigest()[:16]
+            await _get_or_compute_lesson(cache_key, t, sample_age)
+        logger.info(
+            "Structured lessons warm-up complete: topics=%d, llm=%s",
+            len(sample_topics),
+            "enabled" if _GROQ_CLIENT is not None else "disabled",
+        )
+    except Exception as e:
+        logger.warning(f"Structured lessons warm-up error: {e}")
+
+
+@app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
+async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
+    """Create a structured lesson from a topic and optional age constraints."""
+    topic = req.topic
+    age = req.age
+    # Build cache key and try cache first
+    cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
+    try:
+        cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
+        if cached:
+            response.headers["X-Content-Source"] = "cache"
+            return StructuredLessonResponse(**cached)
+    except Exception:
+        pass
+
+    # Compute with single-flight to avoid duplicate LLM calls
+    lesson, src = await _get_or_compute_lesson(cache_key, topic, age)
+    response.headers["X-Content-Source"] = src
     return lesson
 
 
-@app.post("/api/structured-lesson/stream", tags=["Lessons"])
-async def structured_lesson_stream(
-    req: StructuredLessonRequest,
-    request: Request,
-    state: AppStateDep,
-    trace_id: TraceIdDep,
-):
-    """Stream a structured lesson as Server-Sent Events."""
-    
-    async def event_generator():
-        try:
-            cache_key = hashlib.md5(f"{req.topic}|{req.age}".encode()).hexdigest()[:16]
-            lesson, source = await get_or_compute_lesson(
-                state, cache_key, req.topic, req.age, trace_id
-            )
-            
-            lesson_dict = lesson.model_dump(exclude_none=True)
-            payload = orjson.dumps({"type": "done", "lesson": lesson_dict, "source": source})
-            yield f"data: {payload.decode()}\n\n"
-            
-        except asyncio.CancelledError:
-            logger.info("SSE client disconnected", extra={"trace_id": trace_id})
-            raise
-        except Exception as e:
-            state.metrics["errors_total"] += 1
-            error_payload = orjson.dumps({"type": "error", "message": str(e)})
-            yield f"data: {error_payload.decode()}\n\n"
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-            "X-Trace-ID": trace_id,
-        },
-    )
+class TTSRequest(BaseModel):
+    text: str
 
+# Health endpoint for tests
+@app.get("/health")
+async def health():
+    """Liveness probe for Render and tests."""
+    return {"status": "ok"}
 
-@app.post("/api/cache/reset", tags=["Admin"])
-async def reset_cache(
-    state: AppStateDep,
-    trace_id: TraceIdDep,
-    x_api_key: Annotated[Optional[str], Header()] = None,
-    namespaces: Optional[list[str]] = None,
-):
+# Simple metrics endpoint for monitoring
+@app.get("/api/metrics")
+async def metrics():
+    """Return basic per-path timing metrics collected in-process."""
+    return {"paths": get_metrics_snapshot()}
+
+@app.post("/api/cache/reset")
+async def reset_cache(namespaces: Optional[list[str]] = None):
+    """Reset in-memory caches to eliminate stale or hardcoded responses.
+
+    - If `namespaces` provided, clears only those; otherwise clears all.
+    - Targets the structured lesson cache; extendable for other caches if needed.
     """
-    Reset in-memory caches. Requires API key authentication.
-    """
-    # Simple API key auth for admin endpoints
-    settings = get_settings()
-    expected_key = getattr(settings, "admin_api_key", None)
-    
-    if expected_key and x_api_key != expected_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or missing API key",
-        )
-    
     try:
         if namespaces:
             for ns in namespaces:
-                state.cache._caches.pop(ns, None)
+                try:
+                    _STRUCTURED_LESSON_CACHE._caches.pop(ns, None)
+                except Exception:
+                    pass
         else:
-            state.cache._caches.clear()
-        
-        logger.info(
-            f"Cache reset: {namespaces or 'all'}",
-            extra={"trace_id": trace_id}
-        )
+            try:
+                _STRUCTURED_LESSON_CACHE._caches.clear()
+            except Exception:
+                pass
+        try:
+            _STRUCTURED_LESSON_CACHE._stats["last_reset"] = time.time()
+        except Exception:
+            pass
         return {"ok": True, "namespaces": namespaces or "all"}
     except Exception as e:
-        logger.error(f"Cache reset failed: {e}", extra={"trace_id": trace_id})
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e),
+        logger.warning(f"Cache reset error: {e}")
+        return {"ok": False, "error": str(e)}
+from typing import Any, Dict, List, Optional
+from fastapi import HTTPException, Query  # type: ignore
+from pydantic import BaseModel  # type: ignore
+
+from app.config import SUPABASE_URL, SUPABASE_KEY
+from app.repositories.interfaces import IChatRepository
+try:
+    from app.repositories.supabase_chat_repository import SupabaseChatRepository
+except Exception:
+    SupabaseChatRepository = None  # Graceful if supabase SDK not installed
+
+
+class InMemoryChatRepository(IChatRepository):
+    """Simple in-memory chat repository for development fallback."""
+
+    def __init__(self) -> None:
+        self._store: Dict[str, List[Dict[str, Any]]] = {}
+
+    async def append_message(self, sid: str, role: str, content: str) -> bool:
+        if not sid:
+            return False
+        self._store.setdefault(sid, []).append(
+            {
+                "sid": sid,
+                "role": role,
+                "content": content,
+                "created_at": "",
+            }
         )
+        return True
+
+    async def get_history(self, sid: str, limit: int = 100) -> List[Dict[str, Any]]:
+        messages = self._store.get(sid, [])
+        return messages[:limit]
 
 
-# Mount API router
-app.include_router(api_router, prefix="/api")
-
-
-# -----------------------------------------------------------------------------
-# Error Handlers
-# -----------------------------------------------------------------------------
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """Global exception handler with structured logging."""
-    trace_id = getattr(request.state, "trace_id", "unknown")
-    logger.exception(f"Unhandled exception: {exc}", extra={"trace_id": trace_id})
-    
-    return ORJSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={"detail": "Internal server error", "trace_id": trace_id},
-    )
+@app.post("/api/structured-lesson/stream", tags=["Lessons"])
+async def stream_structured_lesson(req: StructuredLessonRequest):
+    """Stream a structured lesson as a single SSE 'done' event for fast UI consumption."""
+    try:
+        topic = req.topic
+        age = req.age
+        cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
+        source = "stub"
+        # Try cache first
+        try:
+            cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
+            if cached:
+                lesson = StructuredLessonResponse(**cached)
+                source = "cache"
+            else:
+                raise Exception("no-cache")
+        except Exception:
+            # Compute lesson using single-flight; fallback handled inside helper
+            lesson, source = await _get_or_compute_lesson(cache_key, topic, age)
+        async def event_generator():
+            # Use model_dump for Pydantic v2 compatibility
+            try:
+                payload_lesson = lesson.model_dump()
+            except Exception:
+                payload_lesson = lesson.dict()
+            payload = {"type": "done", "source": source, "lesson": payload_lesson}
+            yield f"data: {json.dumps(payload)}\n\n"
+        stream_resp = StreamingResponse(event_generator(), media_type="text/event-stream")
+        try:
+            stream_resp.headers["X-Content-Source"] = source
+        except Exception:
+            pass
+        return stream_resp
+    except Exception as e:
+        err = {"type": "error", "message": str(e)}
+        async def error_stream():
+            yield f"data: {json.dumps(err)}\n\n"
+        return StreamingResponse(error_stream(), media_type="text/event-stream")

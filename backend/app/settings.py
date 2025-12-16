@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     api_secret_key: str = "change_me_in_prod"
 
     # CORS and rate limit
-    cors_origins: List[str] = [] 
+    cors_origins: List[str] = ["*"]
     rate_limit_per_minute: int = 60
     rate_limit_per_hour: int = 1000
 
@@ -35,18 +35,6 @@ class Settings(BaseSettings):
     redis_port: int = 6379
     redis_db: int = 0
     redis_password: Optional[str] = None
-
-    # SMTP Settings for Email
-    smtp_server: str = ""
-    smtp_port: int = 587
-    smtp_username: str = ""
-    smtp_password: str = ""
-
-    # Frontend variables (ignored but accepted to prevent errors)
-    next_public_supabase_url: Optional[str] = None
-    next_public_supabase_anon_key: Optional[str] = None
-    next_public_api_base: Optional[str] = None
-    next_public_use_proxy: Optional[str] = None
 
     @field_validator("cors_origins", mode="before")
     def parse_origins(cls, v):
@@ -72,7 +60,7 @@ def load_settings() -> Settings:
         "api_port": int(os.getenv("API_PORT", "8000")),
         "api_debug": os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t"),
         "api_secret_key": os.getenv("API_SECRET_KEY", "change_me_in_prod"),
-        "cors_origins": os.getenv("CORS_ORIGINS", ""),
+        "cors_origins": os.getenv("CORS_ORIGINS", "*") or "*",
         "rate_limit_per_minute": int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
         "groq_api_key": os.getenv("GROQ_API_KEY", ""),
         "google_api_key": os.getenv("GOOGLE_API_KEY", ""),
@@ -85,9 +73,5 @@ def load_settings() -> Settings:
         "redis_port": int(os.getenv("REDIS_PORT", "6379")),
         "redis_db": int(os.getenv("REDIS_DB", "0")),
         "redis_password": os.getenv("REDIS_PASSWORD"),
-        "smtp_server": os.getenv("SMTP_SERVER", ""),
-        "smtp_port": int(os.getenv("SMTP_PORT", "587")),
-        "smtp_username": os.getenv("SMTP_USERNAME", ""),
-        "smtp_password": os.getenv("SMTP_PASSWORD", ""),
     }
     return Settings(**values)

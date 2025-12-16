@@ -2,7 +2,6 @@ import { ApiErrorResponse } from '@/types/api';
 import { ApiError, NetworkError } from './errors';
 import rateLimiter from '@/lib/rate-limiter';
 import { measureApiCall } from '@/lib/monitoring';
-import { getApiBase } from '@/lib/api-config';
 
 type CacheEntry<T> = {
   data: T;
@@ -109,11 +108,6 @@ async function requestWithTimeoutAndRetry(
   const maxRetries = Math.max(0, opts?.retries ?? 2);
   const baseDelay = Math.max(100, opts?.retryDelayMs ?? 300);
 
-  // When using proxy mode, use relative URLs directly
-  // When not using proxy mode, construct full URLs with API base
-  const useProxy = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
-  const fullUrl = useProxy ? url : `${getApiBase()}${url}`;
-
   let attempt = 0;
   const start = typeof performance !== 'undefined' ? performance.now() : Date.now();
 
@@ -121,7 +115,7 @@ async function requestWithTimeoutAndRetry(
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(fullUrl, { ...init, signal: controller.signal });
+      const res = await fetch(url, { ...init, signal: controller.signal });
       clearTimeout(timer);
       const status = res.status;
       // Retry on transient server issues and rate limiting
@@ -137,7 +131,7 @@ async function requestWithTimeoutAndRetry(
       const end = typeof performance !== 'undefined' ? performance.now() : Date.now();
       const durationMs = Math.round(end - start);
       if (process.env.NODE_ENV === 'development') {
-        console.info('[api] request', { url: fullUrl, status, durationMs });
+        console.info('[api] request', { url, status, durationMs });
       }
       return res;
     } catch (err) {

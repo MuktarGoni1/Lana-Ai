@@ -2,18 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  @media (min-width: 475px) {
-    .xs\:flex-row {
-      flex-direction: row;
-    }
-    
-    .xs\:w-auto {
-      width: auto;
-    }
-  }
-}
-
 /* ---------- LIGHT (default) theme ---------- */
 :root {
   --background: 0 0% 100%;

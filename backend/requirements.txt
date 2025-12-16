@@ -1,13 +1,13 @@
 aiocache==0.12.3
 # aioredis==2.0.1
 bullmq==2.16.1
-asyncpg>=0.29.0,<0.31.0
 aiohappyeyeballs==2.6.1
 aiohttp==3.12.15
 aiosignal==1.4.0
 alembic==1.17.0
 annotated-types==0.7.0
 anyio==4.9.0
+asyncpg==0.30.0
 attrs==25.3.0
 black==25.9.0
 cachetools==5.3.3

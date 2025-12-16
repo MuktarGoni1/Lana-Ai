@@ -235,11 +235,11 @@ function HeroSection() {
               : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
             }
           </p>
-          <div className="flex flex-col xs:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             {user ? (
               <Link 
                 href="/homepage" 
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Continue Learning
                 <ArrowRight className="h-5 w-5" />
@@ -248,14 +248,14 @@ function HeroSection() {
               <>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 >
                   Start Free Trial
                   <ArrowRight className="h-5 w-5" />
                 </Link>
                 <Link 
                   href="/login" 
-                  className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                  className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
                 >
                   Login
                 </Link>
@@ -423,11 +423,11 @@ function CtaSection() {
             : "Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today."
           }
         </p>
-        <div className="mt-8 flex flex-col xs:flex-row gap-3 justify-center">
+        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
           {user ? (
             <Link 
               href="/homepage" 
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
             >
               Continue Learning
               <ArrowRight className="h-5 w-5" />
@@ -436,20 +436,20 @@ function CtaSection() {
             <>
               <Link 
                 href="/register" 
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Start Free Trial
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link 
                 href="/login" 
-                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Login to Your Account
               </Link>
               <Link 
                 href="#contact" 
-                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full xs:w-auto"
+                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Contact Sales
               </Link>

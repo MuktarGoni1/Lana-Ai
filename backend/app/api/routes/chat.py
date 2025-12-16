@@ -1,7 +1,7 @@
 """
 Chat API routes with mode-based functionality.
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import json
@@ -9,7 +9,6 @@ import re
 import logging
 import hashlib
 import asyncio
-import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -18,12 +17,17 @@ router = APIRouter()
 # Import the necessary modules without creating circular dependencies
 from app.schemas import MathProblemRequest, MathSolutionResponse
 from app.services.math_solver_service import MathSolverService
+from app.services.lesson_service import LessonService
+from app.services.quiz_service import QuizService
 from app.repositories.memory_cache_repository import MemoryCacheRepository
-from app.repositories.interfaces import ICacheRepository
 
-# Initialize math solver service for math mode
+# Initialize services
 _CACHE = MemoryCacheRepository()
-# We'll initialize the math service in the handler functions to avoid circular imports
+_lesson_service = LessonService()
+_quiz_service = QuizService()
+
+# Conversation history storage (in-memory for now, could be extended to use Redis or database)
+_conversation_histories: Dict[str, List[Dict[str, str]]] = {}
 
 # Try to import Groq
 try:
@@ -62,380 +66,69 @@ def extract_mode(message: str) -> tuple[str, str]:
         return mode, clean_text
     
     # Default mode if no command found
-    return "default", message.strip()
-# Stub lesson generation (similar to what's in main.py)
-class ClassificationItem(BaseModel):
-    type: str
-    description: str
+    return "chat", message.strip()
 
-class SectionItem(BaseModel):
-    title: str
-    content: str
+def get_user_history(user_id: str, limit: int = 10) -> List[Dict[str, str]]:
+    """Get conversation history for a user."""
+    history = _conversation_histories.get(user_id, [])
+    return history[-limit:] if len(history) > limit else history
 
-class QuizItem(BaseModel):
-    q: str
-    options: List[str]
-    answer: str
-
-class StructuredLessonResponse(BaseModel):
-    id: Optional[str] = None
-    introduction: Optional[str] = None
-    classifications: List[ClassificationItem] = []
-    sections: List[SectionItem]
-    diagram: str = ""
-    quiz: List[QuizItem]
-
-async def _stub_lesson(topic: str, age: Optional[int] = None, user_id: str = "default_user") -> StructuredLessonResponse:
-    """Generate a stub lesson with clear error messaging instead of generic templates."""
-    logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
+def add_to_history(user_id: str, role: str, content: str):
+    """Add a message to user's conversation history."""
+    if user_id not in _conversation_histories:
+        _conversation_histories[user_id] = []
     
-    # Create a clear error message instead of generic template
-    error_message = f"Unable to generate a detailed lesson about '{topic}' at this time. This could be due to high demand or a temporary issue. Please try again later or ask about a different topic."
+    _conversation_histories[user_id].append({
+        "role": role,
+        "content": content
+    })
     
-    # Create minimal valid response with clear error messaging
-    intro = error_message
-    classifications = []
-    
-    # Create sections with helpful information
-    sections = [
-        SectionItem(
-            title="Service Temporarily Unavailable", 
-            content=error_message
-        ),
-        SectionItem(
-            title="Try These Alternatives",
-            content="1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes\n4. Contact support if the issue persists"
-        )
-    ]
-    
-    # Create a helpful quiz
-    quiz = [
-        QuizItem(
-            q="What should you do when a lesson fails to generate?",
-            options=[
-                "A) Try rephrasing the question",
-                "B) Ask about a different topic", 
-                "C) Check back later",
-                "D) All of the above"
-            ],
-            answer="D) All of the above"
-        )
-    ]
-    
-    import uuid
-    response = StructuredLessonResponse(
-        id=str(uuid.uuid4()),
-        introduction=intro,
-        classifications=classifications,
-        sections=sections,
-        diagram="",
-        quiz=quiz,
-    )
-    logger.info(f"Stub lesson generated with error messaging for '{topic}'")
-    return response
+    # Keep only the last 20 messages to prevent memory issues
+    if len(_conversation_histories[user_id]) > 20:
+        _conversation_histories[user_id] = _conversation_histories[user_id][-20:]
 
-# In-memory cache for lessons (similar to what's in main.py)
-_INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
-
-async def _compute_structured_lesson(cache_key: str, topic: str, age: Optional[int], groq_client, user_id: str = "default_user") -> tuple[StructuredLessonResponse, str]:
-    """Compute structured lesson using LLM or fallback to stub."""
-    if groq_client is not None:
-        raw_excerpt = ""
-        try:
-            # Enhanced system prompt with better age-based instructions
-            age_str = ""
-            if age is not None:
-                if age <= 2:
-                    age_str = "toddler"
-                elif age <= 5:
-                    age_str = "preschooler"
-                elif age <= 12:
-                    age_str = "child"
-                elif age <= 18:
-                    age_str = "teenager"
-                else:
-                    age_str = "adult"
-            
-            sys_prompt = (
-                "You are a helpful tutor who produces a structured lesson as strict JSON. "
-                "Return ONLY valid JSON with these exact keys: "
-                "introduction (string), "
-                "classifications (array of objects with type and description string fields), "
-                "sections (array of objects with title and content string fields), "
-                "diagram (string), "
-                "quiz_questions (array of objects with question, options array, and answer string fields). "
-                "Each quiz question must have exactly 4 options. "
-                "For the learner's age group: "
-                f"{age_str if age_str else 'general audience'}. "
-                "Keep language clear for the learner. For scientific topics, provide specific details and examples. "
-                "Do not provide generic responses. Each section should contain substantial educational content. "
-                "IMPORTANT: Respond ONLY with valid JSON, no markdown code blocks, no extra text, no explanations. "
-                "Start your response with '{' and end with '}'. "
-                "Example format: {\"introduction\": \"...\", \"classifications\":[{\"type\":\"...\",\"description\":\"...\"}], \"sections\":[{\"title\":\"...\",\"content\":\"...\"}], \"diagram\":\"...\", \"quiz_questions\":[{\"question\":\"...\",\"options\":[\"...\",\"...\",\"...\",\"...\"],\"answer\":\"...\"}]}")
-            
-            # Enhanced user prompt with better age-based context
-            user_prompt = {
-                "topic": topic,
-                "requirements": "Educational, concise, accurate, friendly. Provide specific details for scientific topics. Do not provide generic template responses. Each section should contain substantial educational content relevant to the specific topic.",
-                "format": "Return ONLY valid JSON with the exact keys specified in the system prompt. No markdown code blocks."
-            }
-            
-            if age is not None:
-                user_prompt["age_group"] = age_str
-                user_prompt["age"] = age
-                
-            completion = groq_client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                temperature=0.3,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": sys_prompt},
-                    {"role": "user", "content": json.dumps(user_prompt)},
-                ],
-            )
-            content = completion.choices[0].message.content
-            raw_excerpt = (content or "")[:300]
-            
-            # Parse JSON with robust normalization for string fields
-            try:
-                data = json.loads(content)
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse JSON from LLM for topic '{topic}': {e}. Content: {content[:200]}...")
-                # Try to repair JSON
-                try:
-                    import re
-                    
-                    # Clean up the content
-                    repaired = content.strip()
-                    
-                    # Remove markdown code blocks
-                    if repaired.startswith('```json'):
-                        repaired = repaired[7:].strip()
-                    elif repaired.startswith('```'):
-                        repaired = repaired[3:].strip()
-                    
-                    if repaired.endswith('```'):
-                        repaired = repaired[:-3].strip()
-                    
-                    # Fix invalid control characters by removing them
-                    # Remove incorrect escaping logic
-                    # repaired = repaired.replace('\n', '\\n')
-                    # repaired = repaired.replace('\r', '\\r')
-                    # repaired = repaired.replace('\t', '\\t')
-                    # Only escape unescaped backslashes
-                    # repaired = re.sub(r'(?<!\\)\\(?!\\)', '\\\\', repaired)
-                            
-                    # Instead, just ensure we have valid JSON by removing any control characters
-                    # that might cause issues
-                    repaired = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]', '', repaired)
-                    
-                    # Try to parse the repaired JSON
-                    data = json.loads(repaired)
-                    logger.info(f"Successfully parsed repaired JSON for topic '{topic}'")
-                except Exception as repair_error:
-                    logger.error(f"Failed to repair JSON for topic '{topic}': {repair_error}")
-                    raise
-
-            def _to_str(val: Optional[object], default: str = "") -> str:
-                try:
-                    if isinstance(val, str):
-                        return val
-                    if isinstance(val, dict) and "text" in val:
-                        t = val.get("text")
-                        return t if isinstance(t, str) else default
-                    if val is None:
-                        return default
-                    return str(val)
-                except Exception:
-                    return default
-
-            intro_norm = _to_str(data.get("introduction"), default="")
-            diagram_norm = _to_str(data.get("diagram"), default="")
-
-            # Keep list items strict; they already map to our pydantic models
-            classifications = []
-            for c in data.get("classifications", []):
-                if isinstance(c, dict) and "type" in c and "description" in c:
-                    classifications.append(ClassificationItem(type=c["type"], description=c["description"]))
-
-            sections = []
-            for s in data.get("sections", []):
-                if isinstance(s, dict) and "title" in s and "content" in s:
-                    sections.append(SectionItem(title=s["title"], content=s["content"]))
-
-            # Map question field to q for QuizItem compatibility
-            quiz_data = data.get("quiz", data.get("quiz_questions", []))
-            quiz_items = []
-            for q_item in quiz_data:
-                # Handle different possible field names
-                if isinstance(q_item, dict):
-                    # Create a copy and handle different field names
-                    quiz_item_copy = q_item.copy()
-                    
-                    # Handle question field (could be 'question', 'q', or other names)
-                    if "question" in quiz_item_copy:
-                        quiz_item_copy["q"] = quiz_item_copy.pop("question")
-                    elif "q" in quiz_item_copy:
-                        # Already has 'q' field, no change needed
-                        pass
-                    else:
-                        # Try to find a suitable field for the question
-                        question_field = None
-                        for field in ["text", "problem", "prompt"]:
-                            if field in quiz_item_copy:
-                                question_field = field
-                                break
-                        if question_field:
-                            quiz_item_copy["q"] = quiz_item_copy.pop(question_field)
-                        else:
-                            # Skip this quiz item if no question field found
-                            continue
-                    
-                    # Ensure we have the required fields
-                    if "q" in quiz_item_copy and "options" in quiz_item_copy and "answer" in quiz_item_copy:
-                        # Handle options that might be objects with an "option" key
-                        options = []
-                        for opt in quiz_item_copy["options"]:
-                            if isinstance(opt, dict) and "option" in opt:
-                                options.append(str(opt["option"]))
-                            else:
-                                options.append(str(opt))
-                        quiz_items.append(QuizItem(q=quiz_item_copy["q"], options=options, answer=quiz_item_copy["answer"]))
-            quiz = quiz_items
-
-            resp = StructuredLessonResponse(
-                id=str(uuid.uuid4()),
-                introduction=intro_norm,
-                classifications=classifications,
-                sections=sections,
-                diagram=diagram_norm,
-                quiz=quiz,
-            )
-            # Accept LLM response if it has at least one section with content
-            # This is more lenient to avoid falling back to stubs unnecessarily
-            has_minimal_content = (
-                resp.sections and len(resp.sections) >= 1 and  # At least 1 section
-                any(len(s.content) > 10 for s in resp.sections)  # At least one section with meaningful content
-            )
-            
-            # If we have quiz questions, that's a bonus but not required
-            if resp.quiz:
-                has_minimal_content = has_minimal_content and len(resp.quiz) >= 1  # At least 1 quiz question
-            
-            # Log detailed quality metrics for debugging
-            logger.info(f"LLM response quality check for '{topic}': "
-                       f"Has sections: {bool(resp.sections)}, "
-                       f"Has quiz: {bool(resp.quiz)}, "
-                       f"Section count: {len(resp.sections) if resp.sections else 0}, "
-                       f"Quiz count: {len(resp.quiz) if resp.quiz else 0}")
-            
-            if resp.sections:
-                section_details = [(s.title, len(s.content)) for s in resp.sections]
-                logger.info(f"Section details: {section_details}")
-            
-            if resp.quiz:
-                logger.info(f"Quiz questions: {len(resp.quiz)}")
-            
-            if has_minimal_content:
-                # Note: We're not caching here to avoid circular imports
-                logger.info(f"LLM response for '{topic}' accepted")
-                return resp, "llm"
-            # Log when we're falling back to stub due to incomplete or low-quality LLM response
-            logger.warning(f"LLM response for '{topic}' was low-quality - falling back to stub. "
-                          f"Sections: {len(resp.sections) if resp.sections else 0}, "
-                          f"Quiz: {len(resp.quiz) if resp.quiz else 0}, "
-                          f"Section quality: {[len(s.content) for s in resp.sections] if resp.sections else []}")
-            return await _stub_lesson(topic, age, user_id), "stub"
-        except Exception as e:
-            # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
-            try:
-                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
-            except Exception:
-                logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
-            return await _stub_lesson(topic, age, user_id), "stub"
-    else:
-        return await _stub_lesson(topic, age, user_id), "stub"
-
-
-async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int], groq_client, user_id: str = "default_user") -> tuple[StructuredLessonResponse, str]:
-    """Get or compute lesson with deduplication."""
-    fut = _INFLIGHT_LESSONS.get(cache_key)
-    if fut and not fut.done():
-        return await fut
-    loop = asyncio.get_event_loop()
-    fut = loop.create_future()
-    _INFLIGHT_LESSONS[cache_key] = fut
-    async def _run():
-        try:
-            result = await _compute_structured_lesson(cache_key, topic, age, groq_client, user_id)
-            fut.set_result(result)
-        except Exception as e:
-            logger.error(f"Structured lesson compute failed: {e}")
-            import uuid
-            stub_result = await _stub_lesson(topic, age, user_id)
-            stub_result.id = str(uuid.uuid4())
-            fut.set_result((stub_result, "stub"))
-        finally:
-            _INFLIGHT_LESSONS.pop(cache_key, None)
-    asyncio.create_task(_run())
-    return await fut
-
-
-async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, Optional[List[Dict[str, Any]]]]:
+async def structured_lesson_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, Optional[List[Dict[str, Any]]]]:
     """Handle structured lesson mode - generates full topic walkthrough with quiz."""
     if not text:
         return "Please provide a topic for the lesson.", None
     
     try:
-        # Try to initialize Groq client if not provided and available
-        if groq_client is None and GROQ_AVAILABLE:
-            try:
-                from main import settings
-                if settings.groq_api_key:
-                    groq_client = Groq(api_key=settings.groq_api_key)
-            except Exception:
-                pass
-        
-        # Use the structured lesson generation logic
-        cache_key = hashlib.md5(f"{text}|{age}".encode()).hexdigest()[:16]
-        lesson, src = await _get_or_compute_lesson(cache_key, text, age, groq_client, user_id)
+        # Use the centralized lesson service
+        lesson, src = await _lesson_service.generate_structured_lesson(text, age, groq_client)
         
         # Format the lesson as a string response
         response_parts = []
         
-        if lesson.introduction:
-            response_parts.append(lesson.introduction)
+        if lesson.get("introduction"):
+            response_parts.append(lesson["introduction"])
         
-        if lesson.sections:
-            for section in lesson.sections:
-                if section.title:
-                    response_parts.append(f"\n**{section.title}**")
-                if section.content:
-                    response_parts.append(section.content)
+        if lesson.get("sections"):
+            for section in lesson["sections"]:
+                if section.get("title"):
+                    response_parts.append(f"\n**{section['title']}**")
+                if section.get("content"):
+                    response_parts.append(section["content"])
         
-        if lesson.diagram:
-            response_parts.append(f"\nDiagram:\n{lesson.diagram}")
+        if lesson.get("diagram"):
+            response_parts.append(f"\nDiagram:\n{lesson['diagram']}")
         
         response_text = "\n\n".join(response_parts)
         
         # Extract quiz if available
         quiz_data = None
-        if lesson.quiz:
-            quiz_data = []
-            for quiz_item in lesson.quiz:
-                quiz_data.append({
-                    "q": quiz_item.q,
-                    "options": quiz_item.options,
-                    "answer": quiz_item.answer
-                })
+        if lesson.get("quiz"):
+            quiz_data = lesson["quiz"]
+        elif groq_client:
+            # Generate quiz using the quiz service if not in lesson
+            quiz_data = await _quiz_service.generate_quiz_for_lesson(text, groq_client)
         
         return response_text, quiz_data
     except Exception as e:
         logger.error(f"Error in structured lesson handler: {e}")
         return f"Sorry, I couldn't generate a lesson about {text}. Please try another topic.", None
 
-async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, Optional[List[Dict[str, Any]]]]:
-    """Handle maths tutor mode - solves equations step-by-step."""
+async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, Optional[List[Dict[str, Any]]]]:
+    """Handle maths tutor mode - solves equations step-by-step with quiz."""
     if not text:
         return "Please provide a math problem to solve.", None
     
@@ -455,37 +148,31 @@ async def maths_tutor_handler(text: str, age: Optional[int] = None, groq_client=
         # Use the existing math solver service
         result = await math_service.solve_problem(text)
         
-        # Format concise step-by-step response
+        # Format the solution as a string response
         response_parts = []
         
-        # Add brief steps if available
         if hasattr(result, 'steps') and result.steps:
-            for i, step in enumerate(result.steps[:3], 1):  # Limit to 3 steps max
+            for step in result.steps:
                 if step.description:
-                    # Keep descriptions short and concise
-                    short_desc = step.description[:50] + "..." if len(step.description) > 50 else step.description
-                    response_parts.append(f"{i}. {short_desc}")
+                    response_parts.append(step.description)
                 if step.expression:
-                    response_parts.append(f"   {step.expression}")
+                    response_parts.append(f"  {step.expression}")
         
-        # Add final answer
         if hasattr(result, 'solution') and result.solution:
-            response_parts.append(f"Answer: {result.solution}")
-        else:
-            response_parts.append("Could not solve this problem.")
+            response_parts.append(f"\nFinal Answer: {result.solution}")
         
-        response_text = "\n".join(response_parts) or "I couldn't solve this problem. Please check the format and try again."
+        response_text = "\n".join(response_parts)
         
-        # No quiz generation for maths tutor mode - focus on solving the math problem
-        quiz_data = None
+        # Generate a quiz question related to the math problem using the quiz service
+        quiz_data = await _quiz_service.generate_quiz_for_math_problem(text, groq_client)
         
         return response_text, quiz_data
     except Exception as e:
         logger.error(f"Error in maths tutor handler: {e}")
-        return f"Sorry, I couldn't solve that math problem. Please try again.", None
+        return f"Sorry, I couldn't solve the math problem: {text}. Please check the format and try again.", None
 
-async def chat_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, None]:
-    """Handle chat mode - friendly open-ended conversation."""
+async def chat_handler(text: str, user_id: str, age: Optional[int] = None, groq_client=None) -> tuple[str, None]:
+    """Handle chat mode - friendly open-ended conversation WITHOUT quiz generation."""
     if not text:
         return "Hello! What would you like to chat about?", None
     
@@ -502,75 +189,62 @@ async def chat_handler(text: str, age: Optional[int] = None, groq_client=None, u
         if not groq_client:
             return "Chat mode requires the AI service to be configured.", None
         
-        # Get conversation history
-        conversation_history = []
-        try:
-            from main import get_app_state
-            app_state = get_app_state()
-            conversation_history = await app_state.get_conversation_history(user_id)
-        except Exception:
-            # If we can't get history, continue without it
-            conversation_history = []
+        # Get conversation history for context
+        history = get_user_history(user_id)
         
-        # Create a simple, friendly system prompt for natural conversation
-        # Less restrictive and more conversational than previous versions
-        system_prompt = (
-            "You are Lana, a friendly and knowledgeable AI assistant for children and students. "
-            "You're chatting with a user and should respond naturally and conversationally. "
-            "Be helpful, patient, and encouraging. "
-            "Keep responses concise but engaging. "
-            "If the user asks for educational content, you can provide it in a conversational way. "
-            "If they want to just chat, that's fine too. "
-            "Match your tone and response style to the user's age if provided."
-        )
-        
-        # Add age context if available
+        # Create age-appropriate system prompt
+        age_context = ""
         if age is not None:
             if age <= 5:
-                system_prompt += " The user is a young child. Use simple words, short sentences, and be playful."
+                age_context = "The user is a young child. Use simple words, short sentences, and be playful."
             elif age <= 12:
-                system_prompt += " The user is a child. Use clear explanations and examples they can relate to."
+                age_context = "The user is a child. Use clear explanations, examples, and be encouraging."
             elif age <= 18:
-                system_prompt += " The user is a teenager. You can discuss more complex topics and use age-appropriate language."
+                age_context = "The user is a teenager. You can use more complex concepts and be relatable."
             else:
-                system_prompt += " The user is an adult. You can use mature language and discuss advanced topics."
+                age_context = "The user is an adult. You can use advanced vocabulary and deeper insights."
         
-        # Prepare messages with conversation history
+        # Personalize based on user's conversation history
+        personalization = ""
+        if history:
+            personalization = "Remember the ongoing conversation with the user and reference previous messages when relevant."
+        
+        system_prompt = f"""You are Lana AI, a friendly and knowledgeable educational assistant. 
+{age_context} {personalization}
+Respond in a conversational, helpful tone. Keep the conversation natural and engaging, like a human tutor would. 
+Do not offer to generate quizzes or structured lessons unless specifically asked.
+Be personalized and remember previous interactions."""
+
+        # Prepare messages with history context
         messages = [{"role": "system", "content": system_prompt}]
         
         # Add conversation history
-        messages.extend(conversation_history)
+        for hist_item in history:
+            messages.append({"role": hist_item["role"], "content": hist_item["content"]})
         
         # Add current user message
         messages.append({"role": "user", "content": text})
         
-        # Make the conversation feel more natural with a relaxed approach
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
-            temperature=0.8,  # Higher temperature for more creative, conversational responses
-            max_tokens=400,   # Reasonable limit for chat responses
-            top_p=0.9,       # Slightly higher top_p for more diverse responses
-            frequency_penalty=0.2,  # Slight penalty to reduce repetition
-            presence_penalty=0.2    # Slight penalty to encourage new topics
+            temperature=0.7,
+            max_tokens=500
         )
         
         reply = response.choices[0].message.content
         
-        # Add the exchange to conversation history
-        try:
-            await app_state.add_to_conversation_history(user_id, "user", text)
-            await app_state.add_to_conversation_history(user_id, "assistant", reply or "I'm here to chat! What's on your mind?")
-        except Exception:
-            # If we can't save history, continue without error
-            pass
+        # Add interaction to history
+        if reply:
+            add_to_history(user_id, "user", text)
+            add_to_history(user_id, "assistant", reply)
         
-        return reply or "I'm here to chat! What's on your mind?", None
+        return reply or "I'm here to help! What else would you like to know?", None
     except Exception as e:
         logger.error(f"Error in chat handler: {e}")
         return "Sorry, I'm having trouble chatting right now. Please try again.", None
 
-async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client=None, user_id: str = "default_user") -> tuple[str, None]:
+async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client=None) -> tuple[str, None]:
     """Handle quick answer mode - concise bullet point answers."""
     if not text:
         return "Please provide a question for a quick answer.", None
@@ -588,77 +262,46 @@ async def quick_answer_handler(text: str, age: Optional[int] = None, groq_client
         if not groq_client:
             return "Quick answer mode requires the AI service to be configured.", None
         
-        # Create highly targeted age-appropriate system prompt for concise answers
+        # Create age-appropriate system prompt
+        age_context = ""
         if age is not None:
             if age <= 5:
-                # For young children - very simple language and short answers
-                system_prompt = (
-                    "You are Lana, a helpful AI assistant for young children. "
-                    "Provide extremely simple, clear answers in just 1 short sentence. "
-                    "Use basic words a 5-year-old can understand. "
-                    "No markdown, no formatting, just plain text. "
-                    "Example: 'The sky looks blue because of light.'"
-                )
+                age_context = "The user is a young child. Use very simple words and short sentences."
             elif age <= 12:
-                # For children - clear explanations in 1-2 sentences
-                system_prompt = (
-                    "You are Lana, a helpful AI assistant for children. "
-                    "Give clear, simple answers in 1-2 short sentences. "
-                    "Use words a child can understand. "
-                    "No markdown, no formatting, just plain text. "
-                    "Example: 'Plants need sunlight, water, and soil to grow healthy.'"
-                )
+                age_context = "The user is a child. Use clear, simple explanations."
             elif age <= 18:
-                # For teenagers - slightly more detailed but still concise
-                system_prompt = (
-                    "You are Lana, a helpful AI assistant for teenagers. "
-                    "Provide concise answers in 1-2 sentences. "
-                    "Be clear and to the point. "
-                    "No markdown, no formatting, just plain text. "
-                    "Example: 'Photosynthesis is how plants convert sunlight into energy to grow.'"
-                )
+                age_context = "The user is a teenager. You can use slightly more complex language."
             else:
-                # For adults - concise but complete explanations
-                system_prompt = (
-                    "You are Lana, a helpful AI assistant. "
-                    "Give concise, accurate answers in 1-2 sentences. "
-                    "Be informative but brief. "
-                    "No markdown, no formatting, just plain text. "
-                    "Example: 'Quantum computing uses quantum bits (qubits) that can exist in multiple states simultaneously, unlike classical bits.'"
-                )
-        else:
-            # Default concise answer prompt for unknown age
-            system_prompt = (
-                "You are Lana, a helpful AI assistant. "
-                "Provide concise, clear answers in exactly 1-2 sentences. "
-                "Be direct and avoid unnecessary elaboration. "
-                "No markdown, no formatting, just plain text. "
-                "Example: 'The Earth orbits the Sun due to gravitational attraction.'"
-            )
+                age_context = "The user is an adult. You can use standard vocabulary."
         
-        # Configure for ultra-concise responses
+        system_prompt = f"""You are Lana AI. Provide a concise answer in 1-3 short bullet points. 
+{age_context} 
+Format your response as short, clear bullet points. 
+Do not use markdown formatting. 
+Keep each bullet point brief and to the point.
+Example format:
+• Brief answer point 1
+• Brief answer point 2
+• Brief answer point 3"""
+
         response = groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": text}
             ],
-            temperature=0.2,      # Low temperature for consistent, factual responses
-            max_tokens=150,        # Strict limit for brevity
-            top_p=0.8,            # Moderate diversity
-            frequency_penalty=0.3, # Penalize repetition
-            presence_penalty=0.0   # Neutral on topic exploration
+            temperature=0.3,
+            max_tokens=250
         )
         
         reply = response.choices[0].message.content
-        # Ensure we have a response, with a fallback
-        return reply or "I don't have a quick answer for that. Try rephrasing your question.", None
+        return reply or "I don't have a quick answer for that. Try asking in a different way.", None
     except Exception as e:
         logger.error(f"Error in quick answer handler: {e}")
         return "Sorry, I couldn't provide a quick answer right now. Please try again.", None
 
 MODE_MAP = {
-    "default": chat_handler,
+    "default": structured_lesson_handler,
     "maths": maths_tutor_handler,
     "chat": chat_handler,
     "quick": quick_answer_handler
@@ -668,41 +311,41 @@ MODE_MAP = {
 async def chat_endpoint(request: ChatRequest):
     """Unified chat endpoint that handles different modes based on user input."""
     try:
-        # Get the app state to access the Groq client
-        groq_client = None
+        # Import Groq client here to avoid circular imports
         try:
-            from main import get_app_state
-            app_state = get_app_state()
-            groq_client = app_state.groq_client
-        except Exception:
-            # If we can't get the app state, try the fallback approach
+            from main import _GROQ_CLIENT
+        except ImportError:
+            _GROQ_CLIENT = None
+        
+        # If _GROQ_CLIENT is None, try to initialize it
+        if _GROQ_CLIENT is None and GROQ_AVAILABLE:
             try:
-                from main import _GROQ_CLIENT
-                groq_client = _GROQ_CLIENT
-            except ImportError:
-                groq_client = None
-            
-            # If _GROQ_CLIENT is None, try to initialize it
-            if groq_client is None and GROQ_AVAILABLE:
-                try:
-                    from main import settings
-                    if settings.groq_api_key:
-                        groq_client = Groq(api_key=settings.groq_api_key)
-                except Exception as e:
-                    logger.warning(f"Could not initialize Groq client in chat endpoint: {e}")
+                from main import settings
+                if settings.groq_api_key:
+                    _GROQ_CLIENT = Groq(api_key=settings.groq_api_key)
+            except Exception as e:
+                logger.warning(f"Could not initialize Groq client in chat endpoint: {e}")
         
         # Extract mode and clean text from message
         mode, clean_text = extract_mode(request.message)
         
         # Validate mode
         if mode not in MODE_MAP:
-            mode = "default"  # Default to chat mode if mode not recognized
+            mode = "chat"  # Default to chat mode if mode not recognized
         
         # Get the appropriate handler
         handler = MODE_MAP[mode]
         
-        # Call the handler with Groq client and user_id
-        reply, quiz_data = await handler(clean_text, request.age, groq_client, request.user_id)
+        # Call the handler with Groq client
+        if mode == "chat":
+            # Pass user_id for chat mode to enable conversation history
+            reply, quiz_data = await handler(clean_text, request.user_id, request.age, _GROQ_CLIENT)
+        else:
+            reply, quiz_data = await handler(clean_text, request.age, _GROQ_CLIENT)
+        
+        # For chat mode, explicitly set quiz_data to None to prevent quiz generation
+        if mode == "chat":
+            quiz_data = None
         
         return ChatResponse(
             mode=mode,

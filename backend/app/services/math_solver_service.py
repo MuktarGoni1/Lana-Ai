@@ -231,7 +231,7 @@ class MathSolverService:
         """Use Groq to classify the input following Lana AI rules exactly."""
         system_prompt = (
             "You are Lana AI.\n"
-            "FIRST, examine the user’s input:\n\n"
+            "FIRST, examine the user's input:\n\n"
             "1. If the input is a maths question (algebra, arithmetic, calculus, equations, simplification, etc.) → immediately output ONLY the exact JSON shape below and nothing else:\n\n"
             "{\n"
             '  "type": "math",\n'

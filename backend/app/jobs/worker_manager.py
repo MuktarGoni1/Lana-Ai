@@ -2,7 +2,7 @@ import asyncio
 import logging
 from bullmq import Worker
 from app.jobs.queue_config import get_lesson_queue, get_tts_queue, get_redis_connection
-from app.jobs.job_processors import lesson_worker_processor, tts_worker_processor, monthly_report_worker_processor
+from app.jobs.job_processors import lesson_worker_processor, tts_worker_processor
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +12,6 @@ class WorkerManager:
     def __init__(self):
         self.lesson_worker = None
         self.tts_worker = None
-        self.monthly_report_worker = None
         self.running = False
         
     async def start_workers(self):
@@ -38,13 +37,6 @@ class WorkerManager:
                 {"connection": redis_connection}
             )
             
-            # Create and start monthly report worker
-            self.monthly_report_worker = Worker(
-                "monthly-report-generation",
-                monthly_report_worker_processor,
-                {"connection": redis_connection}
-            )
-            
             self.running = True
             logger.info("Job workers started successfully")
             
@@ -64,9 +56,6 @@ class WorkerManager:
                 
             if self.tts_worker:
                 await self.tts_worker.close()
-                
-            if self.monthly_report_worker:
-                await self.monthly_report_worker.close()
                 
             self.running = False
             logger.info("Job workers stopped successfully")

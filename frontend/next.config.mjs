@@ -86,16 +86,26 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      // No redirects needed - API calls are handled by rewrites
+      // Redirect incorrect structured lesson API calls to the correct endpoint
+      {
+        source: '/api/structured-lesson',
+        destination: 'https://api.lanamind.com/api/structured-lesson',
+        permanent: false,
+        basePath: false,
+      },
+      // Redirect streaming endpoint as well
+      {
+        source: '/api/structured-lesson/stream',
+        destination: 'https://api.lanamind.com/api/structured-lesson/stream',
+        permanent: false,
+        basePath: false,
+      },
     ];
   },
 
   async rewrites() {
     // Get the API base URL, defaulting to localhost for development
-    // Updated to use HTTPS in production
-    const isProd = process.env.NODE_ENV === 'production';
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 
-      (isProd ? "https://api.lanamind.com" : "http://localhost:8000");
+    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
     
     // Define frontend API routes that should NOT be proxied to backend
     const frontendRoutes = [
@@ -108,21 +118,26 @@ const nextConfig = {
       'avatar/streams',
       'tts',
       'quiz',
-      'subscription/status'
+      'subscription/status',
+      'structured-lesson'
     ];
     
-    // Create individual rewrites for each backend API route to ensure proper handling
-    const backendRoutes = [
-      { source: '/api/structured-lesson', destination: `${apiBase}/api/structured-lesson` },
-      { source: '/api/structured-lesson/:path*', destination: `${apiBase}/api/structured-lesson/:path*` },
+    // Log the exclusion pattern for debugging
+    const exclusionPattern = `/api/:path((?!${frontendRoutes.join('|')}).*)`;
+    console.log('API rewrite exclusion pattern:', exclusionPattern);
+    
+    return [
+      // Exclude frontend API routes that should be handled locally
+      { 
+        source: exclusionPattern, 
+        destination: `${apiBase}/api/:path*` 
+      },
       // Ensure legacy calls to /history are correctly forwarded to /api/history
       { source: '/history', destination: `${apiBase}/api/history` },
       // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused
       { source: '/reset', destination: `${apiBase}/api/reset` },
       { source: '/health', destination: `${apiBase}/health` },
     ];
-    
-    return backendRoutes;
   },
   // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
   // outputFileTracingRoot: undefined,

@@ -103,7 +103,7 @@ def test_tts_service_caching():
         mock_cache.set = mock_cache_set
         
         # Mock the generate_content method
-        def mock_generate_content(*args, **kwargs):
+        async def mock_generate_content(*args, **kwargs):
             mock_response = Mock()
             mock_response.candidates = [Mock()]
             mock_response.candidates[0].content.parts = [Mock()]
@@ -118,9 +118,8 @@ def test_tts_service_caching():
         async def test_cache():
             # First call should generate new audio
             result1 = await tts_service.generate_speech("Test text")
-            # The result should be a WAV file containing the audio data
-            assert b"generated_audio_data" in result1
-
+            assert result1 == b"generated_audio_data"
+            
             # Second call should return cached audio
             result2 = await tts_service.generate_speech("Test text")
             assert result2 == b"cached_audio_data"

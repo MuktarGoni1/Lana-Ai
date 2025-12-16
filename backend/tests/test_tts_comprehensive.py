@@ -16,12 +16,13 @@ from app.config import TTS_MODEL, TTS_SAMPLE_RATE, TTS_CHUNK_SIZE, TTS_CONCURREN
 def test_tts_configurable_parameters():
     """Test that TTS service uses configurable parameters."""
     # Verify that configuration parameters exist and have reasonable defaults
-    assert TTS_MODEL == "gemini-2.5-flash-preview-tts"
+    assert TTS_MODEL == "gemini-2.0-flash-tts"
     assert TTS_SAMPLE_RATE == 22050
     assert TTS_CHUNK_SIZE == 32768
     assert TTS_CONCURRENT_LIMIT == 10
     assert TTS_CACHE_TTL == 7200
     print("✓ Configuration parameters test passed")
+
 def test_tts_service_initialization():
     """Test that TTS service initializes correctly with optimizations."""
     # Mock the Gemini client to avoid actual API calls
@@ -92,9 +93,9 @@ def test_tts_performance_benchmark():
         mock_cache.set = mock_cache_set
         
         # Mock the generate_content method to simulate API delay
-        def mock_generate_content(*args, **kwargs):
+        async def mock_generate_content(*args, **kwargs):
             # Simulate network delay
-            time.sleep(0.05)  # 50ms delay
+            await asyncio.sleep(0.05)  # 50ms delay
             mock_response = Mock()
             mock_response.candidates = [Mock()]
             mock_response.candidates[0].content.parts = [Mock()]
@@ -120,7 +121,8 @@ def test_tts_performance_benchmark():
             # With semaphore limit of 10, all 5 requests should complete concurrently
             # Each request takes ~50ms, so total time should be ~50ms (not 250ms sequential)
             assert len(results) == 5
-            assert total_time < 0.3  # Should complete in less than 300ms (more realistic threshold)
+            assert total_time < 0.2  # Should complete in less than 200ms
+            
             return total_time, len(results)
         
         # Run the benchmark
@@ -141,7 +143,7 @@ def test_tts_error_handling():
         mock_cache.get = mock_cache_get
         
         # Mock the generate_content method to raise an exception
-        def mock_generate_content(*args, **kwargs):
+        async def mock_generate_content(*args, **kwargs):
             raise Exception("API Error")
         
         mock_client.models.generate_content = mock_generate_content

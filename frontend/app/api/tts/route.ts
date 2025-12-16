@@ -15,18 +15,8 @@ export async function POST(req: Request) {
 
     // Proxy the request to the backend service
     try {
-      // Check if we should use proxy mode (same logic as frontend)
-      const useProxy = process.env.NEXT_PUBLIC_USE_PROXY === 'true';
-      
-      let ttsUrl: string;
-      if (useProxy) {
-        // In proxy mode, use relative path that will be handled by Next.js rewrites
-        ttsUrl = 'http://localhost:8000/api/tts/'; // Local backend in development
-      } else {
-        // In direct mode, use the configured API base
-        const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
-        ttsUrl = `${backendBase.replace(/\/$/, '')}/api/tts/`;
-      }
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+      const ttsUrl = `${backendBase.replace(/\/$/, '')}/api/tts/`;
       
       // Validate backend URL
       try {
@@ -94,15 +84,14 @@ export async function POST(req: Request) {
   }
 }
 
-// Handle CORS preflight requests
+// Allow CORS for local development
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': process.env.NODE_ENV === 'development' ? '*' : 'https://lanamind.com',
+      'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Trace-ID, X-API-Key',
-      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }
