@@ -13,7 +13,14 @@ export type EventType =
   | 'content_engagement'
   | 'navigation'
   | 'error'
-  | 'feature_usage';
+  | 'feature_usage'
+  | 'auth_attempt'
+  | 'auth_success'
+  | 'auth_failure'
+  | 'onboarding_start'
+  | 'onboarding_complete'
+  | 'onboarding_skip'
+  | 'drop_off';
 
 // Base event structure
 export interface BaseEvent {
@@ -118,6 +125,31 @@ export interface FeatureUsageEvent extends BaseEvent {
   };
 }
 
+export interface AuthEvent extends BaseEvent {
+  eventType: 'auth_attempt' | 'auth_success' | 'auth_failure';
+  metadata: {
+    method: string;
+    error?: string;
+  };
+}
+
+export interface OnboardingEvent extends BaseEvent {
+  eventType: 'onboarding_start' | 'onboarding_complete' | 'onboarding_skip';
+  metadata: {
+    step?: string;
+    duration?: number;
+  };
+}
+
+export interface DropOffEvent extends BaseEvent {
+  eventType: 'drop_off';
+  metadata: {
+    page: string;
+    action?: string;
+    timestamp?: string;
+  };
+}
+
 // Union type for all events
 export type TrackingEvent = 
   | PageViewEvent
@@ -128,7 +160,10 @@ export type TrackingEvent =
   | ContentEngagementEvent
   | NavigationEvent
   | ErrorEvent
-  | FeatureUsageEvent;
+  | FeatureUsageEvent
+  | AuthEvent
+  | OnboardingEvent
+  | DropOffEvent;
 
 // Consent management
 export interface ConsentPreferences {
@@ -357,6 +392,34 @@ export class ActivityTracker {
   
   trackFeatureUsage(featureName: string, action: string, value?: any) {
     this.track('feature_usage', { featureName, action, value });
+  }
+  
+  trackAuthAttempt(method: string) {
+    this.track('auth_attempt', { method });
+  }
+  
+  trackAuthSuccess(method: string) {
+    this.track('auth_success', { method });
+  }
+  
+  trackAuthFailure(method: string, error: string) {
+    this.track('auth_failure', { method, error });
+  }
+  
+  trackOnboardingStart() {
+    this.track('onboarding_start', {});
+  }
+  
+  trackOnboardingComplete() {
+    this.track('onboarding_complete', {});
+  }
+  
+  trackOnboardingSkip() {
+    this.track('onboarding_skip', {});
+  }
+  
+  trackDropOff(page: string, action?: string) {
+    this.track('drop_off', { page, action });
   }
 }
 

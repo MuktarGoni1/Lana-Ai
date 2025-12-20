@@ -20,45 +20,60 @@ export interface LearningProfile {
 
 // Diagnostic quiz questions
 export const DIAGNOSTIC_QUESTIONS: QuizQuestion[] = [
-  // Competency Assessment Questions
+  // Cognitive Assessment Questions
   {
-    id: 'comp1',
+    id: 'cog1',
     type: 'competency',
-    question: 'How comfortable are you with basic arithmetic operations (addition, subtraction, multiplication, division)?',
+    question: 'Which shape comes next in the pattern: ▲, ●, ■, ▲, ●, ?',
     options: [
-      { id: 'a', text: 'Very comfortable - I can solve problems quickly', value: 3 },
-      { id: 'b', text: 'Somewhat comfortable - I can solve problems but sometimes need time', value: 2 },
-      { id: 'c', text: 'Not very comfortable - I often struggle with basic calculations', value: 1 }
+      { id: 'a', text: '▲', value: 0 },
+      { id: 'b', text: '●', value: 0 },
+      { id: 'c', text: '■', value: 1 },
+      { id: 'd', text: '◆', value: 0 }
     ]
   },
   {
-    id: 'comp2',
+    id: 'cog2',
     type: 'competency',
-    question: 'How would you rate your understanding of fractions and decimals?',
+    question: 'If 3 apples cost $1.50, how much do 5 apples cost?',
     options: [
-      { id: 'a', text: 'Strong understanding - I can easily convert and operate with them', value: 3 },
-      { id: 'b', text: 'Moderate understanding - I understand the concepts but sometimes make mistakes', value: 2 },
-      { id: 'c', text: 'Limited understanding - I find fractions and decimals confusing', value: 1 }
+      { id: 'a', text: '$2.00', value: 0 },
+      { id: 'b', text: '$2.25', value: 0 },
+      { id: 'c', text: '$2.50', value: 1 },
+      { id: 'd', text: '$3.00', value: 0 }
     ]
   },
   {
-    id: 'comp3',
+    id: 'cog3',
     type: 'competency',
-    question: 'How familiar are you with basic algebra concepts (variables, equations, solving for x)?',
+    question: 'Which word doesn\'t belong with the others?',
     options: [
-      { id: 'a', text: 'Very familiar - I can solve algebraic equations confidently', value: 3 },
-      { id: 'b', text: 'Somewhat familiar - I understand the basics but need practice', value: 2 },
-      { id: 'c', text: 'Not familiar - Algebra is challenging for me', value: 1 }
+      { id: 'a', text: 'Cat', value: 0 },
+      { id: 'b', text: 'Dog', value: 0 },
+      { id: 'c', text: 'Fish', value: 0 },
+      { id: 'd', text: 'Tree', value: 1 }
     ]
   },
   {
-    id: 'comp4',
+    id: 'cog4',
     type: 'competency',
-    question: 'How would you describe your geometry skills (shapes, angles, area, perimeter)?',
+    question: 'If all Bloops are Razzies and all Razzies are Loppies, then all Bloops are definitely:',
     options: [
-      { id: 'a', text: 'Strong - I can solve geometry problems accurately', value: 3 },
-      { id: 'b', text: 'Moderate - I understand concepts but sometimes struggle with complex problems', value: 2 },
-      { id: 'c', text: 'Weak - Geometry is difficult for me', value: 1 }
+      { id: 'a', text: 'Razzies', value: 0 },
+      { id: 'b', text: 'Loppies', value: 1 },
+      { id: 'c', text: 'Both', value: 0 },
+      { id: 'd', text: 'Neither', value: 0 }
+    ]
+  },
+  {
+    id: 'cog5',
+    type: 'competency',
+    question: 'Which shape completes the square pattern?',
+    options: [
+      { id: 'a', text: '◣', value: 0 },
+      { id: 'b', text: '◤', value: 0 },
+      { id: 'c', text: '◥', value: 1 },
+      { id: 'd', text: '◢', value: 0 }
     ]
   },
   
@@ -98,13 +113,17 @@ export const DIAGNOSTIC_QUESTIONS: QuizQuestion[] = [
   }
 ];
 
-// Scoring algorithm for competency questions
+// Scoring algorithm for cognitive questions
 export function calculateKnowledgeLevel(scores: number[]): 'beginner' | 'intermediate' | 'advanced' {
-  const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  // For cognitive questions, 1 = correct, 0 = incorrect
+  // We'll calculate percentage of correct answers
+  const correctCount = scores.filter(score => score === 1).length;
+  const totalCount = scores.length;
+  const percentage = (correctCount / totalCount) * 100;
   
-  if (averageScore >= 2.5) {
+  if (percentage >= 80) {
     return 'advanced';
-  } else if (averageScore >= 1.5) {
+  } else if (percentage >= 60) {
     return 'intermediate';
   } else {
     return 'beginner';

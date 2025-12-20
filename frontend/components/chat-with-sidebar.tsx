@@ -2,7 +2,7 @@
 "use client"
 
 import React from "react"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -469,6 +469,8 @@ function ChatWithSidebarContent() {
               <span>LANA AI</span>
             </div>
           </header>
+          {/* Post-onboarding prompt for study plan */}
+          <PostOnboardingPrompt />
           <div className="flex-1">
             {view === "chat" ? (
               <Suspense fallback={

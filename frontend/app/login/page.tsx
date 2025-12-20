@@ -6,6 +6,7 @@ import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
+import { formatErrorForToast } from "@/lib/utils/error-messages";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -164,10 +165,11 @@ function ParentFlow() {
           window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
         }
       } else {
+        const errorDetails = formatErrorForToast(result.error || "Failed to send magic link");
         toast({ 
-          title: "Error", 
-          description: result.error || "Failed to send magic link. Please try again.", 
-          variant: "destructive" 
+          title: errorDetails.title, 
+          description: errorDetails.description, 
+          variant: errorDetails.variant || "destructive" 
         });
       }
     } catch (error: unknown) {
@@ -287,17 +289,19 @@ function ChildFlow() {
           window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
         }
       } else {
+        const errorDetails = formatErrorForToast(result.error || "Failed to send magic link");
         toast({ 
-          title: "Error", 
-          description: result.error || "Failed to send magic link. Please try again.", 
-          variant: "destructive" 
+          title: errorDetails.title, 
+          description: errorDetails.description, 
+          variant: errorDetails.variant || "destructive" 
         });
       }
     } catch (error: unknown) {
+      const errorDetails = formatErrorForToast(error);
       toast({ 
-        title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
-        variant: "destructive" 
+        title: errorDetails.title, 
+        description: errorDetails.description, 
+        variant: errorDetails.variant || "destructive" 
       });
     }
   };

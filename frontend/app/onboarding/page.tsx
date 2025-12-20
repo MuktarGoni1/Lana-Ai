@@ -238,9 +238,9 @@ export default function OnboardingPage() {
             ? "Child successfully linked to your account! Redirecting to complete setup..."
             : `${children.length} children successfully linked to your account! Redirecting to complete setup...`
         })
-        // Redirect to term-plan to complete onboarding
-        console.log('[Onboarding] Redirecting to term-plan');
-        navigateToNextStep(router, 'onboarding', user || null);
+        // Redirect to quiz to complete onboarding assessment
+        console.log('[Onboarding] Redirecting to quiz');
+        router.push('/quiz');
       } catch (err: unknown) {
         // Handle registration failure by saving locally
         console.error('[Onboarding] Registration failed:', err);
@@ -256,9 +256,9 @@ export default function OnboardingPage() {
           description: "Child data has been saved locally and will be synced when connection is restored.",
         })
         
-        // Still redirect to term-plan to continue onboarding
-        console.log('[Onboarding] Redirecting to term-plan despite local save');
-        navigateToNextStep(router, 'onboarding', user || null);
+        // Redirect to quiz to complete onboarding assessment
+        console.log('[Onboarding] Redirecting to quiz despite local save');
+        router.push('/quiz');
       }
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);
@@ -647,7 +647,7 @@ Bob,15,10`}
                   Setting up...
                 </>
               ) : (
-                children.length === 1 ? "Finish setup" : `Finish setup for ${children.length} children`
+                children.length === 1 ? "Finish setup and go to dashboard" : `Finish setup for ${children.length} children and go to dashboard`
               )}
             </Button>
             

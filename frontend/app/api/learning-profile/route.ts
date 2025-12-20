@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
     const json = await request.json();
     console.log('[API learning-profile] Request body:', json);
     
-    const { profile } = json;
+    const { profile, analytics } = json;
     
     if (!profile) {
       return createErrorResponse('Learning profile is required', 400);
@@ -49,12 +49,19 @@ export async function POST(request: NextRequest) {
       return createErrorResponse(errorResponse.message, 500);
     }
     
-    // Update the user's metadata with the learning profile
+    // Update the user's metadata with the learning profile and quiz analytics
+    const updateData: any = { 
+      learning_profile: profile 
+    };
+    
+    // Add quiz analytics if provided
+    if (analytics) {
+      updateData.quiz_analytics = analytics;
+    }
+    
     const { error: updateError } = await supabase
       .from('users')
-      .update({ 
-        learning_profile: profile 
-      })
+      .update(updateData)
       .eq('id', userData.id);
     
     if (updateError) {
