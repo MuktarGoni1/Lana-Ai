@@ -1,14 +1,16 @@
 "use client";
 
+import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
-import { skipToHomepage } from '@/lib/navigation';
-
+import { dataSyncService } from '@/lib/services/dataSyncService';
+import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler';
 /* ---------- Types ---------- */
 interface Topic {
   id: string;
@@ -31,21 +33,69 @@ function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
   
-  // Authentication state
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [authError, setAuthError] = useState<string | null>(null);
-
+  // Authentication state is now handled by useEnhancedAuth hook
+  
   // Check if this is a child user (no email) to adjust the flow
   const [isChildUser, setIsChildUser] = useState(false);
 
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
-  
+  const [subjects, setSubjects] = useState<Subject[]>(() => {
+    // Load from localStorage on initial render
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('lana_study_plan');
+        return saved ? JSON.parse(saved) : [];
+      } catch (e) {
+        console.error('Failed to parse saved study plan:', e);
+        return [];
+      }
+    }
+    return [];
+  });
+  const [subjectInput, setSubjectInput] = useState("");
+  const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
+
+  // Save subjects to localStorage whenever they change
+  useEffect(() => {
+    // Reset error handler on successful page load
+    resetErrorHandler();
+    
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
+    }
+  }, [subjects]);  // Check if user is a child user
+  useEffect(() => {
+    if (user) {
+      const isChild = user.email?.endsWith('@child.lana') || false;
+      setIsChildUser(isChild);
+    }
+  }, [user]);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      try {
+        // Delay the redirect slightly to show the error message
+        const timer = setTimeout(() => {
+          router.push("/login");
+        }, 3000);
+        
+        return () => clearTimeout(timer);
+      } catch (err: any) {
+        console.error('[term-plan] auth redirect error:', err.message);
+        console.error('[term-plan] auth redirect error details:', err);
+        // Use our error handler to reload the page instead of redirecting
+        handleErrorWithReload(err, "Authentication check failed. Reloading page to try again...");
+      }
+    }
+  }, [isAuthenticated, isLoading, router]);
+
   const saveToLocalAndCompleteOnboarding = async () => {
     setSaving(true);
     try {
@@ -66,14 +116,8 @@ function TermPlanPageContent() {
     } catch (err: any) {
       console.error('[term-plan] Error saving plan locally:', err.message);
       console.error('[term-plan] Save error details:', err);
-      toast({ 
-        title: 'Save Error', 
-        description: 'Failed to save your study plan locally.',
-        variant: "destructive"
-      });
-      
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
+      // Use our error handler to reload the page instead of continuing
+      handleErrorWithReload(err, "Failed to save study plan locally. Reloading page to try again...");
     } finally {
       setSaving(false);
     }
@@ -85,12 +129,9 @@ function TermPlanPageContent() {
       console.log('[term-plan] Starting onboarding completion process');
       
       // Update user metadata to mark onboarding as complete
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('[term-plan] Session status:', session ? 'Active' : 'None');
-      
-      if (session?.user) {
+      if (user) {
         console.log('[term-plan] Updating user metadata with onboarding_complete flag');
-        console.log('[term-plan] User ID:', session.user.id);
+        console.log('[term-plan] User ID:', user.id);
         
         const { error } = await supabase.auth.updateUser({
           data: { onboarding_complete: true },
@@ -108,7 +149,7 @@ function TermPlanPageContent() {
           console.log('[term-plan] successfully updated user metadata with onboarding_complete flag');
         }
       } else {
-        console.warn('[term-plan] no session found when trying to update user metadata');
+        console.warn('[term-plan] no user found when trying to update user metadata');
         toast({
           title: "Notice",
           description: "Unable to save onboarding status, but continuing anyway.",
@@ -135,19 +176,14 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage');
-      router.replace('/homepage');
+      // Redirect to homepage after onboarding completion
+      console.log('[term-plan] redirecting to homepage after onboarding completion');
+      router.push('/homepage');
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
-      toast({ 
-        title: 'Onboarding Completed with Issues', 
-        description: 'Your plan has been saved, but there was an issue finalizing setup. Redirecting to dashboard...' 
-      });
-      // Even if there's an error, redirect all users to homepage
-      console.log('[term-plan] redirecting all users to homepage despite error');
-      router.replace('/homepage');
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Onboarding completion failed. Reloading page to try again...");
     } finally {
       setSaving(false);
     }
@@ -161,60 +197,79 @@ function TermPlanPageContent() {
       console.log('[term-plan] Number of subjects to save:', subjects.length);
       
       // Try to save to backend first
-      try {
-        // Get current user session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session?.user?.email) {
-          throw new Error('No authenticated user found');
-        }
-        
-        // Save to backend API
-        const response = await fetch('/api/study-plan', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: session.user.email,
-            subjects
-          }),
-        });
-        
-        const result = await response.json();
-        
-        if (!result.success) {
-          throw new Error(result.message || 'Failed to save study plan');
-        }
-        
-        console.log('[term-plan] Successfully saved subjects and topics to backend');
-        toast({ 
-          title: 'Plan Saved', 
-          description: 'Your study plan has been saved successfully.' 
-        });
-      } catch (err: any) {
-        // If backend save fails, save locally
-        console.error('[term-plan] Backend save failed, saving locally:', err.message);
-        localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
-        toast({ 
-          title: 'Plan Saved Locally', 
-          description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
-        });
+      if (!user?.email) {
+        throw new Error('No authenticated user found');
       }
+      
+      // Save to localStorage as backup before attempting backend save
+      try {
+        localStorage.setItem('lana_study_plan_backup', JSON.stringify(subjects));
+        console.log('[term-plan] Backup saved to localStorage');
+      } catch (storageErr) {
+        console.warn('[term-plan] Failed to save backup to localStorage:', storageErr);
+      }
+      
+      // Save to backend API
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user.email,
+          subjects
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save study plan');
+      }
+      
+      console.log('[term-plan] Successfully saved subjects and topics to backend');
+      toast({ 
+        title: 'Plan Saved', 
+        description: 'Your study plan has been saved successfully.' 
+      });
+      
+      // Clear local storage after successful save
+      localStorage.removeItem('lana_study_plan');
+      localStorage.removeItem('lana_study_plan_backup');
       
       // Complete onboarding
       await completeOnboardingAndRedirect();
     } catch (err: any) {
       console.error('[term-plan] Error saving plan:', err.message);
       console.error('[term-plan] Save error details:', err);
-      toast({ 
-        title: 'Save Error', 
-        description: 'Failed to save your study plan. Continuing to dashboard anyway.',
-        variant: "destructive"
-      });
       
-      // Still complete onboarding even if saving fails
-      await completeOnboardingAndRedirect();
+      // Try to save locally as fallback
+      try {
+        localStorage.setItem('lana_study_plan_pending', JSON.stringify({
+          subjects,
+          timestamp: Date.now(),
+          email: user?.email
+        }));
+        console.log('[term-plan] Data saved locally as pending sync');
+        
+        toast({ 
+          title: 'Saved Locally', 
+          description: 'Study plan saved locally. Will sync when connection is restored.' 
+        });
+        
+        // Still complete onboarding even if backend save failed
+        await completeOnboardingAndRedirect();
+      } catch (localSaveErr: any) {
+        console.error('[term-plan] Failed to save locally:', localSaveErr.message);
+        toast({
+          title: "Save Failed",
+          description: "Failed to save your study plan. Please try again later.",
+          variant: "destructive",
+        });
+        
+        // Use our error handler to reload the page instead of continuing
+        handleErrorWithReload(err, "Failed to save study plan. Reloading page to try again...");
+      }
     } finally {
       setSaving(false);
     }
@@ -225,83 +280,17 @@ function TermPlanPageContent() {
   
   // Skip to homepage functionality
   const handleSkipToHomepage = () => {
-    // Redirect all users to homepage
-    console.log('[term-plan] skipping to homepage for all users');
-    router.push('/homepage');
+    try {
+      // Redirect to homepage when skipping
+      console.log('[term-plan] skipping to homepage');
+      router.push('/homepage');
+    } catch (err: any) {
+      console.error('[term-plan] skip error:', err.message);
+      console.error('[term-plan] skip error details:', err);
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(err, "Failed to skip to homepage. Reloading page to try again...");
+    }
   };
-  const [subjects, setSubjects] = useState<Subject[]>(() => {
-    // Load from localStorage on initial render
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = localStorage.getItem('lana_study_plan');
-        return saved ? JSON.parse(saved) : [];
-      } catch (e) {
-        console.error('Failed to parse saved study plan:', e);
-        return [];
-      }
-    }
-    return [];
-  });
-  const [subjectInput, setSubjectInput] = useState("");
-  const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
-
-  // Check authentication on component mount
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          // No session, redirect to login
-          setAuthError("No active session found. Please log in.");
-          setIsAuthenticated(false);
-          setAuthChecked(true);
-          return;
-        }
-
-        // Check if this is a child user (email ending with @child.lana)
-        const isChild = session.user.email?.endsWith('@child.lana') || false;
-        setIsChildUser(isChild);
-
-        // Verify the user is authenticated
-        const response = await fetch('/api/verify-user', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: session.user.email })
-        });
-
-        const result = await response.json();
-        
-        if (result.isAuthenticated) {
-          setIsAuthenticated(true);
-        } else {
-          setAuthError(result.message || "User is not authenticated");
-          setIsAuthenticated(false);
-        }
-      } catch (error: any) {
-        console.error('[term-plan] auth check error:', error);
-        setAuthError("Error checking authentication status");
-        setIsAuthenticated(false);
-      } finally {
-        setAuthChecked(true);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  // Redirect if not authenticated
-  useEffect(() => {
-    if (authChecked && !isAuthenticated) {
-      // Delay the redirect slightly to show the error message
-      const timer = setTimeout(() => {
-        router.push("/login");
-      }, 3000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [authChecked, isAuthenticated, router]);
 
   const addSubject = () => {
     if (!subjectInput.trim()) return;
@@ -321,9 +310,6 @@ function TermPlanPageContent() {
     const updatedSubjects = [...subjects, newSubject];
     setSubjects(updatedSubjects);
     setSubjectInput("");
-    
-    // Save to localStorage
-    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const addTopic = (subjectId: string) => {
@@ -348,9 +334,6 @@ function TermPlanPageContent() {
     
     setSubjects(updatedSubjects);
     setTopicInputs({ ...topicInputs, [subjectId]: "" });
-    
-    // Save to localStorage
-    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const toggleSubject = (subjectId: string) => {
@@ -361,17 +344,11 @@ function TermPlanPageContent() {
     );
     
     setSubjects(updatedSubjects);
-    
-    // Save to localStorage
-    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const deleteSubject = (subjectId: string) => {
     const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
     setSubjects(updatedSubjects);
-    
-    // Save to localStorage
-    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   const deleteTopic = (subjectId: string, topicId: string) => {
@@ -382,18 +359,15 @@ function TermPlanPageContent() {
     );
     
     setSubjects(updatedSubjects);
-    
-    // Save to localStorage
-    localStorage.setItem('lana_study_plan', JSON.stringify(updatedSubjects));
   };
 
   // Show loading state while checking authentication
-  if (!authChecked) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
-          <p className="text-white/30 text-sm">Checking authentication...</p>
+          <p className="text-white/30 text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -407,7 +381,7 @@ function TermPlanPageContent() {
           <X className="w-12 h-12 mx-auto text-red-500" />
           <h2 className="text-2xl font-semibold">Access Denied</h2>
           <p className="text-white/70">
-            {authError || "You must be authenticated to access this page."}
+            You must be authenticated to access this page.
           </p>
           <p className="text-white/50 text-sm">
             Redirecting to login page...
@@ -531,7 +505,7 @@ function TermPlanPageContent() {
                                 [subject.id]: e.target.value
                               })}
                               onKeyDown={(e) => e.key === "Enter" && addTopic(subject.id)}
-                              placeholder="Add a topic (e.g., Limits &amp; Continuity)"
+                              placeholder="Add a topic (e.g., Limits & Continuity)"
                               className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 
                                        focus:outline-none focus:ring-2 focus:ring-white/20 
                                        placeholder:text-white/40 text-sm transition-all"

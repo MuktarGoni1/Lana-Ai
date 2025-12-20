@@ -13,8 +13,7 @@ export function getSupabaseAdmin() {
   if (process.env.NODE_ENV === 'development') {
     console.log('[SupabaseAdmin] Environment variables status:', {
       url: url ? 'SET' : 'NOT SET',
-      serviceKey: serviceKey ? 'SET' : 'NOT SET',
-      serviceKeyLength: serviceKey ? serviceKey.length : 0
+      serviceKey: serviceKey ? 'SET' : 'NOT SET'
     });
   }
   

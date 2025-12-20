@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { type CookieOptions } from '@supabase/ssr'
+import { authLogger } from '@/lib/services/authLogger'
 
 // Generate a simple UUID-like string for guest sessions
 function generateGuestId(): string {
@@ -33,6 +34,9 @@ export async function middleware(req: NextRequest) {
       method: req.method,
       userAgent: req.headers.get('user-agent')
     })
+    
+    // Log authentication check start
+    await authLogger.logAuthCheckStart(pathname, req.headers.get('user-agent') || undefined);
 
     // Identify public routes and static assets
     const PUBLIC_PATHS = [
@@ -47,6 +51,9 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed/child',
       '/auth/auto-login',
       '/quiz',
+      '/term-plan',
+      '/settings',
+      '/feedback'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -102,14 +109,29 @@ export async function middleware(req: NextRequest) {
       userMetadata: user?.user_metadata,
       error: error?.message
     });
+    
+    // Log authentication check completion
+    await authLogger.logAuthCheckComplete(
+      pathname, 
+      !!sessionExists, 
+      user?.id, 
+      user?.email
+    );
+    
+    // Log authentication errors if any
+    if (error) {
+      await authLogger.logAuthError(
+        pathname, 
+        error.message, 
+        user?.id, 
+        user?.email
+      );
+    }
 
     // Define protected routes
     const protectedPaths = [
       '/dashboard',
-      '/settings',
       '/guardian',
-      '/term-plan',
-      '/quiz',
       '/personalised-ai-tutor'
     ]
 
@@ -120,6 +142,8 @@ export async function middleware(req: NextRequest) {
     // Special handling for homepage - allow access even without session
     if (pathname === '/homepage') {
       console.log('[Middleware] Allowing access to homepage');
+      const hasGuestCookie = req.cookies.has('lana_guest_id');
+      await authLogger.logGuestAccess(pathname, hasGuestCookie);
       setGuestCookie(req, res);
       return res;
     }
@@ -140,8 +164,10 @@ export async function middleware(req: NextRequest) {
     // If the user is not authenticated and trying to access a protected route, redirect to login
     if (!sessionExists && isProtectedRoute) {
       console.log('[Middleware] Unauthenticated user accessing protected route, redirecting to login')
+      await authLogger.logProtectedRouteAccess(pathname, false);
       const dest = new URL('/login', req.url)
       dest.searchParams.set('redirectedFrom', pathname)
+      await authLogger.logRedirect(pathname, '/login', 'unauthenticated_protected_route_access');
       return NextResponse.redirect(dest)
     }
 
@@ -153,67 +179,97 @@ export async function middleware(req: NextRequest) {
 
     if (sessionExists && isAuthPath) {
       console.log('[Middleware] Authenticated user accessing auth path, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+      await authLogger.logProtectedRouteAccess(pathname, true, user?.id, user?.email);
+      // Redirect all authenticated users to homepage
+      const dest = new URL('/homepage', req.url)
+      await authLogger.logRedirect(pathname, '/homepage', 'authenticated_user_on_auth_page', user?.id, user?.email);
+      return NextResponse.redirect(dest)
+    }
+
+    // Store the last visited page for authenticated users (excluding auth paths)
+    if (sessionExists && !isAuthPath && !isAsset && pathname !== '/landing-page') {
+      console.log('[Middleware] Storing last visited page:', pathname)
+      // Set a cookie with the current path
+      res.cookies.set('lana_last_visited', pathname, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        httpOnly: false, // Allow client-side access
+        sameSite: 'lax',
+        path: '/',
+      })
+      
+      // Also set in a custom header for client-side access as fallback
+      res.headers.set('x-last-visited', pathname)
     }
 
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
-    const isOnboardingRoute = pathname === '/onboarding' || pathname.startsWith('/term-plan')
+    const isOnboardingRoute = pathname === '/onboarding' || pathname === '/term-plan'
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
+    
+    // Check if this is a redirect from onboarding completion
+    const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
+    
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')
+      await authLogger.logRedirect(pathname, '/term-plan?onboarding=1', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
       const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
-
-    // If authenticated and trying to access the landing page, send to appropriate dashboard
-    if (sessionExists && pathname === '/landing-page') {
-      console.log('[Middleware] Authenticated user accessing landing page, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+    
+    // If onboarding was just completed, redirect to homepage regardless of role
+    if (isOnboardingCompletion) {
+      console.log('[Middleware] Onboarding just completed, redirecting to homepage')
+      await authLogger.logRedirect(pathname, '/homepage', 'onboarding_completed', user?.id, user?.email);
+      const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
     }
 
-    // If authenticated and hitting root, redirect to appropriate dashboard
+    // If authenticated and trying to access the landing page, send to last visited page or homepage
+    if (sessionExists && pathname === '/landing-page') {
+      console.log('[Middleware] Authenticated user accessing landing page, redirecting to last visited or homepage')
+      
+      // Try to get last visited from cookies
+      const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisitedCookie && 
+                           !lastVisitedCookie.startsWith('/login') && 
+                           !lastVisitedCookie.startsWith('/register') && 
+                           !lastVisitedCookie.startsWith('/auth') && 
+                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie : '/homepage';
+      
+      await authLogger.logRedirect(pathname, redirectPath, 'authenticated_landing_page_access', user?.id, user?.email);
+      const dest = new URL(redirectPath, req.url)
+      return NextResponse.redirect(dest)
+    }
+
+    // If authenticated and hitting root, redirect to last visited page or homepage
     if (sessionExists && pathname === '/') {
-      console.log('[Middleware] Authenticated user accessing root, redirecting to dashboard')
-      // Redirect to appropriate dashboard based on role
-      if (role === 'child') {
-        const dest = new URL('/personalised-ai-tutor', req.url)
-        return NextResponse.redirect(dest)
-      } else if (role === 'guardian') {
-        const dest = new URL('/guardian', req.url)
-        return NextResponse.redirect(dest)
-      } else {
-        const dest = new URL('/homepage', req.url)
-        return NextResponse.redirect(dest)
-      }
+      console.log('[Middleware] Authenticated user accessing root, redirecting to last visited or homepage')
+      
+      // Try to get last visited from cookies
+      const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisitedCookie && 
+                           !lastVisitedCookie.startsWith('/login') && 
+                           !lastVisitedCookie.startsWith('/register') && 
+                           !lastVisitedCookie.startsWith('/auth') && 
+                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie : '/homepage';
+      
+      await authLogger.logRedirect(pathname, redirectPath, 'authenticated_root_access', user?.id, user?.email);
+      const dest = new URL(redirectPath, req.url)
+      return NextResponse.redirect(dest)
     }
 
     // Role-based normalization
     if (pathname.startsWith('/guardian') && role !== 'guardian') {
       console.log('[Middleware] Non-guardian user accessing guardian path, redirecting to landing page')
+      await authLogger.logRedirect(pathname, '/landing-page', 'role_mismatch_guardian_path', user?.id, user?.email);
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
     }
@@ -234,6 +290,15 @@ export async function middleware(req: NextRequest) {
         stack: error instanceof Error ? error.stack : 'No stack trace',
         url: req?.nextUrl?.pathname,
         timestamp: new Date().toISOString()
+      });
+      
+      // Log the error using our auth logger
+      await authLogger.error('AUTH_ERROR', 'Middleware error occurred', {
+        metadata: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          url: req?.nextUrl?.pathname,
+          timestamp: new Date().toISOString()
+        }
       });
     } catch (logError) {
       console.error('[middleware] failed to log error details:', logError);

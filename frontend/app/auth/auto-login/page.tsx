@@ -5,57 +5,127 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
+// Create a safe version of useRobustAuth that doesn't throw during SSR
+function useSafeRobustAuth() {
+  const [authState, setAuthState] = useState<{
+    checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
+  } | null>(null);
+
+  useEffect(() => {
+    // Dynamically import the useRobustAuth hook only on the client side
+    const loadAuth = async () => {
+      try {
+        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
+        // Try to use the hook, but catch any errors
+        try {
+          const auth = useRobustAuth();
+          setAuthState({
+            checkAuthStatus: auth.checkAuthStatus,
+          });
+        } catch (error) {
+          // If useRobustAuth throws (e.g., outside provider), set to null state
+          setAuthState(null);
+        }
+      } catch (error) {
+        // If import fails, set to null state
+        setAuthState(null);
+      }
+    };
+
+    loadAuth();
+  }, []);
+
+  return authState;
+}
+
 export default function AutoLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const auth = useSafeRobustAuth();
   const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
 
   useEffect(() => {
     const autoLogin = async () => {
+      if (!auth) {
+        setStatus("error");
+        toast({
+          title: "Authentication issue",
+          description: "Authentication system not available.",
+          variant: "destructive",
+        });
+        setTimeout(() => router.replace("/landing-page"), 2500);
+        return;
+      }
+
       setStatus("confirming");
       try {
-        // Get the current session
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError) throw sessionError;
+        // Force refresh the authentication status
+        const authResult = await auth.checkAuthStatus(true);
 
-        const user = session?.user;
+        const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
 
         // Check if user has completed onboarding
         const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
-        
-        // If onboarding is not complete, redirect to term-plan for onboarding
+
+        // If onboarding is not complete, redirect appropriately based on user type
         if (!onboardingComplete) {
-          // Set cookie for middleware
-          try {
-            const oneYear = 60 * 60 * 24 * 365;
-            document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-          } catch (cookieErr) {
-            console.warn("[auto-login] failed to set completion cookie:", cookieErr);
-          }
-
           setStatus("confirmed");
-          toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
-
-          setTimeout(() => {
-            router.replace("/term-plan?onboarding=1");
-          }, 1000);
+          
+          // Check if this is a child user
+          const isChildUser = user.email?.endsWith('@child.lana') || false;
+          
+          if (isChildUser) {
+            // Child users go directly to term-plan
+            toast({ title: "Authentication confirmed", description: "Setting up your study plan..." });
+            setTimeout(() => {
+              router.push("/term-plan?onboarding=1");
+            }, 1000);
+          } else {
+            // Parent users go through onboarding flow
+            toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
+            setTimeout(() => {
+              router.push("/onboarding");
+            }, 1000);
+          }
           return;
         }
 
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Redirect based on user role
-        const role = user.user_metadata?.role as "guardian" | "child" | undefined;
-        setTimeout(() => {
-          if (role === "child") {
-            router.replace("/personalised-ai-tutor");
-          } else if (role === "guardian") {
-            router.replace("/guardian");
-          } else {
-            router.replace("/homepage");
+        // Check for last visited page in cookies
+        let lastVisited = null;
+        if (typeof window !== 'undefined') {
+          // Try to get from localStorage first (fallback for older browsers)
+          lastVisited = localStorage.getItem('lana_last_visited');
+          
+          // Try to get from cookies (newer approach)
+          const cookies = document.cookie.split(';');
+          for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'lana_last_visited') {
+              lastVisited = decodeURIComponent(value);
+              break;
+            }
           }
+        }
+
+        // Store the last visited page in localStorage as well for redundancy
+        if (typeof window !== 'undefined' && lastVisited) {
+          localStorage.setItem('lana_last_visited', lastVisited);
+        }
+
+        // Redirect to last visited page if available and not an auth page, otherwise homepage
+        const redirectPath = lastVisited && 
+                             !lastVisited.startsWith('/login') && 
+                             !lastVisited.startsWith('/register') && 
+                             !lastVisited.startsWith('/auth') && 
+                             lastVisited !== '/landing-page' ? 
+                             lastVisited : '/homepage';
+
+        setTimeout(() => {
+          router.push(redirectPath);
         }, 1000);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);
@@ -81,8 +151,20 @@ export default function AutoLoginPage() {
       }
     };
 
-    autoLogin();
-  }, [router, toast]);
+    // Only run autoLogin if we have the auth context
+    if (auth !== null) {
+      autoLogin();
+    } else if (auth === null) {
+      // If auth is explicitly null (meaning we tried and failed), show error
+      setStatus("error");
+      toast({
+        title: "Authentication issue",
+        description: "Authentication system not available.",
+        variant: "destructive",
+      });
+      setTimeout(() => router.replace("/landing-page"), 2500);
+    }
+  }, [router, toast, auth]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">

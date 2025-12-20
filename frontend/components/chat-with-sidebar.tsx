@@ -1,7 +1,8 @@
 // components/chat-with-sidebar.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import React from "react"
+import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -21,12 +22,11 @@ import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 
 // Centralized API base with optional proxying via Next.js rewrites
-// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
-const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
-  ? ''
-  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 
 // Lazy load heavy components
 const AnimatedAIChat = dynamic(() => import("@/components/animated-ai-chat").then(mod => mod.AnimatedAIChat), {
@@ -61,12 +61,26 @@ interface ChatHistory {
   timestamp: string
 }
 
+// Add a debounce helper function
+const debounce = (func: Function, wait: number) => {
+  let timeout: NodeJS.Timeout;
+  return function executedFunction(...args: any[]) {
+    const later = () => {
+      clearTimeout(timeout);
+      func(...args);
+    };
+    clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+};
+
 function ChatWithSidebarContent() {
   const [view, setView] = useState<"chat" | "video-learning">("chat")
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  const [user, setUser] = useState<User | null>(null)
+  // Replace individual auth state variables with useEnhancedAuth hook
+  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
   const [role, setRole] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
@@ -75,27 +89,46 @@ function ChatWithSidebarContent() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
   
+  // Create a debounced version of fetchHistory
+  const debouncedFetchHistory = useCallback(
+    debounce((forceRefresh = false) => {
+      fetchHistory(forceRefresh);
+    }, 1000), // 1 second debounce
+    []
+  );
+  
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
-    const id = localStorage.getItem("lana_sid") || uuid()
-    localStorage.setItem("lana_sid", id)
-    setSid(id)
+    const initSessionId = async () => {
+      // For guest users, generate a standard session ID
+      // For authenticated users, we'll namespace it with their user ID
+      let id = localStorage.getItem("lana_sid");
+      
+      if (!id) {
+        id = uuid();
+        localStorage.setItem("lana_sid", id);
+      }
+      
+      setSid(id);
+      
+      // Check for topic parameter from term-plan navigation
+      const topicParam = searchParams.get("topic");
+      if (topicParam) {
+        setQuestion(topicParam);
+        setView("chat");
+        // Clean up URL without causing a page reload
+        window.history.replaceState({}, '', '/');
+      }
+    };
     
-    // Check for topic parameter from term-plan navigation
-    const topicParam = searchParams.get("topic")
-    if (topicParam) {
-      setQuestion(topicParam)
-      setView("chat")
-      // Clean up URL without causing a page reload
-      window.history.replaceState({}, '', '/')
-    }
+    initSessionId();
   }, [])
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
   const fetchHistory = async (forceRefresh = false) => {
-    if (!user || !sid) return;
+    if (!sid) return;
     setLoadingHistory(true);
     setHistoryError(null);
     try {
@@ -105,65 +138,112 @@ function ChatWithSidebarContent() {
         headers['Authorization'] = `Bearer ${accessToken}`;
       }
       const data = await api.get<ChatHistory[]>(
-        `${API_BASE}/api/history?sid=${sid}`,
+        `/history?sid=${sid}&limit=50`,
         { headers },
         bypassCache
       );
       setHistory(data);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 401) {
-        setHistoryError("Please login or register to save search history.");
+      if (e instanceof ApiError) {
+        switch (e.status) {
+          case 401:
+            // Don't show error message for authenticated users
+            if (!isAuthenticated) {
+              setHistoryError("Please login or register to save search history.");
+            }
+            break;
+          case 403:
+            setHistoryError("Access denied. Please login with proper credentials.");
+            break;
+          case 404:
+            setHistoryError("History not found.");
+            break;
+          case 429:
+            // Handle rate limiting - don't show error to user, just silently fail
+            console.warn("Rate limit exceeded for history fetch");
+            break;
+          case 500:
+            setHistoryError("Server error. Please try again later.");
+            break;
+          default:
+            // Only show error messages to unauthenticated users for other errors
+            if (!isAuthenticated) {
+              setHistoryError("Failed to fetch history.");
+            }
+        }
       } else {
-        setHistoryError("Failed to fetch history.");
+        // Only show error messages to unauthenticated users for network errors
+        if (!isAuthenticated) {
+          setHistoryError("Failed to fetch history.");
+        }
       }
     } finally {
       setLoadingHistory(false);
     }
   };
 
-  // Fetch user session
+  // Fetch user session - simplified with useEnhancedAuth
   useEffect(() => {
-    const fetchUserSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        setUser(session.user);
-        setRole(session.user.user_metadata?.role || null);
-        setAccessToken(session.access_token || null);
-        // Ensure session id is namespaced by user id to satisfy backend auth checks
-        try {
-          const currentSid = localStorage.getItem("lana_sid");
-          const uidPrefix = `${session.user.id}:`;
-          if (currentSid && !currentSid.startsWith(uidPrefix)) {
-            const newSid = `${session.user.id}:${currentSid}`;
-            localStorage.setItem("lana_sid", newSid);
-            setSid(newSid);
-          }
-        } catch {}
-        if (sid) {
-          fetchHistory(true); // ensure immediate fresh load
+    if (user) {
+      setRole(user.user_metadata?.role || null)
+      // Get access token
+      const getAccessToken = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setAccessToken(session.access_token || null)
         }
       }
-    };
-    fetchUserSession();
-  
+      getAccessToken()
+      
+      // Ensure session id is namespaced by user id to satisfy backend auth checks
+      try {
+        const currentSid = localStorage.getItem("lana_sid");
+        const uidPrefix = `${user.id}:`;
+        if (currentSid && !currentSid.startsWith(uidPrefix)) {
+          const newSid = `${user.id}:${currentSid}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
+        } else if (!currentSid) {
+          // If no SID exists, create a new one with user ID prefix
+          const newSid = `${user.id}:${uuid()}`;
+          localStorage.setItem("lana_sid", newSid);
+          setSid(newSid);
+        }
+      } catch (error) {
+        console.error('Error namespacing session ID:', error);
+      }
+      
+      if (sid) {
+        debouncedFetchHistory(true); // use debounced version
+      }
+    }
+    
     if (sid && accessToken) {
-      fetchHistory(true); // refresh when tokens present
+      debouncedFetchHistory(true); // use debounced version
+      // Reduce polling frequency to avoid rate limiting
+      // Changed from 30 seconds to 5 minutes (300000ms)
       const refreshInterval = setInterval(() => {
-        if (sid && accessToken) fetchHistory(false); // periodic refresh can use cache
-      }, 30000);
+        if (sid && accessToken) debouncedFetchHistory(false); // use debounced version
+      }, 300000); // 5 minutes instead of 30 seconds
       return () => clearInterval(refreshInterval);
     }
-  }, [sid, accessToken]);
+  }, [user, sid, accessToken, debouncedFetchHistory]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
     if (!sid) return
     try {
       // Generate a fresh session id locally instead of calling a non-existent /reset
-      const newSid = uuid()
+      let newSid = uuid();
+      
+      // For authenticated users, namespace the session ID with their user ID
+      if (user?.id) {
+        newSid = `${user.id}:${newSid}`;
+      }
+      
       localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
-      await fetchHistory()
+      await debouncedFetchHistory() // use debounced version
       setView("chat")
     } catch (error) {
       console.error("Failed to start new chat:", error)
@@ -182,7 +262,7 @@ function ChatWithSidebarContent() {
 
   const handleBack = () => {
     setView("chat")
-    fetchHistory()
+    debouncedFetchHistory() // use debounced version
   }
 
   /* 4️⃣ Routing */
@@ -239,8 +319,8 @@ function ChatWithSidebarContent() {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {/* Authentication Check - Show login prompt for unauthenticated users */}
-                  {!user && !loadingHistory && (
+                  {/* Authentication Check - Show guest access message for unauthenticated users */}
+                  {!isAuthenticated && !authLoading && !loadingHistory && (
                     <SidebarMenuItem>
                       <div className="flex flex-col items-center gap-3 p-4 text-center">
                         <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/10">
@@ -248,7 +328,10 @@ function ChatWithSidebarContent() {
                         </div>
                         <div className="space-y-2">
                           <p className="text-sm text-white/80 font-medium">
-                            Please login or register to save search history.
+                            Guest Mode - Limited Features
+                          </p>
+                          <p className="text-xs text-white/60">
+                            Login to save history and unlock full features
                           </p>
                           <SidebarMenuButton
                             onClick={() => router.push("/login")}
@@ -260,10 +343,9 @@ function ChatWithSidebarContent() {
                         </div>
                       </div>
                     </SidebarMenuItem>
-                  )}
-                  
+                  )}                  
                   {/* Authenticated users see full History functionality */}
-                  {user && (
+                  {isAuthenticated && (
                     <>
                       {loadingHistory && (
                         <SidebarMenuItem>
@@ -320,7 +402,10 @@ function ChatWithSidebarContent() {
             <SidebarMenu>
               {/* Feedback */}
               <SidebarMenuItem>
-                <SidebarMenuButton className="text-white/60 hover:text-white/80 w-full justify-start gap-2">
+                <SidebarMenuButton 
+                  onClick={() => router.push("/feedback")}
+                  className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
+                >
                   <MessageSquare className="size-4" />
                   <span className="text-sm">Feedback</span>
                 </SidebarMenuButton>
@@ -341,7 +426,7 @@ function ChatWithSidebarContent() {
               {role === "guardian" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => router.push("/guardian")}
+                    onClick={() => router.push("/homepage")}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <Mail className="w-4 h-4" />
@@ -352,7 +437,7 @@ function ChatWithSidebarContent() {
   
               {/* Auth action - Log out if authenticated, Log in if not */}
               <SidebarMenuItem>
-                {user ? (
+                {isAuthenticated ? (
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();
@@ -393,7 +478,7 @@ function ChatWithSidebarContent() {
               }>
                 <AnimatedAIChat
                   onNavigateToVideoLearning={handleSelect}
-                  onSend={fetchHistory}
+                  onSend={debouncedFetchHistory}
                 />
               </Suspense>
             ) : (

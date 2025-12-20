@@ -22,6 +22,7 @@ except (ImportError, ModuleNotFoundError):
 
 from app.repositories.interfaces import ICacheRepository
 from app.config import TTS_MODEL, TTS_SAMPLE_RATE, TTS_CONCURRENT_LIMIT, TTS_CACHE_TTL
+from app.jobs.queue_config import get_tts_queue
 
 logger = logging.getLogger(__name__)
 
@@ -81,13 +82,8 @@ class TTSService:
 
     def _prewarm_cache(self):
         """Pre-warm cache with common phrases to reduce initial latency."""
-        # Only pre-warm if we're in an event loop context
-        try:
-            # This will run in background to avoid blocking initialization
-            asyncio.create_task(self._prewarm_common_phrases())
-        except RuntimeError:
-            # If we're not in an event loop, skip pre-warming
-            pass
+        # Disable pre-warming for now to avoid startup issues
+        pass
 
     async def _prewarm_common_phrases(self):
         """Pre-generate audio for common phrases."""
@@ -114,6 +110,18 @@ class TTSService:
         """Generate base64-encoded audio from text for API response."""
         audio_bytes = await self.generate_speech(text, voice_name)
         return base64.b64encode(audio_bytes).decode("utf-8")
+
+    async def create_tts_job(self, text: str, voice_name: str = "leda"):
+        """Create a TTS generation job and return the job ID."""
+        tts_queue = get_tts_queue()
+        
+        job_data = {
+            "text": text,
+            "voice_name": voice_name
+        }
+        
+        job = await tts_queue.add("tts-generation", job_data)
+        return job.id
 
     async def generate_speech(self, text: str, voice_name: str = "leda") -> bytes:
         """Generate speech from text; uses cache, Gemini TTS, and WAV fallback."""
@@ -144,13 +152,8 @@ class TTSService:
                                         voice_name=voice_name,
                                     )
                                 )
-                                # Removed unsupported parameters that cause validation errors
                             ),
-                        ),
-                        # Add request options for faster response
-                        request_options={
-                            "timeout": 10.0,  # 10 second timeout
-                        }
+                        )
                     )
                     parts = response.candidates[0].content.parts
                     pcm = parts[0].inline_data.data

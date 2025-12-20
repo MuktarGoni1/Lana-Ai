@@ -6,6 +6,8 @@
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import rateLimiter from "@/lib/rate-limiter";
+import { isValidLessonResponse, sanitizeLessonContent } from "@/lib/response-validation";
 import {
   Paperclip,
   Command,
@@ -18,6 +20,8 @@ import {
   Video,
   BookOpen,
   PersonStandingIcon,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
@@ -26,9 +30,13 @@ import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { supabase } from '@/lib/db';
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { useToast } from '@/hooks/use-toast';
 
 // Centralized API base for both components in this file
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "https://lana-ai.onrender.com";
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
+
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -57,9 +65,58 @@ import ChatWithSidebar from '@/components/chat-with-sidebar';
 // Main Homepage Component for Lana AI
 // This component serves as the primary interface for users to interact with the AI tutor
 export default function HomePage() {
+  const { user, isAuthenticated, isLoading, refreshSession } = useEnhancedAuth();
+  const { toast } = useToast();
+  const router = useRouter();
   const [question, setQuestion] = useState("");
   const handleNavigate = (text: string) => setQuestion(text.trim());
 
+  // Handle session timeout
+  useEffect(() => {
+    // Set up a periodic check for session validity
+    const sessionCheckInterval = setInterval(async () => {
+      if (isAuthenticated) {
+        try {
+          // Try to refresh the session to check if it's still valid
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error || !session) {
+            // Session has expired or there was an error
+            toast({
+              title: "Session Expired",
+              description: "Your session has expired. Please log in again.",
+              variant: "destructive"
+            });
+            router.push("/login");
+          }
+        } catch (error) {
+          console.error("Error checking session:", error);
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+
+    // Clean up interval on unmount
+    return () => clearInterval(sessionCheckInterval);
+  }, [isAuthenticated, router, toast]);
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Allow guest users on homepage with limited functionality
+  // Authenticated users get full access, guests get basic access
+  if (!isAuthenticated) {
+    console.log('[Homepage] Guest access granted');
+  }
+  // Return the ChatWithSidebar component to maintain the sidebar
   return <ChatWithSidebar />;
 }
 
@@ -141,12 +198,13 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  question: string;
+  q: string;  
   options: string[];
   answer: string;
 }
 
 interface Lesson {
+  id?: string;
   introduction?: string;
   classifications?: Array<{ type: string; description: string }>;
   sections?: LessonSection[];
@@ -155,6 +213,9 @@ interface Lesson {
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
+  // Check if this is an error response
+  const isErrorResponse = lesson.introduction && lesson.introduction.includes("Unable to generate a detailed lesson");
+  
   // Lightly sanitize markdown-like tokens and normalize bullets per line
 
   const sanitizeLine = (line: string) => {
@@ -176,10 +237,28 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
+      // Always use the data-based approach since lesson ID approach won't work
+      // (lessons are ephemeral and not retrievable by ID from the backend)
+      
+      // Check if we have quiz data available
       if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
+        console.warn("No quiz data available", lesson?.quiz);
         return;
       }
-      const data = encodeURIComponent(JSON.stringify(lesson.quiz));
+      
+      // Transform quiz data to match frontend expectations
+      const transformedQuiz = lesson.quiz.map((item) => ({
+        q: item.q || (item as any).question || "",  // Handle both 'q' and 'question' properties
+        options: Array.isArray(item.options) ? item.options : [],
+        answer: item.answer || ""
+      })).filter((item) => item.q && item.options.length > 0);
+      
+      if (transformedQuiz.length === 0) {
+        console.warn("No valid quiz items after transformation", lesson.quiz);
+        return;
+      }
+      
+      const data = encodeURIComponent(JSON.stringify(transformedQuiz));
       router.push(`/quiz?data=${data}`);
     } catch (err) {
       console.error("Failed to navigate to quiz:", err);
@@ -187,65 +266,183 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   };
 
   // Removed verbose debug logging for production readiness.
-  let blocks: { title?: string; content: string }[] = [];
-
   // TTS state and actions
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
+  const [ttsError, setTtsError] = useState<string | null>(null); // Local error state for TTS
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioQueue, setAudioQueue] = useState<string[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const currentIndexRef = useRef(0);
   const [isQueuePreloading, setIsQueuePreloading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [ttsError, setTtsError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
 
+  // Fixed: Properly generate blocks from lesson content
   const getFullLessonText = useCallback(() => {
     const lines: string[] = [];
-    for (const b of blocks) {
-      if (b.title) lines.push(`${b.title}`);
-      lines.push(b.content);
+    
+    // Add introduction
+    if (lesson?.introduction) {
+      lines.push(lesson.introduction);
     }
+    
+    // Add sections
+    if (Array.isArray(lesson?.sections)) {
+      for (const section of lesson.sections) {
+        if (section?.title) {
+          lines.push(section.title);
+        }
+        if (section?.content) {
+          lines.push(section.content);
+        }
+      }
+    }
+    
     return lines.join("\n\n");
-  }, [blocks]);
+  }, [lesson]);
 
   const objectUrlsRef = useRef<string[]>([]);
+  
+  const fetchLessonTTSBlobUrl = useCallback(async (lesson: any, mode: string = "full", sectionIndex?: number, isRetry = false) => {
+    try {
+      if (isRetry) {
+        setIsRetrying(true);
+      }
+      
+      // Validate input
+      if (!lesson) {
+        throw new Error("No lesson provided for text-to-speech");
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/tts/lesson';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/lesson`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          lesson: lesson,
+          mode: mode,
+          section_index: sectionIndex
+        }),
+      });
+      
+      if (!res.ok) {
+        // Handle different error cases with more specific messages
+        let errorMessage = 'Audio service error';
+        switch (res.status) {
+          case 400:
+            errorMessage = 'Invalid request to audio service.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait before trying again.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          case 503:
+            errorMessage = 'Audio service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = `Audio service error: ${res.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty audio response");
+      }
+      
+      const url = URL.createObjectURL(blob);
+      objectUrlsRef.current.push(url);
+      return url;
+    } catch (error) {
+      console.error("Lesson TTS Error:", error);
+      setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
+      // Don't throw for retry attempts, just return null
+      if (isRetry) {
+        return null;
+      }
+      throw error;
+    } finally {
+      if (isRetry) {
+        setIsRetrying(false);
+      }
+    }
+  }, []);
+  
   const fetchTTSBlobUrl = useCallback(async (text: string, isRetry = false) => {
     try {
       if (isRetry) {
         setIsRetrying(true);
-        setTtsError(null); // Clear previous error when retrying
       }
       
-      const res = await fetch(`${API_BASE}/api/tts/`, {
+      // Validate input
+      if (!text || !text.trim()) {
+        throw new Error("No text provided for text-to-speech");
+      }
+      
+      // Check rate limit before making request
+      const endpoint = '/api/tts';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text }),
+        body: JSON.stringify({ text: text.trim() }),
       });
+      
       if (!res.ok) {
-        // Handle different error cases
-        if (res.status === 503) {
-          throw new Error('Audio service temporarily unavailable. Please try again later.');
-        } else if (res.status === 400) {
-          throw new Error('Invalid request to audio service.');
-        } else {
-          throw new Error(`Audio service error: ${res.status}`);
+        // Handle different error cases with more specific messages
+        let errorMessage = 'Audio service error';
+        switch (res.status) {
+          case 400:
+            errorMessage = 'Invalid request to audio service.';
+            break;
+          case 429:
+            errorMessage = 'Too many requests. Please wait before trying again.';
+            break;
+          case 500:
+            errorMessage = 'Server error. Please try again later.';
+            break;
+          case 503:
+            errorMessage = 'Audio service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            errorMessage = `Audio service error: ${res.status}`;
         }
+        throw new Error(errorMessage);
       }
+      
       const blob = await res.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Received empty audio response");
+      }
+      
       const url = URL.createObjectURL(blob);
       objectUrlsRef.current.push(url);
-      setTtsError(null);
       return url;
-    } catch (e: unknown) {
-      console.error('TTS Error:', e);
-      const errorMessage = e instanceof Error ? e.message : "Audio generation failed";
-      setTtsError(errorMessage);
-      // Return null to indicate failure but not break the UI
-      return null;
+    } catch (error) {
+      console.error("TTS Error:", error);
+      setTtsError(error instanceof Error ? error.message : "Failed to generate audio");
+      // Don't throw for retry attempts, just return null
+      if (isRetry) {
+        return null;
+      }
+      throw error;
     } finally {
       if (isRetry) {
         setIsRetrying(false);
@@ -253,20 +450,25 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, []);
 
-  // Cleanup audio and revoke object URLs on unmount to prevent leaks
+  // Improved cleanup audio and revoke object URLs on unmount to prevent leaks
   useEffect(() => {
     return () => {
       try {
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.src = "";
+          audioRef.current = null;
         }
         for (const u of objectUrlsRef.current) {
-          URL.revokeObjectURL(u);
+          try {
+            URL.revokeObjectURL(u);
+          } catch (e) {
+            console.warn('Failed to revoke object URL:', e);
+          }
         }
         objectUrlsRef.current = [];
       } catch (e) {
-        // Swallow cleanup errors
+        console.error('Error during audio cleanup:', e);
       }
     };
   }, []);
@@ -286,42 +488,60 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         }
       }
     }
-    if (segs.length) {
-      return segs.slice(0, 6);
-    }
-    // Robust fallback: derive from lesson fields before using blocks-based full text
-    const fallbackIntro =
-      typeof lesson?.introduction === "string" ? lesson.introduction.trim() : "";
-    const fallbackSection =
-      Array.isArray(lesson?.sections)
-        ? String((lesson.sections.find((s: LessonSection) => s?.content) || {}).content || "").trim()
-        : "";
-    const fallbackDiagram =
-      typeof lesson?.diagram === "string" ? lesson.diagram.trim() : "";
-    const fallback =
-      fallbackIntro || fallbackSection || fallbackDiagram || getFullLessonText();
-    return fallback ? [fallback.length > 900 ? fallback.slice(0, 900) : fallback] : [];
+    
+    // Fallback to full text if no segments were created
+    return segs.length ? segs : [getFullLessonText()].filter(text => text.trim().length > 0);
   }, [lesson, getFullLessonText]);
 
   const preloadTTS = useCallback(async () => {
     try {
       setIsTtsLoading(true);
-      if (!segments.length) return;
+      setTtsError(null); // Clear previous errors
+      
+      // If we have a structured lesson, use the lesson TTS endpoint
+      if (lesson) {
+        // For structured lessons, we can generate audio for the entire lesson
+        const firstUrl = await fetchLessonTTSBlobUrl(lesson, "full");
+        
+        if (!firstUrl) {
+          // If first attempt failed, try once more after a short delay
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          const retryUrl = await fetchLessonTTSBlobUrl(lesson, "full", undefined, true /* isRetry */);
+          if (retryUrl) {
+            setAudioUrl(retryUrl);
+            setAudioQueue([retryUrl]);
+            setCurrentIndex(0);
+          } else {
+            throw new Error("Failed to generate audio after retry");
+          }
+        } else {
+          setAudioUrl(firstUrl);
+          setAudioQueue([firstUrl]);
+          setCurrentIndex(0);
+        }
+        return;
+      }
+      
+      // Fallback to text-based TTS if no structured lesson
+      if (!segments.length) {
+        throw new Error("No content available for text-to-speech");
+      }
+      
       const firstUrl = await fetchTTSBlobUrl(segments[0]);
       
-      if (!firstUrl && ttsError) {
+      if (!firstUrl) {
         // If first attempt failed, try once more after a short delay
         await new Promise(resolve => setTimeout(resolve, 2000));
-        const retryUrl = await fetchTTSBlobUrl(segments[0], false /* isRetry */);
+        const retryUrl = await fetchTTSBlobUrl(segments[0], true /* isRetry */);
         if (retryUrl) {
           setAudioUrl(retryUrl);
           setAudioQueue([retryUrl]);
           setCurrentIndex(0);
           // Continue with preloading...
+        } else {
+          throw new Error("Failed to generate audio after retry");
         }
-      }
-      
-      if (firstUrl) {
+      } else {
         setAudioUrl(firstUrl);
         setAudioQueue([firstUrl]);
         setCurrentIndex(0);
@@ -330,22 +550,33 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           setIsQueuePreloading(true);
           fetchTTSBlobUrl(segments[1])
             .then((u) => {
-              if (u) setAudioQueue((q) => [...q, u]);
+              if (u) {
+                setAudioQueue((q) => [...q, u]);
+              }
             })
-            .catch(console.error)
+            .catch((error) => {
+              console.error("Error preloading next segment:", error);
+              setTtsError(error instanceof Error ? error.message : "Failed to preload audio");
+            })
             .finally(() => setIsQueuePreloading(false));
         }
       }
     } catch (e) {
-      console.error(e);
+      console.error("TTS Preload Error:", e);
+      setTtsError(e instanceof Error ? e.message : "Failed to generate audio");
     } finally {
       setIsTtsLoading(false);
     }
-  }, [segments, fetchTTSBlobUrl, ttsError]);
+  }, [lesson, segments, fetchTTSBlobUrl, fetchLessonTTSBlobUrl]);
 
   const playTTS = useCallback(() => {
     const src = audioQueue[currentIndexRef.current] || audioUrl;
-    if (!src) return;
+    if (!src) {
+      console.warn("No audio source available to play");
+      setTtsError("No audio available to play");
+      return;
+    }
+    
     if (!audioRef.current) {
       audioRef.current = new Audio(src);
       audioRef.current.addEventListener("play", () => setIsPlaying(true));
@@ -362,30 +593,33 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
               const retryUrl = await fetchTTSBlobUrl(segments[nextIndex], true /* isRetry */);
               if (retryUrl) {
                 setAudioQueue((q) => {
-                  const qq = [...q];  // Create a new array copy
+                  const qq = [...q];
                   qq[nextIndex] = retryUrl;
                   return qq;
                 });
               }
-            } else if (u) {  // Check if u is not null before using it
+            } else {
               setAudioQueue((q) => {
-                const qq = [...q];  // Create a new array copy
+                const qq = [...q];
                 qq[nextIndex] = u;
                 return qq;
               });
             }
           } catch (e) {
-            console.error(e);
+            console.error("Error loading next audio segment:", e);
+            setTtsError(e instanceof Error ? e.message : "Failed to load next audio segment");
           }
         }
-
         setCurrentIndex(nextIndex);
         currentIndexRef.current = nextIndex;
         const nextSrc = audioQueue[nextIndex];
         if (nextSrc) {
           if (audioRef.current) {
             audioRef.current.src = nextSrc;
-            audioRef.current.play().catch(console.error);
+            audioRef.current.play().catch((error) => {
+              console.error("Error playing audio:", error);
+              setTtsError("Failed to play audio");
+            });
           }
         } else {
           setIsPlaying(false);
@@ -394,160 +628,158 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     } else {
       audioRef.current.src = src;
     }
-    audioRef.current.play().catch(console.error);
+    
+    audioRef.current.play().catch((error) => {
+      console.error("Error playing audio:", error);
+      setTtsError("Failed to play audio");
+    });
   }, [audioUrl, audioQueue, segments, fetchTTSBlobUrl]);
 
-  const togglePlayPause = useCallback(async () => {
-    if (isTtsLoading || isQueuePreloading || isRetrying) return;
-    const hasPrepared = !!(audioUrl || audioQueue.length);
-    if (!audioRef.current) {
-      if (!hasPrepared) {
-        await preloadTTS();
-      }
-      playTTS();
-      return;
-    }
-    if (audioRef.current.paused) {
-      audioRef.current.play().catch(() => {});
-    } else {
-      audioRef.current.pause();
-    }
-  }, [audioUrl, audioQueue, isTtsLoading, isQueuePreloading, isRetrying, preloadTTS, playTTS]);
-
-  // Auto-preload audio once streaming completes to reduce wait time
-  useEffect(() => {
-    if (isStreamingComplete && !audioUrl && !isTtsLoading && !isRetrying) {
-      preloadTTS();
-    }
-  }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
-
-  if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
-    blocks.push({ content: lesson.introduction });
-  } else {
-    if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-      blocks.push({
-        title: "Introduction",
-        content: lesson.introduction.trim(),
-      });
-    }
-
-    if (
-      Array.isArray(lesson.classifications) &&
-      lesson.classifications.length > 0
-    ) {
-      const classificationContent = lesson.classifications
-        .map((c: { type?: string; description?: string }) => {
-          if (c?.type && c?.description) {
-            return `• ${c.type}: ${c.description}`;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join("\n");
-
-      if (classificationContent) {
-        blocks.push({
-          title: "Classifications / Types",
-          content: classificationContent,
-        });
-      }
-    }
-
-    // Detailed sections (now after classifications)
-    if (Array.isArray(lesson.sections)) {
-      for (const section of lesson.sections) {
-        if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-          blocks.push({
-            title: normalizeTitle(section.title.trim()),
-            content: section.content.trim(),
-          });
-        }
-      }
-    }
-
-    if (lesson.diagram && lesson.diagram.trim()) {
-      blocks.push({
-        title: "Diagram Description",
-        content: lesson.diagram.trim(),
-      });
-    }
-  }
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="mt-6 max-w-3xl mx-auto"
-    >
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 space-y-6">
-        {blocks.map((block, idx) => (
-          <div key={idx} className="space-y-2">
-            {block.title && (
-              <h3 className="font-bold text-white text-lg tracking-wide">
-                {block.title}
-              </h3>
-            )}
-            <div className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap font-sans">
-              {block.content.split("\n").map((line, i) => (
-                <div key={i}>{sanitizeLine(line) || "\u00A0"}</div>
-              ))}
-            </div>
+    <div className={cn("lesson-card border rounded-xl p-6 space-y-6",
+      isErrorResponse 
+        ? "bg-red-500/10 border-red-500/20" 
+        : "bg-white/5 border-white/10"
+    )}>
+      {/* header with logo and title */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg",
+            isErrorResponse ? "bg-red-500/20" : "bg-white/10"
+          )}>
+            <BookOpen className="w-5 h-5 text-white" />
           </div>
-        ))}
-
-        {!blocks.length && (
-          <p className="text-white/60 italic text-sm">No lesson content available.</p>
+          <h2 className="text-xl font-semibold">Lesson Preview</h2>
+        </div>
+        {lesson.quiz && lesson.quiz.length > 0 && !isErrorResponse && (
+          <button
+            onClick={handleTakeQuiz}
+            className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Take Quiz
+          </button>
         )}
       </div>
 
-      {/* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */}
-      {isStreamingComplete && (
-        <div className="flex justify-end mt-6 gap-3">
-          <motion.button
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading || isRetrying || !!ttsError}
-            aria-pressed={isPlaying}
-            aria-disabled={isTtsLoading || isQueuePreloading || isRetrying || !!ttsError}
-            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {isTtsLoading || isQueuePreloading || isRetrying ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
+      {/* lesson content */}
+      <div className="space-y-4 text-sm">
+        {isErrorResponse ? (
+          // Show error content
+          <div className="space-y-2">
+            <h3 className="font-medium text-red-200">Service Temporarily Unavailable</h3>
+            <p className="text-red-100/90 leading-relaxed">
+              {lesson.introduction}
+            </p>
+            {lesson.sections && lesson.sections.length > 0 && (
+              <div className="mt-3 p-3 bg-red-500/10 rounded-lg">
+                <h4 className="font-medium text-red-200 mb-1">Suggestions</h4>
+                <p className="text-red-100/80 text-xs">
+                  {lesson.sections[0].content}
+                </p>
+              </div>
             )}
-            {isTtsLoading || isQueuePreloading || isRetrying
-              ? "Preparing audio…"
-              : isPlaying
-              ? "Pause"
-              : audioUrl || audioQueue.length
-              ? "Play"
-              : ttsError
-              ? "Audio unavailable"
-              : "Prepare & Listen"}
-          </motion.button>
+          </div>
+        ) : (
+          // Show normal lesson content
+          <>
+            {lesson?.introduction && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-white/80">Introduction</h3>
+                <p className="text-white/70 leading-relaxed">
+                  {lesson.introduction}
+                </p>
+              </div>
+            )}
 
-          {!!ttsError && (
-            <p className="text-xs text-red-300/90">{ttsError}</p>
+            {Array.isArray(lesson?.sections) && lesson.sections.length > 0 && (
+              <div className="space-y-3">
+                {lesson.sections.map((section, idx) => (
+                  <div key={idx} className="space-y-2">
+                    {section.title && (
+                      <h3 className="font-medium text-white/80">
+                        {normalizeTitle(section.title)}
+                      </h3>
+                    )}
+                    {section.content && (
+                      <p className="text-white/70 leading-relaxed">
+                        {section.content}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {lesson?.diagram && (
+              <div className="space-y-2">
+                <h3 className="font-medium text-white/80">Diagram</h3>
+                <pre className="text-white/70 bg-black/20 p-3 rounded-lg text-xs whitespace-pre-wrap">
+                  {lesson.diagram}
+                </pre>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* audio controls or error message */}
+      {isErrorResponse ? (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-sm bg-white/10 text-white rounded-lg font-medium hover:bg-white/20 transition-colors flex items-center gap-1.5"
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 pt-2">
+          <button
+            onClick={isPlaying ? () => audioRef.current?.pause() : playTTS}
+            disabled={isTtsLoading || isRetrying}
+            className="p-2 bg-white/10 hover:bg-white/20 rounded-lg transition-colors disabled:opacity-50"
+          >
+            {isPlaying ? (
+              <Pause className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+          </button>
+          
+          {isTtsLoading && (
+            <div className="flex items-center gap-2 text-white/50 text-sm">
+              <LoaderIcon className="w-4 h-4 animate-spin" />
+              <span>Generating audio...</span>
+            </div>
           )}
-
-          {lesson.quiz && lesson.quiz.length > 0 && (
-            <motion.button
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={handleTakeQuiz}
-              className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+          
+          {isRetrying && (
+            <div className="flex items-center gap-2 text-white/50 text-sm">
+              <LoaderIcon className="w-4 h-4 animate-spin" />
+              <span>Retrying...</span>
+            </div>
+          )}
+          
+          {ttsError && (
+            <div className="flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4" />
+              <span>{ttsError}</span>
+            </div>
+          )}
+          
+          {!isTtsLoading && !isRetrying && (
+            <button
+              onClick={preloadTTS}
+              className="text-xs text-white/50 hover:text-white/80 transition-colors"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Take Quiz
-            </motion.button>
+              Generate audio
+            </button>
           )}
         </div>
       )}
-    </motion.div>
+    </div>
   );
 };
 
@@ -559,6 +791,8 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  placeholder?: string;
+  action?: () => void;
 }
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
@@ -566,7 +800,7 @@ interface AnimatedAIChatProps {
   onSend?: () => void
 }
 
-  export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
+export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -597,18 +831,18 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/default" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equtions,for simple solutions with explainer", prefix: "/Maths" },
-    { icon: <Play className="w-4 h-4" />, label: "Chats", description: "Chat and ask your friendly Ai", prefix: "/Chat" },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
-
   const modeSuggestions = [
+
     {
       icon: <Video className="w-4 h-4" />,
       label: "Explanation Mode",
-      description: "Comprehensive Ai explanations",
+      description: "Comprehensive AI explanations",
       action: () =>
         onNavigateToVideoLearning?.(
           value.trim() || "What would you like to learn?"
@@ -622,35 +856,63 @@ interface AnimatedAIChatProps {
     },
   ];
 
+  // Function to handle mode button clicks and activate command palette with placeholder text
+  const handleModeClick = (mode: string) => {
+    switch (mode) {
+      case "lesson":
+        setValue("/lesson");
+        break;
+      case "maths":
+        setValue("/Maths");
+        break;
+      case "chat":
+        setValue("/Chat");
+        break;
+      case "quick":
+        setValue("/quick");
+        break;
+      default:
+        // For any other mode, we don't set a specific value
+        break;
+    }
+    setShowCommandPalette(true);
+    // Focus the textarea after setting the value
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
+
   /* --- effects ----------------------------------------------------- */
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const getUserAge = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        // Check for session error
+        if (sessionError) {
+          console.error('Error getting session:', sessionError);
+          return;
+        }
         
         // Only proceed if user is properly authenticated
         if (session?.user) {
           // First try to get age from user metadata
           const age = (session.user as any).user_metadata?.age;
           if (age) {
-            setUserAge(age);
-            return;
+            const parsedAge = parseInt(age, 10);
+            if (!isNaN(parsedAge) && parsedAge > 0) {
+              setUserAge(parsedAge); // Ensure it's a valid number
+              return;
+            }
           }
           
-          // If not in metadata, try to get from users table
-          const { data: userData } = await supabase
-            .from('users')
-            .select('user_metadata')
-            .eq('id', session.user.id)
-            .single();
-            
-          if (userData && (userData as any).user_metadata?.age) {
-            setUserAge((userData as any).user_metadata.age);
-          }
+          // If not in metadata, we don't have a users table, so we can't query it
+          // The age should be in the user metadata from Supabase auth
+          console.debug('User age not found in metadata, using null');
         }
-        // Remove the else block - no age-based features for unauthenticated users
-        // Age-based responses, term plans, and history are only for registered users
       } catch (error) {
         console.error('Error retrieving user age:', error);
       }
@@ -682,11 +944,29 @@ interface AnimatedAIChatProps {
     };
   }, [mouseX, mouseY]);
 
+  // Function to get the appropriate placeholder based on the current mode
+  const getModePlaceholder = (): string => {
+    if (value.startsWith("/lesson")) {
+      return "/lesson - Please input a topic for structured learning";
+    } else if (value.startsWith("/Maths")) {
+      return "/Maths - Please input a maths question";
+    } else if (value.startsWith("/Chat")) {
+      return "/Chat - Please input your question";
+    } else if (value.startsWith("/quick")) {
+      return "/quick - Please input your question for a quick answer";
+    }
+    return "What would you like to learn today?";
+  };
+
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
     const q = value.trim();
     if (!q) return;
 
+    // Reset retry count for new requests
+    setRetryCount(0);
+    setError(null); // Clear previous errors for new requests
+    
     abortRef.current?.abort();
     abortRef.current = new AbortController();
     setIsTyping(true);
@@ -694,13 +974,12 @@ interface AnimatedAIChatProps {
     setStoredLong("");
     setShowVideoButton(false);
     setLessonJson(null);
-    setError(null);
 
     // legacy video path
     if (q.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
       const es = new EventSource(
-        `${API_BASE}/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
+        `/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
         { withCredentials: false }
       );
       es.onmessage = (ev) => {
@@ -742,113 +1021,119 @@ interface AnimatedAIChatProps {
       if (process.env.NODE_ENV === 'development') {
         console.info('[homepage lesson-stream] request', { API_BASE, topic: q, age: userAge })
       }
-      const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
+      
+      // Check rate limit before making request
+      const endpoint = '/api/structured-lesson/stream';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+        setIsTyping(false);
+        return;
+      }
+      
+      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic: q, age: userAge }),
         signal: abortRef.current.signal,
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      if (!response.body) {
-        setError("Streaming unsupported by browser or server");
-        setIsTyping(false);
-        return;
+      if (!response.ok) {
+        // Handle specific HTTP errors with user-friendly messages
+        let errorMessage = "Failed to get response from server";
+        switch (response.status) {
+          case 400:
+            errorMessage = "Invalid request. Please try rephrasing your question.";
+            break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment and try again.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again later.";
+            break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
+        }
+        throw new Error(errorMessage);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-
-      let buffer = "";
-      let finalLesson: Lesson | null = null;
-      let isComplete = false;
-      let hasFirstChunk = false;
-      const timeoutId = setTimeout(() => {
-        if (!hasFirstChunk) {
-          abortRef.current?.abort();
-          setError("Timeout waiting for response");
-          setIsTyping(false);
-        }
-      }, 15000);
+      // Handle non-streaming response (regular JSON)
+      const finalLesson = await response.json();
       
-      setIsTyping(true)
+      // Validate and sanitize the lesson response
+      if (!isValidLessonResponse(finalLesson)) {
+        console.warn('[homepage lesson] Invalid lesson response structure', finalLesson);
+        // Try to sanitize the content
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        if (!isValidLessonResponse(sanitizedLesson)) {
+          // If still invalid, show an error
+          setError("Received an invalid response format from the server. Please try again.");
+          setIsTyping(false);
+          return;
+        }
+        setLessonJson(sanitizedLesson);
+      } else {
+        // Even if valid, sanitize the content for display
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        setLessonJson(sanitizedLesson);
+      }
+      
+      setShowVideoButton(true);
+      setIsTyping(false);
+      
+      if (process.env.NODE_ENV === 'development') {
+        const introPreview = (finalLesson?.introduction || '').slice(0, 120);
+        console.info('[homepage lesson] done', { topicSent: q, introPreview });
+      }
       
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(q.trim()).then(saveResult => {
-        console.log('✅ saveSearch result:', saveResult)
-        if (saveResult?.message) {
-          setSaveMessage(saveResult.message)
-          setShowSaveMessage(true)
+        console.log('✅ saveSearch result:', saveResult);
+        // Only show messages for unauthenticated users or actual errors
+        if (saveResult?.message && (saveResult.suggestion || !saveResult.success)) {
+          // Only show messages to unauthenticated users
+          // Authenticated users don't need to see success messages about saving to history
+          setSaveMessage(saveResult.message);
+          setShowSaveMessage(true);
           setTimeout(() => {
-            setShowSaveMessage(false)
-            setTimeout(() => setSaveMessage(null), 300)
-          }, 5000)
+            setShowSaveMessage(false);
+            setTimeout(() => setSaveMessage(null), 300);
+          }, 5000);
         }
       }).catch(console.error);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const ln of lines) {
-          if (!ln.startsWith("data:")) continue;
-          try {
-            const msg = JSON.parse(ln.slice(5).trim());
-            hasFirstChunk = true;
-            clearTimeout(timeoutId);
-
-            switch (msg.type) {
-              case "done":
-                // ULTRA-FAST processing - instant response
-                finalLesson = msg.lesson;
-                isComplete = true;
-                setLessonJson(finalLesson);
-                setShowVideoButton(true);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  const introPreview = (finalLesson?.introduction || '').slice(0, 120)
-                  console.info('[homepage lesson-stream] done', { topicSent: q, introPreview })
-                }
-                
-                // Ensure save completes
-                await savePromise;
-                return; 
-
-              case "error":
-                setError(msg.message);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn('[homepage lesson-stream] error', msg)
-                }
-                return;
-            }
-          } catch (e) {
-            // Skip malformed messages
-          }
-        }
-      }
-      clearTimeout(timeoutId);
+      
+      // Ensure save completes
+      await savePromise;
+      return;
     } catch (e: unknown) {
-      if (e instanceof Error && e.name === "AbortError") console.log("aborted");
-      else setError(e instanceof Error ? e.message : "Streaming failed");
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[homepage lesson-stream] catch', e)
+      if (e instanceof Error && e.name === "AbortError") {
+        console.log("Request aborted");
+        setError("Request cancelled");
+      } else {
+        const errorMessage = e instanceof Error ? e.message : "An unexpected error occurred";
+        setError(errorMessage);
+        console.error('[homepage lesson-stream] catch', e);
       }
       
+      // Only retry for network-related errors or server errors, not client errors
       if (retryCount < MAX_RETRIES) {
+        // Exponential backoff: 1s, 2s, 4s
+        const delay = Math.pow(2, retryCount) * 1000;
         setTimeout(() => {
           setRetryCount(prev => prev + 1);
           handleSendMessage();
-        }, 1000 * (retryCount + 1)); 
+        }, delay); 
       }
     } finally {
+      // Don't clear the input value on error so user can retry
       setIsTyping(false);
-      setValue('')
     }
   };
 
@@ -864,8 +1149,18 @@ interface AnimatedAIChatProps {
         e.preventDefault();
         if (activeSuggestion >= 0) {
           const cmd = commandSuggestions[activeSuggestion];
-          setValue(cmd.prefix + " ");
-          setShowCommandPalette(false);
+          if (cmd.action) {
+            cmd.action();
+          } else {
+            setValue(cmd.prefix);
+            setShowCommandPalette(false);
+            // Focus the textarea after selection
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+              }
+            }, 0);
+          }
         }
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
@@ -991,8 +1286,18 @@ interface AnimatedAIChatProps {
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        setValue(s.prefix + " ");
-                        setShowCommandPalette(false);
+                        if (s.action) {
+                          s.action();
+                        } else {
+                          setValue(s.prefix);
+                          setShowCommandPalette(false);
+                        }
+                        // Focus the textarea after selection
+                        setTimeout(() => {
+                          if (textareaRef.current) {
+                            textareaRef.current.focus();
+                          }
+                        }, 0);
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
@@ -1019,7 +1324,7 @@ interface AnimatedAIChatProps {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="What would you like to learn today?"
+                placeholder={getModePlaceholder()}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}

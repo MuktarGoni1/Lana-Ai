@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, Suspense, useEffect } from "react";
+import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/hooks/useAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Loader2, Mail, User } from "lucide-react";
-import { AuthService } from "@/lib/services/authService";
+import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -74,6 +73,34 @@ const PrimaryButton = ({
   </button>
 );
 
+const SecondaryButton = ({ 
+  loading, 
+  children, 
+  ...props 
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
+  <button
+    {...props}
+    suppressHydrationWarning
+    disabled={loading || props.disabled}
+    className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+             text-white font-medium text-sm
+             hover:bg-white/[0.1] transition-all duration-200
+             disabled:opacity-50 disabled:cursor-not-allowed
+             flex items-center justify-center gap-3"
+  >
+    {loading ? (
+      <>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading...</span>
+      </>
+    ) : (
+      <>
+        {children}
+      </>
+    )}
+  </button>
+);
+
 const BackButton = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
@@ -110,10 +137,9 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
-  const authService = new AuthService();
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -126,17 +152,23 @@ function ParentFlow() {
       return;
     }
     
-    setLoading(true);
     try {
-      // Use our new auth service
-      await authService.registerParent(email.trim());
-
-      // Navigate to unified magic link confirmation page
-      try {
-        router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
-      } catch (navErr) {
-        console.warn('[ParentFlow] navigation error, falling back:', navErr)
-        window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+      const result = await loginWithEmail(email.trim());
+      
+      if (result.success) {
+        // Navigate to unified magic link confirmation page
+        try {
+          router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        } catch (navErr) {
+          console.warn('[ParentFlow] navigation error, falling back:', navErr)
+          window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        }
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to send magic link. Please try again.", 
+          variant: "destructive" 
+        });
       }
     } catch (error: unknown) {
       toast({ 
@@ -144,12 +176,29 @@ function ParentFlow() {
         description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
         variant: "destructive" 
       });
-    } finally {
-      setLoading(false);
     }
   };
 
-  // Success state now handled by dedicated page
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await loginWithGoogle();
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // For Google login, the redirect happens automatically
+    } catch (error: unknown) {
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
+    }
+  };
 
   return (
     <FormWrapper>
@@ -157,8 +206,8 @@ function ParentFlow() {
         <form onSubmit={handleParentSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={Mail} 
-            title="Parent Registration" 
-            subtitle="Monitor your child&apos;s learning journey"
+            title="Parent Login" 
+            subtitle="Access your child's learning journey"
           />
           
           <div className="space-y-4">
@@ -176,9 +225,23 @@ function ParentFlow() {
               />
             </div>
             
-            <PrimaryButton type="submit" loading={loading}>
-              Register
+            <PrimaryButton type="submit" loading={isLoading}>
+              Login with Email
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
+              <Chrome className="h-4 w-4" />
+              Login with Google
+            </SecondaryButton>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -196,151 +259,116 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({ 
-    childEmail: "", 
-    guardianEmail: "", 
-    nickname: "", 
-    age: "" as number | "", 
-    grade: "" 
-  });
-  const authService = new AuthService();
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ 
-      ...prev, 
-      [name]: name === 'age' ? (value === '' ? '' : Number(value)) : value 
-    }));
-  };
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
+  const [email, setEmail] = useState("");
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const { nickname, age, grade, childEmail, guardianEmail } = formData;
     
-    if (!childEmail || !guardianEmail || !nickname || !age || !grade) {
-      toast({ 
-        title: "Missing information", 
-        description: "Please fill in all fields.", 
-        variant: "destructive" 
-      });
+    // Validate form data
+    if (!email.trim()) {
+      toast({ title: "Email required", description: "Please enter your email address.", variant: "destructive" });
       return;
     }
     
-    setLoading(true);
     try {
-      // Use our new auth service
-      await authService.registerChild(nickname, Number(age), grade, guardianEmail);
+      const result = await loginWithEmail(email.trim());
       
-      // Instead of going directly to homepage, redirect to onboarding for child users
-      router.push("/term-plan?onboarding=1");
+      if (result.success) {
+        toast({ 
+          title: "Success", 
+          description: "Magic link sent to your email!" 
+        });
+        // Navigate to unified magic link confirmation page
+        try {
+          router.replace(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        } catch (navErr) {
+          console.warn('[ChildFlow] navigation error, falling back:', navErr)
+          window.location.assign(`/register/magic-link-sent?email=${encodeURIComponent(email.trim())}`)
+        }
+      } else {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to send magic link. Please try again.", 
+          variant: "destructive" 
+        });
+      }
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to create account. Please try again.", 
+        description: error instanceof Error ? error.message : "Failed to send magic link. Please try again.", 
         variant: "destructive" 
       });
-    } finally {
-      setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const result = await loginWithGoogle();
+      
+      if (!result.success) {
+        toast({ 
+          title: "Error", 
+          description: result.error || "Failed to initiate Google login. Please try again.", 
+          variant: "destructive" 
+        });
+      }
+      // For Google login, the redirect happens automatically
+    } catch (error: unknown) {
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
+        variant: "destructive" 
+      });
     }
   };
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleChildSubmit} className="space-y-6">
+        <form onSubmit={handleChildSubmit} suppressHydrationWarning className="space-y-6">
           <FormHeader 
             icon={User} 
-            title="Student Registration" 
-            subtitle="Start your personalized learning journey"
+            title="Child Login" 
+            subtitle="Continue your learning journey"
           />
           
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div>
-              <label htmlFor="childEmail" className="block text-xs text-white/40 mb-2">
-                Student email
+              <label htmlFor="email" className="block text-xs text-white/40 mb-2">
+                Email address
               </label>
               <StyledInput 
-                id="childEmail" 
-                name="childEmail" 
+                id="email" 
                 type="email" 
-                value={formData.childEmail} 
-                onChange={handleInputChange} 
-                placeholder="student@example.com" 
+                value={email} 
+                onChange={(e) => setEmail(e.target.value)} 
+                placeholder="child@example.com" 
                 required 
               />
             </div>
             
-            <div>
-              <label htmlFor="guardianEmail" className="block text-xs text-white/40 mb-2">
-                Parent email
-              </label>
-              <StyledInput 
-                id="guardianEmail" 
-                name="guardianEmail" 
-                type="email" 
-                value={formData.guardianEmail} 
-                onChange={handleInputChange} 
-                placeholder="parent@example.com" 
-                required 
-              />
-            </div>
-            
-            <div>
-              <label htmlFor="nickname" className="block text-xs text-white/40 mb-2">
-                Nickname
-              </label>
-              <StyledInput 
-                id="nickname" 
-                name="nickname" 
-                value={formData.nickname} 
-                onChange={handleInputChange} 
-                placeholder="How should we call you?" 
-                required 
-              />
-            </div>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label htmlFor="age" className="block text-xs text-white/40 mb-2">
-                  Age
-                </label>
-                <StyledInput 
-                  id="age" 
-                  name="age" 
-                  type="number" 
-                  min="6" 
-                  max="18" 
-                  value={formData.age} 
-                  onChange={handleInputChange} 
-                  placeholder="14" 
-                  required 
-                />
-              </div>
-              
-              <div>
-                <label htmlFor="grade" className="block text-xs text-white/40 mb-2">
-                  Grade
-                </label>
-                <StyledSelect 
-                  id="grade" 
-                  name="grade" 
-                  value={formData.grade} 
-                  onChange={handleInputChange} 
-                  required
-                >
-                  <option value="" disabled>Select</option>
-                  {[...Array(7)].map((_, i) => (
-                    <option key={i+6} value={i+6}>Grade {i+6}</option>
-                  ))}
-                  <option value="college">College</option>
-                </StyledSelect>
-              </div>
-            </div>
-            
-            <PrimaryButton type="submit" loading={loading}>
-              Create Account
+            <PrimaryButton type="submit" loading={isLoading}>
+              Login with Email
             </PrimaryButton>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
+              <Chrome className="h-4 w-4" />
+              Login with Google
+            </SecondaryButton>
+            
+            <p className="text-xs text-white/20 text-center">
+              No password required • Secure authentication
+            </p>
           </div>
           
           <BackButton onClick={() => router.push("/register")} />
@@ -350,203 +378,128 @@ function ChildFlow() {
   );
 }
 
-// --- Email Login Flow ---
-function EmailLoginFlow() {
-  const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [emailError, setEmailError] = useState("");
-  const [magicLinkSent, setMagicLinkSent] = useState(false);
-  const { toast } = useToast();
+// --- Main Login Flow ---
+function LoginContent() {
   const router = useRouter();
-  const { signIn, user } = useAuth();
-  const authService = new AuthService();
   const searchParams = useSearchParams();
-  
-  // Check if magic link was sent
+  const flow = searchParams.get("flow");
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
+  const { toast } = useToast();
+
+  // Redirect authenticated users
   useEffect(() => {
-    if (searchParams.get('magic-link-sent') === 'true') {
-      setMagicLinkSent(true);
-    }
-  }, [searchParams]);
-
-  // Redirect authenticated users to homepage
-  useEffect(() => {
-    if (user) {
-      router.replace("/homepage");
-    }
-  }, [user, router]);
-
-  // Real-time email validation
-  useEffect(() => {
-    if (email.trim() === "") {
-      setEmailError("");
-      return;
-    }
-
-    const emailValidation = z.string().email().safeParse(email.trim());
-    if (!emailValidation.success) {
-      setEmailError("Please enter a valid email address");
-    } else {
-      setEmailError("");
-    }
-  }, [email]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmed = email.trim();
-    
-    // Validate email before submission
-    const emailValidation = z.string().email().safeParse(trimmed);
-    if (!emailValidation.success) {
-      setEmailError("Please enter a valid email address");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // First verify if the email is authenticated
-      const verificationResult = await authService.verifyEmailWithSupabaseAuth(trimmed);
+    if (!isLoading && isAuthenticated) {
+      // Check onboarding status
+      // For now, we'll redirect to the last visited page or homepage
+      let lastVisited = null;
       
-      if (verificationResult.exists && verificationResult.confirmed) {
-        // Automatically sign in the user
-        await signIn(trimmed);
-        // User will be redirected to magic link sent page
-      } else if (verificationResult.exists && !verificationResult.confirmed) {
-        toast({
-          title: "Email not yet authenticated",
-          description: "This email is not yet authenticated. Please check your email for verification instructions.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Email not authenticated",
-          description: "This email is not yet authenticated. Please register first.",
-          variant: "destructive",
-        });
+      // Try to get from localStorage
+      if (typeof window !== 'undefined') {
+        lastVisited = localStorage.getItem('lana_last_visited');
       }
-    } catch (error: unknown) {
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to verify email. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      
+      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      const redirectPath = lastVisited && 
+                           !lastVisited.startsWith('/login') && 
+                           !lastVisited.startsWith('/register') && 
+                           !lastVisited.startsWith('/auth') && 
+                           lastVisited !== '/landing-page' ? 
+                           lastVisited : '/homepage';
+      
+      router.push(redirectPath);
     }
-  };
+  }, [isAuthenticated, isLoading, router]);
 
-  // Show magic link sent message
-  if (magicLinkSent) {
+  if (isLoading) {
     return (
-      <FormWrapper>
-        <FormCard>
-          <div className="text-center space-y-6">
-            <div className="w-16 h-16 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
-              <Mail className="w-8 h-8 text-white/70" />
-            </div>
-            <div className="space-y-3">
-              <h1 className="text-2xl font-semibold text-white">Check your email</h1>
-              <p className="text-white/40">
-                We've sent a magic link to <span className="text-white">{email}</span>. 
-                Click the link to sign in to your account.
-              </p>
-            </div>
-            <button
-              onClick={() => setMagicLinkSent(false)}
-              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
-                       hover:bg-white/90 transition-all duration-200"
-            >
-              Back to login
-            </button>
-          </div>
-        </FormCard>
-      </FormWrapper>
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
     );
   }
 
-  // Success state now handled by dedicated page
+  if (flow === "parent") {
+    return <ParentFlow />;
+  }
+  
+  if (flow === "child") {
+    return <ChildFlow />;
+  }
 
   return (
     <FormWrapper>
       <FormCard>
-        <form onSubmit={handleSubmit} suppressHydrationWarning className="space-y-6">
-          <FormHeader 
-            icon={Mail} 
-            title="Welcome back" 
-            subtitle="Sign in to continue learning"
-          />
+        <div className="space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
+              <Mail className="w-7 h-7 text-white/70" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-white">Welcome Back</h1>
+              <p className="text-white/40 text-sm">Sign in to continue your learning journey</p>
+            </div>
+          </div>
           
           <div className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-xs text-white/40 mb-2">
-                Email address
-              </label>
-              <StyledInput
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-              />
-              {emailError && (
-                <p className="mt-1 text-xs text-red-400">{emailError}</p>
-              )}
+            <button
+              onClick={() => router.push("/login?flow=parent")}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <Mail className="h-4 w-4" />
+              Sign in as Parent
+            </button>
+            
+            <button
+              onClick={() => router.push("/login?flow=child")}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <User className="h-4 w-4" />
+              Sign in as Child
+            </button>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
             </div>
             
-            <PrimaryButton type="submit" loading={loading}>
-              Login
-            </PrimaryButton>
-            
-            <p className="text-xs text-white/20 text-center">
-              No password required • Secure authentication
-            </p>
+            <button
+              onClick={() => router.push("/register")}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200"
+            >
+              Create Account
+            </button>
           </div>
-
-          <div className="pt-6 border-t border-white/[0.05]">
-            <p className="text-sm text-white/30 text-center">
-              New to Lana?{" "}
-              <button 
-                type="button"
-                onClick={() => router.push("/register")}
-                className="text-white/60 hover:text-white/80 transition-colors duration-200"
-              >
-                Create an account
-              </button>
-            </p>
-          </div>
-        </form>
+        </div>
       </FormCard>
     </FormWrapper>
   );
 }
 
-// --- Main Component ---
-function RegisterFormContent() {
-  const searchParams = useSearchParams();
-  const role = searchParams.get("role");
-
-  if (role === "parent") return <ParentFlow />;
-  if (role === "child") return <ChildFlow />;
-  return <EmailLoginFlow />;
-}
-
-// --- Loading State ---
-const LoadingState = () => (
-  <FormWrapper>
-    <div className="flex items-center justify-center">
-      <div className="text-center space-y-4">
-        <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
-        <p className="text-white/30 text-sm">Loading...</p>
-      </div>
-    </div>
-  </FormWrapper>
-);
-
-export default function RegisterForm() {
+export default function LoginPage() {
   return (
-    <Suspense fallback={<LoadingState />}>
-      <RegisterFormContent />
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
     </Suspense>
   );
 }

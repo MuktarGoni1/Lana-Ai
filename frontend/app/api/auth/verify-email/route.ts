@@ -76,6 +76,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           message: 'Network timeout while verifying email. Please try again.',
         }, { status: 504, headers: { 'x-request-id': requestId } })
       }
+      // Handle 404-like errors specifically
+      if (error.status === 404) {
+        return NextResponse.json({
+          ok: false,
+          error: 'endpoint_not_found',
+          message: 'User verification service endpoint not found.',
+        }, { status: 404, headers: { 'x-request-id': requestId } })
+      }
       return NextResponse.json({
         ok: false,
         error: 'auth_admin_error',

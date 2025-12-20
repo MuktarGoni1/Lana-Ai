@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { fetchWithTimeoutAndRetry } from '@/lib/utils';
+import { fetchWithTimeoutAndRetry } from '../../../../../../lib/utils';
 
 function getAuthHeader() {
   const apiKey = process.env.DID_API_KEY;
@@ -8,9 +8,9 @@ function getAuthHeader() {
   return `Basic ${base64}`;
 }
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await req.json();
     const { text, sessionId, voiceId, providerType } = body || {};
     if (!id || !text) {

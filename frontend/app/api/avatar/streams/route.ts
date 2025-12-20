@@ -52,6 +52,15 @@ export async function POST(req: Request) {
       config: { stitch: true },
     };
 
+    // Validate D-ID API URL
+    const didApiUrl = 'https://api.d-id.com/talks/streams';
+    try {
+      new URL(didApiUrl);
+    } catch (e) {
+      console.error('Invalid D-ID API URL:', didApiUrl);
+      return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
+    }
+
     const res = await fetchWithTimeoutAndRetry('https://api.d-id.com/talks/streams', {
       method: 'POST',
       headers: {
@@ -86,6 +95,10 @@ export async function POST(req: Request) {
     }
 
     if (!res.ok) {
+      // Handle 404 specifically
+      if (res.status === 404) {
+        return NextResponse.json({ error: 'D-ID streaming service not found', details: 'The requested service endpoint is not available' }, { status: 404 });
+      }
       return NextResponse.json({ error: json?.error || text || 'D-ID stream create failed' }, { status: res.status });
     }
 
@@ -99,6 +112,10 @@ export async function POST(req: Request) {
       sessionId,
     });
   } catch (e: unknown) {
+    // Handle network errors specifically
+    if (e instanceof Error && e.message.includes('fetch')) {
+      return NextResponse.json({ error: 'Unable to connect to avatar streaming service', details: 'Please check your internet connection or try again later' }, { status: 503 });
+    }
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Server error' }, { status: 500 });
   }
 }

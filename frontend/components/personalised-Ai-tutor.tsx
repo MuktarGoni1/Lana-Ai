@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Video, Loader2, AlertCircle, Home, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,11 +69,18 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
           const data = await response.json();
           setIsPro(Boolean(data.is_pro));
         } else {
-          // Treat any other status as non-pro without noisy logging
-          setIsPro(false);
+          // Handle specific error cases
+          if (response.status === 404) {
+            console.error('Subscription status endpoint not found');
+            setError('Subscription service not available');
+          } else {
+            // Treat any other status as non-pro without noisy logging
+            setIsPro(false);
+          }
         }
       } catch (e: unknown) {
         console.error('Error checking subscription status:', e);
+        setError('Failed to check subscription status');
         setIsPro(false);
       } finally {
         setCheckingPro(false);
@@ -105,9 +113,17 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
       // Create stream on server to receive remote offer and ICE servers
       const createRes = await fetch('/api/avatar/streams', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
       });
-      if (!createRes.ok) throw new Error('Failed to create stream');
+      
+      if (!createRes.ok) {
+        // Handle specific error cases
+        if (createRes.status === 404) {
+          throw new Error('Avatar streaming service not found');
+        }
+        throw new Error('Failed to create stream');
+      }
 
       const { id, offer, iceServers, sessionId: newSessionId } = await createRes.json();
       setStreamId(id);
@@ -158,14 +174,21 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ answer, sessionId: newSessionId })
       });
-      if (!sdpRes.ok) throw new Error('Failed to submit SDP answer');
+      
+      if (!sdpRes.ok) {
+        // Handle specific error cases
+        if (sdpRes.status === 404) {
+          throw new Error('Avatar streaming SDP service not found');
+        }
+        throw new Error('Failed to submit SDP answer');
+      }
 
       setPeerConnection(pc);
       return { streamId: id, sessionId: newSessionId };
     } catch (error: unknown) {
       console.error('Stream initialization failed:', error);
       setConnectionStatus('error');
-      setError('Failed to connect to avatar');
+      setError(error instanceof Error ? error.message : 'Failed to connect to avatar');
       return null;
     }
   }
@@ -181,7 +204,7 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
     }
 
     try {
-      await fetch(`/api/avatar/streams/${streamId}/talk`, {
+      const response = await fetch(`/api/avatar/streams/${streamId}/talk`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -189,8 +212,17 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
           text
         })
       });
+      
+      // Handle specific error cases
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Avatar talking service not found');
+        }
+        throw new Error('Failed to speak');
+      }
     } catch (error: unknown) {
       console.error('Failed to speak:', error);
+      setError(error instanceof Error ? error.message : 'Failed to speak text');
     }
   }
 
@@ -512,6 +544,9 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
                         </div>
                         {connectionStatus === 'idle' && !isPro && (
                           <div className="text-sm text-white/50">Upgrade to Pro to start learning</div>
+                        )}
+                        {error && (
+                          <div className="text-sm text-red-400">{error}</div>
                         )}
                       </div>
                     </div>

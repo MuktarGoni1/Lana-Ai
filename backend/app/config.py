@@ -56,7 +56,7 @@ TTS_API_KEY = os.getenv("TTS_API_KEY", GOOGLE_API_KEY)
 MATH_SOLVER_API_KEY = os.getenv("MATH_SOLVER_API_KEY", "")
 
 # TTS Optimization Settings
-TTS_MODEL = os.getenv("TTS_MODEL", "gemini-2.0-flash-tts")
+TTS_MODEL = os.getenv("TTS_MODEL", "gemini-2.5-flash-preview-tts")
 TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "22050"))
 TTS_CHUNK_SIZE = int(os.getenv("TTS_CHUNK_SIZE", "32768"))
 TTS_CONCURRENT_LIMIT = int(os.getenv("TTS_CONCURRENT_LIMIT", "10"))

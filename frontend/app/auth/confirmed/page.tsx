@@ -39,10 +39,15 @@ export default function AuthConfirmedPage() {
             // Child users typically inserted during registration; ensure existence by upserting minimal record
             // Cast supabase to any to bypass typing issues (following the pattern used in authService)
             const sb: any = supabase;
-            const { error: upsertError } = await sb
-              .from("users")
-              .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
-            if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            try {
+              const { error: upsertError } = await sb
+                .from("users")
+                .upsert({ id: user.id, email: userEmail, user_metadata: user.user_metadata }, { onConflict: "id" });
+              if (upsertError) console.warn("[auth/confirmed] child upsert warn:", upsertError);
+            } catch (upsertError) {
+              // If the users table doesn't exist, that's okay - just log it
+              console.debug("[auth/confirmed] users table may not exist:", upsertError);
+            }
           }
         } catch (dbErr) {
           console.warn("[auth/confirmed] upsert error:", dbErr);
@@ -51,9 +56,9 @@ export default function AuthConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "You are now signed in." });
 
-        // Show confirmation then redirect to homepage
+        // Show confirmation then redirect to onboarding
         setTimeout(() => {
-          navigateToHomepage(user, router);
+          router.push("/onboarding");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed] confirmation error:", err);
@@ -63,8 +68,8 @@ export default function AuthConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        // Fallback: send user to homepage
-        setTimeout(() => navigateToHomepage(null, router), 2500);
+        // Fallback: send user to onboarding
+        setTimeout(() => router.push("/onboarding"), 2500);
       }
     };
 
@@ -86,7 +91,7 @@ export default function AuthConfirmedPage() {
           <p className="text-white/40 text-xs">Signed in as {email}</p>
         )}
         <p className="text-white/60 text-sm">
-          Please visit <a href="/homepage" className="underline">homepage</a>. You will be redirected shortly.
+          Please visit <a href="/onboarding" className="underline">onboarding</a>. You will be redirected shortly.
         </p>
       </div>
     </div>

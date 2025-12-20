@@ -44,6 +44,20 @@ Set these in `.env.local` before running locally:
 
 See `lib/env.ts` for validation and helpful warnings in development.
 
+## Supabase Table Setup
+
+To set up the required tables for user activity tracking:
+
+1. Navigate to the `frontend` directory
+2. Run `npm run supabase:setup` to get instructions for creating the tables
+3. Run `npm run supabase:verify` to verify the tables were created
+
+Alternatively, you can manually run the SQL files in the Supabase dashboard:
+- `backend/migrations/versions/001_create_user_events_table.sql`
+- `backend/migrations/versions/002_add_learning_profile_to_users.sql`
+
+See `scripts/README.md` for more details.
+
 ## Auth & Routing
 
 - Centralized auth gating with role-based redirects is handled in `middleware.ts`.

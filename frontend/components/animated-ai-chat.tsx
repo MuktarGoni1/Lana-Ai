@@ -2,6 +2,11 @@
 
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { cn, fetchWithTimeoutAndRetry } from "@/lib/utils";
+import { z } from "zod";
+import DOMPurify from "isomorphic-dompurify";
+import rateLimiter from "@/lib/rate-limiter";
+import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
+import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
 import {
   Paperclip,
   Command,
@@ -13,6 +18,8 @@ import {
   Pause,
   Video,
   BookOpen,
+  PersonStandingIcon,
+  RefreshCw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
@@ -23,12 +30,11 @@ import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { getCurrentUserAge } from '@/lib/services/userService';
 import { isGuestClient } from '@/lib/guest';
+import { createClient } from '@/lib/supabase/client';
 
 // Centralized API base with optional proxying via Next.js rewrites
-// When NEXT_PUBLIC_USE_PROXY=true, calls use relative paths and are proxied by Next
-const API_BASE = process.env.NEXT_PUBLIC_USE_PROXY === 'true'
-  ? ''
-  : (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000");
+// Using unified API configuration
+import { API_BASE } from '@/lib/api-config';
 /* ------------------------------------------------------------------ */
 /* 1. wrapper                                                           */
 /* ------------------------------------------------------------------ */
@@ -162,6 +168,9 @@ interface Lesson {
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
+  // Check if this is an error response
+  const isErrorResponse = lesson.introduction && lesson.introduction.includes("Unable to generate a detailed lesson");
+  
   // Lightly sanitize markdown-like tokens and normalize bullets per line
   const sanitizeLine = (line: string) => {
     return line
@@ -197,7 +206,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       
       // Transform quiz data to match frontend expectations
       const transformedQuiz = lesson.quiz.map((item: any) => ({
-        q: item.q || "",
+        q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
         options: Array.isArray(item.options) ? item.options : [],
         answer: item.answer || ""
       })).filter(item => item.q && item.options.length > 0);
@@ -246,8 +255,15 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         setIsRetrying(true);
       }
       
-      // Use Next.js local proxy to avoid CORS and align with server route
-      const res = await fetch(`/api/tts`, {
+      // Check rate limit before making request
+      const endpoint = '/api/tts';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -424,8 +440,20 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
-  if (typeof lesson.introduction === "string" && lesson.introduction.startsWith("Hey dear!")) {
-    blocks.push({ content: lesson.introduction });
+  // Handle error responses differently
+  if (isErrorResponse) {
+    blocks.push({ 
+      title: "Service Temporarily Unavailable", 
+      content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
+    });
+    
+    // Add helpful suggestions
+    if (lesson.sections && lesson.sections.length > 0) {
+      blocks.push({ 
+        title: lesson.sections[0].title || "Suggestions", 
+        content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
+      });
+    }
   } else {
     if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
       blocks.push({
@@ -482,15 +510,23 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       animate={{ opacity: 1, y: 0 }}
       className="mt-6 max-w-3xl mx-auto"
     >
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 space-y-6">
+      <div className={cn("rounded-xl p-6 border space-y-6", 
+        isErrorResponse 
+          ? "bg-red-500/10 border-red-500/20" 
+          : "bg-white/5 backdrop-blur-sm border-white/10"
+      )}>
         {blocks.map((block, idx) => (
           <div key={idx} className="space-y-2">
             {block.title && (
-              <h3 className="font-bold text-white text-lg tracking-wide">
+              <h3 className={cn("font-bold tracking-wide", 
+                isErrorResponse ? "text-red-200 text-lg" : "text-white text-lg"
+              )}>
                 {block.title}
               </h3>
             )}
-            <div className="text-white/85 text-sm leading-relaxed whitespace-pre-wrap font-sans">
+            <div className={cn("text-sm leading-relaxed whitespace-pre-wrap font-sans", 
+              isErrorResponse ? "text-red-100/90" : "text-white/85"
+            )}>
               {block.content.split("\n").map((line, i) => (
                 <div key={i}>{sanitizeLine(line) || "\u00A0"}</div>
               ))}
@@ -503,45 +539,60 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         )}
       </div>
 
-      {/* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */}
-      {isStreamingComplete && (
-        <div className="flex justify-end mt-6 gap-3">
+      {/* Show error-specific message or normal controls */}
+      {isErrorResponse ? (
+        <div className="flex justify-end mt-6">
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            onClick={togglePlayPause}
-            disabled={isTtsLoading || isQueuePreloading || isRetrying}
-            aria-pressed={isPlaying}
-            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
+            onClick={() => window.location.reload()}
+            className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5"
           >
-            {isTtsLoading || isQueuePreloading || isRetrying ? (
-              <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
-            ) : isPlaying ? (
-              <Pause className="w-3.5 h-3.5" />
-            ) : (
-              <Play className="w-3.5 h-3.5" />
-            )}
-            {isTtsLoading || isQueuePreloading || isRetrying
-              ? "Preparing audio…"
-              : isPlaying
-              ? "Pause"
-              : audioUrl || audioQueue.length
-              ? "Play"
-              : "Prepare & Listen"}
+            <RefreshCw className="w-3.5 h-3.5" />
+            Try Again
           </motion.button>
-
-          {lesson.quiz && lesson.quiz.length > 0 && (
+        </div>
+      ) : (
+        /* ➤ ONLY SHOW LISTEN + QUIZ AFTER STREAMING COMPLETES */
+        isStreamingComplete && (
+          <div className="flex justify-end mt-6 gap-3">
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              onClick={handleTakeQuiz}
-              className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              onClick={togglePlayPause}
+              disabled={isTtsLoading || isQueuePreloading || isRetrying}
+              aria-pressed={isPlaying}
+              className="px-5 py-2 bg-white/10 text-white rounded-lg text-sm font-medium border border-white/20 hover:bg-white/20 transition-shadow flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              Take Quiz
+              {isTtsLoading || isQueuePreloading || isRetrying ? (
+                <LoaderIcon className="w-3.5 h-3.5 animate-spin" />
+              ) : isPlaying ? (
+                <Pause className="w-3.5 h-3.5" />
+              ) : (
+                <Play className="w-3.5 h-3.5" />
+              )}
+              {isTtsLoading || isQueuePreloading || isRetrying
+                ? "Preparing audio…"
+                : isPlaying
+                ? "Pause"
+                : audioUrl || audioQueue.length
+                ? "Play"
+                : "Prepare & Listen"}
             </motion.button>
-          )}
-        </div>
+
+            {lesson.quiz && lesson.quiz.length > 0 && (
+              <motion.button
+                whileHover={{ scale: 1.03 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={handleTakeQuiz}
+                className="px-5 py-2 bg-white text-black rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-shadow flex items-center gap-1.5"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                Take Quiz
+              </motion.button>
+            )}
+          </div>
+        )
       )}
     </motion.div>
   );
@@ -580,7 +631,15 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
   const fetchTTSBlobUrl = useCallback(async (text: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/tts`, {
+      // Check rate limit before making request
+      const endpoint = '/api/tts';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+      }
+      
+      // Use the API base for TTS requests to ensure proper routing
+      const res = await fetch(`/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -686,7 +745,17 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  placeholder?: string;
+  action?: () => void;
 }
+
+interface ChatResponse {
+  mode: string;
+  reply: string;
+  quiz?: any;
+  error?: string;
+}
+
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
@@ -696,6 +765,31 @@ interface AnimatedAIChatProps {
   export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
+  
+  // Initialize with stored mode if available
+  useEffect(() => {
+    const storedMode = getSelectedMode();
+    if (storedMode) {
+      // Set the initial value based on the stored mode
+      switch (storedMode) {
+        case "lesson":
+          setValue("/lesson ");
+          break;
+        case "maths":
+          setValue("/Maths ");
+          break;
+        case "chat":
+          setValue("/Chat ");
+          break;
+        case "quick":
+          setValue("/quick ");
+          break;
+        default:
+          // For any other mode or default, we don't set a specific value
+          break;
+      }
+    }
+  }, []);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState("");
@@ -743,12 +837,42 @@ interface AnimatedAIChatProps {
 
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
-    { icon: <Video className="w-4 h-4" />, label: "Explain Mode", description: "Detailed video explanation", prefix: "/video" },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Step-by-Step", description: "Break complex topics down", prefix: "/steps" },
-    { icon: <Play className="w-4 h-4" />, label: "Interactive Demo", description: "See it in action", prefix: "/demo" },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick" },
+    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
+  // Function to handle mode button clicks and activate command palette with placeholder text
+  const handleModeClick = (mode: string) => {
+    // Save the selected mode to session storage
+    saveSelectedMode(mode);
+    
+    switch (mode) {
+      case "lesson":
+        setValue("/lesson ");
+        break;
+      case "maths":
+        setValue("/Maths ");
+        break;
+      case "chat":
+        setValue("/Chat ");
+        break;
+      case "quick":
+        setValue("/quick ");
+        break;
+      default:
+        // For any other mode, we don't set a specific value
+        break;
+    }
+    setShowCommandPalette(true);
+    // Focus the textarea after setting the value
+    setTimeout(() => {
+      if (textareaRef.current) {
+        textareaRef.current.focus();
+      }
+    }, 0);
+  };
 
   const modeSuggestions = [
     {
@@ -773,9 +897,21 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const loadAge = async () => {
       try {
-        const age = await getCurrentUserAge();
-        if (typeof age === 'number') {
-          setUserAge(age);
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Only proceed if user is properly authenticated
+        if (session?.user) {
+          // First try to get age from user metadata
+          const age = (session.user as any).user_metadata?.age;
+          if (age) {
+            setUserAge(age);
+            return;
+          }
+          
+          // If not in metadata, we don't have a users table, so we can't query it
+          // The age should be in the user metadata from Supabase auth
+          console.debug('User age not found in metadata, using null');
         }
       } catch (error) {
         console.error('Error retrieving user age:', error);
@@ -808,10 +944,42 @@ interface AnimatedAIChatProps {
     };
   }, [mouseX, mouseY]);
 
+  // Function to get the appropriate placeholder based on the current mode
+  const getModePlaceholder = (): string => {
+    if (value.startsWith("/lesson")) {
+      return "/lesson - Please input a topic for structured learning";
+    } else if (value.startsWith("/Maths")) {
+      return "/Maths - Please input a maths question";
+    } else if (value.startsWith("/Chat")) {
+      return "/Chat - Please input your question";
+    } else if (value.startsWith("/quick")) {
+      return "/quick - Please input your question for a quick answer";
+    }
+    // Default to structured lesson mode
+    return "/lesson - Please input a topic for structured learning";
+  };
+
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
     const q = value.trim();
     if (!q) return;
+
+    // Input validation using Zod
+    const messageSchema = z.object({
+      content: z.string().min(1, "Message cannot be empty").max(1000, "Message too long")
+    });
+
+    try {
+      messageSchema.parse({ content: q });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        setError(`Invalid input: ${error.errors[0].message}`);
+        return;
+      }
+    }
+
+    // Sanitize input to prevent XSS
+    const sanitizedInput = DOMPurify.sanitize(q);
 
     abortRef.current?.abort();
     abortRef.current = new AbortController();
@@ -823,8 +991,130 @@ interface AnimatedAIChatProps {
     setMathSolution(null);
     setError(null);
 
+    // Handle mode-based routing for chat, quick, maths, and lesson modes
+    const modeMatch = sanitizedInput.match(/^\/(\w+)\s*(.*)/);
+    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'chat';
+    const cleanText = modeMatch ? modeMatch[2] : sanitizedInput;
+
+    // For chat and quick modes, use the new chat API endpoint
+    if (mode === 'chat' || mode === 'quick') {
+      try {
+        // Get session ID for user identification
+        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        
+        // Get user age if available
+        let userAge = null;
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            userAge = (session.user as any).user_metadata?.age || null;
+          }
+        } catch (ageError) {
+          console.warn('Could not retrieve user age:', ageError);
+        }
+        
+        // Prepare request payload
+        const payload: any = {
+          userId: sid,
+          message: sanitizedInput,
+          age: userAge
+        };
+        
+        // Check rate limit before making request
+        const endpoint = '/api/chat';
+        if (!rateLimiter.isAllowed(endpoint)) {
+          const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+          setIsTyping(false);
+          return;
+        }
+        
+        // Make API call to chat endpoint
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: abortRef.current.signal,
+        });
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to get response from server";
+          switch (response.status) {
+            case 400:
+              errorMessage = "Invalid request. Please try rephrasing your question.";
+              break;
+            case 401:
+              errorMessage = "Authentication required. Please log in again.";
+              break;
+            case 429:
+              errorMessage = "Too many requests. Please wait a moment and try again.";
+              break;
+            case 500:
+              errorMessage = "Server error. Please try again later.";
+              break;
+            case 503:
+              errorMessage = "Service temporarily unavailable. Please try again later.";
+              break;
+            default:
+              errorMessage = `Server error (${response.status}). Please try again later.`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const chatResponse: ChatResponse = await response.json();
+        
+        // Handle the response based on mode
+        if (chatResponse.error) {
+          setError(chatResponse.error);
+        } else {
+          // For chat mode, display the reply directly
+          if (chatResponse.mode === 'chat') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          } 
+          // For quick mode, display the reply directly
+          else if (chatResponse.mode === 'quick') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+          // For other modes, we might want to handle differently
+          else {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+        }
+        
+        setIsTyping(false);
+        setShowVideoButton(true);
+        
+        // Save search history
+        const savePromise = saveSearch(sanitizedInput.trim()).catch(console.error);
+        await savePromise;
+        
+        return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") {
+          if (process.env.NODE_ENV === 'development') console.debug('[chat] aborted');
+          setError("Request was cancelled or timed out. Please try again.");
+        } else {
+          const errorMessage = e instanceof Error ? e.message : "Chat request failed";
+          setError(errorMessage);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[chat] error', e);
+          }
+        }
+      } finally {
+        setIsTyping(false);
+        setValue('');
+      }
+      return;
+    }
+
     // legacy video path
-    if (q.startsWith("/video")) {
+    if (sanitizedInput.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
 
       let sseReconnectAttempts = 0;
@@ -833,7 +1123,7 @@ interface AnimatedAIChatProps {
 
       const connectSSE = () => {
         const es = new EventSource(
-          `${API_BASE}/ask/stream?q=${encodeURIComponent(q)}&sid=${encodeURIComponent(sid)}`,
+          `/ask/stream?q=${encodeURIComponent(sanitizedInput)}&sid=${encodeURIComponent(sid)}`,
           { withCredentials: false }
         );
 
@@ -918,24 +1208,44 @@ interface AnimatedAIChatProps {
 
     // Fast math detection and solver path
     const MATH_RE = /\b(solve|simplify|factor|expand|integrate|derivative|equation|sqrt|log|sin|cos|tan|polynomial|quadratic|linear|matrix|\d+[-+/^=]|\w+\s=)\b/i;
-    if (MATH_RE.test(q)) {
+    if (MATH_RE.test(sanitizedInput)) {
       try {
         setIsTyping(true);
-        const savePromise = saveSearch(q.trim()).catch(() => {});
-        const res = await fetchWithTimeoutAndRetry(`${API_BASE}/api/math-solver/solve`, {
+        const savePromise = saveSearch(sanitizedInput.trim()).catch(() => {});
+        const res = await fetchWithTimeoutAndRetry(`/api/math-solver/solve`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ problem: q, show_steps: true }),
+          body: JSON.stringify({ problem: sanitizedInput, show_steps: true }),
           signal: abortRef.current.signal,
         }, { timeoutMs: 10_000, retries: 2, retryDelayMs: 300 });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        const data: MathSolutionUI = {
-          problem: json.problem || q,
-          solution: json.solution || '',
-          steps: Array.isArray(json.steps) ? json.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
-          error: json.error || null,
-        };
+        // Validate and sanitize the math solution response
+        let data: MathSolutionUI;
+        if (!isValidMathSolutionResponse(json)) {
+          console.warn('[math-solver] Invalid math solution response structure', json);
+          // Try to sanitize the content
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          if (!isValidMathSolutionResponse(sanitizedSolution)) {
+            throw new Error("Received an invalid math solution format from the server.");
+          }
+          // Use sanitized content
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        } else {
+          // Even if valid, sanitize the content for display
+          const sanitizedSolution = sanitizeMathSolutionContent(json);
+          data = {
+            problem: sanitizedSolution.problem || q,
+            solution: sanitizedSolution.solution || '',
+            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
+            error: sanitizedSolution.error || null,
+          };
+        }
         if (data.error) setError(data.error);
         setMathSolution(data);
         setIsTyping(false);
@@ -952,7 +1262,7 @@ interface AnimatedAIChatProps {
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
-        console.info('[lesson-stream] request', { API_BASE, topic: q, age: userAge })
+        console.info('[lesson-stream] request', { API_BASE, topic: sanitizedInput, age: userAge })
       }
       // Add explicit SSE Accept header and a connection timeout to avoid hanging
       const connectTimer = setTimeout(() => {
@@ -960,104 +1270,112 @@ interface AnimatedAIChatProps {
       }, Number(process.env.NEXT_PUBLIC_STREAM_TIMEOUT_MS ?? 15000));
       // Build payload — omit age for guest users to remove age restrictions
       const isGuest = isGuestClient()
-      const payload: any = { topic: q }
+      const payload: any = { topic: sanitizedInput }
       if (!isGuest && typeof userAge === 'number') {
         payload.age = userAge
       }
-      const response = await fetch(`${API_BASE}/api/structured-lesson/stream`, {
+      
+      // Check rate limit before making request
+      const endpoint = '/api/structured-lesson';
+      if (!rateLimiter.isAllowed(endpoint)) {
+        const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+        setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+        setIsTyping(false);
+        return;
+      }
+      
+      // Use relative path for frontend API routes to handle proxying
+      // The frontend API route at /api/structured-lesson will proxy to the backend
+      const lessonEndpoint = '/api/structured-lesson';
+      const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Accept": "text/event-stream",
+          "Accept": "application/json",
         },
         body: JSON.stringify(payload),
         signal: abortRef.current.signal,
       });
       clearTimeout(connectTimer);
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const reader = response.body!.getReader();
-      const decoder = new TextDecoder();
-
-      // Detect stalled streams and abort to trigger retry
-      let lastChunkAt = Date.now();
-      const stallMs = Number(process.env.NEXT_PUBLIC_STREAM_STALL_MS ?? 8000);
-      stallTickerRef.current = setInterval(() => {
-        if (Date.now() - lastChunkAt > stallMs) {
-          try { abortRef.current?.abort(); } catch {}
+      if (!response.ok) {
+        // Handle specific HTTP errors with user-friendly messages
+        let errorMessage = "Failed to get response from server";
+        switch (response.status) {
+          case 400:
+            errorMessage = "Invalid request. Please try rephrasing your question.";
+            break;
+          case 401:
+            errorMessage = "Authentication required. Please log in again.";
+            break;
+          case 429:
+            errorMessage = "Too many requests. Please wait a moment and try again.";
+            break;
+          case 500:
+            errorMessage = "Server error. Please try again later.";
+            break;
+          case 503:
+            errorMessage = "Service temporarily unavailable. Please try again later.";
+            break;
+          default:
+            errorMessage = `Server error (${response.status}). Please try again later.`;
         }
-      }, 1000);
+        throw new Error(errorMessage);
+      }
 
-      let buffer = "";
-      let finalLesson: Lesson | null = null;
-      let isComplete = false;
+      // Handle non-streaming response (regular JSON)
+      const finalLesson = await response.json();
       
-      setIsTyping(true)
+      // Validate and sanitize the lesson response
+      if (!isValidLessonResponse(finalLesson)) {
+        console.warn('[lesson] Invalid lesson response structure', finalLesson);
+        // Try to sanitize the content
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        if (!isValidLessonResponse(sanitizedLesson)) {
+          // If still invalid, show an error
+          setError("Received an invalid response format from the server. Please try again.");
+          setIsTyping(false);
+          return;
+        }
+        setLessonJson(sanitizedLesson);
+      } else {
+        // Even if valid, sanitize the content for display
+        const sanitizedLesson = sanitizeLessonContent(finalLesson);
+        setLessonJson(sanitizedLesson);
+      }
+      
+      setShowVideoButton(true);
+      setIsTyping(false);
+      
+      if (process.env.NODE_ENV === 'development') {
+        const introPreview = (finalLesson?.introduction || '').slice(0, 120);
+        console.info('[lesson] done', { topicSent: sanitizedInput, introPreview });
+      }
       
       // Start save search immediately (parallel processing)
-      const savePromise = saveSearch(q.trim()).then(saveResult => {
-        console.log('✅ saveSearch result:', saveResult)
+      const savePromise = saveSearch(sanitizedInput.trim()).then(saveResult => {
+        console.log('✅ saveSearch result:', saveResult);
         if (saveResult?.message) {
-          setSaveMessage(saveResult.message)
-          setShowSaveMessage(true)
+          setSaveMessage(saveResult.message);
+          setShowSaveMessage(true);
           setTimeout(() => {
-            setShowSaveMessage(false)
-            setTimeout(() => setSaveMessage(null), 300)
-          }, 5000)
+            setShowSaveMessage(false);
+            setTimeout(() => setSaveMessage(null), 300);
+          }, 5000);
         }
       }).catch(console.error);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        lastChunkAt = Date.now();
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
-
-        for (const ln of lines) {
-          if (!ln.startsWith("data:")) continue;
-          try {
-            const msg = JSON.parse(ln.slice(5).trim());
-
-            switch (msg.type) {
-              case "done":
-                // ULTRA-FAST processing - instant response
-                finalLesson = msg.lesson;
-                isComplete = true;
-                setLessonJson(finalLesson);
-                setShowVideoButton(true);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  const introPreview = (finalLesson?.introduction || '').slice(0, 120)
-                  console.info('[lesson-stream] done', { topicSent: q, introPreview })
-                }
-                
-                // Ensure save completes
-                await savePromise;
-                return; 
-
-              case "error":
-                setError(msg.message);
-                setIsTyping(false);
-                if (process.env.NODE_ENV === 'development') {
-                  console.warn('[lesson-stream] error', msg)
-                }
-                return;
-            }
-          } catch (e) {
-            // Skip malformed messages
-          }
-        }
-      }
+      
+      // Ensure save completes
+      await savePromise;
+      return;
     } catch (e: unknown) {
       // Treat AbortError (timeout or manual abort) as benign, avoid retry loops
       if (e instanceof Error && e.name === "AbortError") {
         if (process.env.NODE_ENV === 'development') console.debug('[lesson-stream] aborted');
+        setError("Request was cancelled or timed out. Please try again.");
       } else {
-        setError(e instanceof Error ? e.message : "Streaming failed");
+        const errorMessage = e instanceof Error ? e.message : "Streaming failed";
+        setError(errorMessage);
         if (process.env.NODE_ENV === 'development') {
           console.error('[lesson-stream] catch', e)
         }
@@ -1092,8 +1410,18 @@ interface AnimatedAIChatProps {
         e.preventDefault();
         if (activeSuggestion >= 0) {
           const cmd = commandSuggestions[activeSuggestion];
-          setValue(cmd.prefix + " ");
-          setShowCommandPalette(false);
+          if (cmd.action) {
+            cmd.action();
+          } else {
+            setValue(cmd.prefix);
+            setShowCommandPalette(false);
+            // Focus the textarea after selection
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.focus();
+              }
+            }, 0);
+          }
         }
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
@@ -1226,8 +1554,18 @@ interface AnimatedAIChatProps {
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        setValue(s.prefix + " ");
-                        setShowCommandPalette(false);
+                        if (s.action) {
+                          s.action();
+                        } else {
+                          setValue(s.prefix);
+                          setShowCommandPalette(false);
+                        }
+                        // Focus the textarea after selection
+                        setTimeout(() => {
+                          if (textareaRef.current) {
+                            textareaRef.current.focus();
+                          }
+                        }, 0);
                       }}
                     >
                       <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
@@ -1251,7 +1589,7 @@ interface AnimatedAIChatProps {
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
-                placeholder="What would you like to learn today?"
+                placeholder={getModePlaceholder()}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}

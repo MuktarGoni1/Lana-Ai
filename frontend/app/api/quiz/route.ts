@@ -56,12 +56,34 @@ export async function POST(req: Request) {
   }
 }
 
+// Add GET endpoint to retrieve quizzes
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get('id');
+    
+    if (!id) {
+      return NextResponse.json({ error: 'Missing quiz ID' }, { status: 400 });
+    }
+    
+    const quiz = store.get(id);
+    if (!quiz) {
+      return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
+    }
+    
+    return NextResponse.json(quiz, { status: 200 });
+  } catch (error) {
+    console.error('Quiz GET error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
   });

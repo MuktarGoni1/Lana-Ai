@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+import { navigateToHomepage } from "@/lib/navigation";
 
 export default function GuardianConfirmedPage() {
   const router = useRouter();
@@ -35,9 +36,9 @@ export default function GuardianConfirmedPage() {
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "Guardian email saved." });
 
-        // Redirect directly to guardian dashboard for authenticated users
+        // Redirect all authenticated users to onboarding
         setTimeout(() => {
-          router.replace("/guardian");
+          router.push("/onboarding");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed/guardian] confirmation error:", err);
@@ -47,7 +48,7 @@ export default function GuardianConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        setTimeout(() => router.replace("/landing-page"), 2500);
+        setTimeout(() => router.push("/landing-page"), 2500);
       }
     };
 

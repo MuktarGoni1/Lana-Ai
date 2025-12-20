@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
@@ -22,7 +22,7 @@ export default function ChildLoginPage() {
         
         if (role === "child") {
           if (onboardingComplete) {
-            router.push("/personalised-ai-tutor")
+            router.push("/homepage")
           } else {
             router.push("/term-plan?onboarding=1")
           }
@@ -59,7 +59,7 @@ export default function ChildLoginPage() {
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/auto-login`,
+          emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
         },
       })
       

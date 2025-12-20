@@ -12,15 +12,6 @@ const mockRouter = {
   replace: jest.fn()
 };
 
-// Mock user object
-const mockUser: User = {
-  id: 'user-123',
-  email: 'test@example.com',
-  user_metadata: {
-    role: 'guardian'
-  }
-} as any;
-
 // Mock child user
 const mockChildUser: User = {
   id: 'child-123',
@@ -37,49 +28,91 @@ const mockUserNoRole: User = {
   user_metadata: {}
 } as any;
 
+// Mock user object
+const mockUser: User = {
+  id: 'user-123',
+  email: 'test@example.com',
+  user_metadata: {
+    role: 'guardian'
+  }
+} as any;
+
 describe('Skip Navigation Functionality', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    // Clear localStorage
-    localStorage.clear();
+    // Reset localStorage mock implementation
+    if (localStorage.getItem) {
+      (localStorage.getItem as jest.Mock).mockReset();
+    }
+    if (localStorage.setItem) {
+      (localStorage.setItem as jest.Mock).mockReset();
+    }
   });
 
   describe('skipToHomepage', () => {
-    it('should navigate guardian user to guardian dashboard', () => {
+    it('should navigate guardian user to homepage', () => {
+      // Mock localStorage setItem to track calls
+      if (localStorage.setItem) {
+        (localStorage.setItem as jest.Mock).mockImplementation(() => {});
+      }
+      
       skipToHomepage(mockRouter, mockUser);
       
       // Should store skip preference
-      expect(localStorage.getItem('onboardingSkipped')).toBe('true');
+      if (localStorage.setItem) {
+        expect(localStorage.setItem).toHaveBeenCalledWith('onboardingSkipped', 'true');
+      }
       
-      // Should navigate to guardian dashboard
-      expect(mockRouter.replace).toHaveBeenCalledWith('/guardian');
+      // Should navigate to homepage
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
-    it('should navigate child user to personalized AI tutor', () => {
+    it('should navigate child user to homepage', () => {
+      // Mock localStorage setItem to track calls
+      if (localStorage.setItem) {
+        (localStorage.setItem as jest.Mock).mockImplementation(() => {});
+      }
+      
       skipToHomepage(mockRouter, mockChildUser);
       
       // Should store skip preference
-      expect(localStorage.getItem('onboardingSkipped')).toBe('true');
+      if (localStorage.setItem) {
+        expect(localStorage.setItem).toHaveBeenCalledWith('onboardingSkipped', 'true');
+      }
       
-      // Should navigate to personalized AI tutor
-      expect(mockRouter.replace).toHaveBeenCalledWith('/personalised-ai-tutor');
+      // Should navigate to homepage
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
-    it('should navigate user with no role to generic homepage', () => {
+    it('should navigate user with no role to homepage', () => {
+      // Mock localStorage setItem to track calls
+      if (localStorage.setItem) {
+        (localStorage.setItem as jest.Mock).mockImplementation(() => {});
+      }
+      
       skipToHomepage(mockRouter, mockUserNoRole);
       
       // Should store skip preference
-      expect(localStorage.getItem('onboardingSkipped')).toBe('true');
+      if (localStorage.setItem) {
+        expect(localStorage.setItem).toHaveBeenCalledWith('onboardingSkipped', 'true');
+      }
       
-      // Should navigate to generic homepage
+      // Should navigate to homepage
       expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
     it('should navigate unauthenticated user to landing page', () => {
+      // Mock localStorage setItem to track calls
+      if (localStorage.setItem) {
+        (localStorage.setItem as jest.Mock).mockImplementation(() => {});
+      }
+      
       skipToHomepage(mockRouter, null);
       
       // Should store skip preference
-      expect(localStorage.getItem('onboardingSkipped')).toBe('true');
+      if (localStorage.setItem) {
+        expect(localStorage.setItem).toHaveBeenCalledWith('onboardingSkipped', 'true');
+      }
       
       // Should navigate to landing page
       expect(mockRouter.replace).toHaveBeenCalledWith('/landing-page');
@@ -87,32 +120,31 @@ describe('Skip Navigation Functionality', () => {
 
     it('should handle localStorage errors gracefully', () => {
       // Mock localStorage error
-      Storage.prototype.setItem = jest.fn(() => {
-        throw new Error('localStorage error');
-      });
+      if (localStorage.setItem) {
+        (localStorage.setItem as jest.Mock).mockImplementation(() => {
+          throw new Error('localStorage error');
+        });
+      }
       
       skipToHomepage(mockRouter, mockUser);
       
       // Should still navigate even with localStorage error
-      expect(mockRouter.replace).toHaveBeenCalledWith('/guardian');
-      
-      // Restore localStorage
-      Storage.prototype.setItem = localStorage.setItem;
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
   });
 
   describe('navigateToHomepage', () => {
-    it('should navigate guardian user to guardian dashboard', () => {
+    it('should navigate guardian user to homepage', () => {
       navigateToHomepage(mockUser, mockRouter);
-      expect(mockRouter.replace).toHaveBeenCalledWith('/guardian');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
-    it('should navigate child user to personalized AI tutor', () => {
+    it('should navigate child user to homepage', () => {
       navigateToHomepage(mockChildUser, mockRouter);
-      expect(mockRouter.replace).toHaveBeenCalledWith('/personalised-ai-tutor');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
-    it('should navigate user with no role to generic homepage', () => {
+    it('should navigate user with no role to homepage', () => {
       navigateToHomepage(mockUserNoRole, mockRouter);
       expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
@@ -122,7 +154,7 @@ describe('Skip Navigation Functionality', () => {
       expect(mockRouter.replace).toHaveBeenCalledWith('/landing-page');
     });
 
-    it('should fallback to homepage on navigation errors', () => {
+    it('should fallback to landing page on navigation errors', () => {
       // Mock router error
       mockRouter.replace = jest.fn(() => {
         throw new Error('Router error');
@@ -130,8 +162,43 @@ describe('Skip Navigation Functionality', () => {
       
       navigateToHomepage(mockUser, mockRouter);
       
-      // Should attempt to fallback to homepage (might be called twice due to error handling)
-      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
+      // Should attempt to fallback to landing page
+      expect(mockRouter.push).toHaveBeenCalledWith('/landing-page');
+    });
+
+    it("should redirect authenticated users to homepage when onboarding is complete", () => {
+      const mockUser = {
+        id: "test-user-id",
+        email: "user@example.com",
+        user_metadata: {
+          onboarding_complete: true,
+        },
+        app_metadata: {},
+        aud: "",
+        created_at: "",
+      } as User;
+      
+      navigateToHomepage(mockUser, mockRouter);
+      
+      expect(mockRouter.replace).toHaveBeenCalledWith("/homepage");
+    });
+
+    it("should redirect child users to homepage", () => {
+      const mockUser = {
+        id: "test-user-id",
+        email: "child@example.com",
+        user_metadata: {
+          role: "child",
+          onboarding_complete: true,
+        },
+        app_metadata: {},
+        aud: "",
+        created_at: "",
+      } as User;
+      
+      navigateToHomepage(mockUser, mockRouter);
+      
+      expect(mockRouter.replace).toHaveBeenCalledWith("/homepage");
     });
   });
 
@@ -143,12 +210,12 @@ describe('Skip Navigation Functionality', () => {
 
     it('should navigate from term-plan to homepage', () => {
       navigateToNextStep(mockRouter, 'term-plan', mockUser);
-      expect(mockRouter.replace).toHaveBeenCalledWith('/guardian');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
     it('should fallback to homepage for unknown steps', () => {
       navigateToNextStep(mockRouter, 'unknown-step', mockUser);
-      expect(mockRouter.replace).toHaveBeenCalledWith('/guardian');
+      expect(mockRouter.replace).toHaveBeenCalledWith('/homepage');
     });
 
     it('should fallback to homepage on navigation errors', () => {

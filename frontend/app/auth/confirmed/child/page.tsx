@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
+import { navigateToHomepage } from "@/lib/navigation";
 
 export default function ChildConfirmedPage() {
   const router = useRouter();
@@ -28,18 +29,23 @@ export default function ChildConfirmedPage() {
         if (userEmail) {
           // Cast supabase to any to bypass typing issues
           const sb: any = supabase;
-          const { error: upsertError } = await sb
-            .from("users")
-            .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
-          if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
+          try {
+            const { error: upsertError } = await sb
+              .from("users")
+              .upsert({ email: userEmail, id: user.id }, { onConflict: "email" });
+            if (upsertError) console.warn("[auth/confirmed/child] upsert warn:", upsertError);
+          } catch (upsertError) {
+            // If the users table doesn't exist, that's okay - just log it
+            console.debug("[auth/confirmed/child] users table may not exist:", upsertError);
+          }
         }
 
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "Child account saved." });
 
-        // Redirect child to homepage
+        // Redirect child to onboarding
         setTimeout(() => {
-          router.replace("/homepage");
+          router.push("/onboarding");
         }, 2500);
       } catch (err) {
         console.error("[auth/confirmed/child] confirmation error:", err);
@@ -49,7 +55,7 @@ export default function ChildConfirmedPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        setTimeout(() => router.replace("/login"), 2500);
+        setTimeout(() => router.push("/login"), 2500);
       }
     };
 

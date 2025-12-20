@@ -1,26 +1,94 @@
 import { describe, it, expect, jest, beforeEach, afterEach } from '@jest/globals';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import React from 'react';
 import LoginPage from '@/app/login/page';
+import '@testing-library/jest-dom';
+
+// Mock Supabase client to prevent initialization errors
+jest.mock('@/lib/db', () => {
+  const mockAuth = {
+    onAuthStateChange: jest.fn((callback) => {
+      // Simulate the callback being called immediately
+      // Return a mock subscription object
+      return { 
+        data: { 
+          subscription: { 
+            unsubscribe: jest.fn() 
+          } 
+        } 
+      };
+    }),
+    getUser: jest.fn(),
+    signInWithOtp: jest.fn(),
+    signOut: jest.fn(),
+    updateUser: jest.fn(),
+    refreshSession: jest.fn(),
+    signInWithOAuth: jest.fn(),
+  };
+
+  const mockSupabase = {
+    auth: mockAuth,
+  };
+
+  return {
+    supabase: mockSupabase,
+  };
+});
+
+// Mock EnhancedAuthService to prevent initialization errors
+jest.mock('@/lib/services/enhancedAuthService', () => {
+  return {
+    EnhancedAuthService: {
+      getInstance: jest.fn(() => ({
+        subscribe: jest.fn((callback: (state: any) => void) => {
+          callback({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null
+          });
+          return jest.fn(); // unsubscribe function
+        }),
+        loginWithEmail: jest.fn(),
+        loginWithGoogle: jest.fn(),
+        registerParent: jest.fn(),
+        registerChild: jest.fn(),
+        logout: jest.fn(),
+        refreshSession: jest.fn(),
+        completeOnboarding: jest.fn(),
+        getUserRole: jest.fn(),
+        isOnboardingComplete: jest.fn(),
+      }))
+    }
+  };
+});
 
 // Mock next/navigation
+const mockRouter = {
+  push: jest.fn(),
+  replace: jest.fn(),
+};
+
 jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
+  useRouter: () => mockRouter,
   useSearchParams: () => ({
     get: jest.fn().mockReturnValue(null),
   }),
 }));
 
-// Mock useAuth hook
-jest.mock('@/hooks/useAuth', () => ({
-  useAuth: jest.fn(),
+// Mock useEnhancedAuth hook
+jest.mock('@/hooks/useEnhancedAuth', () => ({
+  useEnhancedAuth: jest.fn(),
 }));
 
 // Mock useToast hook
 jest.mock('@/hooks/use-toast', () => ({
-  useToast: jest.fn(),
+  useToast: () => ({
+    toast: jest.fn(),
+    toasts: [],
+    dismiss: jest.fn(),
+  }),
 }));
 
 // Mock AuthService
@@ -33,21 +101,26 @@ jest.mock('@/lib/services/authService', () => {
 });
 
 describe('EmailLoginFlow', () => {
-  const mockRouter = {
-    push: jest.fn(),
-    replace: jest.fn(),
-  };
-
   const mockSignIn = jest.fn();
   const mockToast = jest.fn();
 
   beforeEach(() => {
-    (useRouter as jest.Mock).mockReturnValue(mockRouter);
-    (useAuth as jest.Mock).mockReturnValue({
-      signIn: mockSignIn,
+    // Reset mocks
+    jest.clearAllMocks();
+    
+    // Setup router mock
+    mockRouter.push.mockClear();
+    mockRouter.replace.mockClear();
+    
+    // Setup useEnhancedAuth mock
+    (require('@/hooks/useEnhancedAuth').useEnhancedAuth as jest.Mock).mockReturnValue({
+      loginWithEmail: mockSignIn,
+      loginWithGoogle: jest.fn(),
       user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
     });
-    (useToast as jest.Mock).mockReturnValue({ toast: mockToast });
   });
 
   afterEach(() => {
@@ -57,16 +130,19 @@ describe('EmailLoginFlow', () => {
   it('should render the login form', () => {
     render(<LoginPage />);
     
-    expect(screen.getByText('Welcome back')).toBeInTheDocument();
-    expect(screen.getByText('Sign in to continue learning')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument();
-    expect(screen.getByText('Login')).toBeInTheDocument();
+    expect(screen.getByText('Welcome Back')).toBeInTheDocument();
+    expect(screen.getByText('Sign in to continue your learning journey')).toBeInTheDocument();
+    expect(screen.getByText('Sign in as Parent')).toBeInTheDocument();
   });
 
   it('should show validation error for invalid email', async () => {
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     const loginButton = screen.getByText('Login');
     
     fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
@@ -80,7 +156,11 @@ describe('EmailLoginFlow', () => {
   it('should show validation error in real-time', async () => {
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     
     fireEvent.change(emailInput, { target: { value: 'invalid-email' } });
     
@@ -96,7 +176,8 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should handle successful login for verified users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail: any = jest.fn();
+    mockVerifyEmail.mockResolvedValue({
       exists: true,
       confirmed: true,
       userId: 'user-123',
@@ -109,7 +190,11 @@ describe('EmailLoginFlow', () => {
     
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     const loginButton = screen.getByText('Login');
     
     fireEvent.change(emailInput, { target: { value: 'verified@example.com' } });
@@ -122,9 +207,11 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should show error message for unverified users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail: any = jest.fn();
+    mockVerifyEmail.mockResolvedValue({
       exists: true,
       confirmed: false,
+      userId: null,
     });
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
@@ -134,7 +221,11 @@ describe('EmailLoginFlow', () => {
     
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     const loginButton = screen.getByText('Login');
     
     fireEvent.change(emailInput, { target: { value: 'unverified@example.com' } });
@@ -150,9 +241,11 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should show error message for non-existent users', async () => {
-    const mockVerifyEmail = jest.fn().mockResolvedValue({
+    const mockVerifyEmail: any = jest.fn();
+    mockVerifyEmail.mockResolvedValue({
       exists: false,
       confirmed: false,
+      userId: null,
     });
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
@@ -162,7 +255,11 @@ describe('EmailLoginFlow', () => {
     
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     const loginButton = screen.getByText('Login');
     
     fireEvent.change(emailInput, { target: { value: 'nonexistent@example.com' } });
@@ -178,7 +275,8 @@ describe('EmailLoginFlow', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    const mockVerifyEmail = jest.fn().mockRejectedValue(new Error('API Error'));
+    const mockVerifyEmail: any = jest.fn();
+    mockVerifyEmail.mockRejectedValue(new Error('API Error'));
     
     const AuthServiceMock = require('@/lib/services/authService').AuthService;
     AuthServiceMock.mockImplementation(() => ({
@@ -187,16 +285,20 @@ describe('EmailLoginFlow', () => {
     
     render(<LoginPage />);
     
-    const emailInput = screen.getByPlaceholderText('Enter your email');
+    // Click on parent login button to show the form
+    const parentLoginButton = screen.getByText('Sign in as Parent');
+    fireEvent.click(parentLoginButton);
+    
+    const emailInput = screen.getByPlaceholderText('parent@example.com');
     const loginButton = screen.getByText('Login');
     
-    fireEvent.change(emailInput, { target: { value: 'user@example.com' } });
+    fireEvent.change(emailInput, { target: { value: 'error@example.com' } });
     fireEvent.click(loginButton);
     
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
-        title: "Error",
-        description: "API Error",
+        title: "Authentication Error",
+        description: "Unable to verify email. Please try again later.",
         variant: "destructive",
       });
     });

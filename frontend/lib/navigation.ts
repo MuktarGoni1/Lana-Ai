@@ -4,6 +4,7 @@
  */
 
 import { User } from '@supabase/supabase-js';
+import { handleErrorWithReload } from './error-handler';
 
 /**
  * Navigate to the appropriate homepage based on user role
@@ -27,28 +28,15 @@ export function navigateToHomepage(user: User | null, router: any) {
       } else {
         // Fallback: use window.location
         if (typeof window !== 'undefined') {
-          window.location.replace('/landing-page');
+          window.location.assign('/landing-page');
         }
       }
       return;
     }
 
-    // Get user role
-    const role = user.user_metadata?.role;
-
-    // Navigate based on role
-    let targetPath = '/homepage';
-    if (role === 'child') {
-      console.log('[Navigation] Redirecting child user to personalised-ai-tutor');
-      targetPath = '/personalised-ai-tutor';
-    } else if (role === 'guardian') {
-      console.log('[Navigation] Redirecting guardian user to guardian dashboard');
-      targetPath = '/guardian';
-    } else {
-      // For users without a specific role, go to generic homepage
-      console.log('[Navigation] User has no specific role, redirecting to generic homepage');
-      targetPath = '/homepage';
-    }
+    // Navigate all authenticated users to homepage
+    console.log('[Navigation] Redirecting authenticated user to homepage');
+    const targetPath = '/homepage';
 
     // Navigate to target path
     if (router && typeof router.replace === 'function') {
@@ -56,22 +44,13 @@ export function navigateToHomepage(user: User | null, router: any) {
     } else {
       // Fallback: use window.location
       if (typeof window !== 'undefined') {
-        window.location.replace(targetPath);
+        window.location.assign(targetPath);
       }
     }
   } catch (error) {
     console.error('[Navigation] Error during navigation:', error);
-    // Fallback: always go to landing page if there's an error (not homepage to avoid loops)
-    try {
-      if (router && typeof router.replace === 'function') {
-        router.replace('/landing-page');
-      } else if (typeof window !== 'undefined') {
-        window.location.replace('/landing-page');
-      }
-    } catch (fallbackError) {
-      console.error('[Navigation] Error during fallback navigation:', fallbackError);
-      // Last resort: do nothing, let the user manually navigate
-    }
+    // Use our error handler to reload the page instead of redirecting to landing page
+    handleErrorWithReload(error, "Navigation failed. Reloading page to try again...");
   }
 }
 
@@ -110,8 +89,8 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     }
   } catch (error) {
     console.error('[Navigation] Error during step navigation:', error);
-    // Fallback: always go to homepage if there's an error
-    navigateToHomepage(user, router);
+    // Use our error handler to reload the page instead of redirecting
+    handleErrorWithReload(error, "Navigation to next step failed. Reloading page to try again...");
   }
 }
 
@@ -132,6 +111,12 @@ export function skipToHomepage(router: any, user: User | null) {
     console.warn('[Navigation] Could not store skip preference:', e);
   }
   
-  // Navigate to homepage
-  navigateToHomepage(user, router);
+  try {
+    // Navigate to homepage
+    navigateToHomepage(user, router);
+  } catch (error) {
+    console.error('[Navigation] Error during skip navigation:', error);
+    // Use our error handler to reload the page instead of redirecting
+    handleErrorWithReload(error, "Skip navigation failed. Reloading page to try again...");
+  }
 }
