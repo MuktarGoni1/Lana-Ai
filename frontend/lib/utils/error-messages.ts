@@ -114,13 +114,21 @@ export function getFriendlyErrorMessage(error: string | Error): ErrorMessage {
 export function formatErrorForToast(error: string | Error): {
   title: string;
   description: string;
-  variant?: 'destructive' | 'warning' | 'info';
+  variant?: 'default' | 'destructive';
 } {
   const friendlyError = getFriendlyErrorMessage(error);
+  
+  // Map unsupported variants to supported ones
+  let variant: 'default' | 'destructive' | undefined;
+  if (friendlyError.variant === 'warning' || friendlyError.variant === 'info') {
+    variant = 'default';
+  } else if (friendlyError.variant === 'destructive') {
+    variant = 'destructive';
+  }
   
   return {
     title: friendlyError.title,
     description: friendlyError.description,
-    variant: friendlyError.variant
+    variant
   };
 }
