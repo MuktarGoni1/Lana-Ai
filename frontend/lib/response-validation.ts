@@ -2,6 +2,28 @@
 // Utility functions for validating response structure and formatting
 
 /**
+ * Validate that a response matches the expected structure for a specific mode
+ * @param response The response object to validate
+ * @param mode The mode to validate against
+ * @returns True if valid, false otherwise
+ */
+export function isValidResponseForMode(response: any, mode: string): boolean {
+  switch (mode) {
+    case 'lesson':
+      return isValidLessonResponse(response);
+    case 'maths':
+      return isValidMathSolutionResponse(response);
+    case 'chat':
+    case 'quick':
+      // For chat and quick modes, we expect a simple string response
+      return typeof response === 'string' && response.length > 0;
+    default:
+      // For unknown modes, do basic validation
+      return response !== null && response !== undefined;
+  }
+}
+
+/**
  * Validate that a lesson response has the required structure
  * @param lesson The lesson object to validate
  * @returns True if valid, false otherwise

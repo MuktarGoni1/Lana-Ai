@@ -19,18 +19,18 @@ class LessonService:
     def __init__(self, cache_repository: Optional[ICacheRepository] = None):
         self.cache_repository = cache_repository or MemoryCacheRepository()
         
-    async def _stub_lesson(self, topic: str, age: Optional[int] = None) -> Dict[str, Any]:
+    async def _stub_lesson(self, topic: str, age: Optional[int] = None, mode: str = "lesson") -> Dict[str, Any]:
         """Generate a stub lesson with clear error messaging instead of generic templates."""
-        logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age}")
+        logger.info(f"Generating stub lesson for topic: '{topic}' with age: {age} and mode: {mode}")
         
         # Create a clear error message instead of generic template
-        error_message = f"Unable to generate a detailed lesson about '{topic}' at this time. This could be due to high demand or a temporary issue. Please try again later or ask about a different topic."
+        error_message = f"Unable to generate a detailed {mode} about '{topic}' at this time. This could be due to high demand or a temporary issue. Please try again later or ask about a different topic."
         
         # Create minimal valid response with clear error messaging
         intro = error_message
         classifications = []
         
-        # Create sections with helpful information
+        # Create sections with helpful information based on mode
         sections = [
             {
                 "title": "Service Temporarily Unavailable", 
@@ -45,7 +45,7 @@ class LessonService:
         # Create a helpful quiz
         quiz = [
             {
-                "q": "What should you do when a lesson fails to generate?",
+                "q": f"What should you do when a {mode} fails to generate?",
                 "options": [
                     "A) Try rephrasing the question",
                     "B) Ask about a different topic", 
@@ -64,7 +64,7 @@ class LessonService:
             "diagram": "",
             "quiz": quiz,
         }
-        logger.info(f"Stub lesson generated with error messaging for '{topic}'")
+        logger.info(f"Stub lesson generated with error messaging for '{topic}' in mode: {mode}")
         return response
 
     async def _compute_structured_lesson(self, cache_key: str, topic: str, age: Optional[int], groq_client) -> Tuple[Dict[str, Any], str]:
@@ -278,14 +278,14 @@ class LessonService:
                               f"Sections: {len(resp['sections']) if resp['sections'] else 0}, "
                               f"Quiz: {len(resp['quiz']) if resp['quiz'] else 0}, "
                               f"Section quality: {[len(s['content']) for s in resp['sections']] if resp['sections'] else []}")
-                return await self._stub_lesson(topic, age), "stub"
+                return await self._stub_lesson(topic, age, "lesson"), "stub"
             except Exception as e:
                 # Include raw excerpt to aid troubleshooting and reduce persistent stub fallbacks
                 try:
                     logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}. raw_excerpt={raw_excerpt}")
                 except Exception:
                     logger.warning(f"Structured lesson LLM error for topic '{topic}': {e}")
-                return await self._stub_lesson(topic, age), "stub"
+                return await self._stub_lesson(topic, age, "lesson"), "stub"
         else:
             return await self._stub_lesson(topic, age), "stub"
 
@@ -303,7 +303,7 @@ class LessonService:
                 fut.set_result(result)
             except Exception as e:
                 logger.error(f"Structured lesson compute failed: {e}")
-                stub_result = await self._stub_lesson(topic, age)
+                stub_result = await self._stub_lesson(topic, age, "lesson")
                 stub_result["id"] = str(uuid.uuid4())
                 fut.set_result((stub_result, "stub"))
             finally:
@@ -311,7 +311,7 @@ class LessonService:
         asyncio.create_task(_run())
         return await fut
 
-    async def generate_structured_lesson(self, topic: str, age: Optional[int] = None, groq_client=None) -> Tuple[Dict[str, Any], str]:
+    async def generate_structured_lesson(self, topic: str, age: Optional[int] = None, groq_client=None, mode: str = "lesson") -> Tuple[Dict[str, Any], str]:
         """Generate a structured lesson for a given topic and optional age."""
         if not topic:
             raise ValueError("Topic cannot be empty")

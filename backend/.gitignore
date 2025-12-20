@@ -161,3 +161,6 @@ coverage/
 # Build artifacts
 dist/
 build/
+
+# Database schema backups (kept for documentation purposes)
+# backend/migrations/schema_backup.sql

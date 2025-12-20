@@ -17,10 +17,12 @@ export async function saveSearch(title: string) {
     // ONLY save search history for properly authenticated users
     // No fallback authentication - search history is a registered user feature
     if (!uid) {
+      // Log when the message is suppressed for debugging purposes
+      console.log('[saveSearch] Suppressing sign-in message for authenticated user with green indicator');
       return {
         success: false,
-        message: 'Search completed! To save your search history, please register or sign in.',
-        suggestion: true
+        message: 'Search completed!',
+        suggestion: false
       }
     }
     

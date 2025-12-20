@@ -50,7 +50,7 @@ export default function HomePage() {
     setShowSaveMessage(false);
     
     // Send message using lesson stream hook
-    await sendLessonMessage(q, userAge);
+    await sendLessonMessage(q, userAge, setSaveMessage);
   };
 
   // Handle attaching file

@@ -996,8 +996,8 @@ interface AnimatedAIChatProps {
     const mode = modeMatch ? modeMatch[1].toLowerCase() : 'chat';
     const cleanText = modeMatch ? modeMatch[2] : sanitizedInput;
 
-    // For chat and quick modes, use the new chat API endpoint
-    if (mode === 'chat' || mode === 'quick') {
+    // For all modes, use the new chat API endpoint
+    if (mode === 'chat' || mode === 'quick' || mode === 'lesson' || mode === 'maths') {
       try {
         // Get session ID for user identification
         const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
@@ -1074,13 +1074,47 @@ interface AnimatedAIChatProps {
           if (chatResponse.mode === 'chat') {
             setStreamingText(chatResponse.reply);
             setStoredLong(chatResponse.reply);
+            // Save the selected mode
+            saveSelectedMode('chat');
           } 
           // For quick mode, display the reply directly
           else if (chatResponse.mode === 'quick') {
             setStreamingText(chatResponse.reply);
             setStoredLong(chatResponse.reply);
+            // Save the selected mode
+            saveSelectedMode('quick');
           }
-          // For other modes, we might want to handle differently
+          // For lesson mode, handle as structured lesson
+          else if (chatResponse.mode === 'lesson') {
+            // Parse the reply as JSON if it's a structured lesson
+            try {
+              const lessonData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setLessonJson(lessonData);
+              // Save the selected mode
+              saveSelectedMode('lesson');
+            } catch (parseError) {
+              // If parsing fails, treat as regular text
+              setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              saveSelectedMode('lesson');
+            }
+          }
+          // For maths mode, handle as math solution
+          else if (chatResponse.mode === 'maths') {
+            // Parse the reply as JSON if it's a math solution
+            try {
+              const mathData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setMathSolution(mathData);
+              // Save the selected mode
+              saveSelectedMode('maths');
+            } catch (parseError) {
+              // If parsing fails, treat as regular text
+              setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              saveSelectedMode('maths');
+            }
+          }
+          // For other modes, display the reply directly
           else {
             setStreamingText(chatResponse.reply);
             setStoredLong(chatResponse.reply);

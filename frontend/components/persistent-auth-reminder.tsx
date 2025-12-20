@@ -6,27 +6,27 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ToastAction } from "@/components/ui/toast";
 
-// Create a safe version of useEnhancedAuth that doesn't throw during SSR
-function useSafeEnhancedAuth() {
+// Create a safe version of useUnifiedAuth that doesn't throw during SSR
+function useSafeUnifiedAuth() {
   const [authState, setAuthState] = useState<{
     isAuthenticated: boolean;
     isLoading: boolean;
   } | null>(null);
 
   useEffect(() => {
-    // Dynamically import the useEnhancedAuth hook only on the client side
+    // Dynamically import the useUnifiedAuth hook only on the client side
     const loadAuth = async () => {
       try {
-        const { useEnhancedAuth } = await import("@/hooks/useEnhancedAuth");
+        const { useUnifiedAuth } = await import("@/contexts/UnifiedAuthContext");
         // Try to use the hook, but catch any errors
         try {
-          const auth = useEnhancedAuth();
+          const auth = useUnifiedAuth();
           setAuthState({
             isAuthenticated: auth.isAuthenticated,
             isLoading: auth.isLoading,
           });
         } catch (error) {
-          // If useEnhancedAuth throws (e.g., outside provider), set to null state
+          // If useUnifiedAuth throws (e.g., outside provider), set to null state
           setAuthState({
             isAuthenticated: false,
             isLoading: false,
@@ -48,7 +48,7 @@ function useSafeEnhancedAuth() {
 }
 
 export function PersistentAuthReminder() {
-  const auth = useSafeEnhancedAuth();
+  const auth = useSafeUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [dismissCount, setDismissCount] = useState(0);
@@ -94,7 +94,27 @@ export function PersistentAuthReminder() {
 
   // Handle showing the reminder toast
   useEffect(() => {
-    if (auth && !auth.isLoading && !auth.isAuthenticated && shouldShowReminder) {
+    // Check if the green indicator light is visible (authenticated user)
+    const isGreenIndicatorVisible = () => {
+      if (typeof window !== "undefined") {
+        const indicator = document.querySelector('.fixed.top-4.right-4 .w-3.h-3.rounded-full.bg-green-500');
+        return indicator !== null;
+      }
+      return false;
+    };
+    
+    // Log for debugging purposes
+    if (auth && !auth.isLoading) {
+      console.log('[PersistentAuthReminder] Auth state:', {
+        isAuthenticated: auth.isAuthenticated,
+        isLoading: auth.isLoading,
+        greenIndicatorVisible: isGreenIndicatorVisible(),
+        shouldShowReminder
+      });
+    }
+    
+    // Only show reminder if user is not authenticated AND green indicator is not visible
+    if (auth && !auth.isLoading && !auth.isAuthenticated && !isGreenIndicatorVisible() && shouldShowReminder) {
       // Show a toast reminder with login/signup options
       toast({
         title: "Unlock Your Full Learning Experience",

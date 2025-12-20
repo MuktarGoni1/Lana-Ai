@@ -10,7 +10,7 @@ import { useState, useRef, useCallback } from "react";
 import { API_BASE } from '../../lib/api-config';
 import rateLimiter from "../../lib/rate-limiter";
 import { saveSearch } from '../../lib/search';
-import { isValidLessonResponse, sanitizeLessonContent } from "../../lib/response-validation";
+import { isValidLessonResponse, isValidResponseForMode, sanitizeLessonContent } from "../../lib/response-validation";
 
 interface Lesson {
   id?: string;
@@ -26,7 +26,7 @@ interface UseLessonStreamReturn {
   isTyping: boolean;
   error: string | null;
   retryCount: number;
-  handleSendMessage: (question: string, userAge: number | null) => Promise<void>;
+  handleSendMessage: (question: string, userAge: number | null, setSaveMessage?: (message: string | null) => void) => Promise<void>;
   setError: (error: string | null) => void;
   setRetryCount: (count: number) => void;
 }
@@ -110,11 +110,11 @@ export function useLessonStream(): UseLessonStreamReturn {
       const finalLesson = await response.json();
       
       // Validate and sanitize the lesson response
-      if (!isValidLessonResponse(finalLesson)) {
+      if (!isValidResponseForMode(finalLesson, 'lesson')) {
         console.warn('[lesson] Invalid lesson response structure', finalLesson);
         // Try to sanitize the content
         const sanitizedLesson = sanitizeLessonContent(finalLesson);
-        if (!isValidLessonResponse(sanitizedLesson)) {
+        if (!isValidResponseForMode(sanitizedLesson, 'lesson')) {
           // If still invalid, show an error
           setError("Received an invalid response format from the server. Please try again.");
           setIsTyping(false);
@@ -137,7 +137,37 @@ export function useLessonStream(): UseLessonStreamReturn {
       // Start save search immediately (parallel processing)
       const savePromise = saveSearch(q.trim()).then(saveResult => {
         console.log('✅ saveSearch result:', saveResult);
-      }).catch(console.error);
+        
+        // Check if the green indicator light is visible (authenticated user)
+        const isGreenIndicatorVisible = () => {
+          if (typeof window !== "undefined") {
+            const indicator = document.querySelector('.fixed.top-4.right-4 .w-3.h-3.rounded-full.bg-green-500');
+            return indicator !== null;
+          }
+          return false;
+        };
+        
+        // Log for debugging purposes
+        console.log('[useLessonStream] Save search result:', {
+          success: saveResult.success,
+          message: saveResult.message,
+          suggestion: saveResult.suggestion,
+          greenIndicatorVisible: isGreenIndicatorVisible()
+        });
+        
+        // Only show the message if it's a suggestion and green indicator is not visible
+        if (setSaveMessage && saveResult.suggestion !== false && !isGreenIndicatorVisible()) {
+          setSaveMessage(saveResult.message);
+          
+          // Show the message
+          // Note: This assumes the parent component handles the visibility timing
+        }
+      }).catch(error => {
+        console.error('Error saving search:', error);
+        if (setSaveMessage) {
+          setSaveMessage('Error saving search history.');
+        }
+      });
       
       // Ensure save completes
       await savePromise;

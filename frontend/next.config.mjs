@@ -5,7 +5,22 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-import { withSentryConfig } from "@sentry/nextjs";
+// Mock withSentryConfig function
+const mockWithSentryConfig = (config) => config;
+
+// Import Sentry with fallback
+let withSentryConfig = mockWithSentryConfig;
+
+// Try to import Sentry if available
+try {
+  // Use require for Sentry since it's a CommonJS module
+  if (process.env.NODE_ENV === 'production') {
+    const sentry = require("@sentry/nextjs");
+    withSentryConfig = sentry.withSentryConfig || mockWithSentryConfig;
+  }
+} catch (error) {
+  console.warn('Sentry not available, using mock');
+}
 
 /**
  * @type {import('next').NextConfig}
@@ -141,6 +156,11 @@ const nextConfig = {
   },
   // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
   // outputFileTracingRoot: undefined,
+  // Sentry configuration for development
+  sentry: {
+    disableServerWebpackPlugin: process.env.NODE_ENV === 'development',
+    disableClientWebpackPlugin: process.env.NODE_ENV === 'development',
+  },
 };
 
 // Sentry configuration
@@ -148,6 +168,9 @@ const sentryWebpackPluginOptions = {
   org: "lana-ai",
   project: "lana-frontend",
   silent: true,
+  // Disable Sentry webpack plugin in development to avoid HMR issues
+  disableServerWebpackPlugin: process.env.NODE_ENV === 'development',
+  disableClientWebpackPlugin: process.env.NODE_ENV === 'development',
 };
 
 // Export the wrapped config
