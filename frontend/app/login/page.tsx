@@ -297,7 +297,9 @@ function ChildFlow() {
         });
       }
     } catch (error: unknown) {
-      const errorDetails = formatErrorForToast(error);
+      // Convert unknown error to string or Error for formatErrorForToast
+      const errorForToast = error instanceof Error ? error : String(error);
+      const errorDetails = formatErrorForToast(errorForToast);
       toast({ 
         title: errorDetails.title, 
         description: errorDetails.description, 
