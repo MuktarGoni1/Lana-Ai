@@ -204,17 +204,16 @@ export async function middleware(req: NextRequest) {
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
-    const isOnboardingRoute = pathname === '/onboarding' || pathname === '/term-plan'
+    const isOnboardingRoute = pathname === '/onboarding' || pathname === '/term-plan' || pathname === '/consolidated-onboarding'
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
     
     // Check if this is a redirect from onboarding completion
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
-      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')
-      await authLogger.logRedirect(pathname, '/term-plan?onboarding=1', 'incomplete_onboarding', user?.id, user?.email);
-      const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
+      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to consolidated onboarding')
+      await authLogger.logRedirect(pathname, '/consolidated-onboarding', 'incomplete_onboarding', user?.id, user?.email);
+      const dest = new URL('/consolidated-onboarding', req.url)
       return NextResponse.redirect(dest)
     }
     

@@ -16,13 +16,13 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       const isComplete = Boolean(meta.onboarding_complete) || cookieComplete;
       const role = meta.role as 'child' | 'guardian' | undefined;
 
-      // Avoid reroute if already on term-plan onboarding
-      const isOnboardingRoute = window.location.pathname.startsWith('/term-plan') && new URLSearchParams(window.location.search).get('onboarding') === '1';
+      // Avoid reroute if already on consolidated onboarding
+      const isOnboardingRoute = window.location.pathname.startsWith('/consolidated-onboarding') || 
+                             (window.location.pathname.startsWith('/term-plan') && new URLSearchParams(window.location.search).get('onboarding') === '1');
       
-      // If onboarding not complete and not a child → go to term plan
+      // If onboarding not complete and not a child → go to consolidated onboarding
       if (!isComplete && role !== 'child' && !isOnboardingRoute) {
-        const returnTo = encodeURIComponent(currentPath || "/homepage");
-        router.replace(`/term-plan?onboarding=1&returnTo=${returnTo}`);
+        router.replace('/consolidated-onboarding');
         return true;
       }
 
