@@ -203,6 +203,18 @@ interface LessonQuizItem {
   answer: string;
 }
 
+interface MathStepUI {
+  description: string;
+  expression?: string | null;
+}
+
+interface MathSolutionUI {
+  problem: string;
+  solution: string;
+  steps?: MathStepUI[];
+  error?: string | null;
+}
+
 interface Lesson {
   id?: string;
   introduction?: string;
@@ -814,6 +826,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const [showVideoButton, setShowVideoButton] = useState(false);
   const [storedLong, setStoredLong] = useState("");
   const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -975,6 +988,154 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     setShowVideoButton(false);
     setLessonJson(null);
 
+    // Handle mode-based routing for chat, quick, maths, and lesson modes
+    const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
+    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'lesson'; // Default to lesson mode
+    const cleanText = modeMatch ? modeMatch[2] : q;
+    
+    // Ensure we have a proper message for the API
+    const apiMessage = cleanText.trim() || q;
+    
+    // For all modes, use the new chat API endpoint
+    if (mode === 'chat' || mode === 'quick' || mode === 'lesson' || mode === 'maths') {
+      try {
+        // Get session ID for user identification
+        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        
+        // Prepare request payload
+        const payload: any = {
+          userId: sid,
+          message: apiMessage,
+          age: userAge,
+          mode: mode
+        };
+        
+        // Check rate limit before making request
+        const endpoint = '/api/chat';
+        if (!rateLimiter.isAllowed(endpoint)) {
+          const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+          setIsTyping(false);
+          return;
+        }
+        
+        // Make API call to chat endpoint
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: abortRef.current.signal,
+        });
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to get response from server";
+          switch (response.status) {
+            case 400:
+              errorMessage = "Invalid request. Please try rephrasing your question.";
+              break;
+            case 401:
+              errorMessage = "Authentication required. Please log in again.";
+              break;
+            case 429:
+              errorMessage = "Too many requests. Please wait a moment and try again.";
+              break;
+            case 500:
+              errorMessage = "Server error. Please try again later.";
+              break;
+            case 503:
+              errorMessage = "Service temporarily unavailable. Please try again later.";
+              break;
+            default:
+              errorMessage = `Server error (${response.status}). Please try again later.`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const chatResponse = await response.json();
+        
+        // Handle the response based on mode
+        if (chatResponse.error) {
+          setError(chatResponse.error);
+        } else {
+          // For chat mode, display the reply directly
+          if (chatResponse.mode === 'chat') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          } 
+          // For quick mode, display the reply directly
+          else if (chatResponse.mode === 'quick') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+          // For lesson mode, handle as structured lesson
+          else if (chatResponse.mode === 'lesson') {
+            // Parse the reply as JSON if it's a structured lesson
+            try {
+              const lessonData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setLessonJson(lessonData);
+            } catch (parseError) {
+              // If parsing fails, check if it's already a valid lesson object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setLessonJson(chatResponse.reply);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
+            }
+          }
+          // For maths mode, handle as math solution
+          else if (chatResponse.mode === 'maths') {
+            // Parse the reply as JSON if it's a math solution
+            try {
+              const mathData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setMathSolution(mathData);
+            } catch (parseError) {
+              // If parsing fails, check if it's already a valid math solution object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setMathSolution(chatResponse.reply);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
+            }
+          }
+          // For other modes, display the reply directly
+          else {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+        }
+        
+        setIsTyping(false);
+        setShowVideoButton(true);
+        
+        // Save search history
+        const savePromise = saveSearch(apiMessage.trim()).catch(console.error);
+        await savePromise;
+        
+        return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") {
+          if (process.env.NODE_ENV === 'development') console.debug('[chat] aborted');
+          setError("Request was cancelled or timed out. Please try again.");
+        } else {
+          const errorMessage = e instanceof Error ? e.message : "Chat request failed";
+          setError(errorMessage);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[chat] error', e);
+          }
+        }
+      } finally {
+        setIsTyping(false);
+        setValue('');
+      }
+      return;
+    }
+
     // legacy video path
     if (q.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
@@ -1015,7 +1176,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       return;
     }
 
-    // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
+    // Default structured lesson path for non-prefixed inputs
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
@@ -1023,7 +1184,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       }
       
       // Check rate limit before making request
-      const endpoint = '/api/structured-lesson/stream';
+      const endpoint = '/api/structured-lesson';
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
         setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1031,7 +1192,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
         return;
       }
       
-      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      const lessonEndpoint = '/api/structured-lesson';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

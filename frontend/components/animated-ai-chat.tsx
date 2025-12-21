@@ -992,10 +992,13 @@ interface AnimatedAIChatProps {
     setError(null);
 
     // Handle mode-based routing for chat, quick, maths, and lesson modes
-    const modeMatch = sanitizedInput.match(/^\/(\w+)\s*(.*)/);
+    const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
     const mode = modeMatch ? modeMatch[1].toLowerCase() : 'chat';
     const cleanText = modeMatch ? modeMatch[2] : sanitizedInput;
-
+    
+    // Ensure we have a proper message for the API
+    const apiMessage = cleanText.trim() || sanitizedInput;
+      
     // For all modes, use the new chat API endpoint
     if (mode === 'chat' || mode === 'quick' || mode === 'lesson' || mode === 'maths') {
       try {
@@ -1017,8 +1020,9 @@ interface AnimatedAIChatProps {
         // Prepare request payload
         const payload: any = {
           userId: sid,
-          message: sanitizedInput,
-          age: userAge
+          message: apiMessage,
+          age: userAge,
+          mode: mode
         };
         
         // Check rate limit before making request
@@ -1093,9 +1097,14 @@ interface AnimatedAIChatProps {
               // Save the selected mode
               saveSelectedMode('lesson');
             } catch (parseError) {
-              // If parsing fails, treat as regular text
-              setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-              setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              // If parsing fails, check if it's already a valid lesson object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setLessonJson(chatResponse.reply as Lesson);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
               saveSelectedMode('lesson');
             }
           }
@@ -1108,9 +1117,14 @@ interface AnimatedAIChatProps {
               // Save the selected mode
               saveSelectedMode('maths');
             } catch (parseError) {
-              // If parsing fails, treat as regular text
-              setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-              setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              // If parsing fails, check if it's already a valid math solution object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setMathSolution(chatResponse.reply as MathSolutionUI);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
               saveSelectedMode('maths');
             }
           }
