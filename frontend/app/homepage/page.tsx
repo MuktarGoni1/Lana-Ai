@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import { cn } from "@/lib/utils";
 import rateLimiter from "@/lib/rate-limiter";
 import { isValidLessonResponse, sanitizeLessonContent } from "@/lib/response-validation";
+import { saveSelectedMode } from "@/lib/mode-storage";
 import {
   Paperclip,
   Command,
@@ -154,9 +155,10 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: UseAutoResizeTextareaPr
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   containerClassName?: string;
   showRing?: boolean;
+  mode?: string; // Add mode prop for visual indication
 }
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, containerClassName, showRing = true, ...props }, ref) => {
+  ({ className, containerClassName, showRing = true, mode, ...props }, ref) => {
     const [focused, setFocused] = useState(false);
     return (
       <div className={cn("relative", containerClassName)}>
@@ -173,6 +175,11 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           onBlur={() => setFocused(false)}
           {...props}
         />
+        {mode && (
+          <div className="absolute top-2 right-3 text-xs text-white/40 pointer-events-none">
+            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
+          </div>
+        )}
         {showRing && focused && (
           <motion.span
             className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20"
@@ -871,18 +878,21 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
   // Function to handle mode button clicks and activate command palette with placeholder text
   const handleModeClick = (mode: string) => {
+    // Save the selected mode to session storage
+    saveSelectedMode(mode);
+    
     switch (mode) {
       case "lesson":
-        setValue("/lesson");
+        setValue("/lesson ");
         break;
       case "maths":
-        setValue("/Maths");
+        setValue("/Maths ");
         break;
       case "chat":
-        setValue("/Chat");
+        setValue("/Chat ");
         break;
       case "quick":
-        setValue("/quick");
+        setValue("/quick ");
         break;
       default:
         // For any other mode, we don't set a specific value
@@ -971,6 +981,16 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     return "What would you like to learn today?";
   };
 
+  // Function to get the current mode from input value
+  const getCurrentMode = (inputValue: string): string => {
+    const modeMatch = inputValue.match(/^\/?(\w+)\s*/);
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    if (modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase())) {
+      return modeMatch[1].toLowerCase();
+    }
+    return 'lesson'; // Default mode
+  };
+
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
     const q = value.trim();
@@ -990,14 +1010,19 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
     // Handle mode-based routing for chat, quick, maths, and lesson modes
     const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
-    const mode = modeMatch ? modeMatch[1].toLowerCase() : 'lesson'; // Default to lesson mode
-    const cleanText = modeMatch ? modeMatch[2] : q;
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    const mode = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
+      ? modeMatch[1].toLowerCase() 
+      : 'lesson'; // Standardized to 'lesson' mode
+    const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
+      ? modeMatch[2] 
+      : q;
     
     // Ensure we have a proper message for the API
     const apiMessage = cleanText.trim() || q;
     
     // For all modes, use the new chat API endpoint
-    if (mode === 'chat' || mode === 'quick' || mode === 'lesson' || mode === 'maths') {
+    if (SUPPORTED_MODES.includes(mode)) {
       try {
         // Get session ID for user identification
         const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
@@ -1486,6 +1511,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={getModePlaceholder()}
+                mode={getCurrentMode(value)}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
