@@ -17,7 +17,8 @@ import {
   Trash2, 
   Loader2,
   Clock,
-  BarChart3
+  BarChart3,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -741,7 +742,6 @@ export default function ConsolidatedOnboarding() {
                           )}
                           <User className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
                         </div>
-                        )}
                       </div>
                                 
                       <div className="space-y-2">
