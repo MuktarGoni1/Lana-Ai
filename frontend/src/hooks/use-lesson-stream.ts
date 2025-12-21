@@ -39,7 +39,7 @@ export function useLessonStream(): UseLessonStreamReturn {
   const abortRef = useRef<AbortController | null>(null);
   const MAX_RETRIES = 3;
 
-  const handleSendMessage = useCallback(async (question: string, userAge: number | null) => {
+  const handleSendMessage = useCallback(async (question: string, userAge: number | null, setSaveMessage?: (message: string | null) => void) => {
     const q = question.trim();
     if (!q) return;
 

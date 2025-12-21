@@ -469,8 +469,6 @@ function ChatWithSidebarContent() {
               <span>LANA AI</span>
             </div>
           </header>
-          {/* Post-onboarding prompt for study plan */}
-          <PostOnboardingPrompt />
           <div className="flex-1">
             {view === "chat" ? (
               <Suspense fallback={
