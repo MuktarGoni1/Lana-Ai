@@ -176,7 +176,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           {...props}
         />
         {mode && (
-          <div className="absolute top-2 right-3 text-xs text-white/40 pointer-events-none">
+          <div className="absolute top-2 right-3 text-xs text-white/60 pointer-events-none z-10 font-medium">
             {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
           </div>
         )}
