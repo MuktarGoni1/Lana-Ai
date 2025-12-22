@@ -118,8 +118,10 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     
     // Get the current mode prefix from the value
-    const modePrefix = value.match(/^\/\w+\s/) ? value.match(/^\/\w+\s/)[0] : '';
-    const content = value.slice(modePrefix.length);
+    const stringValue = typeof value === 'string' ? value : '';
+    const modeMatch = stringValue.match(/^\/\w+\s/);
+    const modePrefix = modeMatch ? modeMatch[0] : '';
+    const content = stringValue.slice(modePrefix.length);
     
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (onValueChange && textareaRef.current) {
@@ -190,13 +192,13 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             }
           }}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
+          onFocus={(e) => {
             setFocused(true);
-            if (props.onFocus) props.onFocus();
+            if (props.onFocus) props.onFocus(e);
           }}
-          onBlur={() => {
+          onBlur={(e) => {
             setFocused(false);
-            if (props.onBlur) props.onBlur();
+            if (props.onBlur) props.onBlur(e);
           }}
           {...props}
         />

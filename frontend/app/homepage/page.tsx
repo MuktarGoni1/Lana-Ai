@@ -156,9 +156,19 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   containerClassName?: string;
   showRing?: boolean;
   mode?: string; // Add mode prop for visual indication
+  onValueChange?: (value: string) => void; // Add callback for value changes
 }
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, containerClassName, showRing = true, mode, ...props }, ref) => {
+  ({ className, containerClassName, showRing = true, mode, onValueChange, ...props }, ref) => {
+    const handleOnChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (onValueChange) {
+        onValueChange(e.target.value);
+      }
+      // Call the original onChange if it exists
+      if (props.onChange) {
+        props.onChange(e);
+      }
+    };
     const [focused, setFocused] = useState(false);
     return (
       <div className={cn("relative", containerClassName)}>
@@ -173,6 +183,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          onChange={handleOnChange}
           {...props}
         />
         {showRing && focused && (
