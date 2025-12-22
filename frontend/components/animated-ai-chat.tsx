@@ -844,8 +844,8 @@ interface AnimatedAIChatProps {
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
     { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
@@ -859,10 +859,10 @@ interface AnimatedAIChatProps {
         setValue("/lesson ");
         break;
       case "maths":
-        setValue("/Maths ");
+        setValue("/maths ");
         break;
       case "chat":
-        setValue("/Chat ");
+        setValue("/chat ");
         break;
       case "quick":
         setValue("/quick ");
@@ -954,10 +954,10 @@ interface AnimatedAIChatProps {
   const getModePlaceholder = (): string => {
     if (value.startsWith("/lesson")) {
       return "/lesson - Please input a topic for structured learning";
-    } else if (value.startsWith("/Maths")) {
-      return "/Maths - Please input a maths question";
-    } else if (value.startsWith("/Chat")) {
-      return "/Chat - Please input your question";
+    } else if (value.startsWith("/maths")) {
+      return "/maths - Please input a maths question";
+    } else if (value.startsWith("/chat")) {
+      return "/chat - Please input your question";
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
