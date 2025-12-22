@@ -110,10 +110,56 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
   containerClassName?: string;
   showRing?: boolean;
   mode?: string; // Add mode prop for visual indication
+  onValueChange?: (value: string) => void; // Add callback for value changes
 }
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, containerClassName, showRing = true, mode, ...props }, ref) => {
+  ({ className, containerClassName, showRing = true, mode, onValueChange, value = '', ...props }, ref) => {
     const [focused, setFocused] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Get the current mode prefix from the value
+    const modePrefix = value.match(/^\/\w+\s/) ? value.match(/^\/\w+\s/)[0] : '';
+    const content = value.slice(modePrefix.length);
+    
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (onValueChange && textareaRef.current) {
+        const target = textareaRef.current;
+        const cursorPosition = target.selectionStart;
+        
+        // If we're at the beginning or within the mode prefix, handle special deletion
+        if (cursorPosition <= modePrefix.length && modePrefix) {
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            // Remove the entire mode prefix
+            onValueChange(content);
+            // Set cursor to the beginning of the content after update
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = 0;
+                textareaRef.current.selectionEnd = 0;
+              }
+            }, 0);
+          } else if (e.key.length === 1) { // Regular character input
+            e.preventDefault();
+            // Replace the entire mode prefix with the new character plus content
+            onValueChange(e.key + content);
+            // Set cursor after the new character
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = 1;
+                textareaRef.current.selectionEnd = 1;
+              }
+            }, 0);
+          }
+        }
+        
+        // Handle the original onKeyDown if it exists
+        if (props.onKeyDown) {
+          props.onKeyDown(e);
+        }
+      }
+    };
+    
     return (
       <div className={cn("relative", containerClassName)}>
         <textarea
@@ -124,9 +170,34 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             showRing && "focus:outline-none",
             className
           )}
-          ref={ref}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          ref={(node) => {
+            if (node) {
+              (textareaRef as React.MutableRefObject<HTMLTextAreaElement>).current = node;
+              if (typeof ref === 'function') {
+                ref(node);
+              } else if (ref) {
+                ref.current = node;
+              }
+            }
+          }}
+          value={value}
+          onChange={(e) => {
+            if (onValueChange) {
+              onValueChange(e.target.value);
+            }
+            if (props.onChange) {
+              props.onChange(e);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            setFocused(true);
+            if (props.onFocus) props.onFocus();
+          }}
+          onBlur={() => {
+            setFocused(false);
+            if (props.onBlur) props.onBlur();
+          }}
           {...props}
         />
         {showRing && focused && (
@@ -1007,12 +1078,12 @@ interface AnimatedAIChatProps {
     setMathSolution(null);
     setError(null);
 
-    // Handle mode-based routing for chat, quick, maths, and lesson modes
-    const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
+    // Use the current mode from the input field for routing
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    const mode = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
-      ? modeMatch[1].toLowerCase() 
-      : 'lesson'; // Standardized to 'lesson' mode
+    const mode = getCurrentMode(sanitizedInput);
+    
+    // Extract the actual message content by removing the mode prefix
+    const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
     const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
       ? modeMatch[2] 
       : sanitizedInput;
@@ -1651,8 +1722,8 @@ interface AnimatedAIChatProps {
               <Textarea
                 ref={autoRef}
                 value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
+                onValueChange={(newValue) => {
+                  setValue(newValue);
                   adjustHeight();
                 }}
                 onKeyDown={handleKeyDown}

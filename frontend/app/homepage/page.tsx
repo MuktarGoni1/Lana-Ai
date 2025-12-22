@@ -1008,12 +1008,12 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     setShowVideoButton(false);
     setLessonJson(null);
 
-    // Handle mode-based routing for chat, quick, maths, and lesson modes
-    const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
+    // Use the current mode from the input field for routing
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    const mode = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
-      ? modeMatch[1].toLowerCase() 
-      : 'lesson'; // Standardized to 'lesson' mode
+    const mode = getCurrentMode(q);
+    
+    // Extract the actual message content by removing the mode prefix
+    const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
     const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
       ? modeMatch[2] 
       : q;
@@ -1503,8 +1503,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                   if (textareaRef.current !== node) (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
                 }}
                 value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
+                onValueChange={(newValue) => {
+                  setValue(newValue);
                   adjustHeight();
                 }}
                 onKeyDown={handleKeyDown}
