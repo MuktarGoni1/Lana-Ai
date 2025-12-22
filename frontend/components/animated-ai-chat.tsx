@@ -129,19 +129,19 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           onBlur={() => setFocused(false)}
           {...props}
         />
-        {mode && (
-          <div className="absolute top-2 right-3 text-xs text-white/60 pointer-events-none z-10 font-medium">
-            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
-          </div>
-        )}
         {showRing && focused && (
           <motion.span
-            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20"
+            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20 z-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           />
+        )}
+        {mode && (
+          <div className="absolute top-2 right-3 text-xs text-white/80 pointer-events-none z-20 font-medium">
+            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
+          </div>
         )}
       </div>
     );
