@@ -32,8 +32,8 @@ export async function POST(req: Request) {
 
     // Proxy the request to the backend service
     try {
-      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/chat`;
+      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/chat/`;
       
       // Validate backend URL
       try {

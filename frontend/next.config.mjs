@@ -134,7 +134,8 @@ const nextConfig = {
       'tts',
       'quiz',
       'subscription/status',
-      'structured-lesson'
+      'structured-lesson',
+      'chat'
     ];
     
     // Log the exclusion pattern for debugging
