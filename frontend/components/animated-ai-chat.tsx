@@ -1252,9 +1252,10 @@ interface AnimatedAIChatProps {
         setIsTyping(false);
         setValue('');
       }
+      // If we successfully processed a supported mode, return early to avoid fallback processing
       return;
     }
-
+    
     // legacy video path
     if (sanitizedInput.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
