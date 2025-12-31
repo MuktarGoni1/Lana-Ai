@@ -1,0 +1,8 @@
+{
+  "compilerOptions": {
+    "lib": ["deno.ns", "deno.window", "dom", "es2021"],
+    "allowJs": true,
+    "types": ["./global.d.ts"]
+  },
+  "importMap": "./import_map.json"
+}

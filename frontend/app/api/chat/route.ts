@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { userId, message, age } = body;
+    const { userId, message, age, mode } = body;
 
     if (!userId || !message) {
       return NextResponse.json({ error: 'userId and message are required' }, { status: 400 });
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, message, age }),
+          body: JSON.stringify({ user_id: userId, message, age, mode }),
         },
         { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }
       );

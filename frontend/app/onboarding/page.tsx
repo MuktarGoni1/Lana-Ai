@@ -240,7 +240,7 @@ export default function OnboardingPage() {
         })
         // Redirect to quiz to complete onboarding assessment
         console.log('[Onboarding] Redirecting to quiz');
-        router.push('/quiz');
+        router.push('/quiz?onboarding=1');
       } catch (err: unknown) {
         // Handle registration failure by saving locally
         console.error('[Onboarding] Registration failed:', err);
@@ -258,7 +258,7 @@ export default function OnboardingPage() {
         
         // Redirect to quiz to complete onboarding assessment
         console.log('[Onboarding] Redirecting to quiz despite local save');
-        router.push('/quiz');
+        router.push('/quiz?onboarding=1');
       }
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);

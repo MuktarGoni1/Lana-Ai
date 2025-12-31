@@ -58,6 +58,11 @@ Alternatively, you can manually run the SQL files in the Supabase dashboard:
 
 See `scripts/README.md` for more details.
 
+### Available Scripts
+
+- `npm run supabase:setup` - Provides step-by-step instructions for creating required Supabase tables
+- `npm run supabase:verify` - Verifies that required tables and columns exist in your Supabase database
+
 ## Auth & Routing
 
 - Centralized auth gating with role-based redirects is handled in `middleware.ts`.

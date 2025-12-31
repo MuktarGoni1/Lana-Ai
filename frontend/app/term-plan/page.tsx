@@ -178,7 +178,7 @@ function TermPlanPageContent() {
 
       // Redirect to homepage after onboarding completion
       console.log('[term-plan] redirecting to homepage after onboarding completion');
-      router.push('/homepage');
+      router.push('/homepage?onboardingComplete=1');
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
@@ -283,7 +283,7 @@ function TermPlanPageContent() {
     try {
       // Redirect to homepage when skipping
       console.log('[term-plan] skipping to homepage');
-      router.push('/homepage');
+      router.push('/homepage?onboardingComplete=1');
     } catch (err: any) {
       console.error('[term-plan] skip error:', err.message);
       console.error('[term-plan] skip error details:', err);

@@ -583,8 +583,8 @@ export default function ConsolidatedOnboarding() {
           localStorage.removeItem('lana_consolidated_onboarding');
         }
         
-        // Redirect to homepage
-        router.push('/homepage');
+        // Redirect to homepage with onboarding completion parameter
+        router.push('/homepage?onboardingComplete=1');
       } else {
         throw new Error(result.error || 'Failed to complete onboarding');
       }
@@ -628,8 +628,8 @@ export default function ConsolidatedOnboarding() {
         }
       }
       
-      // Redirect to homepage
-      router.push('/homepage');
+      // Redirect to homepage with onboarding completion parameter
+      router.push('/homepage?onboardingComplete=1');
     } catch (error) {
       console.error('Skip onboarding error:', error);
       toast({ 

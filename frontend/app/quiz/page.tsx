@@ -521,9 +521,10 @@ interface QuizResultsProps {
   onRestart: () => void;
   onGoHome: () => void;
   onGoBack: () => void;
+  isOnboarding?: boolean;
 }
 
-function QuizResults({ questions, answers, onRestart, onGoHome, onGoBack }: QuizResultsProps) {
+function QuizResults({ questions, answers, onRestart, onGoHome, onGoBack, isOnboarding = false }: QuizResultsProps) {
   const score = useMemo(
     () => questions.reduce((acc, q, i) => (answers[i] === q.answer ? acc + 1 : acc), 0),
     [questions, answers]
@@ -571,7 +572,7 @@ function QuizResults({ questions, answers, onRestart, onGoHome, onGoBack }: Quiz
             Try Again
           </Button>
           <Button variant="secondary" onClick={onGoHome}>
-            More Quizzes
+            {isOnboarding ? 'Continue Setup' : 'More Quizzes'}
           </Button>
           <Button onClick={onGoBack}>Back to Lesson</Button>
         </div>
@@ -822,8 +823,17 @@ function QuizContent() {
   }, [router]);
 
   const handleGoHome = useCallback(() => {
-    router.push("/homepage");
-  }, [router]);
+    // Check if we're in onboarding mode by looking at the URL params
+    const isOnboarding = searchParams.get('onboarding') === '1' || searchParams.get('onboarding') === 'true';
+    
+    if (isOnboarding) {
+      // If in onboarding mode, go to the next step in the onboarding flow (term-plan)
+      router.push('/term-plan?onboarding=1');
+    } else {
+      // Otherwise, go to homepage normally
+      router.push('/homepage');
+    }
+  }, [router, searchParams]);
 
   const handleRetry = useCallback(() => {
     // Trigger refetch by forcing a state update
@@ -853,6 +863,7 @@ function QuizContent() {
         onRestart={handleRestart}
         onGoHome={handleGoHome}
         onGoBack={handleGoBack}
+        isOnboarding={searchParams.get('onboarding') === '1' || searchParams.get('onboarding') === 'true'}
       />
     );
   }

@@ -14,6 +14,8 @@ Automatic progress reports sent to parents.
 
 AI tutor/avatar that engages and motivates students.
 
+Automated guardian reports with weekly and monthly summaries.
+
 Vision: To make learning personal, intelligent, and transparent — helping every child learn better, and every parent stay connected to their progress. 🚀 Tech Stack
 
 Frontend: Next.js + Tailwind CSS
@@ -38,3 +40,18 @@ For deployment on Render, we provide a template configuration file `backend/rend
    - SUPABASE_ANON_KEY
 
 The `render.yaml` file is intentionally excluded from version control to protect sensitive credentials.
+
+## Guardian Reports Setup
+
+The Lana AI system includes automated guardian reports functionality with:
+
+- **Supabase Edge Functions** for automated report generation and email delivery
+  - `generate-guardian-reports`: Generates structured reports for guardians
+  - `send-guardian-reports`: Sends email reports to guardians
+- **Scheduled Functions** (cron jobs) for automatic execution:
+  - Weekly reports: Every Monday at 9 AM UTC
+  - Monthly reports: 1st of every month at 9 AM UTC
+  - Email delivery: Every hour to process unsent reports
+- **Database Integration** with existing tables (`guardians`, `user_events`, `user_learning_profiles`, `guardian_reports`)
+
+For the complete setup guide, see `SETUP_SCHEDULED_FUNCTIONS.md` in the project root.

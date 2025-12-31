@@ -11,11 +11,15 @@ Provides instructions for creating the required tables for user activity trackin
 1. `user_events` table - Stores user activity tracking events
 2. `learning_profile` column - Adds learning profile data to the users table
 
+This script outputs the exact SQL commands needed to create the tables and columns in your Supabase project.
+
 Note: Tables must be created manually using the SQL files in `backend/migrations/versions/`.
 
 ### supabase-table-verify.js
 
 Verifies that the required tables and columns exist in your Supabase database.
+
+This script will check for the existence of the `user_events` table and the `learning_profile` column in the users table, and provide feedback on whether the setup is complete.
 
 ## Prerequisites
 
