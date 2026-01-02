@@ -1081,12 +1081,17 @@ interface AnimatedAIChatProps {
 
     // Use the current mode from the input field for routing, with fallback to selected UI mode
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    const modeFromInput = getCurrentMode(sanitizedInput);
-    // If the input doesn't have a mode prefix, use the currently selected mode from UI
-    const currentSelectedMode = getSelectedMode() || 'lesson';
-    const mode = modeFromInput !== 'lesson' || sanitizedInput.startsWith('/lesson') || sanitizedInput.startsWith('/chat') || sanitizedInput.startsWith('/quick') || sanitizedInput.startsWith('/maths') 
-      ? modeFromInput 
-      : currentSelectedMode;
+    
+    // Check if the input explicitly contains a mode prefix
+    const hasExplicitModePrefix = /^\/(chat|quick|lesson|maths)\b/.test(sanitizedInput);
+    
+    if (hasExplicitModePrefix) {
+      // If there's an explicit prefix in the input, use the mode from input
+      var mode = getCurrentMode(sanitizedInput);
+    } else {
+      // Otherwise, use the currently selected mode from UI
+      var mode = getSelectedMode() || 'lesson';
+    }
     
     // Extract the actual message content by removing the mode prefix
     const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
