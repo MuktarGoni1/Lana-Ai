@@ -23,10 +23,13 @@ import {
   PersonStandingIcon,
   AlertCircle,
   RefreshCw,
+  CheckIcon,
+  Plus,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
-import { Plus, X } from "lucide-react";
+
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
