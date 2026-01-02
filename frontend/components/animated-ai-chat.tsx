@@ -213,11 +213,6 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             transition={{ duration: 0.2 }}
           />
         )}
-        {mode && (
-          <div className="absolute top-2 right-3 text-xs text-white/80 pointer-events-none z-20 font-medium">
-            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
-          </div>
-        )}
       </div>
     );
   }
@@ -1084,9 +1079,14 @@ interface AnimatedAIChatProps {
     setMathSolution(null);
     setError(null);
 
-    // Use the current mode from the input field for routing
+    // Use the current mode from the input field for routing, with fallback to selected UI mode
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    const mode = getCurrentMode(sanitizedInput);
+    const modeFromInput = getCurrentMode(sanitizedInput);
+    // If the input doesn't have a mode prefix, use the currently selected mode from UI
+    const currentSelectedMode = getSelectedMode() || 'lesson';
+    const mode = modeFromInput !== 'lesson' || sanitizedInput.startsWith('/lesson') || sanitizedInput.startsWith('/chat') || sanitizedInput.startsWith('/quick') || sanitizedInput.startsWith('/maths') 
+      ? modeFromInput 
+      : currentSelectedMode;
     
     // Extract the actual message content by removing the mode prefix
     const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
