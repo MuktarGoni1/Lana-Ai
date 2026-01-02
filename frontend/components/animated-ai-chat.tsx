@@ -849,25 +849,14 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const storedMode = getSelectedMode();
     if (storedMode) {
-      // Set the initial value based on the stored mode
-      switch (storedMode) {
-        case "lesson":
-          setValue("/lesson ");
-          break;
-        case "maths":
-          setValue("/Maths ");
-          break;
-        case "chat":
-          setValue("/Chat ");
-          break;
-        case "quick":
-          setValue("/quick ");
-          break;
-        default:
-          // For any other mode or default, we don't set a specific value
-          break;
-      }
+      // Save the stored mode to session storage (just to ensure it's set)
+      saveSelectedMode(storedMode);
+    } else {
+      // Default to lesson mode when no stored mode exists
+      saveSelectedMode('lesson');
     }
+    // Initialize with empty value - the mode will be indicated visually
+    setValue("");
   }, []);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -922,30 +911,15 @@ interface AnimatedAIChatProps {
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
-  // Function to handle mode button clicks and activate command palette with placeholder text
+  // Function to handle mode button clicks and save the selected mode
   const handleModeClick = (mode: string) => {
     // Save the selected mode to session storage
     saveSelectedMode(mode);
     
-    switch (mode) {
-      case "lesson":
-        setValue("/lesson ");
-        break;
-      case "maths":
-        setValue("/maths ");
-        break;
-      case "chat":
-        setValue("/chat ");
-        break;
-      case "quick":
-        setValue("/quick ");
-        break;
-      default:
-        // For any other mode, we don't set a specific value
-        break;
-    }
-    setShowCommandPalette(true);
-    // Focus the textarea after setting the value
+    // Clear the input field and let the placeholder show the mode hint
+    setValue("");
+    
+    // Focus the textarea
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -1023,8 +997,9 @@ interface AnimatedAIChatProps {
     };
   }, [mouseX, mouseY]);
 
-  // Function to get the appropriate placeholder based on the current mode
+  // Function to get the appropriate placeholder based on the currently selected mode
   const getModePlaceholder = (): string => {
+    // If there's input text that starts with a mode prefix, use that mode
     if (value.startsWith("/lesson")) {
       return "/lesson - Please input a topic for structured learning";
     } else if (value.startsWith("/maths")) {
@@ -1034,8 +1009,22 @@ interface AnimatedAIChatProps {
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
-    // Default to structured lesson mode
-    return "/lesson - Please input a topic for structured learning";
+    
+    // Otherwise, use the currently stored mode
+    const currentMode = getSelectedMode() || 'lesson';
+    switch (currentMode) {
+      case "lesson":
+        return "/lesson - Please input a topic for structured learning";
+      case "maths":
+        return "/maths - Please input a maths question";
+      case "chat":
+        return "/chat - Please input your question";
+      case "quick":
+        return "/quick - Please input your question for a quick answer";
+      default:
+        // Default to structured lesson mode
+        return "/lesson - Please input a topic for structured learning";
+    }
   };
 
   // Function to get the current mode from input value
@@ -1700,7 +1689,10 @@ interface AnimatedAIChatProps {
                         if (s.action) {
                           s.action();
                         } else {
-                          setValue(s.prefix);
+                          // Save the selected mode based on the prefix without pre-filling the input
+                          const modeFromPrefix = s.prefix.replace('/', '').toLowerCase();
+                          saveSelectedMode(modeFromPrefix);
+                          setValue(""); // Clear the input field
                           setShowCommandPalette(false);
                         }
                         // Focus the textarea after selection
