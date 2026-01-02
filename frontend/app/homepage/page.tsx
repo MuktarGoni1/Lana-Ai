@@ -8,7 +8,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import { cn } from "@/lib/utils";
 import rateLimiter from "@/lib/rate-limiter";
 import { isValidLessonResponse, sanitizeLessonContent } from "@/lib/response-validation";
-import { saveSelectedMode } from "@/lib/mode-storage";
+import { getSelectedMode, saveSelectedMode } from '@/lib/mode-storage';
 import {
   Paperclip,
   Command,
@@ -853,6 +853,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
+  const [selectedMode, setSelectedMode] = useState<string>('lesson'); // Track selected mode for UI
+  const [modeFeedback, setModeFeedback] = useState<string | null>(null); // Track mode selection feedback
   const router = useRouter();
   
   const { textareaRef: autoRef, adjustHeight } = useAutoResizeTextarea({
@@ -887,10 +889,19 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     },
   ];
 
-  // Function to handle mode button clicks and activate command palette with placeholder text
+  // Function to handle mode button clicks and save the selected mode
   const handleModeClick = (mode: string) => {
     // Save the selected mode to session storage
     saveSelectedMode(mode);
+    
+    // Update the selected mode state for UI feedback
+    setSelectedMode(mode);
+    
+    // Provide visual feedback for mode selection
+    setModeFeedback(mode);
+    setTimeout(() => {
+      setModeFeedback(null);
+    }, 1000); // Clear feedback after 1 second
     
     switch (mode) {
       case "lesson":
@@ -919,6 +930,20 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   };
 
   /* --- effects ----------------------------------------------------- */
+  // Initialize with stored mode if available
+  useEffect(() => {
+    const storedMode = getSelectedMode();
+    if (storedMode) {
+      // Save the stored mode to session storage (just to ensure it's set)
+      saveSelectedMode(storedMode);
+    } else {
+      // Default to lesson mode when no stored mode exists
+      saveSelectedMode('lesson');
+    }
+    // Initialize with empty value - the mode will be indicated visually
+    setValue("");
+  }, []);
+  
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const getUserAge = async () => {
@@ -978,8 +1003,9 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     };
   }, [mouseX, mouseY]);
 
-  // Function to get the appropriate placeholder based on the current mode
+  // Function to get the appropriate placeholder based on the currently selected mode
   const getModePlaceholder = (): string => {
+    // If there's input text that starts with a mode prefix, use that mode
     if (value.startsWith("/lesson")) {
       return "/lesson - Please input a topic for structured learning";
     } else if (value.startsWith("/maths")) {
@@ -989,7 +1015,22 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
-    return "What would you like to learn today?";
+    
+    // Otherwise, use the currently stored mode
+    const currentMode = getSelectedMode() || 'lesson';
+    switch (currentMode) {
+      case "lesson":
+        return "/lesson - Please input a topic for structured learning";
+      case "maths":
+        return "/maths - Please input a maths question";
+      case "chat":
+        return "/chat - Please input your question";
+      case "quick":
+        return "/quick - Please input your question for a quick answer";
+      default:
+        // Default to structured lesson mode
+        return "/lesson - Please input a topic for structured learning";
+    }
   };
 
   // Function to get the current mode from input value
@@ -1019,9 +1060,20 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     setShowVideoButton(false);
     setLessonJson(null);
 
-    // Use the current mode from the input field for routing
+    // Use the current mode from the input field for routing, with fallback to selected UI mode
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    const mode = getCurrentMode(q);
+    
+    // Check if the input explicitly contains a mode prefix
+    const hasExplicitModePrefix = /^\/(chat|quick|lesson|maths)\b/.test(q);
+    
+    let mode;
+    if (hasExplicitModePrefix) {
+      // If there's an explicit prefix in the input, use the mode from input
+      mode = getCurrentMode(q);
+    } else {
+      // Otherwise, use the currently selected mode from UI
+      mode = getSelectedMode() || 'lesson';
+    }
     
     // Extract the actual message content by removing the mode prefix
     const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
@@ -1527,6 +1579,37 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
               />
+            </div>
+
+            {/* mode selection buttons */}
+            <div className="px-4 flex flex-wrap gap-2 justify-center">
+              {commandSuggestions.map((suggestion, idx) => {
+                const mode = suggestion.prefix.replace('/', '').toLowerCase();
+                const isSelected = selectedMode === mode;
+                const isFeedback = modeFeedback === mode;
+                
+                return (
+                  <motion.button
+                    key={suggestion.label}
+                    onClick={() => handleModeClick(mode)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
+                      isSelected
+                        ? "bg-white text-black shadow-lg shadow-white/20 scale-105"
+                        : "bg-white/10 text-white/80 hover:bg-white/20",
+                      isFeedback && "animate-pulse"
+                    )}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {suggestion.icon}
+                    <span>{suggestion.label}</span>
+                    {isSelected && (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* Response area */}
