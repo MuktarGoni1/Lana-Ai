@@ -20,11 +20,13 @@ import {
   BookOpen,
   PersonStandingIcon,
   RefreshCw,
+  Plus,
+  CheckIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
 import { useMotionValue } from "framer-motion";
-import { Plus } from "lucide-react";
+
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
@@ -851,9 +853,11 @@ interface AnimatedAIChatProps {
     if (storedMode) {
       // Save the stored mode to session storage (just to ensure it's set)
       saveSelectedMode(storedMode);
+      setSelectedMode(storedMode);
     } else {
       // Default to lesson mode when no stored mode exists
       saveSelectedMode('lesson');
+      setSelectedMode('lesson');
     }
     // Initialize with empty value - the mode will be indicated visually
     setValue("");
@@ -863,6 +867,8 @@ interface AnimatedAIChatProps {
   const [streamingText, setStreamingText] = useState("");
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [selectedMode, setSelectedMode] = useState<string>('lesson'); // Track selected mode for UI
+  const [modeFeedback, setModeFeedback] = useState<string | null>(null); // Track mode selection feedback
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const [inputFocused, setInputFocused] = useState(false);
@@ -915,6 +921,15 @@ interface AnimatedAIChatProps {
   const handleModeClick = (mode: string) => {
     // Save the selected mode to session storage
     saveSelectedMode(mode);
+    
+    // Update the selected mode state for UI feedback
+    setSelectedMode(mode);
+    
+    // Provide visual feedback for mode selection
+    setModeFeedback(mode);
+    setTimeout(() => {
+      setModeFeedback(null);
+    }, 1000); // Clear feedback after 1 second
     
     // Clear the input field and let the placeholder show the mode hint
     setValue("");
@@ -1692,6 +1707,11 @@ interface AnimatedAIChatProps {
                           // Save the selected mode based on the prefix without pre-filling the input
                           const modeFromPrefix = s.prefix.replace('/', '').toLowerCase();
                           saveSelectedMode(modeFromPrefix);
+                          setSelectedMode(modeFromPrefix); // Update UI state
+                          setModeFeedback(modeFromPrefix); // Show visual feedback
+                          setTimeout(() => {
+                            setModeFeedback(null);
+                          }, 1000); // Clear feedback after 1 second
                           setValue(""); // Clear the input field
                           setShowCommandPalette(false);
                         }
@@ -1730,6 +1750,37 @@ interface AnimatedAIChatProps {
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
               />
+            </div>
+
+            {/* mode selection buttons */}
+            <div className="px-4 flex flex-wrap gap-2 justify-center">
+              {commandSuggestions.map((suggestion, idx) => {
+                const mode = suggestion.prefix.replace('/', '').toLowerCase();
+                const isSelected = selectedMode === mode;
+                const isFeedback = modeFeedback === mode;
+                
+                return (
+                  <motion.button
+                    key={suggestion.label}
+                    onClick={() => handleModeClick(mode)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
+                      isSelected
+                        ? "bg-white text-black shadow-lg shadow-white/20 scale-105"
+                        : "bg-white/10 text-white/80 hover:bg-white/20",
+                      isFeedback && "animate-pulse"
+                    )}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {suggestion.icon}
+                    <span>{suggestion.label}</span>
+                    {isSelected && (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* AI response area — moved OUTSIDE input container */}
