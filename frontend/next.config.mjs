@@ -100,22 +100,7 @@ const nextConfig = {
     ]
   },
   async redirects() {
-    return [
-      // Redirect incorrect structured lesson API calls to the correct endpoint
-      {
-        source: '/api/structured-lesson',
-        destination: 'https://api.lanamind.com/api/structured-lesson',
-        permanent: false,
-        basePath: false,
-      },
-      // Redirect streaming endpoint as well
-      {
-        source: '/api/structured-lesson/stream',
-        destination: 'https://api.lanamind.com/api/structured-lesson/stream',
-        permanent: false,
-        basePath: false,
-      },
-    ];
+    return [];
   },
 
   async rewrites() {

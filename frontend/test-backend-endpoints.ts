@@ -26,7 +26,7 @@ async function testBackendEndpoints() {
   // Test chat endpoint
   console.log('--- Testing Chat Endpoint ---');
   try {
-    const chatResponse = await fetch('https://api.lanamind.com/api/chat/', {
+    const chatResponse = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -50,7 +50,7 @@ async function testBackendEndpoints() {
   // Test math solver endpoint
   console.log('--- Testing Math Solver Endpoint ---');
   try {
-    const mathResponse = await fetch('https://api.lanamind.com/api/math-solver/solve', {
+    const mathResponse = await fetch('/api/math-solver/solve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
