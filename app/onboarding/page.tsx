@@ -473,7 +473,10 @@ export default function OnboardingPage() {
             </p>
           </div>
           
-          <DiagnosticQuiz onComplete={() => navigateToNextStep(router, 'onboarding', user || null)} />
+          <DiagnosticQuiz 
+            onComplete={() => navigateToNextStep(router, 'onboarding', user || null)} 
+            childAge={children[0]?.age ? Number(children[0].age) : undefined} 
+          />
           
           <div className="pt-4 flex justify-center">
             <Button

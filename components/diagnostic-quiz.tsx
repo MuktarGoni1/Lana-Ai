@@ -22,83 +22,200 @@ type DiagnosticQuestion = {
   difficulty: "easy" | "medium" | "hard";
 };
 
-// Sample diagnostic questions - in a real app, these would come from an API
-const sampleQuestions: DiagnosticQuestion[] = [
-  {
-    id: "1",
-    question: "Which number comes next in the sequence: 2, 4, 8, 16, ...?",
-    options: ["20", "24", "32", "64"],
-    correctAnswer: "32",
-    category: "logical",
-    difficulty: "easy"
-  },
-  {
-    id: "2",
-    question: "If all Bloops are Razzies and some Razzies are Loppies, then:",
-    options: [
-      "Some Bloops are definitely Loppies",
-      "Some Loppies are definitely Bloops",
-      "Some Bloops may be Loppies",
-      "No conclusion can be drawn"
-    ],
-    correctAnswer: "Some Bloops may be Loppies",
-    category: "logical",
-    difficulty: "medium"
-  },
-  {
-    id: "3",
-    question: "What is 25% of 80?",
-    options: ["15", "20", "25", "30"],
-    correctAnswer: "20",
-    category: "math",
-    difficulty: "easy"
-  },
-  {
-    id: "4",
-    question: "Which word does not belong: apple, banana, carrot, orange?",
-    options: ["apple", "banana", "carrot", "orange"],
-    correctAnswer: "carrot",
-    category: "verbal",
-    difficulty: "easy"
-  },
-  {
-    id: "5",
-    question: "If a train travels 60 mph for 2 hours and 30 minutes, how far does it go?",
-    options: ["120 miles", "135 miles", "150 miles", "180 miles"],
-    correctAnswer: "150 miles",
-    category: "math",
-    difficulty: "medium"
-  }
-];
-
-export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void }) {
+export default function DiagnosticQuiz({ onComplete, childAge }: { onComplete: () => void; childAge?: number }) {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [timeRemaining, setTimeRemaining] = useState(60); // 60 seconds per question
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [questions, setQuestions] = useState<DiagnosticQuestion[]>([]);
   const { user } = useEnhancedAuth();
   const router = useRouter();
   const { toast } = useToast();
   
+  // Function to generate age-appropriate questions
+  const generateQuestionsForAge = (age: number): DiagnosticQuestion[] => {
+    // Define age ranges
+    const isYounger = age < 10; // Elementary age
+    const isMiddle = age >= 10 && age < 14; // Middle school age
+    const isOlder = age >= 14; // High school age
+
+    if (isYounger) {
+      // Younger children get simpler questions
+      return [
+        {
+          id: "1",
+          question: "What number comes next in the pattern: 2, 4, 6, 8, ...?",
+          options: ["9", "10", "11", "12"],
+          correctAnswer: "10",
+          category: "logical",
+          difficulty: "easy"
+        },
+        {
+          id: "2",
+          question: "If you have 5 apples and eat 2, how many do you have left?",
+          options: ["2", "3", "4", "5"],
+          correctAnswer: "3",
+          category: "math",
+          difficulty: "easy"
+        },
+        {
+          id: "3",
+          question: "Which animal is different: cat, dog, fish, bird?",
+          options: ["cat", "dog", "fish", "bird"],
+          correctAnswer: "fish",
+          category: "verbal",
+          difficulty: "easy"
+        },
+        {
+          id: "4",
+          question: "Which shape has 3 sides?",
+          options: ["Square", "Circle", "Triangle", "Rectangle"],
+          correctAnswer: "Triangle",
+          category: "spatial",
+          difficulty: "easy"
+        },
+        {
+          id: "5",
+          question: "If today is Monday, what day is tomorrow?",
+          options: ["Sunday", "Tuesday", "Wednesday", "Monday"],
+          correctAnswer: "Tuesday",
+          category: "logical",
+          difficulty: "easy"
+        }
+      ];
+    } else if (isMiddle) {
+      // Middle age group gets moderate questions
+      return [
+        {
+          id: "1",
+          question: "Which number comes next in the sequence: 2, 4, 8, 16, ...?",
+          options: ["20", "24", "32", "64"],
+          correctAnswer: "32",
+          category: "logical",
+          difficulty: "easy"
+        },
+        {
+          id: "2",
+          question: "What is 25% of 80?",
+          options: ["15", "20", "25", "30"],
+          correctAnswer: "20",
+          category: "math",
+          difficulty: "easy"
+        },
+        {
+          id: "3",
+          question: "Which word does not belong: apple, banana, carrot, orange?",
+          options: ["apple", "banana", "carrot", "orange"],
+          correctAnswer: "carrot",
+          category: "verbal",
+          difficulty: "easy"
+        },
+        {
+          id: "4",
+          question: "If a train travels 60 mph for 2 hours and 30 minutes, how far does it go?",
+          options: ["120 miles", "135 miles", "150 miles", "180 miles"],
+          correctAnswer: "150 miles",
+          category: "math",
+          difficulty: "medium"
+        },
+        {
+          id: "5",
+          question: "If all Bloops are Razzies and some Razzies are Loppies, then:",
+          options: [
+            "Some Bloops are definitely Loppies",
+            "Some Loppies are definitely Bloops",
+            "Some Bloops may be Loppies",
+            "No conclusion can be drawn"
+          ],
+          correctAnswer: "Some Bloops may be Loppies",
+          category: "logical",
+          difficulty: "medium"
+        }
+      ];
+    } else {
+      // Older students get more complex questions
+      return [
+        {
+          id: "1",
+          question: "Which expression is equivalent to (x + 3)(x - 3)?",
+          options: ["x² - 9", "x² + 9", "x² - 6x + 9", "x² + 6x - 9"],
+          correctAnswer: "x² - 9",
+          category: "math",
+          difficulty: "medium"
+        },
+        {
+          id: "2",
+          question: "If the first term of a geometric sequence is 2 and the common ratio is 3, what is the 4th term?",
+          options: ["18", "27", "54", "81"],
+          correctAnswer: "54",
+          category: "logical",
+          difficulty: "medium"
+        },
+        {
+          id: "3",
+          question: "Which of the following is the best example of deductive reasoning?",
+          options: [
+            "Every swan I've seen is white, so all swans are white",
+            "All men are mortal. Socrates is a man. Therefore, Socrates is mortal",
+            "The sun has risen every day, so it will rise tomorrow",
+            "Most birds can fly, so this bird can fly"
+          ],
+          correctAnswer: "All men are mortal. Socrates is a man. Therefore, Socrates is mortal",
+          category: "logical",
+          difficulty: "hard"
+        },
+        {
+          id: "4",
+          question: "What is the next number in the sequence: 1, 1, 2, 3, 5, 8, 13, ...?",
+          options: ["20", "21", "22", "23"],
+          correctAnswer: "21",
+          category: "logical",
+          difficulty: "medium"
+        },
+        {
+          id: "5",
+          question: "If a cube has a side length of 4 units, what is its surface area?",
+          options: ["64 square units", "96 square units", "128 square units", "144 square units"],
+          correctAnswer: "96 square units",
+          category: "spatial",
+          difficulty: "medium"
+        }
+      ];
+    }
+  };
+  
+  // Initialize questions based on child age when component mounts
+  useEffect(() => {
+    if (childAge !== undefined) {
+      const quizQuestions = generateQuestionsForAge(childAge);
+      setQuestions(quizQuestions);
+    } else {
+      // Default to middle school level if no age provided
+      const quizQuestions = generateQuestionsForAge(12);
+      setQuestions(quizQuestions);
+    }
+  }, [childAge]);
+  
   // Track when quiz starts
   useEffect(() => {
-    if (user) {
+    if (user && questions.length > 0) {
       eventTracker.trackEvent('diagnostic_quiz_started', {
-        total_questions: sampleQuestions.length,
-        timestamp: new Date().toISOString()
+        total_questions: questions.length,
+        timestamp: new Date().toISOString(),
+        child_age: childAge
       });
     }
-  }, [user]);
+  }, [user, questions, childAge]);
 
   // Initialize timer for each question
   useEffect(() => {
-    if (quizCompleted || currentQuestionIndex >= sampleQuestions.length) return;
+    if (quizCompleted || currentQuestionIndex >= questions.length) return;
 
     const timer = setInterval(() => {
       setTimeRemaining(prev => {
         if (prev <= 1) {
-          const currentQuestion = sampleQuestions[currentQuestionIndex];
+          const currentQuestion = questions[currentQuestionIndex];
           
           // Track time up event
           eventTracker.trackEvent('diagnostic_quiz_time_up', {
@@ -117,10 +234,10 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [currentQuestionIndex, quizCompleted]);
+  }, [currentQuestionIndex, quizCompleted, questions]);
 
   const handleAnswerSelect = (option: string) => {
-    const question = sampleQuestions[currentQuestionIndex];
+    const question = questions[currentQuestionIndex];
     setAnswers(prev => ({
       ...prev,
       [question.id]: option
@@ -137,16 +254,16 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
   };
 
   const handleNext = () => {
-    const currentQuestion = sampleQuestions[currentQuestionIndex];
+    const currentQuestion = questions[currentQuestionIndex];
     
-    if (currentQuestionIndex < sampleQuestions.length - 1) {
+    if (currentQuestionIndex < questions.length - 1) {
       setCurrentQuestionIndex(prev => prev + 1);
       setTimeRemaining(60); // Reset timer for next question
       
       // Track navigation event
       eventTracker.trackEvent('diagnostic_quiz_navigated_next', {
         from_question: currentQuestion.id,
-        to_question: sampleQuestions[currentQuestionIndex + 1].id,
+        to_question: questions[currentQuestionIndex + 1].id,
         question_number: currentQuestionIndex + 1
       });
     } else {
@@ -163,7 +280,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      const currentQuestion = sampleQuestions[currentQuestionIndex];
+      const currentQuestion = questions[currentQuestionIndex];
       
       setCurrentQuestionIndex(prev => prev - 1);
       // Restore timer for previous question
@@ -172,7 +289,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
       // Track navigation event
       eventTracker.trackEvent('diagnostic_quiz_navigated_previous', {
         from_question: currentQuestion.id,
-        to_question: sampleQuestions[currentQuestionIndex - 1].id,
+        to_question: questions[currentQuestionIndex - 1].id,
         question_number: currentQuestionIndex + 1
       });
     }
@@ -183,7 +300,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
     try {
       // Calculate score
       let correctAnswers = 0;
-      const results = sampleQuestions.map(question => {
+      const results = questions.map((question: DiagnosticQuestion) => {
         const userAnswer = answers[question.id];
         const isCorrect = userAnswer === question.correctAnswer;
         if (isCorrect) correctAnswers++;
@@ -197,7 +314,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
         };
       });
 
-      const score = Math.round((correctAnswers / sampleQuestions.length) * 100);
+      const score = Math.round((correctAnswers / questions.length) * 100);
 
       // Store results in database
       if (user) {
@@ -209,10 +326,11 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
             learning_profile: {
               diagnostic_quiz: {
                 score,
-                total_questions: sampleQuestions.length,
+                total_questions: questions.length,
                 correct_answers: correctAnswers,
                 results,
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                child_age: childAge // Store the child's age with the results
               }
             }
           }, {
@@ -230,8 +348,9 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
           // Log the event using event tracker
           await eventTracker.trackEvent('diagnostic_quiz_complete', {
             score,
-            total_questions: sampleQuestions.length,
-            correct_answers: correctAnswers
+            total_questions: questions.length,
+            correct_answers: correctAnswers,
+            child_age: childAge
           });
         }
       }
@@ -241,8 +360,9 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
       // Track completion event before navigating
       eventTracker.trackEvent('diagnostic_quiz_proceed_clicked', {
         score,
-        total_questions: sampleQuestions.length,
-        correct_answers: correctAnswers
+        total_questions: questions.length,
+        correct_answers: correctAnswers,
+        child_age: childAge
       });
       
       setTimeout(() => {
@@ -259,7 +379,6 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
       setLoading(false);
     }
   };
-
 
 
   if (quizCompleted) {
@@ -284,7 +403,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
     );
   }
 
-  const currentQuestion = sampleQuestions[currentQuestionIndex];
+  const currentQuestion = questions[currentQuestionIndex];
   const selectedAnswer = answers[currentQuestion.id];
 
   return (
@@ -293,7 +412,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
         {/* Progress indicator */}
         <div className="mb-6">
           <div className="flex justify-between text-sm text-white/60 mb-2">
-            <span>Question {currentQuestionIndex + 1} of {sampleQuestions.length}</span>
+            <span>Question {currentQuestionIndex + 1} of {questions.length}</span>
             <span>{timeRemaining}s</span>
           </div>
           <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
@@ -301,7 +420,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
               className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
               initial={{ width: 0 }}
               animate={{ 
-                width: `${((currentQuestionIndex + 1) / sampleQuestions.length) * 100}%` 
+                width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` 
               }}
               transition={{ duration: 0.5 }}
             />
@@ -359,7 +478,7 @@ export default function DiagnosticQuiz({ onComplete }: { onComplete: () => void 
             disabled={!selectedAnswer}
             className="bg-white text-black hover:bg-white/90"
           >
-            {currentQuestionIndex === sampleQuestions.length - 1 ? "Finish Quiz" : "Next"}
+            {currentQuestionIndex === questions.length - 1 ? "Finish Quiz" : "Next"}
           </Button>
         </div>
       </div>
