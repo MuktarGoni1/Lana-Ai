@@ -1,8 +1,25 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
+import rateLimiter from '@/lib/rate-limiter';
 
 export async function POST(req: Request) {
   try {
+    // Check rate limiting
+    const endpoint = '/api/structured-lesson';
+    if (!rateLimiter.isAllowed(endpoint)) {
+      const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
+      const secondsUntilReset = Math.ceil(timeUntilReset / 1000);
+      
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          message: `Too many requests. Please try again in ${secondsUntilReset} seconds.`,
+          retryAfter: secondsUntilReset
+        }, 
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { topic, age } = body;
 
@@ -17,6 +34,14 @@ export async function POST(req: Request) {
     try {
       const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
       const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+      
+      // Validate backend URL
+      try {
+        new URL(lessonUrl);
+      } catch (e) {
+        console.error('Invalid backend URL:', lessonUrl);
+        return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
+      }
       
       const backendResponse = await fetchWithTimeoutAndRetry(
         lessonUrl,
@@ -36,6 +61,15 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json',
           },
         });
+      }
+
+      // Handle specific error cases
+      if (backendResponse.status === 404) {
+        console.error('Backend structured lesson endpoint not found:', lessonUrl);
+        return NextResponse.json(
+          { error: 'Structured lesson service not found', details: 'The requested service endpoint is not available' },
+          { status: 404 }
+        );
       }
 
       // Non-OK from backend: return a clear error to the client

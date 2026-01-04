@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
@@ -73,6 +73,34 @@ const PrimaryButton = ({
   </button>
 );
 
+const SecondaryButton = ({ 
+  loading, 
+  children, 
+  ...props 
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) => (
+  <button
+    {...props}
+    suppressHydrationWarning
+    disabled={loading || props.disabled}
+    className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+             text-white font-medium text-sm
+             hover:bg-white/[0.1] transition-all duration-200
+             disabled:opacity-50 disabled:cursor-not-allowed
+             flex items-center justify-center gap-3"
+  >
+    {loading ? (
+      <>
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Loading...</span>
+      </>
+    ) : (
+      <>
+        {children}
+      </>
+    )}
+  </button>
+);
+
 const BackButton = ({ onClick }: { onClick: () => void }) => (
   <button
     type="button"
@@ -109,22 +137,9 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const hookReturn = useEnhancedAuth();
-  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
-  
-  // Add check for loginWithGoogle function
-  useEffect(() => {
-    console.log('[ParentFlow] useEnhancedAuth return value:', hookReturn);
-    console.log('[ParentFlow] loginWithGoogle value:', loginWithGoogle);
-    console.log('[ParentFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
-    
-    if (typeof loginWithGoogle !== 'function') {
-      console.error('[ParentFlow] loginWithGoogle is not a function');
-      console.error('[ParentFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
-    }
-  }, [loginWithGoogle, hookReturn]);
 
   const handleParentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,23 +181,7 @@ function ParentFlow() {
 
   const handleGoogleLogin = async () => {
     try {
-      console.log('[Parent Login Page] Initiating Google login');
-      console.log('[Parent Login Page] loginWithGoogle function:', loginWithGoogle);
-      console.log('[Parent Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
-      
-      if (typeof loginWithGoogle !== 'function') {
-        const error = new Error('loginWithGoogle is not a function');
-        console.error('[Parent Login Page] Google login error:', error);
-        toast({ 
-          title: "Error", 
-          description: "Google login function is not available. Please try again later.", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      
       const result = await loginWithGoogle();
-      console.log('[Parent Login Page] Google login result:', result);
       
       if (!result.success) {
         toast({ 
@@ -191,9 +190,8 @@ function ParentFlow() {
           variant: "destructive" 
         });
       }
-      // Note: For OAuth, the redirect happens automatically
+      // For Google login, the redirect happens automatically
     } catch (error: unknown) {
-      console.error('[Parent Login Page] Google login error:', error);
       toast({ 
         title: "Error", 
         description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
@@ -228,7 +226,7 @@ function ParentFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Login
+              Login with Email
             </PrimaryButton>
             
             <div className="relative my-4">
@@ -240,18 +238,10 @@ function ParentFlow() {
               </div>
             </div>
             
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
-                       text-white font-medium text-sm
-                       hover:bg-white/[0.1] transition-all duration-200
-                       flex items-center justify-center gap-3 disabled:opacity-50"
-            >
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
               <Chrome className="h-4 w-4" />
-              Continue with Google
-            </button>
+              Login with Google
+            </SecondaryButton>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -269,21 +259,8 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const hookReturn = useEnhancedAuth();
-  const { loginWithEmail, loginWithGoogle, isLoading } = hookReturn;
+  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
   const [email, setEmail] = useState("");
-  
-  // Add check for loginWithGoogle function
-  useEffect(() => {
-    console.log('[ChildFlow] useEnhancedAuth return value:', hookReturn);
-    console.log('[ChildFlow] loginWithGoogle value:', loginWithGoogle);
-    console.log('[ChildFlow] typeof loginWithGoogle:', typeof loginWithGoogle);
-    
-    if (typeof loginWithGoogle !== 'function') {
-      console.error('[ChildFlow] loginWithGoogle is not a function');
-      console.error('[ChildFlow] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
-    }
-  }, [loginWithGoogle, hookReturn]);
 
   const handleChildSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -327,23 +304,7 @@ function ChildFlow() {
 
   const handleGoogleLogin = async () => {
     try {
-      console.log('[Child Login Page] Initiating Google login');
-      console.log('[Child Login Page] loginWithGoogle function:', loginWithGoogle);
-      console.log('[Child Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
-      
-      if (typeof loginWithGoogle !== 'function') {
-        const error = new Error('loginWithGoogle is not a function');
-        console.error('[Child Login Page] Google login error:', error);
-        toast({ 
-          title: "Error", 
-          description: "Google login function is not available. Please try again later.", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      
       const result = await loginWithGoogle();
-      console.log('[Child Login Page] Google login result:', result);
       
       if (!result.success) {
         toast({ 
@@ -352,9 +313,8 @@ function ChildFlow() {
           variant: "destructive" 
         });
       }
-      // Note: For OAuth, the redirect happens automatically
+      // For Google login, the redirect happens automatically
     } catch (error: unknown) {
-      console.error('[Child Login Page] Google login error:', error);
       toast({ 
         title: "Error", 
         description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
@@ -389,7 +349,7 @@ function ChildFlow() {
             </div>
             
             <PrimaryButton type="submit" loading={isLoading}>
-              Login
+              Login with Email
             </PrimaryButton>
             
             <div className="relative my-4">
@@ -401,18 +361,10 @@ function ChildFlow() {
               </div>
             </div>
             
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isLoading}
-              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
-                       text-white font-medium text-sm
-                       hover:bg-white/[0.1] transition-all duration-200
-                       flex items-center justify-center gap-3 disabled:opacity-50"
-            >
+            <SecondaryButton onClick={handleGoogleLogin} loading={isLoading}>
               <Chrome className="h-4 w-4" />
-              Continue with Google
-            </button>
+              Login with Google
+            </SecondaryButton>
             
             <p className="text-xs text-white/20 text-center">
               No password required • Secure authentication
@@ -431,21 +383,8 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
-  const hookReturn = useEnhancedAuth();
-  const { isAuthenticated, isLoading, loginWithGoogle } = hookReturn;
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
-  
-  // Add check for loginWithGoogle function
-  useEffect(() => {
-    console.log('[LoginContent] useEnhancedAuth return value:', hookReturn);
-    console.log('[LoginContent] loginWithGoogle value:', loginWithGoogle);
-    console.log('[LoginContent] typeof loginWithGoogle:', typeof loginWithGoogle);
-    
-    if (typeof loginWithGoogle !== 'function') {
-      console.error('[LoginContent] loginWithGoogle is not a function');
-      console.error('[LoginContent] All properties in useEnhancedAuth return:', Object.keys(hookReturn));
-    }
-  }, [loginWithGoogle, hookReturn]);
 
   // Redirect authenticated users
   useEffect(() => {
@@ -470,44 +409,6 @@ function LoginContent() {
       router.push(redirectPath);
     }
   }, [isAuthenticated, isLoading, router]);
-
-  const handleGoogleLogin = async () => {
-    try {
-      console.log('[Login Page] Initiating Google login');
-      console.log('[Login Page] loginWithGoogle function:', loginWithGoogle);
-      console.log('[Login Page] typeof loginWithGoogle:', typeof loginWithGoogle);
-      
-      if (typeof loginWithGoogle !== 'function') {
-        const error = new Error('loginWithGoogle is not a function');
-        console.error('[Login Page] Google login error:', error);
-        toast({ 
-          title: "Error", 
-          description: "Google login function is not available. Please try again later.", 
-          variant: "destructive" 
-        });
-        return;
-      }
-      
-      const result = await loginWithGoogle();
-      console.log('[Login Page] Google login result:', result);
-      
-      if (!result.success) {
-        toast({ 
-          title: "Error", 
-          description: result.error || "Failed to initiate Google login. Please try again.", 
-          variant: "destructive" 
-        });
-      }
-      // Note: For OAuth, the redirect happens automatically
-    } catch (error: unknown) {
-      console.error('[Login Page] Google login error:', error);
-      toast({ 
-        title: "Error", 
-        description: error instanceof Error ? error.message : "Failed to initiate Google login. Please try again.", 
-        variant: "destructive" 
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -563,26 +464,6 @@ function LoginContent() {
             >
               <User className="h-4 w-4" />
               Sign in as Child
-            </button>
-            
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-black px-2 text-white/30">OR</span>
-              </div>
-            </div>
-            
-            <button
-              onClick={handleGoogleLogin}
-              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
-                       text-white font-medium text-sm
-                       hover:bg-white/[0.1] transition-all duration-200
-                       flex items-center justify-center gap-3"
-            >
-              <Chrome className="h-4 w-4" />
-              Continue with Google
             </button>
             
             <div className="relative my-6">

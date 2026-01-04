@@ -76,7 +76,7 @@ const getErrorMessage = (status: number, defaultMessage: string): string => {
     case 403:
       return 'Access denied - insufficient permissions';
     case 404:
-      return 'Resource not found';
+      return 'Resource not found - the requested endpoint does not exist';
     case 429:
       return 'Too many requests - please try again later';
     case 500:
@@ -228,7 +228,7 @@ export const apiClient = {
   async post<T, U>(url: string, body: U, options?: RequestInit): Promise<T> {
     return measureApiCall(url, 'POST', async () => {
       // Check rate limit before making request
-      // Extract endpoint from URL (e.g., /api/structured-lesson/stream)
+      // Extract endpoint from URL (e.g., /api/structured-lesson)
       const endpoint = new URL(url, 'http://localhost').pathname;
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
@@ -269,6 +269,12 @@ export const apiClient = {
             // If we can't parse the error response, use status text
             errorMessage = `${response.status} ${response.statusText}`;
           }
+          
+          // Special handling for 404 errors
+          if (response.status === 404) {
+            errorMessage = 'The requested resource was not found on the server.';
+          }
+          
           errorMessage = getErrorMessage(response.status, errorMessage);
           throw new ApiError(errorMessage, response.status);
         }

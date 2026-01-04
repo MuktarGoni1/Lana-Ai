@@ -338,7 +338,10 @@ function ParentFlow() {
         console.warn('[Register Parent] Failed to upsert guardian record:', upsertError)
       }
 
-      router.push(`/register/magic-link-sent?email=${encodeURIComponent(email)}`)
+      // Delay navigation to ensure form submission completes
+      setTimeout(() => {
+        router.push(`/register/magic-link-sent?email=${encodeURIComponent(email)}`)
+      }, 100)
     } catch (error) {
       console.error("Parent registration error:", error)
       toast({
@@ -347,7 +350,10 @@ function ParentFlow() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      // Keep loading state for a bit longer to prevent UI flickering
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 300)
     }
   }
 
@@ -372,7 +378,10 @@ function ParentFlow() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      // Keep loading state for a bit longer to prevent UI flickering
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 300)
     }
   }
 
@@ -508,13 +517,23 @@ function ChildFlow() {
 
     setIsLoading(true)
     try {
-      await authService.registerChild(
+      // Register the child through the API
+      const result = await authService.registerChild(
         formData.nickname, 
         Number(formData.age), 
         formData.grade, 
         formData.guardianEmail
       )
-      router.push("/onboarding")
+      
+      if (!result.success) {
+        throw new Error(result.message || "Failed to register child");
+      }
+      
+      // After successful registration, redirect to magic link sent page
+      // This ensures consistency with parent registration flow
+      setTimeout(() => {
+        router.push(`/register/magic-link-sent?email=${encodeURIComponent(formData.guardianEmail)}`)
+      }, 100)
     } catch (error) {
       console.error("Child registration error:", error)
       toast({
@@ -523,7 +542,10 @@ function ChildFlow() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      // Keep loading state for a bit longer to prevent UI flickering
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 300)
     }
   }
 
@@ -548,7 +570,10 @@ function ChildFlow() {
         variant: "destructive",
       })
     } finally {
-      setIsLoading(false)
+      // Keep loading state for a bit longer to prevent UI flickering
+      setTimeout(() => {
+        setIsLoading(false)
+      }, 300)
     }
   }
 

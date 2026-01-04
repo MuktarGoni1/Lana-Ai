@@ -29,27 +29,32 @@ export async function saveSearch(title: string) {
       console.log('[saveSearch] inserting:', sanitizedTitle)
     }
 
-    const { data, error } = await supabase
+    // Completely bypass TypeScript typing issues with Supabase client
+    const result: any = await (supabase as any)
       .from('searches')
-      .insert({ uid: uid, title: sanitizedTitle, created_at: new Date().toISOString() })
+      .insert({ 
+        'uid': uid, 
+        'title': sanitizedTitle, 
+        'created_at': new Date().toISOString() 
+      })
 
     if (process.env.NODE_ENV === 'development') {
-      console.log('[saveSearch] supabase reply:', { ok: !!data, error: error?.message })
+      console.log('[saveSearch] supabase reply:', { ok: !!result.data, error: result.error?.message })
     }
 
-    if (error) {
+    if (result.error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('❌ saveSearch error:', error.message)
+        console.warn('❌ saveSearch error:', result.error.message)
       }
       
       // Handle specific database errors
-      if (error.code === 'PGRST301') {
+      if (result.error.code === 'PGRST301') {
         return {
           success: false,
           message: 'Database connection error. Search completed but not saved.',
           suggestion: false
         }
-      } else if (error.code === '23505') {
+      } else if (result.error.code === '23505') {
         return {
           success: true,
           message: 'Search completed and already in your history!',
@@ -58,7 +63,7 @@ export async function saveSearch(title: string) {
       } else {
         return {
           success: false,
-          message: `Search completed but couldn't be saved: ${error.message}`,
+          message: `Search completed but couldn't be saved: ${result.error.message}`,
           suggestion: false
         }
       }

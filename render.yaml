@@ -16,7 +16,7 @@ services:
       - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
         sync: false
       - key: NEXT_PUBLIC_API_BASE
-        value: https://lana-ai.onrender.com
+        value: https://api.lanamind.com
       - key: NEXT_PUBLIC_SITE_URL
         value: https://www.lanamind.com
       - key: NEXT_PUBLIC_USE_PROXY

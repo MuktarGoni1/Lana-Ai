@@ -17,6 +17,15 @@ export async function POST(req: Request) {
     try {
       const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
       const ttsUrl = `${backendBase.replace(/\/$/, '')}/api/tts/`;
+      
+      // Validate backend URL
+      try {
+        new URL(ttsUrl);
+      } catch (e) {
+        console.error('Invalid backend URL:', ttsUrl);
+        return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
+      }
+      
       const backendResponse = await fetchWithTimeoutAndRetry(
         ttsUrl,
         {
@@ -38,6 +47,15 @@ export async function POST(req: Request) {
             'Content-Disposition': 'inline',
           },
         });
+      }
+
+      // Handle specific error cases
+      if (backendResponse.status === 404) {
+        console.error('Backend TTS endpoint not found:', ttsUrl);
+        return NextResponse.json(
+          { error: 'Text-to-speech service not found', details: 'The requested service endpoint is not available' },
+          { status: 404 }
+        );
       }
 
       // Non-OK from backend: return a clear error to the client

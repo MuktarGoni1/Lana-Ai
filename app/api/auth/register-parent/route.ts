@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         email: email.trim(),
         options: {
           data: { role: "guardian" },
-          emailRedirectTo: `${request.headers.get('origin')}/auth/confirmed/guardian`,
+          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       })
 

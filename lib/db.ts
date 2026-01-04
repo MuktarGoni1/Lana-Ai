@@ -10,8 +10,11 @@ if (!url || !key) {
   throw new Error('Missing Supabase environment variables')
 }
 
-console.log('[db.ts] Initializing Supabase client')
-console.log('[db.ts] Supabase URL:', url)
+// Only log in development environment
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[db.ts] Initializing Supabase client')
+  console.log('[db.ts] Supabase URL:', url)
+}
 
 // Create Supabase client with proper configuration
 const supabase = createClient<Database>(url, key, {
@@ -27,18 +30,14 @@ const supabase = createClient<Database>(url, key, {
   }
 })
 
-// Add debugging
-console.log('[db.ts] Supabase client created successfully')
-console.log('[db.ts] Supabase auth object type:', typeof supabase.auth)
-if (supabase.auth) {
-  console.log('[db.ts] onAuthStateChange property:', supabase.auth.onAuthStateChange)
-  console.log('[db.ts] typeof onAuthStateChange:', typeof supabase.auth.onAuthStateChange)
-  
-  // List all available methods
-  const authMethods = Object.getOwnPropertyNames(Object.getPrototypeOf(supabase.auth)).filter(
-    name => typeof (supabase.auth as any)[name] === 'function'
-  )
-  console.log('[db.ts] Available auth methods:', authMethods)
+// Add debugging only in development
+if (process.env.NODE_ENV !== 'production') {
+  console.log('[db.ts] Supabase client created successfully')
+  console.log('[db.ts] Supabase auth object type:', typeof supabase.auth)
+  if (supabase.auth) {
+    console.log('[db.ts] onAuthStateChange property:', supabase.auth.onAuthStateChange)
+    console.log('[db.ts] typeof onAuthStateChange:', typeof supabase.auth.onAuthStateChange)
+  }
 }
 
 export { supabase }

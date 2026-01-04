@@ -32,7 +32,6 @@ interface Child {
 }
 
 // Define types for Supabase responses
-type UsersRow = Database['public']['Tables']['users']['Row'];
 type UpdateGuardian = Database['public']['Tables']['guardians']['Update'];
 
 export default function GuardianDashboard() {
@@ -83,20 +82,14 @@ export default function GuardianDashboard() {
         
         // Fetch child email - try to get it from auth metadata or use a fallback
         // Note: The 'users' table may not exist in the actual database schema
-        let childEmail = "Anonymous child";
+        let childEmail = "Child " + g.child_uid.substring(0, 8);
         try {
-          const { data: userRow, error: userError }: { data: UsersRow | null; error: any } = await supabase
-            .from("users")
-            .select("email")
-            .eq("id", g.child_uid)
-            .single();
-          
-          if (!userError && userRow?.email) {
-            childEmail = userRow.email;
-          }
+          // Since there's no users table, we'll use the child_uid as identifier
+          // In a real implementation, you might fetch user details from Supabase auth
+          // or another table that stores user information
         } catch (userQueryError) {
-          // If the users table doesn't exist or there's an error, that's okay
-          console.debug('[GuardianDashboard] Could not fetch child email from users table:', userQueryError);
+          // If there's an error, that's okay
+          console.debug('[GuardianDashboard] Could not fetch child email (users table does not exist):', userQueryError);
         }
 
         // Explicitly type the searches response

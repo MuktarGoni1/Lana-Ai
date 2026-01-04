@@ -1,191 +1,188 @@
-# Authentication System Enhancements
-
-This document outlines the enhancements made to the Lana AI authentication system to provide a seamless user experience with robust session management and improved error handling.
+# Enhanced Authentication System
 
 ## Overview
 
-The enhanced authentication system provides:
+This document describes the enhanced authentication system implemented for the Lana AI frontend application. The system addresses several key issues with the previous implementation:
 
-1. **Robust Authentication State Management** - Centralized state management with real-time updates
-2. **Enhanced Session Handling** - Improved session timeout detection and handling
-3. **Role-Based Access Control** - Proper access control based on user roles
-4. **Smooth Navigation** - Seamless transitions between authentication states
-5. **Comprehensive Error Handling** - Graceful handling of authentication errors
-6. **Improved Onboarding Flow** - Streamlined post-authentication onboarding
+1. Inconsistent session state management
+2. Lack of robust error handling for authentication failures
+3. Absence of continuous session monitoring
+4. Insufficient logging for authentication events
+5. Poor handling of token expiration and renewal
 
 ## Key Components
 
-### 1. Enhanced Authentication Service (`EnhancedAuthService`)
+### 1. RobustAuthService (`lib/services/robustAuthService.ts`)
 
-A singleton service that manages all authentication-related operations:
+The core of the enhanced authentication system is the `RobustAuthService` class, which provides:
 
-- Real-time authentication state tracking
-- Session refresh and validation
-- User role detection
-- Onboarding completion management
-- Error handling and recovery
+- **Singleton Pattern**: Ensures a single instance manages authentication state across the application
+- **State Management**: Maintains comprehensive authentication state including user data, authentication status, loading states, and errors
+- **Network Awareness**: Monitors online/offline status and adapts behavior accordingly
+- **Periodic Refresh**: Automatically checks authentication status at regular intervals
+- **Comprehensive Error Handling**: Provides detailed error information for troubleshooting
 
-### 2. Authentication Context (`AuthContext`)
+#### Features:
 
-A React context provider that makes authentication state available throughout the application:
+- **Session Validation**: Robust checks for authentication tokens/cookies on protected route access
+- **Token Management**: Handles token expiration and renewal scenarios
+- **Network Resilience**: Gracefully handles network connectivity issues
+- **Event Logging**: Detailed logging of authentication events for diagnostics
 
-- Provides current user information
-- Exposes authentication status (loading, authenticated, etc.)
-- Offers authentication actions (login, logout, refresh)
+### 2. useRobustAuth Hook (`hooks/useRobustAuth.ts`)
 
-### 3. Authentication Hooks (`useEnhancedAuth`)
+A React hook that provides easy access to authentication state and functions:
 
-Custom React hooks that provide easy access to authentication functionality:
+```typescript
+const {
+  user,           // Current user object or null
+  isAuthenticated, // Boolean indicating authentication status
+  isLoading,      // Loading state
+  error,          // Error message if any
+  lastChecked,    // Timestamp of last authentication check
+  loginWithEmail, // Function to initiate email login
+  logout,         // Function to log out
+  refreshSession, // Function to refresh the session
+  checkAuthStatus // Function to check authentication status
+} = useRobustAuth();
+```
 
-- `useEnhancedAuth()` - Main hook for authentication operations
-- Real-time state updates
-- Action methods with proper error handling
+### 3. RobustAuthContext (`contexts/RobustAuthContext.tsx`)
 
-### 4. Authentication Guards
+A React context provider that makes authentication state available throughout the component tree:
 
-Components that protect routes based on authentication status:
+```tsx
+<RobustAuthProvider>
+  <App />
+</RobustAuthProvider>
+```
 
-- `AuthGuard` - Protects routes that require authentication
-- `GuestGuard` - Protects routes that should only be accessible to unauthenticated users
+### 4. AuthGuard Component (`components/auth/AuthGuard.tsx`)
 
-### 5. Session Timeout Handler
+A component that protects routes and ensures only authenticated users can access them:
 
-A component that monitors session expiration and warns users before logout:
+```tsx
+<AuthGuard requireAuth={true}>
+  <ProtectedComponent />
+</AuthGuard>
+```
 
-- Automatic session validation
-- User-friendly timeout warnings
-- Options to extend session or logout
+### 5. SessionMonitor Component (`components/auth/SessionMonitor.tsx`)
+
+Continuously monitors authentication status and handles session-related events:
+
+- Periodic authentication checks (every 2 minutes)
+- Visibility change detection (when user returns to tab)
+- Online/offline event handling
+- Session expiration notifications
 
 ## Implementation Details
 
-### Authentication State Management
+### Session Validation
 
-The system maintains a comprehensive authentication state:
+The enhanced system implements robust session validation through:
 
-```typescript
-interface AuthState {
-  user: User | null;        // Current user object
-  isAuthenticated: boolean; // Authentication status
-  isLoading: boolean;       // Loading state
-  error: string | null;     // Last error message
-}
-```
-
-### Session Management
-
-The system implements robust session management:
-
-1. **Automatic Session Validation** - Periodic checks to ensure session validity
-2. **Proactive Timeout Warning** - Warns users before session expiration
-3. **Graceful Logout Handling** - Proper cleanup on logout
-4. **Session Extension** - Allows users to extend their session
-
-### Role-Based Access Control
-
-The system supports different user roles:
-
-- **Child Users** - Limited access to child-specific features
-- **Parent/Guardian Users** - Access to guardian dashboard and child management
-- **Standard Users** - Default access level
+1. **Immediate Verification**: Forces fresh authentication checks when accessing protected routes
+2. **Continuous Monitoring**: Regular background checks to ensure session validity
+3. **Proactive Refresh**: Automatic token renewal before expiration
 
 ### Error Handling
 
-Comprehensive error handling for all authentication operations:
+Comprehensive error handling includes:
 
-- Network error recovery
-- Session expiration handling
-- User-friendly error messages
-- Graceful degradation for offline scenarios
+1. **Network Issues**: Specific handling for offline scenarios and connection timeouts
+2. **Authentication Failures**: Clear error messages for various failure modes
+3. **Graceful Degradation**: Maintains functionality where possible during errors
+4. **User Feedback**: Informative notifications for authentication-related issues
 
-## Usage Examples
+### Logging
 
-### Using the Authentication Hook
+Detailed logging of authentication events:
 
-```typescript
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+1. **State Changes**: Logs all authentication state transitions
+2. **Errors**: Comprehensive error logging with context
+3. **Network Events**: Tracks online/offline status changes
+4. **Session Events**: Records session creation, validation, and expiration
 
-function MyComponent() {
-  const { 
-    user, 
-    isAuthenticated, 
-    isLoading, 
-    loginWithEmail, 
-    logout 
-  } = useEnhancedAuth();
+## Integration Guide
 
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
+### 1. Provider Setup
 
-  if (!isAuthenticated) {
-    return <div>Please log in</div>;
-  }
+Wrap your application with the `RobustAuthProvider`:
 
+```tsx
+// app/layout.tsx
+import { RobustAuthProvider } from '@/contexts/RobustAuthContext';
+
+export default function RootLayout({ children }) {
   return (
-    <div>
-      <h1>Welcome, {user?.email}</h1>
-      <button onClick={() => logout()}>Logout</button>
-    </div>
+    <RobustAuthProvider>
+      {children}
+    </RobustAuthProvider>
   );
 }
 ```
 
-### Protecting Routes with AuthGuard
+### 2. Protecting Routes
 
-```typescript
-import AuthGuard from '@/components/auth-guard';
+Use the `AuthGuard` component to protect routes:
 
-function ProtectedPage() {
+```tsx
+// app/settings/page.tsx
+import { AuthGuard } from '@/components/auth/AuthGuard';
+
+export default function SettingsPage() {
   return (
-    <AuthGuard>
-      <div>Protected content</div>
+    <AuthGuard requireAuth={true}>
+      <SettingsContent />
     </AuthGuard>
   );
 }
 ```
 
-### Using GuestGuard for Login Pages
+### 3. Using Authentication State
 
-```typescript
-import GuestGuard from '@/components/guest-guard';
+Access authentication state in components:
 
-function LoginPage() {
-  return (
-    <GuestGuard>
-      <div>Login form</div>
-    </GuestGuard>
-  );
+```tsx
+import { useRobustAuth } from '@/contexts/RobustAuthContext';
+
+function MyComponent() {
+  const { user, isAuthenticated, isLoading } = useRobustAuth();
+  
+  if (isLoading) return <div>Loading...</div>;
+  
+  if (!isAuthenticated) return <div>Please log in</div>;
+  
+  return <div>Welcome, {user?.email}!</div>;
 }
 ```
 
 ## Testing
 
-The authentication system includes comprehensive tests:
+Unit tests are provided in `__tests__/auth/robustAuth.test.ts` covering:
 
-- Unit tests for authentication service
-- Integration tests for authentication context
-- Component tests for authentication guards
-- End-to-end tests for authentication flows
+- Service initialization
+- Authentication state management
+- Login/logout functionality
+- Session refresh
+- Subscription management
+- Error handling scenarios
 
-## Security Considerations
+## Benefits
 
-1. **Secure Token Storage** - Uses Supabase's secure token storage
-2. **Session Validation** - Regular validation of session tokens
-3. **Role Verification** - Server-side verification of user roles
-4. **Input Sanitization** - Proper sanitization of user inputs
-5. **Error Handling** - Secure error handling without information leakage
+1. **Improved Reliability**: More consistent authentication state across the application
+2. **Better User Experience**: Clear feedback during authentication processes
+3. **Enhanced Security**: Proper handling of token expiration and session invalidation
+4. **Improved Diagnostics**: Detailed logging for troubleshooting authentication issues
+5. **Network Resilience**: Graceful handling of connectivity issues
+6. **Performance**: Efficient state management with minimal re-renders
 
-## Performance Optimizations
+## Future Enhancements
 
-1. **Memoization** - Memoized authentication state and actions
-2. **Efficient Updates** - Only re-render components when auth state changes
-3. **Lazy Loading** - Lazy loading of authentication components
-4. **Caching** - Caching of user data where appropriate
+Potential future improvements:
 
-## Future Improvements
-
-1. **Multi-Factor Authentication** - Support for MFA
-2. **Social Login** - Integration with social providers
-3. **Advanced Session Management** - More sophisticated session handling
-4. **Analytics** - Authentication analytics and monitoring
-5. **Accessibility** - Improved accessibility for authentication flows
+1. **Biometric Authentication**: Integration with device biometric APIs
+2. **Multi-factor Authentication**: Support for additional authentication factors
+3. **Advanced Session Management**: More sophisticated session persistence strategies
+4. **Analytics Integration**: Tracking authentication patterns for insights
