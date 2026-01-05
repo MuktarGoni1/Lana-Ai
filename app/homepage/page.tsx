@@ -1209,8 +1209,10 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
           } else {
             // For chat mode, display the reply directly
             if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') {
-              setStreamingText(chatResponse.reply);
-              setStoredLong(chatResponse.reply);
+              // Safely handle the reply field in case it's not a string
+              const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
+              setStreamingText(replyText);
+              setStoredLong(replyText);
             }
           }
         } else { // lesson mode

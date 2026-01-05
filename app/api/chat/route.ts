@@ -29,32 +29,52 @@ export async function POST(req: Request) {
 
     console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
 
-    // For chat and quick modes, we can route to an appropriate backend service
-    // Since there's no specific chat endpoint in the backend, we'll route to structured lesson
-    // but potentially with different parameters for chat-style responses
+    // For chat mode, we need to generate a conversational response
+    // For quick mode, we route to structured lesson
+    if (mode === 'chat') {
+      // For chat mode, generate a simple conversational response
+      // Since the backend might not have a dedicated chat endpoint,
+      // we'll simulate a chat response here
+      const chatResponse = {
+        mode: mode,
+        reply: `Hello! I'm your AI tutor. You said: "${message}". How can I help you today?`,
+        conversationId: Date.now().toString(),
+        timestamp: new Date().toISOString()
+      };
+      
+      return NextResponse.json(chatResponse, {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+    }
+    
+    // For quick mode, we route to the structured lesson endpoint
+    const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+    const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+    
+    // Validate backend URL
     try {
-      const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
-      
-      // Validate backend URL
-      try {
-        new URL(chatUrl);
-      } catch (e) {
-        console.error('Invalid backend URL:', chatUrl);
-        return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
-      }
-      
-      // For chat/quick mode, we'll send the message as a topic to the structured lesson endpoint
-      // This provides a general conversational response
+      new URL(lessonUrl);
+    } catch (e) {
+      console.error('Invalid backend URL:', lessonUrl);
+      return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
+    }
+    
+    // Prepare the payload for structured lesson
+    const payload = { 
+      topic: message,
+      age: age 
+    };
+    
+    try {
       const backendResponse = await fetchWithTimeoutAndRetry(
-        chatUrl,
+        lessonUrl,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            topic: message,
-            age: age 
-          }),
+          body: JSON.stringify(payload),
         },
         { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }
       );
@@ -62,11 +82,14 @@ export async function POST(req: Request) {
       if (backendResponse.ok) {
         const responseData = await backendResponse.json();
         
-        // Return the response with mode information
+        // Return the response with mode information for quick mode
+        // For quick mode, use introduction or the original message
+        const replyText = responseData.introduction || message;
+        
         return NextResponse.json({
           ...responseData,
           mode: mode,
-          reply: responseData.introduction || message // Use introduction as reply if available
+          reply: replyText
         }, {
           status: 200,
           headers: {
@@ -77,19 +100,19 @@ export async function POST(req: Request) {
 
       // Handle specific error cases
       if (backendResponse.status === 404) {
-        console.error('Backend structured lesson endpoint not found:', chatUrl);
+        console.error('Backend structured lesson endpoint not found:', lessonUrl);
         return NextResponse.json(
-          { error: 'Chat service not found', details: 'The requested service endpoint is not available' },
+          { error: 'Lesson service not found', details: 'The requested service endpoint is not available' },
           { status: 404 }
         );
       }
 
       // Non-OK from backend: return a clear error to the client
       const errorText = await backendResponse.text();
-      console.error('Backend chat error:', backendResponse.status, errorText);
+      console.error('Backend lesson service error:', backendResponse.status, errorText);
       return NextResponse.json(
         {
-          error: 'Chat service is temporarily unavailable',
+          error: 'Lesson service is temporarily unavailable',
           details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
         },
         { status: backendResponse.status }
@@ -98,7 +121,7 @@ export async function POST(req: Request) {
       console.error('Backend connection error:', backendError);
       return NextResponse.json(
         {
-          error: 'Unable to connect to chat service',
+          error: 'Unable to connect to lesson service',
           details: 'Please check your internet connection or try again later',
         },
         { status: 503 }
