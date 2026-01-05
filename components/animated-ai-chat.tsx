@@ -1122,14 +1122,12 @@ interface AnimatedAIChatProps {
         
         // Prepare request payload
         const payload: any = {
-          userId: sid,
-          message: apiMessage,
-          age: userAge,
-          mode: mode
+          topic: apiMessage,
+          age: userAge
         };
         
         // Check rate limit before making request
-        const endpoint = '/api/chat';
+        const endpoint = '/api/structured-lesson';
         if (!rateLimiter.isAllowed(endpoint)) {
           const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
           setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1137,8 +1135,8 @@ interface AnimatedAIChatProps {
           return;
         }
         
-        // Make API call to chat endpoint
-        const response = await fetch('/api/chat', {
+        // Make API call to structured-lesson endpoint
+        const response = await fetch('/api/structured-lesson', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -1171,71 +1169,16 @@ interface AnimatedAIChatProps {
           throw new Error(errorMessage);
         }
         
-        const chatResponse: ChatResponse = await response.json();
+        const lessonResponse = await response.json();
         
-        // Handle the response based on mode
-        if (chatResponse.error) {
-          setError(chatResponse.error);
+        // Handle the structured lesson response
+        if (lessonResponse.error) {
+          setError(lessonResponse.error);
         } else {
-          // For chat mode, display the reply directly
-          if (chatResponse.mode === 'chat') {
-            setStreamingText(chatResponse.reply);
-            setStoredLong(chatResponse.reply);
-            // Save the selected mode
-            saveSelectedMode('chat');
-          } 
-          // For quick mode, display the reply directly
-          else if (chatResponse.mode === 'quick') {
-            setStreamingText(chatResponse.reply);
-            setStoredLong(chatResponse.reply);
-            // Save the selected mode
-            saveSelectedMode('quick');
-          }
-          // For lesson mode, handle as structured lesson
-          else if (chatResponse.mode === 'lesson') {
-            // Parse the reply as JSON if it's a structured lesson
-            try {
-              const lessonData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
-              setLessonJson(lessonData);
-              // Save the selected mode
-              saveSelectedMode('lesson');
-            } catch (parseError) {
-              // If parsing fails, check if it's already a valid lesson object
-              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
-                setLessonJson(chatResponse.reply as Lesson);
-              } else {
-                // If it's plain text, display it as regular text
-                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-              }
-              saveSelectedMode('lesson');
-            }
-          }
-          // For maths mode, handle as math solution
-          else if (chatResponse.mode === 'maths') {
-            // Parse the reply as JSON if it's a math solution
-            try {
-              const mathData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
-              setMathSolution(mathData);
-              // Save the selected mode
-              saveSelectedMode('maths');
-            } catch (parseError) {
-              // If parsing fails, check if it's already a valid math solution object
-              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
-                setMathSolution(chatResponse.reply as MathSolutionUI);
-              } else {
-                // If it's plain text, display it as regular text
-                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
-              }
-              saveSelectedMode('maths');
-            }
-          }
-          // For other modes, display the reply directly
-          else {
-            setStreamingText(chatResponse.reply);
-            setStoredLong(chatResponse.reply);
-          }
+          // Set the lesson data directly since we're calling the structured lesson endpoint
+          setLessonJson(lessonResponse);
+          // Save the selected mode
+          saveSelectedMode('lesson');
         }
         
         setIsTyping(false);
