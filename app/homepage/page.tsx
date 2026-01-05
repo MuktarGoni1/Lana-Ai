@@ -8,6 +8,7 @@ import React, { useEffect, useRef, useCallback, useState, useMemo } from "react"
 import { cn } from "@/lib/utils";
 import rateLimiter from "@/lib/rate-limiter";
 import { isValidLessonResponse, sanitizeLessonContent } from "@/lib/response-validation";
+import { getSelectedMode, saveSelectedMode } from '@/lib/mode-storage';
 import {
   Paperclip,
   Command,
@@ -22,10 +23,13 @@ import {
   PersonStandingIcon,
   AlertCircle,
   RefreshCw,
+  CheckIcon,
+  Plus,
+  X,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionValue } from "framer-motion";
-import { Plus, X } from "lucide-react";
+
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
@@ -154,9 +158,20 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: UseAutoResizeTextareaPr
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   containerClassName?: string;
   showRing?: boolean;
+  mode?: string; // Add mode prop for visual indication
+  onValueChange?: (value: string) => void; // Add callback for value changes
 }
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, containerClassName, showRing = true, ...props }, ref) => {
+  ({ className, containerClassName, showRing = true, mode, onValueChange, ...props }, ref) => {
+    const handleOnChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      if (onValueChange) {
+        onValueChange(e.target.value);
+      }
+      // Call the original onChange if it exists
+      if (props.onChange) {
+        props.onChange(e);
+      }
+    };
     const [focused, setFocused] = useState(false);
     return (
       <div className={cn("relative", containerClassName)}>
@@ -171,16 +186,22 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
           ref={ref}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          onChange={handleOnChange}
           {...props}
         />
         {showRing && focused && (
           <motion.span
-            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20"
+            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20 z-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
           />
+        )}
+        {mode && (
+          <div className="absolute top-2 right-3 text-xs text-white/80 pointer-events-none z-20 font-medium">
+            {mode.charAt(0).toUpperCase() + mode.slice(1)} Mode
+          </div>
         )}
       </div>
     );
@@ -201,6 +222,18 @@ interface LessonQuizItem {
   q: string;  
   options: string[];
   answer: string;
+}
+
+interface MathStepUI {
+  description: string;
+  expression?: string | null;
+}
+
+interface MathSolutionUI {
+  problem: string;
+  solution: string;
+  steps?: MathStepUI[];
+  error?: string | null;
 }
 
 interface Lesson {
@@ -814,6 +847,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const [showVideoButton, setShowVideoButton] = useState(false);
   const [storedLong, setStoredLong] = useState("");
   const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -822,6 +856,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
+  const [selectedMode, setSelectedMode] = useState<string>('lesson'); // Track selected mode for UI
+  const [modeFeedback, setModeFeedback] = useState<string | null>(null); // Track mode selection feedback
   const router = useRouter();
   
   const { textareaRef: autoRef, adjustHeight } = useAutoResizeTextarea({
@@ -832,8 +868,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
     { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
@@ -856,20 +892,32 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     },
   ];
 
-  // Function to handle mode button clicks and activate command palette with placeholder text
+  // Function to handle mode button clicks and save the selected mode
   const handleModeClick = (mode: string) => {
+    // Save the selected mode to session storage
+    saveSelectedMode(mode);
+    
+    // Update the selected mode state for UI feedback
+    setSelectedMode(mode);
+    
+    // Provide visual feedback for mode selection
+    setModeFeedback(mode);
+    setTimeout(() => {
+      setModeFeedback(null);
+    }, 1000); // Clear feedback after 1 second
+    
     switch (mode) {
       case "lesson":
-        setValue("/lesson");
+        setValue("/lesson ");
         break;
       case "maths":
-        setValue("/Maths");
+        setValue("/maths ");
         break;
       case "chat":
-        setValue("/Chat");
+        setValue("/chat ");
         break;
       case "quick":
-        setValue("/quick");
+        setValue("/quick ");
         break;
       default:
         // For any other mode, we don't set a specific value
@@ -885,6 +933,20 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   };
 
   /* --- effects ----------------------------------------------------- */
+  // Initialize with stored mode if available
+  useEffect(() => {
+    const storedMode = getSelectedMode();
+    if (storedMode) {
+      // Save the stored mode to session storage (just to ensure it's set)
+      saveSelectedMode(storedMode);
+    } else {
+      // Default to lesson mode when no stored mode exists
+      saveSelectedMode('lesson');
+    }
+    // Initialize with empty value - the mode will be indicated visually
+    setValue("");
+  }, []);
+  
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const getUserAge = async () => {
@@ -944,18 +1006,44 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     };
   }, [mouseX, mouseY]);
 
-  // Function to get the appropriate placeholder based on the current mode
+  // Function to get the appropriate placeholder based on the currently selected mode
   const getModePlaceholder = (): string => {
+    // If there's input text that starts with a mode prefix, use that mode
     if (value.startsWith("/lesson")) {
       return "/lesson - Please input a topic for structured learning";
-    } else if (value.startsWith("/Maths")) {
-      return "/Maths - Please input a maths question";
-    } else if (value.startsWith("/Chat")) {
-      return "/Chat - Please input your question";
+    } else if (value.startsWith("/maths")) {
+      return "/maths - Please input a maths question";
+    } else if (value.startsWith("/chat")) {
+      return "/chat - Please input your question";
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
-    return "What would you like to learn today?";
+    
+    // Otherwise, use the currently stored mode
+    const currentMode = getSelectedMode() || 'lesson';
+    switch (currentMode) {
+      case "lesson":
+        return "/lesson - Please input a topic for structured learning";
+      case "maths":
+        return "/maths - Please input a maths question";
+      case "chat":
+        return "/chat - Please input your question";
+      case "quick":
+        return "/quick - Please input your question for a quick answer";
+      default:
+        // Default to structured lesson mode
+        return "/lesson - Please input a topic for structured learning";
+    }
+  };
+
+  // Function to get the current mode from input value
+  const getCurrentMode = (inputValue: string): string => {
+    const modeMatch = inputValue.match(/^\/?(\w+)\s*/);
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    if (modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase())) {
+      return modeMatch[1].toLowerCase();
+    }
+    return 'lesson'; // Default mode
   };
 
   /* --- handlers ---------------------------------------------------- */
@@ -974,6 +1062,170 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
     setStoredLong("");
     setShowVideoButton(false);
     setLessonJson(null);
+
+    // Use the current mode from the input field for routing, with fallback to selected UI mode
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    
+    // Check if the input explicitly contains a mode prefix
+    const hasExplicitModePrefix = /^\/(chat|quick|lesson|maths)\b/.test(q);
+    
+    let mode;
+    if (hasExplicitModePrefix) {
+      // If there's an explicit prefix in the input, use the mode from input
+      mode = getCurrentMode(q);
+    } else {
+      // Otherwise, use the currently selected mode from UI
+      mode = getSelectedMode() || 'lesson';
+    }
+    
+    // Extract the actual message content by removing the mode prefix
+    const modeMatch = q.match(/^\/?(\w+)\s*(.*)/);
+    const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
+      ? modeMatch[2] 
+      : q;
+    
+    // Ensure we have a proper message for the API
+    const apiMessage = cleanText.trim() || q;
+    
+    // For all modes, use the new chat API endpoint
+    if (SUPPORTED_MODES.includes(mode)) {
+      try {
+        // Get session ID for user identification
+        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        
+        // Prepare request payload
+        const payload: any = {
+          userId: sid,
+          message: apiMessage,
+          age: userAge,
+          mode: mode
+        };
+        
+        // Check rate limit before making request
+        const endpoint = '/api/chat';
+        if (!rateLimiter.isAllowed(endpoint)) {
+          const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+          setIsTyping(false);
+          return;
+        }
+        
+        // Make API call to chat endpoint
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+          signal: abortRef.current.signal,
+        });
+        
+        if (!response.ok) {
+          let errorMessage = "Failed to get response from server";
+          switch (response.status) {
+            case 400:
+              errorMessage = "Invalid request. Please try rephrasing your question.";
+              break;
+            case 401:
+              errorMessage = "Authentication required. Please log in again.";
+              break;
+            case 429:
+              errorMessage = "Too many requests. Please wait a moment and try again.";
+              break;
+            case 500:
+              errorMessage = "Server error. Please try again later.";
+              break;
+            case 503:
+              errorMessage = "Service temporarily unavailable. Please try again later.";
+              break;
+            default:
+              errorMessage = `Server error (${response.status}). Please try again later.`;
+          }
+          throw new Error(errorMessage);
+        }
+        
+        const chatResponse = await response.json();
+        
+        // Handle the response based on mode
+        if (chatResponse.error) {
+          setError(chatResponse.error);
+        } else {
+          // For chat mode, display the reply directly
+          if (chatResponse.mode === 'chat') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          } 
+          // For quick mode, display the reply directly
+          else if (chatResponse.mode === 'quick') {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+          // For lesson mode, handle as structured lesson
+          else if (chatResponse.mode === 'lesson') {
+            // Parse the reply as JSON if it's a structured lesson
+            try {
+              const lessonData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setLessonJson(lessonData);
+            } catch (parseError) {
+              // If parsing fails, check if it's already a valid lesson object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setLessonJson(chatResponse.reply);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
+            }
+          }
+          // For maths mode, handle as math solution
+          else if (chatResponse.mode === 'maths') {
+            // Parse the reply as JSON if it's a math solution
+            try {
+              const mathData = typeof chatResponse.reply === 'string' ? JSON.parse(chatResponse.reply) : chatResponse.reply;
+              setMathSolution(mathData);
+            } catch (parseError) {
+              // If parsing fails, check if it's already a valid math solution object
+              if (typeof chatResponse.reply === 'object' && chatResponse.reply !== null) {
+                setMathSolution(chatResponse.reply);
+              } else {
+                // If it's plain text, display it as regular text
+                setStreamingText(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+                setStoredLong(typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply));
+              }
+            }
+          }
+          // For other modes, display the reply directly
+          else {
+            setStreamingText(chatResponse.reply);
+            setStoredLong(chatResponse.reply);
+          }
+        }
+        
+        setIsTyping(false);
+        setShowVideoButton(true);
+        
+        // Save search history
+        const savePromise = saveSearch(apiMessage.trim()).catch(console.error);
+        await savePromise;
+        
+        return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") {
+          if (process.env.NODE_ENV === 'development') console.debug('[chat] aborted');
+          setError("Request was cancelled or timed out. Please try again.");
+        } else {
+          const errorMessage = e instanceof Error ? e.message : "Chat request failed";
+          setError(errorMessage);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[chat] error', e);
+          }
+        }
+      } finally {
+        setIsTyping(false);
+        setValue('');
+      }
+      return;
+    }
 
     // legacy video path
     if (q.startsWith("/video")) {
@@ -1015,7 +1267,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       return;
     }
 
-    // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
+    // Default structured lesson path for non-prefixed inputs
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
@@ -1023,7 +1275,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
       }
       
       // Check rate limit before making request
-      const endpoint = '/api/structured-lesson/stream';
+      const endpoint = '/api/structured-lesson';
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
         setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1031,7 +1283,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
         return;
       }
       
-      const lessonEndpoint = API_BASE ? `${API_BASE}/api/structured-lesson` : '/api/structured-lesson';
+      const lessonEndpoint = '/api/structured-lesson';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1317,18 +1569,50 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
                   if (textareaRef.current !== node) (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
                 }}
                 value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
+                onValueChange={(newValue) => {
+                  setValue(newValue);
                   adjustHeight();
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={getModePlaceholder()}
+                mode={getCurrentMode(value)}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
               />
+            </div>
+
+            {/* mode selection buttons */}
+            <div className="px-4 flex flex-wrap gap-2 justify-center">
+              {commandSuggestions.map((suggestion, idx) => {
+                const mode = suggestion.prefix.replace('/', '').toLowerCase();
+                const isSelected = selectedMode === mode;
+                const isFeedback = modeFeedback === mode;
+                
+                return (
+                  <motion.button
+                    key={suggestion.label}
+                    onClick={() => handleModeClick(mode)}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-all",
+                      isSelected
+                        ? "bg-white text-black shadow-lg shadow-white/20 scale-105"
+                        : "bg-white/10 text-white/80 hover:bg-white/20",
+                      isFeedback && "animate-pulse"
+                    )}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {suggestion.icon}
+                    <span>{suggestion.label}</span>
+                    {isSelected && (
+                      <CheckIcon className="w-4 h-4" />
+                    )}
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* Response area */}
