@@ -1081,10 +1081,10 @@ interface AnimatedAIChatProps {
 
     // Use the current mode from the input field for routing, with fallback to selected UI mode
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
-    
+        
     // Check if the input explicitly contains a mode prefix
-    const hasExplicitModePrefix = /^\/(chat|quick|lesson|maths)\b/.test(sanitizedInput);
-    
+    const hasExplicitModePrefix = /^\/\/(chat|quick|lesson|maths)\b/.test(sanitizedInput);
+        
     if (hasExplicitModePrefix) {
       // If there's an explicit prefix in the input, use the mode from input
       var mode = getCurrentMode(sanitizedInput);
@@ -1092,22 +1092,22 @@ interface AnimatedAIChatProps {
       // Otherwise, use the currently selected mode from UI
       var mode = getSelectedMode() || 'lesson';
     }
-    
+        
     // Extract the actual message content by removing the mode prefix
     const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
     const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
       ? modeMatch[2] 
       : sanitizedInput;
-    
+        
     // Ensure we have a proper message for the API
     const apiMessage = cleanText.trim() || sanitizedInput;
-      
-    // For all modes, use the new chat API endpoint
+          
+    // For all modes, use the appropriate API endpoint based on mode
     if (SUPPORTED_MODES.includes(mode)) {
       try {
         // Get session ID for user identification
         const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
-        
+            
         // Get user age if available
         let userAge = null;
         try {
@@ -1119,66 +1119,185 @@ interface AnimatedAIChatProps {
         } catch (ageError) {
           console.warn('Could not retrieve user age:', ageError);
         }
-        
-        // Prepare request payload
-        const payload: any = {
-          topic: apiMessage,
-          age: userAge
-        };
-        
-        // Check rate limit before making request
-        const endpoint = '/api/structured-lesson';
-        if (!rateLimiter.isAllowed(endpoint)) {
-          const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
-          setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
-          setIsTyping(false);
-          return;
-        }
-        
-        // Make API call to structured-lesson endpoint
-        const response = await fetch('/api/structured-lesson', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          signal: abortRef.current.signal,
-        });
-        
-        if (!response.ok) {
-          let errorMessage = "Failed to get response from server";
-          switch (response.status) {
-            case 400:
-              errorMessage = "Invalid request. Please try rephrasing your question.";
-              break;
-            case 401:
-              errorMessage = "Authentication required. Please log in again.";
-              break;
-            case 429:
-              errorMessage = "Too many requests. Please wait a moment and try again.";
-              break;
-            case 500:
-              errorMessage = "Server error. Please try again later.";
-              break;
-            case 503:
-              errorMessage = "Service temporarily unavailable. Please try again later.";
-              break;
-            default:
-              errorMessage = `Server error (${response.status}). Please try again later.`;
+            
+        // Prepare request payload based on mode
+        let payload: any, endpoint: string, response: Response;
+            
+        if (mode === 'maths') {
+          // For maths mode, use the math solver endpoint
+          payload = {
+            problem: apiMessage,
+            show_steps: true
+          };
+          endpoint = '/api/math-solver/solve';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
           }
-          throw new Error(errorMessage);
-        }
-        
-        const lessonResponse = await response.json();
-        
-        // Handle the structured lesson response
-        if (lessonResponse.error) {
-          setError(lessonResponse.error);
-        } else {
-          // Set the lesson data directly since we're calling the structured lesson endpoint
-          setLessonJson(lessonResponse);
-          // Save the selected mode
-          saveSelectedMode('lesson');
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+              
+          if (!response.ok) {
+            let errorMessage = "Failed to get response from server";
+            switch (response.status) {
+              case 400:
+                errorMessage = "Invalid math problem. Please try rephrasing your question.";
+                break;
+              case 401:
+                errorMessage = "Authentication required. Please log in again.";
+                break;
+              case 429:
+                errorMessage = "Too many requests. Please wait a moment and try again.";
+                break;
+              case 500:
+                errorMessage = "Server error. Please try again later.";
+                break;
+              case 503:
+                errorMessage = "Math solver temporarily unavailable. Please try again later.";
+                break;
+              default:
+                errorMessage = `Server error (${response.status}). Please try again later.`;
+            }
+            throw new Error(errorMessage);
+          }
+              
+          const mathResponse = await response.json();
+              
+          // Validate and set math solution
+          if (mathResponse.error) {
+            setError(mathResponse.error);
+          } else {
+            setMathSolution(mathResponse);
+            saveSelectedMode('maths');
+          }
+        } else if (mode === 'chat' || mode === 'quick') {
+          // For chat and quick modes, use the chat endpoint
+          payload = {
+            userId: sid,
+            message: apiMessage,
+            age: userAge,
+            mode: mode
+          };
+          endpoint = '/api/chat';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+              
+          if (!response.ok) {
+            let errorMessage = "Failed to get response from server";
+            switch (response.status) {
+              case 400:
+                errorMessage = "Invalid request. Please try rephrasing your question.";
+                break;
+              case 401:
+                errorMessage = "Authentication required. Please log in again.";
+                break;
+              case 429:
+                errorMessage = "Too many requests. Please wait a moment and try again.";
+                break;
+              case 500:
+                errorMessage = "Server error. Please try again later.";
+                break;
+              case 503:
+                errorMessage = "Service temporarily unavailable. Please try again later.";
+                break;
+              default:
+                errorMessage = `Server error (${response.status}). Please try again later.`;
+            }
+            throw new Error(errorMessage);
+          }
+              
+          const chatResponse: ChatResponse = await response.json();
+              
+          if (chatResponse.error) {
+            setError(chatResponse.error);
+          } else {
+            // For chat mode, display the reply directly
+            if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') {
+              setStreamingText(chatResponse.reply);
+              setStoredLong(chatResponse.reply);
+              saveSelectedMode(chatResponse.mode);
+            }
+          }
+        } else { // lesson mode
+          // For lesson mode, use the structured lesson endpoint
+          payload = {
+            topic: apiMessage,
+            age: userAge
+          };
+          endpoint = '/api/structured-lesson';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+              
+          if (!response.ok) {
+            let errorMessage = "Failed to get response from server";
+            switch (response.status) {
+              case 400:
+                errorMessage = "Invalid request. Please try rephrasing your question.";
+                break;
+              case 401:
+                errorMessage = "Authentication required. Please log in again.";
+                break;
+              case 429:
+                errorMessage = "Too many requests. Please wait a moment and try again.";
+                break;
+              case 500:
+                errorMessage = "Server error. Please try again later.";
+                break;
+              case 503:
+                errorMessage = "Service temporarily unavailable. Please try again later.";
+                break;
+              default:
+                errorMessage = `Server error (${response.status}). Please try again later.`;
+            }
+            throw new Error(errorMessage);
+          }
+              
+          const lessonResponse = await response.json();
+              
+          if (lessonResponse.error) {
+            setError(lessonResponse.error);
+          } else {
+            setLessonJson(lessonResponse);
+            saveSelectedMode('lesson');
+          }
         }
         
         setIsTyping(false);
