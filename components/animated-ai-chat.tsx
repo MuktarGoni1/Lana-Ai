@@ -833,12 +833,16 @@ interface ChatResponse {
 }
 
 // Type guard functions
-function isLessonResponse(response: Lesson | ChatResponse): response is Lesson {
-  return 'introduction' in response || 'sections' in response || 'quiz' in response;
+function isLessonResponse(response: any): response is Lesson {
+  return response && ('introduction' in response || 'sections' in response || 'quiz' in response);
 }
 
-function isChatResponse(response: Lesson | ChatResponse): response is ChatResponse {
-  return 'reply' in response && 'mode' in response;
+function isMathResponse(response: any): response is MathSolutionUI {
+  return response && 'problem' in response && 'solution' in response;
+}
+
+function isChatResponse(response: any): response is ChatResponse {
+  return response && 'reply' in response && 'mode' in response && !isMathResponse(response) && !isLessonResponse(response);
 }
 
 interface AnimatedAIChatProps {
@@ -1187,6 +1191,8 @@ interface AnimatedAIChatProps {
             setError(mathResponse.error);
           } else {
             setMathSolution(mathResponse);
+            // Also set lessonJson to the math response so it can be properly rendered
+            setLessonJson(mathResponse as any);
             saveSelectedMode('maths');
           }
         } else if (mode === 'chat' || mode === 'quick') {
@@ -1250,6 +1256,8 @@ interface AnimatedAIChatProps {
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
               setStoredLong(replyText);
+              // Set the lessonJson to the chat response so it can be displayed in the UI
+              setLessonJson(chatResponse);
               saveSelectedMode(chatResponse.mode);
             }
           }
@@ -1473,6 +1481,8 @@ interface AnimatedAIChatProps {
         }
         if (data.error) setError(data.error);
         setMathSolution(data);
+        // Also set lessonJson to the math response so it can be properly rendered
+        setLessonJson(data as any);
         setIsTyping(false);
         await savePromise;
         return;
@@ -1891,6 +1901,11 @@ interface AnimatedAIChatProps {
                     lesson={lessonJson} 
                     isStreamingComplete={!isTyping} 
                   />
+                ) : isMathResponse(lessonJson) ? (
+                  /* Check if the response is a math solution */
+                  <MathSolutionCard 
+                    data={lessonJson as MathSolutionUI} 
+                  />
                 ) : (
                   /* For chat responses, display as simple text */
                   <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
@@ -1905,7 +1920,7 @@ interface AnimatedAIChatProps {
                     <div className="space-y-4 text-sm">
                       <div className="space-y-2">
                         <p className="text-white/70 leading-relaxed">
-                          {(lessonJson as ChatResponse).reply || JSON.stringify(lessonJson)}
+                          {isChatResponse(lessonJson) ? (lessonJson as ChatResponse).reply : JSON.stringify(lessonJson)}
                         </p>
                       </div>
                     </div>
@@ -1914,11 +1929,7 @@ interface AnimatedAIChatProps {
               </div>
             )}
 
-            {mathSolution && (
-              <div className="px-4 pb-4">
-                <MathSolutionCard data={mathSolution} />
-              </div>
-            )}
+            {/* Math solutions are now handled through lessonJson to ensure consistent rendering */}
 
             {/* attachments */}
             <AnimatePresence>

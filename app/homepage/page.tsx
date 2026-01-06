@@ -1413,6 +1413,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
               setStoredLong(replyText);
+              // Set the lessonJson to the chat response so it can be displayed in the UI
+              setLessonJson(chatResponse);
             }
           }
         } else { // lesson mode
