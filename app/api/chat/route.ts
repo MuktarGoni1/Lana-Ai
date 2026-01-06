@@ -43,12 +43,11 @@ export async function POST(req: Request) {
       
       // The production URL is hardcoded and assumed to be valid
       
-      // Prepare the payload for the production chat API
+      // Prepare the payload for the production chat API (exact backend format)
       const payload = { 
+        user_id: userId,
         message: message,
-        userId: userId,
-        age: age,
-        mode: mode
+        age: age
       };
       
       try {
@@ -56,7 +55,11 @@ export async function POST(req: Request) {
           chatUrl,
           {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'Lana-Frontend/1.0'
+            },
             body: JSON.stringify(payload),
           },
           { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }
@@ -128,7 +131,11 @@ export async function POST(req: Request) {
         lessonUrl,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'User-Agent': 'Lana-Frontend/1.0'
+          },
           body: JSON.stringify(payload),
         },
         { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }
