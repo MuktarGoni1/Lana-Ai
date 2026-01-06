@@ -26,46 +26,101 @@ export async function POST(req: Request) {
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
+    
+    // Validate that the mode is supported
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    if (!SUPPORTED_MODES.includes(mode)) {
+      return NextResponse.json({ error: 'Invalid mode. Supported modes: chat, quick, lesson, maths' }, { status: 400 });
+    }
 
     console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
 
     // For chat mode, we need to generate a conversational response
     // For quick mode, we route to structured lesson
     if (mode === 'chat') {
-      // For chat mode, generate a simple conversational response
-      // Since the backend might not have a dedicated chat endpoint,
-      // we'll simulate a chat response here
-      const chatResponse = {
-        mode: mode,
-        reply: `Hello! I'm your AI tutor. You said: "${message}". How can I help you today?`,
-        conversationId: Date.now().toString(),
-        timestamp: new Date().toISOString()
+      // For chat mode, generate a conversational response by calling the production AI service
+      const chatUrl = 'https://api.lanamind.com/api/chat/';
+      
+      // The production URL is hardcoded and assumed to be valid
+      
+      // Prepare the payload for the production chat API
+      const payload = { 
+        message: message,
+        userId: userId,
+        age: age,
+        mode: mode
       };
       
-      return NextResponse.json(chatResponse, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      try {
+        const backendResponse = await fetchWithTimeoutAndRetry(
+          chatUrl,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          },
+          { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }
+        );
+
+        if (backendResponse.ok) {
+          const responseData = await backendResponse.json();
+          
+          // Return the response with mode information for chat mode
+          // The production API should return a proper chat response
+          const replyText = responseData.reply || responseData.message || JSON.stringify(responseData);
+          
+          return NextResponse.json({
+            mode: mode,
+            reply: replyText,
+            ...responseData,
+            conversationId: Date.now().toString(),
+            timestamp: new Date().toISOString()
+          }, {
+            status: 200,
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+        }
+
+        // Handle specific error cases
+        if (backendResponse.status === 404) {
+          console.error('Backend chat endpoint not found:', chatUrl);
+          return NextResponse.json(
+            { error: 'Chat service not found', details: 'The requested service endpoint is not available' },
+            { status: 404 }
+          );
+        }
+
+        // Non-OK from backend: return a clear error to the client
+        const errorText = await backendResponse.text();
+        console.error('Backend chat service error:', backendResponse.status, errorText);
+        return NextResponse.json(
+          {
+            error: 'Chat service is temporarily unavailable',
+            details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
+          },
+          { status: backendResponse.status }
+        );
+      } catch (backendError) {
+        console.error('Backend connection error:', backendError);
+        return NextResponse.json(
+          {
+            error: 'Unable to connect to chat service',
+            details: 'Please check your internet connection or try again later',
+          },
+          { status: 503 }
+        );
+      }
     }
     
-    // For quick mode, we route to the structured lesson endpoint
-    const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-    const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+    // For quick mode, we route to the production structured lesson endpoint but return a more concise response
+    const lessonUrl = 'https://api.lanamind.com/api/structured-lesson';
     
-    // Validate backend URL
-    try {
-      new URL(lessonUrl);
-    } catch (e) {
-      console.error('Invalid backend URL:', lessonUrl);
-      return NextResponse.json({ error: 'Invalid service configuration' }, { status: 500 });
-    }
-    
-    // Prepare the payload for structured lesson
+    // Prepare the payload for the production structured lesson API
     const payload = { 
       topic: message,
-      age: age 
+      age: age
     };
     
     try {
@@ -82,9 +137,18 @@ export async function POST(req: Request) {
       if (backendResponse.ok) {
         const responseData = await backendResponse.json();
         
-        // Return the response with mode information for quick mode
-        // For quick mode, use introduction or the original message
-        const replyText = responseData.introduction || message;
+        // For quick mode, create a concise summary from the structured lesson response
+        let replyText = message;
+        if (responseData.introduction) {
+          replyText = responseData.introduction;
+          // For quick mode, only include introduction and first section if available
+          if (Array.isArray(responseData.sections) && responseData.sections.length > 0) {
+            const firstSection = responseData.sections[0];
+            if (firstSection.content) {
+              replyText += '\n\n' + (firstSection.title ? `**${firstSection.title}**: ` : '') + firstSection.content;
+            }
+          }
+        }
         
         return NextResponse.json({
           ...responseData,
