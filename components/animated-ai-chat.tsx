@@ -832,6 +832,15 @@ interface ChatResponse {
   error?: string;
 }
 
+// Type guard functions
+function isLessonResponse(response: Lesson | ChatResponse): response is Lesson {
+  return 'introduction' in response || 'sections' in response || 'quiz' in response;
+}
+
+function isChatResponse(response: Lesson | ChatResponse): response is ChatResponse {
+  return 'reply' in response && 'mode' in response;
+}
+
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
@@ -886,7 +895,7 @@ interface AnimatedAIChatProps {
       }
     };
   }, []);
-  const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [lessonJson, setLessonJson] = useState<Lesson | ChatResponse | null>(null);   // NEW
   const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -1876,10 +1885,32 @@ interface AnimatedAIChatProps {
 
             {lessonJson && (
               <div className="px-4 pb-4">
-                <StructuredLessonCard 
-                  lesson={lessonJson} 
-                  isStreamingComplete={!isTyping} 
-                />
+                {/* Check if the response is a structured lesson */}
+                {lessonJson && isLessonResponse(lessonJson) ? (
+                  <StructuredLessonCard 
+                    lesson={lessonJson} 
+                    isStreamingComplete={!isTyping} 
+                  />
+                ) : (
+                  /* For chat responses, display as simple text */
+                  <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 rounded-lg bg-white/10">
+                          <Sparkles className="w-5 h-5 text-white" />
+                        </div>
+                        <h2 className="text-xl font-semibold">Response</h2>
+                      </div>
+                    </div>
+                    <div className="space-y-4 text-sm">
+                      <div className="space-y-2">
+                        <p className="text-white/70 leading-relaxed">
+                          {(lessonJson as ChatResponse).reply || JSON.stringify(lessonJson)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1969,7 +2000,7 @@ interface AnimatedAIChatProps {
               >
                 <button
                   onClick={() => onNavigateToVideoLearning?.(
-                    lessonJson?.introduction?.split('\n')[0] || value.trim() || "Generated Lesson"
+                    (lessonJson && isLessonResponse(lessonJson) ? (lessonJson as Lesson).introduction?.split('\n')[0] || value.trim() : value.trim()) || "Generated Lesson"
                   )}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white"
                 >

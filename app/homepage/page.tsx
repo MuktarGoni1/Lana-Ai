@@ -227,6 +227,8 @@ interface LessonQuizItem {
 interface MathStepUI {
   description: string;
   expression?: string | null;
+  explanation?: string;
+  operation?: string;
 }
 
 interface MathSolutionUI {
@@ -236,6 +238,189 @@ interface MathSolutionUI {
   error?: string | null;
 }
 
+// Response type for chat and quick modes
+interface ChatResponse {
+  mode: string;
+  reply: string;
+  conversationId?: string;
+  timestamp?: string;
+  error?: string;
+}
+
+// Response type for maths mode
+interface MathResponse {
+  problem: string;
+  solution: string;
+  steps?: MathStepUI[];
+  error?: string;
+  keyConcepts?: string[];
+  alternativeMethods?: string[];
+  commonMistakes?: string[];
+  tips?: string[];
+  problemType?: string;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+}
+
+// Math Solution Card Component
+const MathSolutionCard = ({ data }: { data: MathResponse }) => {
+  const router = useRouter();
+  
+  // Function to handle taking a math quiz based on the problem type
+  const handleTakeQuiz = () => {
+    try {
+      // If we have problem type, redirect to relevant quiz
+      if (data.problemType) {
+        router.push(`/quiz?subject=math&type=${encodeURIComponent(data.problemType)}`);
+      }
+    } catch (err) {
+      console.error("Failed to navigate to math quiz:", err);
+    }
+  };
+  
+  return (
+    <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-white/10">
+            <BookOpen className="w-5 h-5 text-white" />
+          </div>
+          <h2 className="text-xl font-semibold">Math Solution</h2>
+        </div>
+        {data.problemType && (
+          <button
+            onClick={handleTakeQuiz}
+            className="px-3 py-1.5 text-sm bg-white text-black rounded-lg font-medium hover:bg-white/90 transition-colors flex items-center gap-1.5"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Practice More
+          </button>
+        )}
+      </div>
+      
+      {/* Problem Section */}
+      <div className="space-y-2">
+        <h3 className="font-medium text-white/80 flex items-center gap-2">
+          <span className="w-2 h-2 bg-blue-400 rounded-full"></span>
+          Original Problem
+        </h3>
+        <div className="p-3 bg-white/5 rounded-lg border border-white/10">
+          <p className="text-white/90">{data.problem}</p>
+        </div>
+      </div>
+      
+      {/* Steps Section */}
+      {data.steps && data.steps.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="font-medium text-white/80 flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-400 rounded-full"></span>
+            Solution Steps
+          </h3>
+          <div className="space-y-3">
+            {data.steps.map((step, idx) => (
+              <div key={idx} className="p-3 bg-white/5 rounded-lg border border-white/10">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs font-bold text-blue-300">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1">
+                    <div className="space-y-1">
+                      {step.expression && (
+                        <div className="text-white/90 font-mono bg-black/20 p-2 rounded">
+                          {step.expression}
+                        </div>
+                      )}
+                      <p className="text-white/80 text-sm">{step.description}</p>
+                      {step.explanation && (
+                        <p className="text-white/60 text-xs mt-1 italic">{step.explanation}</p>
+                      )}
+                      {step.operation && (
+                        <p className="text-white/60 text-xs mt-1">
+                          <span className="font-medium">Operation:</span> {step.operation}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {/* Solution/Final Answer Section */}
+      <div className="space-y-2">
+        <h3 className="font-medium text-white/80 flex items-center gap-2">
+          <span className="w-2 h-2 bg-purple-400 rounded-full"></span>
+          Final Answer
+        </h3>
+        <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+          <p className="text-white/90 font-semibold">{data.solution}</p>
+        </div>
+      </div>
+      
+      {/* Additional Educational Content */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        {/* Key Concepts */}
+        {data.keyConcepts && data.keyConcepts.length > 0 && (
+          <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+            <h4 className="font-medium text-blue-200 text-sm mb-2">Key Concepts</h4>
+            <ul className="space-y-1">
+              {data.keyConcepts.map((concept, idx) => (
+                <li key={idx} className="text-white/80 text-xs">• {concept}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Difficulty and Problem Type */}
+        <div className="p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
+          <h4 className="font-medium text-gray-200 text-sm mb-2">Problem Info</h4>
+          <div className="space-y-1">
+            {data.problemType && (
+              <p className="text-white/80 text-xs">
+                <span className="font-medium">Type:</span> {data.problemType}
+              </p>
+            )}
+            {data.difficulty && (
+              <p className="text-white/80 text-xs">
+                <span className="font-medium">Difficulty:</span> {data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1)}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Additional Tips and Common Mistakes */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+        {/* Tips */}
+        {data.tips && data.tips.length > 0 && (
+          <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+            <h4 className="font-medium text-green-200 text-sm mb-2">Helpful Tips</h4>
+            <ul className="space-y-1">
+              {data.tips.map((tip, idx) => (
+                <li key={idx} className="text-white/80 text-xs">• {tip}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+        
+        {/* Common Mistakes */}
+        {data.commonMistakes && data.commonMistakes.length > 0 && (
+          <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <h4 className="font-medium text-red-200 text-sm mb-2">Common Mistakes</h4>
+            <ul className="space-y-1">
+              {data.commonMistakes.map((mistake, idx) => (
+                <li key={idx} className="text-white/80 text-xs">• {mistake}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Response type for structured lesson mode
 interface Lesson {
   id?: string;
   introduction?: string;
@@ -243,6 +428,21 @@ interface Lesson {
   sections?: LessonSection[];
   diagram?: string;
   quiz?: LessonQuizItem[];
+  error?: string;
+}
+
+// Union type for all possible response types
+type ApiResponse = Lesson | ChatResponse | MathResponse;
+
+// Type guard functions
+type LessonResponse = Lesson;
+
+function isLessonResponse(response: ApiResponse): response is Lesson {
+  return 'introduction' in response || 'sections' in response || 'quiz' in response;
+}
+
+function isChatResponse(response: ApiResponse): response is ChatResponse {
+  return 'reply' in response && 'mode' in response;
 }
 
 const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson; isStreamingComplete: boolean }) => {
@@ -846,7 +1046,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
   const [inputFocused, setInputFocused] = useState(false);
   const [showVideoButton, setShowVideoButton] = useState(false);
   const [storedLong, setStoredLong] = useState("");
-  const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [lessonJson, setLessonJson] = useState<ApiResponse | null>(null);   // NEW
   const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -1707,10 +1907,39 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
 
             {lessonJson && (
               <div className="px-4 pb-4">
-                <StructuredLessonCard 
-                  lesson={lessonJson} 
-                  isStreamingComplete={!isTyping} 
-                />
+                {/* Check if the response is a structured lesson */}
+                {lessonJson && isLessonResponse(lessonJson) && lessonJson.introduction ? (
+                  <StructuredLessonCard 
+                    lesson={lessonJson} 
+                    isStreamingComplete={!isTyping} 
+                  />
+                ) : (
+                  /* Check if the response is a math solution */
+                  (lessonJson as MathResponse).problem && (lessonJson as MathResponse).solution ? (
+                    <MathSolutionCard 
+                      data={lessonJson as MathResponse} 
+                    />
+                  ) : (
+                    /* For chat responses, display as simple text */
+                    <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-white/10">
+                            <Sparkles className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold">Response</h2>
+                        </div>
+                      </div>
+                      <div className="space-y-4 text-sm">
+                        <div className="space-y-2">
+                          <p className="text-white/70 leading-relaxed">
+                            {(lessonJson as ChatResponse).reply || JSON.stringify(lessonJson)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             )}
 
@@ -1794,7 +2023,7 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
               >
                 <button
                   onClick={() => onNavigateToVideoLearning?.(
-                    lessonJson?.introduction?.split('\n')[0] || value.trim() || "Generated Lesson"
+                    (lessonJson ? (isLessonResponse(lessonJson) && lessonJson.introduction ? lessonJson.introduction.split('\n')[0] : value.trim()) : value.trim()) || "Generated Lesson"
                   )}
                   className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white"
                 >
