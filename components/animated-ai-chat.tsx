@@ -834,15 +834,49 @@ interface ChatResponse {
 
 // Type guard functions
 function isLessonResponse(response: any): response is Lesson {
-  return response && ('introduction' in response || 'sections' in response || 'quiz' in response);
+  // Check if response has lesson-specific properties with meaningful content
+  if (!response) return false;
+  
+  // Check for introduction with actual content
+  if (response.introduction && typeof response.introduction === 'string' && response.introduction.trim() !== '') {
+    return true;
+  }
+  
+  // Check for sections with actual content
+  if (Array.isArray(response.sections) && response.sections.length > 0) {
+    // Check if at least one section has meaningful content
+    return response.sections.some((section: any) => 
+      (section && typeof section === 'object' && 
+       ((section.title && typeof section.title === 'string' && section.title.trim() !== '') || 
+        (section.content && typeof section.content === 'string' && section.content.trim() !== '')))
+    );
+  }
+  
+  // Check for quiz with actual content
+  if (Array.isArray(response.quiz) && response.quiz.length > 0) {
+    return response.quiz.some((quizItem: any) => 
+      quizItem && typeof quizItem === 'object' && 
+      (quizItem.q || quizItem.question) && Array.isArray(quizItem.options) && quizItem.options.length > 0
+    );
+  }
+  
+  return false;
 }
 
 function isMathResponse(response: any): response is MathSolutionUI {
-  return response && 'problem' in response && 'solution' in response;
+  return response && 'problem' in response && 'solution' in response && 
+         typeof response.problem === 'string' && typeof response.solution === 'string';
 }
 
 function isChatResponse(response: any): response is ChatResponse {
-  return response && 'reply' in response && 'mode' in response && !isMathResponse(response) && !isLessonResponse(response);
+  // Check if it has reply and mode properties, and is not a math or lesson response
+  // Prioritize chat responses that have a reply property with actual content
+  return response && 
+         'reply' in response && 
+         'mode' in response && 
+         (typeof response.reply === 'string' || typeof response.reply === 'object') &&
+         !isMathResponse(response) && 
+         !isLessonResponse(response);
 }
 
 interface AnimatedAIChatProps {
@@ -1920,7 +1954,11 @@ interface AnimatedAIChatProps {
                     <div className="space-y-4 text-sm">
                       <div className="space-y-2">
                         <p className="text-white/70 leading-relaxed">
-                          {isChatResponse(lessonJson) ? (lessonJson as ChatResponse).reply : JSON.stringify(lessonJson)}
+                          {isChatResponse(lessonJson) 
+                            ? (typeof (lessonJson as ChatResponse).reply === 'string' 
+                              ? (lessonJson as ChatResponse).reply 
+                              : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
+                            : JSON.stringify(lessonJson)}
                         </p>
                       </div>
                     </div>
