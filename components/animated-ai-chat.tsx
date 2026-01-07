@@ -1029,7 +1029,7 @@ interface AnimatedAIChatProps {
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Explanation Mode",
+      label: "Explaner",
       description: "Comprehensive Ai explanations",
       action: () =>
         onNavigateToVideoLearning?.(
@@ -1646,7 +1646,7 @@ interface AnimatedAIChatProps {
       }
     }
 
-    // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
+    // ✅ OPTIMIZED structured-lesson STREAMING path
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
@@ -2044,7 +2044,7 @@ interface AnimatedAIChatProps {
               </div>
             )}
 
-            {/* AI response area — moved OUTSIDE input container */}
+            {/* AI response area */}
             {error && (
               <div className="px-4 pb-4">
                 <motion.div 
