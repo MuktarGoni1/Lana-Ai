@@ -7,6 +7,7 @@ import DOMPurify from "isomorphic-dompurify";
 import rateLimiter from "@/lib/rate-limiter";
 import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
 import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
+import { getErrorMessage } from "@/lib/api-errors";
 import {
   Paperclip,
   Command,
@@ -299,9 +300,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   };
 
-  // Removed verbose debug logging for production readiness.
-  const blocks: { title?: string; content: string }[] = [];
-
   // TTS state and actions
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isTtsLoading, setIsTtsLoading] = useState(false);
@@ -314,6 +312,76 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
+  const blocks = useMemo(() => {
+    const blocks: { title?: string; content: string }[] = [];
+    
+    // Handle error responses differently
+    if (isErrorResponse) {
+      blocks.push({ 
+        title: "Service Temporarily Unavailable", 
+        content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
+      });
+      
+      // Add helpful suggestions
+      if (lesson.sections && lesson.sections.length > 0) {
+        blocks.push({ 
+          title: lesson.sections[0].title || "Suggestions", 
+          content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
+        });
+      }
+    } else {
+      if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
+        blocks.push({
+          title: "Introduction",
+          content: lesson.introduction.trim(),
+        });
+      }
+
+      if (
+        Array.isArray(lesson.classifications) &&
+        lesson.classifications.length > 0
+      ) {
+        const classificationContent = lesson.classifications
+          .map((c: { type?: string; description?: string }) => {
+            if (c?.type && c?.description) {
+              return `• ${c.type}: ${c.description}`;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .join("\n");
+
+        if (classificationContent) {
+          blocks.push({
+            title: "Classifications / Types",
+            content: classificationContent,
+          });
+        }
+      }
+
+      // Detailed sections (now after classifications)
+      if (Array.isArray(lesson.sections)) {
+        for (const section of lesson.sections) {
+          if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
+            blocks.push({
+              title: normalizeTitle(section.title.trim()),
+              content: section.content.trim(),
+            });
+          }
+        }
+      }
+
+      if (lesson.diagram && lesson.diagram.trim()) {
+        blocks.push({
+          title: "Diagram Description",
+          content: lesson.diagram.trim(),
+        });
+      }
+    }
+    
+    return blocks;
+  }, [lesson, isErrorResponse, normalizeTitle]);
 
   const getFullLessonText = useCallback(() => {
     const lines: string[] = [];
@@ -757,11 +825,12 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
-        audioRef.current = null;
+        // Don't set audioRef.current to null as it's a ref
+        // Just clear the audio source to free memory
       }
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
-  }, [audioUrl]);
+  }, []); // Empty dependency array to run only once on unmount
 
   if (data.error) {
     return (
@@ -1045,6 +1114,21 @@ interface AnimatedAIChatProps {
   ];
 
   /* --- effects ----------------------------------------------------- */
+  // Cleanup function for AbortController to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Abort any ongoing requests when component unmounts
+      abortRef.current?.abort();
+      abortRef.current = null;
+      
+      // Clear any ongoing timeouts/intervals
+      if (stallTickerRef.current) {
+        clearInterval(stallTickerRef.current);
+        stallTickerRef.current = null;
+      }
+    };
+  }, []);
+
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const loadAge = async () => {
@@ -1174,13 +1258,9 @@ interface AnimatedAIChatProps {
     // Check if the input explicitly contains a mode prefix
     const hasExplicitModePrefix = /^\/\/(chat|quick|lesson|maths)\b/.test(sanitizedInput);
         
-    if (hasExplicitModePrefix) {
-      // If there's an explicit prefix in the input, use the mode from input
-      var mode = getCurrentMode(sanitizedInput);
-    } else {
-      // Otherwise, use the currently selected mode from UI
-      var mode = getSelectedMode() || 'lesson';
-    }
+    const mode = hasExplicitModePrefix 
+      ? getCurrentMode(sanitizedInput)
+      : (getSelectedMode() || 'lesson');
         
     // Extract the actual message content by removing the mode prefix
     const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
@@ -1237,26 +1317,7 @@ interface AnimatedAIChatProps {
           });
               
           if (!response.ok) {
-            let errorMessage = "Failed to get response from server";
-            switch (response.status) {
-              case 400:
-                errorMessage = "Invalid math problem. Please try rephrasing your question.";
-                break;
-              case 401:
-                errorMessage = "Authentication required. Please log in again.";
-                break;
-              case 429:
-                errorMessage = "Too many requests. Please wait a moment and try again.";
-                break;
-              case 500:
-                errorMessage = "Server error. Please try again later.";
-                break;
-              case 503:
-                errorMessage = "Math solver temporarily unavailable. Please try again later.";
-                break;
-              default:
-                errorMessage = `Server error (${response.status}). Please try again later.`;
-            }
+            const errorMessage = getErrorMessage(response.status, "math");
             throw new Error(errorMessage);
           }
               
@@ -1288,7 +1349,7 @@ interface AnimatedAIChatProps {
             setIsTyping(false);
             return;
           }
-              
+                    
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1297,31 +1358,12 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-              
+                    
           if (!response.ok) {
-            let errorMessage = "Failed to get response from server";
-            switch (response.status) {
-              case 400:
-                errorMessage = "Invalid request. Please try rephrasing your question.";
-                break;
-              case 401:
-                errorMessage = "Authentication required. Please log in again.";
-                break;
-              case 429:
-                errorMessage = "Too many requests. Please wait a moment and try again.";
-                break;
-              case 500:
-                errorMessage = "Server error. Please try again later.";
-                break;
-              case 503:
-                errorMessage = "Service temporarily unavailable. Please try again later.";
-                break;
-              default:
-                errorMessage = `Server error (${response.status}). Please try again later.`;
-            }
+            const errorMessage = getErrorMessage(response.status, "chat");
             throw new Error(errorMessage);
           }
-              
+                    
           const chatResponse: ChatResponse = await response.json();
               
           if (chatResponse.error) {
@@ -1368,45 +1410,26 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-              
+                    
           if (!response.ok) {
-            let errorMessage = "Failed to get response from server";
-            switch (response.status) {
-              case 400:
-                errorMessage = "Invalid request. Please try rephrasing your question.";
-                break;
-              case 401:
-                errorMessage = "Authentication required. Please log in again.";
-                break;
-              case 429:
-                errorMessage = "Too many requests. Please wait a moment and try again.";
-                break;
-              case 500:
-                errorMessage = "Server error. Please try again later.";
-                break;
-              case 503:
-                errorMessage = "Service temporarily unavailable. Please try again later.";
-                break;
-              default:
-                errorMessage = `Server error (${response.status}). Please try again later.`;
-            }
+            const errorMessage = getErrorMessage(response.status, "lesson");
             throw new Error(errorMessage);
           }
-              
+                    
           const lessonResponse = await response.json();
-          
+                    
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
             // Summarize the lesson response for quick mode
             const summarizedResponse = summarizeLessonResponse(lessonResponse);
-            
+                      
             // Set the response for display
             setStreamingText(summarizedResponse);
             setStoredLong(summarizedResponse);
             setLessonJson(lessonResponse); // Store the full lesson response
             saveSelectedMode('quick');
-            
+                      
             // Update conversation history with both user message and AI response
             setConversationHistory(prev => [
               ...prev,
@@ -1437,33 +1460,14 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-              
+                    
           if (!response.ok) {
-            let errorMessage = "Failed to get response from server";
-            switch (response.status) {
-              case 400:
-                errorMessage = "Invalid request. Please try rephrasing your question.";
-                break;
-              case 401:
-                errorMessage = "Authentication required. Please log in again.";
-                break;
-              case 429:
-                errorMessage = "Too many requests. Please wait a moment and try again.";
-                break;
-              case 500:
-                errorMessage = "Server error. Please try again later.";
-                break;
-              case 503:
-                errorMessage = "Service temporarily unavailable. Please try again later.";
-                break;
-              default:
-                errorMessage = `Server error (${response.status}). Please try again later.`;
-            }
+            const errorMessage = getErrorMessage(response.status, "lesson");
             throw new Error(errorMessage);
           }
-              
+                    
           const lessonResponse = await response.json();
-              
+                    
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
@@ -1687,27 +1691,7 @@ interface AnimatedAIChatProps {
       clearTimeout(connectTimer);
 
       if (!response.ok) {
-        // Handle specific HTTP errors with user-friendly messages
-        let errorMessage = "Failed to get response from server";
-        switch (response.status) {
-          case 400:
-            errorMessage = "Invalid request. Please try rephrasing your question.";
-            break;
-          case 401:
-            errorMessage = "Authentication required. Please log in again.";
-            break;
-          case 429:
-            errorMessage = "Too many requests. Please wait a moment and try again.";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          case 503:
-            errorMessage = "Service temporarily unavailable. Please try again later.";
-            break;
-          default:
-            errorMessage = `Server error (${response.status}). Please try again later.`;
-        }
+        const errorMessage = getErrorMessage(response.status, "lesson");
         throw new Error(errorMessage);
       }
 
