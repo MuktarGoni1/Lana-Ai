@@ -1980,28 +1980,31 @@ interface AnimatedAIChatProps {
                     data={lessonJson as MathSolutionUI} 
                   />
                 ) : (
-                  /* For chat responses, display as simple text */
-                  <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-white/10">
-                          <Sparkles className="w-5 h-5 text-white" />
+                  /* For chat responses in lessonJson, only show if not in chat/quick mode 
+                     (since chat responses are already shown in conversation history) */
+                  !['chat', 'quick'].includes(selectedMode) && (
+                    <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-lg bg-white/10">
+                            <Sparkles className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold">Response</h2>
                         </div>
-                        <h2 className="text-xl font-semibold">Response</h2>
+                      </div>
+                      <div className="space-y-4 text-sm">
+                        <div className="space-y-2">
+                          <p className="text-white/70 leading-relaxed">
+                            {isChatResponse(lessonJson) 
+                              ? (typeof (lessonJson as ChatResponse).reply === 'string' 
+                                ? (lessonJson as ChatResponse).reply 
+                                : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
+                              : JSON.stringify(lessonJson)}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-4 text-sm">
-                      <div className="space-y-2">
-                        <p className="text-white/70 leading-relaxed">
-                          {isChatResponse(lessonJson) 
-                            ? (typeof (lessonJson as ChatResponse).reply === 'string' 
-                              ? (lessonJson as ChatResponse).reply 
-                              : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
-                            : JSON.stringify(lessonJson)}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  )
                 )}
               </div>
             )}
