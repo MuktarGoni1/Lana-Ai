@@ -22,7 +22,6 @@ import {
   RefreshCw,
   Plus,
   CheckIcon,
-  ChevronsUpDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
@@ -880,6 +879,40 @@ function isChatResponse(response: any): response is ChatResponse {
          !isLessonResponse(response);
 }
 
+// Helper function to summarize lesson responses for quick mode
+const summarizeLessonResponse = (lesson: any): string => {
+  let summaryParts: string[] = [];
+  
+  // Add introduction if available
+  if (lesson.introduction && typeof lesson.introduction === 'string') {
+    summaryParts.push(lesson.introduction);
+  }
+  
+  // Add content from sections if available
+  if (Array.isArray(lesson.sections) && lesson.sections.length > 0) {
+    lesson.sections.forEach((section: any) => {
+      if (section && typeof section === 'object') {
+        if (section.title && typeof section.title === 'string') {
+          summaryParts.push(section.title);
+        }
+        if (section.content && typeof section.content === 'string') {
+          summaryParts.push(section.content);
+        }
+      }
+    });
+  }
+  
+  // Combine parts and limit length for quick response
+  let fullSummary = summaryParts.join(' ');
+  
+  // Limit to a reasonable length for quick responses (e.g., first 300 characters)
+  if (fullSummary.length > 300) {
+    fullSummary = fullSummary.substring(0, 300) + '...';
+  }
+  
+  return fullSummary || 'No content available.';
+};
+
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
@@ -946,44 +979,7 @@ interface AnimatedAIChatProps {
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
   const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
-  const [showModeDropdown, setShowModeDropdown] = useState(false);
   const router = useRouter();
-  
-  // Helper function to summarize lesson responses for quick mode
-  const summarizeLessonResponse = (lesson: any): string => {
-    let summaryParts: string[] = [];
-    
-    // Add introduction if available
-    if (lesson.introduction && typeof lesson.introduction === 'string' && lesson.introduction.trim() !== '') {
-      summaryParts.push(lesson.introduction);
-    }
-    
-    // Add content from sections if available
-    if (Array.isArray(lesson.sections) && lesson.sections.length > 0) {
-      for (const section of lesson.sections) {
-        if (section && typeof section === 'object') {
-          if (section.title && typeof section.title === 'string' && section.title.trim() !== '') {
-            summaryParts.push(section.title);
-          }
-          if (section.content && typeof section.content === 'string' && section.content.trim() !== '') {
-            summaryParts.push(section.content);
-          }
-          // Stop after a few sections to keep it brief
-          if (summaryParts.length >= 4) break;
-        }
-      }
-    }
-    
-    // Combine parts and limit length for quick response
-    let fullSummary = summaryParts.join(' ').trim();
-    
-    // Limit to a reasonable length for quick responses (e.g., first 300 characters)
-    if (fullSummary.length > 300) {
-      fullSummary = fullSummary.substring(0, 300) + '...';
-    }
-    
-    return fullSummary || 'No content available.';
-  };
   
   const { textareaRef: autoRef, adjustHeight } = useAutoResizeTextarea({
     minHeight: 60,
@@ -1099,21 +1095,6 @@ interface AnimatedAIChatProps {
       window.removeEventListener("mousemove", handleMouseMove); 
     };
   }, [mouseX, mouseY]);
-
-  // Close mode dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const modeButton = document.getElementById('mode-menu-button');
-      if (showModeDropdown && modeButton && !modeButton.contains(event.target as Node)) {
-        setShowModeDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showModeDropdown]);
 
   // Function to get the appropriate placeholder based on the currently selected mode
   const getModePlaceholder = (): string => {
@@ -1300,14 +1281,14 @@ interface AnimatedAIChatProps {
             conversation_history: conversationHistory
           };
           endpoint = '/api/chat';
-                  
+              
           if (!rateLimiter.isAllowed(endpoint)) {
             const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-                  
+              
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1316,7 +1297,7 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-                  
+              
           if (!response.ok) {
             let errorMessage = "Failed to get response from server";
             switch (response.status) {
@@ -1340,9 +1321,9 @@ interface AnimatedAIChatProps {
             }
             throw new Error(errorMessage);
           }
-                  
+              
           const chatResponse: ChatResponse = await response.json();
-                  
+              
           if (chatResponse.error) {
             setError(chatResponse.error);
           } else {
@@ -1355,7 +1336,7 @@ interface AnimatedAIChatProps {
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
               saveSelectedMode(chatResponse.mode);
-                      
+              
               // Update conversation history with both user message and AI response
               setConversationHistory(prev => [
                 ...prev,
@@ -1364,21 +1345,21 @@ interface AnimatedAIChatProps {
               ]);
             }
           }
-        } else if (mode === 'quick') { // quick mode
-          // For quick mode, use the structured lesson endpoint but summarize the response
+        } else if (mode === 'quick') {
+          // For quick mode, use the structured lesson endpoint
           payload = {
             topic: apiMessage,
             age: userAge
           };
           endpoint = '/api/structured-lesson';
-                  
+              
           if (!rateLimiter.isAllowed(endpoint)) {
             const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-                  
+              
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1387,7 +1368,7 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-                  
+              
           if (!response.ok) {
             let errorMessage = "Failed to get response from server";
             switch (response.status) {
@@ -1411,21 +1392,21 @@ interface AnimatedAIChatProps {
             }
             throw new Error(errorMessage);
           }
-                  
+              
           const lessonResponse = await response.json();
-                  
+          
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
             // Summarize the lesson response for quick mode
             const summarizedResponse = summarizeLessonResponse(lessonResponse);
-                    
+            
             // Set the response for display
             setStreamingText(summarizedResponse);
             setStoredLong(summarizedResponse);
             setLessonJson(lessonResponse); // Store the full lesson response
             saveSelectedMode('quick');
-                    
+            
             // Update conversation history with both user message and AI response
             setConversationHistory(prev => [
               ...prev,
@@ -2001,13 +1982,7 @@ interface AnimatedAIChatProps {
                   setValue(newValue);
                   adjustHeight();
                 }}
-                onKeyDown={(e) => {
-                  // Close mode dropdown when Enter is pressed
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    setShowModeDropdown(false);
-                  }
-                  handleKeyDown(e);
-                }}
+                onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={getModePlaceholder()}
@@ -2018,75 +1993,32 @@ interface AnimatedAIChatProps {
               />
             </div>
 
-            {/* simplified mode selector */}
-            <div className="px-4 flex justify-center">
-              <div className="relative inline-block text-left w-full max-w-xs">
-                <motion.button
-                  type="button"
-                  className="inline-flex w-full justify-between rounded-lg bg-white/10 px-4 py-3 text-sm font-medium text-white/80 hover:bg-white/20 transition-all border border-white/10"
-                  id="mode-menu-button"
-                  aria-expanded="true"
-                  aria-haspopup="true"
-                  onClick={() => setShowModeDropdown(!showModeDropdown)}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="flex items-center gap-2">
-                    {commandSuggestions.find(s => s.prefix.replace('/', '').toLowerCase() === selectedMode)?.icon}
-                    <span>
-                      {commandSuggestions.find(s => s.prefix.replace('/', '').toLowerCase() === selectedMode)?.label || 'Select Mode'}
-                    </span>
-                  </div>
-                  <ChevronsUpDown className="ml-2 h-4 w-4" />
-                </motion.button>
+            {/* mode selection buttons */}
+            <div className="px-4 flex flex-wrap gap-1 justify-center">
+              {commandSuggestions.map((suggestion, idx) => {
+                const mode = suggestion.prefix.replace('/', '').toLowerCase();
+                const isSelected = selectedMode === mode;
+                const isFeedback = modeFeedback === mode;
                 
-                {/* Mode dropdown menu */}
-                <AnimatePresence>
-                  {showModeDropdown && (
-                    <motion.div
-                      className="absolute left-0 right-0 z-50 mt-2 origin-top rounded-lg bg-black/90 backdrop-blur-xl border border-white/10 shadow-lg overflow-hidden"
-                      initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                    >
-                      <div className="py-1" role="none">
-                        {commandSuggestions.map((suggestion, idx) => {
-                          const mode = suggestion.prefix.replace('/', '').toLowerCase();
-                          const isSelected = selectedMode === mode;
-                          
-                          return (
-                            <motion.div
-                              key={suggestion.label}
-                              className={cn(
-                                "flex items-center gap-2 px-4 py-3 text-sm transition-colors cursor-pointer",
-                                isSelected
-                                  ? "bg-white/20 text-white"
-                                  : "text-white/70 hover:bg-white/10"
-                              )}
-                              onClick={() => {
-                                handleModeClick(mode);
-                                setShowModeDropdown(false);
-                              }}
-                              whileHover={{ backgroundColor: isSelected ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.05)" }}
-                              whileTap={{ scale: 0.98 }}
-                            >
-                              {suggestion.icon}
-                              <div className="flex flex-col">
-                                <span>{suggestion.label}</span>
-                                <span className="text-xs text-white/50">{suggestion.description}</span>
-                              </div>
-                              {isSelected && (
-                                <CheckIcon className="w-4 h-4 ml-auto" />
-                              )}
-                            </motion.div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+                return (
+                  <motion.button
+                    key={suggestion.label}
+                    onClick={() => handleModeClick(mode)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition-all min-w-[70px]",
+                      isSelected
+                        ? "bg-white text-black shadow-md shadow-white/20"
+                        : "bg-white/10 text-white/80 hover:bg-white/20",
+                      isFeedback && "animate-pulse"
+                    )}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="flex items-center">{suggestion.icon}</span>
+                    <span className="truncate max-w-[50px]">{suggestion.label.split(' ')[0]}</span>
+                  </motion.button>
+                );
+              })}
             </div>
 
             {/* Conversation history for chat and quick modes */}
@@ -2137,7 +2069,7 @@ interface AnimatedAIChatProps {
             {lessonJson && (
               <div className="px-4 pb-4">
                 {/* Check if the response is a structured lesson */}
-                {lessonJson && isLessonResponse(lessonJson) ? (
+                {lessonJson && isLessonResponse(lessonJson) && selectedMode !== 'quick' ? (
                   <StructuredLessonCard 
                     lesson={lessonJson} 
                     isStreamingComplete={!isTyping} 
