@@ -944,6 +944,7 @@ interface AnimatedAIChatProps {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
   const router = useRouter();
   
   const { textareaRef: autoRef, adjustHeight } = useAutoResizeTextarea({
@@ -966,6 +967,13 @@ interface AnimatedAIChatProps {
     
     // Update the selected mode state for UI feedback
     setSelectedMode(mode);
+    
+    // Clear conversation history when switching between different types of modes
+    // but preserve history when switching between chat and quick modes
+    const isChatToQuick = (selectedMode === 'chat' && mode === 'quick') || (selectedMode === 'quick' && mode === 'chat');
+    if (mode !== selectedMode && !isChatToQuick) {
+      setConversationHistory([]);
+    }
     
     // Provide visual feedback for mode selection
     setModeFeedback(mode);
@@ -1235,7 +1243,8 @@ interface AnimatedAIChatProps {
             userId: sid,
             message: apiMessage,
             age: userAge,
-            mode: mode
+            mode: mode,
+            conversation_history: conversationHistory
           };
           endpoint = '/api/chat';
               
@@ -1293,6 +1302,13 @@ interface AnimatedAIChatProps {
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
               saveSelectedMode(chatResponse.mode);
+              
+              // Update conversation history with both user message and AI response
+              setConversationHistory(prev => [
+                ...prev,
+                { role: 'user', content: apiMessage },
+                { role: 'assistant', content: replyText }
+              ]);
             }
           }
         } else { // lesson mode
@@ -1904,6 +1920,29 @@ interface AnimatedAIChatProps {
                 );
               })}
             </div>
+
+            {/* Conversation history for chat and quick modes */}
+            {(selectedMode === 'chat' || selectedMode === 'quick') && conversationHistory.length > 0 && (
+              <div className="px-4 pb-2 max-h-96 overflow-y-auto">
+                {conversationHistory.map((msg, index) => (
+                  <div 
+                    key={index} 
+                    className={`mb-3 p-3 rounded-lg ${
+                      msg.role === 'user' 
+                        ? 'bg-white/10 ml-10 text-right' 
+                        : 'bg-white/5 mr-10 text-left'
+                    }`}
+                  >
+                    <div className="text-xs text-white/60 mb-1">
+                      {msg.role === 'user' ? 'You' : 'Assistant'}
+                    </div>
+                    <div className="text-white/90 text-sm">
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* AI response area — moved OUTSIDE input container */}
             {error && (
