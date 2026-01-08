@@ -169,7 +169,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       <div className={cn("relative", containerClassName)}>
         <textarea
           className={cn(
-            "flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+            "flex min-h-[60px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm",
             "transition-all duration-200 ease-in-out placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
             showRing && "focus:outline-none",
@@ -230,9 +230,14 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  q: string;
-  options: string[];
-  answer: string;
+  q?: string;
+  question?: string;
+  Q?: string; // Alternative field name
+  options?: string[];
+  choices?: string[]; // Alternative field name
+  answer?: string;
+  correct?: string; // Alternative field name
+  explanation?: string;
 }
 
 interface Lesson {
@@ -268,14 +273,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      // Check if we have a lesson ID to use the new endpoint
-      if (lesson?.id) {
-        // Use the new endpoint that retrieves quiz by lesson ID
-        router.push(`/quiz?lessonId=${lesson.id}`);
-        return;
-      }
-      
-      // Fallback to the old method if no lesson ID is available
+      // Fallback to the data-based method first since lesson ID approach depends on backend endpoint
       if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
         console.warn("No quiz data available", lesson?.quiz);
         return;
@@ -283,9 +281,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       
       // Transform quiz data to match frontend expectations
       const transformedQuiz = lesson.quiz.map((item: any) => ({
-        q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
-        options: Array.isArray(item.options) ? item.options : [],
-        answer: item.answer || ""
+        q: item.q || item.question || item.Q || "",  // Handle 'q', 'question', or 'Q' properties
+        options: Array.isArray(item.options) ? item.options : 
+                 Array.isArray(item.choices) ? item.choices : [], // Handle 'choices' as well
+        answer: item.answer || item.correct || ""
       })).filter(item => item.q && item.options.length > 0);
       
       if (transformedQuiz.length === 0) {
@@ -295,6 +294,16 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       
       const data = encodeURIComponent(JSON.stringify(transformedQuiz));
       router.push(`/quiz?data=${data}`);
+      
+      // Only try the lesson ID approach if we also have a lesson ID
+      // This is kept for future compatibility when backend endpoint is ready
+      /* 
+      if (lesson?.id) {
+        // Use the new endpoint that retrieves quiz by lesson ID
+        router.push(`/quiz?lessonId=${lesson.id}`);
+        return;
+      }
+      */
     } catch (err) {
       console.error("Failed to navigate to quiz:", err);
     }
@@ -724,7 +733,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
                 : "Prepare & Listen"}
             </motion.button>
 
-            {lesson.quiz && lesson.quiz.length > 0 && (
+            {lesson.quiz && Array.isArray(lesson.quiz) && lesson.quiz.length > 0 && (
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -897,7 +906,7 @@ interface CommandSuggestion {
 interface ChatResponse {
   mode: string;
   reply: string;
-  quiz?: any;
+  quiz?: LessonQuizItem[];
   error?: string;
 }
 
@@ -921,12 +930,18 @@ function isLessonResponse(response: any): response is Lesson {
     );
   }
   
-  // Check for quiz with actual content
+  // Check for quiz with actual content (enhanced validation)
   if (Array.isArray(response.quiz) && response.quiz.length > 0) {
-    return response.quiz.some((quizItem: any) => 
-      quizItem && typeof quizItem === 'object' && 
-      (quizItem.q || quizItem.question) && Array.isArray(quizItem.options) && quizItem.options.length > 0
-    );
+    return response.quiz.some((quizItem: any) => {
+      if (!quizItem || typeof quizItem !== 'object') return false;
+      // Check for question field (could be 'q', 'question', or 'Q')
+      const hasQuestion = !!(quizItem.q || quizItem.question || quizItem.Q);
+      // Check for options field (could be 'options' or 'choices')
+      const hasOptions = Array.isArray(quizItem.options) || Array.isArray(quizItem.choices);
+      const optionsArray = Array.isArray(quizItem.options) ? quizItem.options : 
+                           Array.isArray(quizItem.choices) ? quizItem.choices : [];
+      return hasQuestion && optionsArray.length > 0;
+    });
   }
   
   return false;
@@ -934,7 +949,8 @@ function isLessonResponse(response: any): response is Lesson {
 
 function isMathResponse(response: any): response is MathSolutionUI {
   return response && 'problem' in response && 'solution' in response && 
-         typeof response.problem === 'string' && typeof response.solution === 'string';
+         typeof response.problem === 'string' && typeof response.solution === 'string' &&
+         !Array.isArray(response.quiz); // Ensure it's not a lesson response with quiz
 }
 
 function isChatResponse(response: any): response is ChatResponse {
@@ -1901,7 +1917,7 @@ interface AnimatedAIChatProps {
 
           {/* chat card */}
           <motion.div
-            className="relative backdrop-blur-2xl bg-white/5 rounded-2xl border border-white/10 shadow-2xl"
+            className="relative backdrop-blur-2xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl overflow-hidden"
             initial={{ scale: 0.98 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
@@ -1948,7 +1964,7 @@ interface AnimatedAIChatProps {
                         }, 0);
                       }}
                     >
-                      <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
+                      <div className="w-5 h-5 flex-center text-white/60 rounded-lg">{s.icon}</div>
                       <div className="font-medium">{s.label}</div>
                       <div className="text-white/40 ml-1">{s.prefix}</div>
                     </motion.div>
@@ -1989,7 +2005,7 @@ interface AnimatedAIChatProps {
                     key={suggestion.label}
                     onClick={() => handleModeClick(mode)}
                     className={cn(
-                      "px-3 py-1.5 rounded-md text-xs font-medium flex items-center gap-1 transition-all min-w-[70px]",
+                      "px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition-all min-w-[70px]",
                       isSelected
                         ? "bg-white text-black shadow-md shadow-white/20"
                         : "bg-white/10 text-white/80 hover:bg-white/20",
@@ -2011,7 +2027,7 @@ interface AnimatedAIChatProps {
                 {conversationHistory.map((msg, index) => (
                   <div 
                     key={index} 
-                    className={`mb-3 p-3 rounded-lg ${
+                    className={`mb-3 p-3 rounded-2xl ${
                       msg.role === 'user' 
                         ? 'bg-white/10 ml-10 text-right' 
                         : 'bg-white/5 mr-10 text-left'
@@ -2037,7 +2053,7 @@ interface AnimatedAIChatProps {
                   role="alert"
                   aria-live="assertive"
                   aria-atomic="true"
-                  className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm"
+                  className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 text-red-200 text-sm"
                 >
                   {error}
                   <button 
@@ -2067,10 +2083,10 @@ interface AnimatedAIChatProps {
                   /* For chat responses in lessonJson, only show if not in chat/quick mode 
                      (since chat responses are already shown in conversation history) */
                   !['chat', 'quick'].includes(selectedMode) && (
-                    <div className="lesson-card border rounded-xl p-6 space-y-6 bg-white/5 border-white/10">
+                    <div className="lesson-card border rounded-2xl p-6 space-y-6 bg-white/5 border-white/10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-lg bg-white/10">
+                          <div className="p-2 rounded-xl bg-white/10">
                             <Sparkles className="w-5 h-5 text-white" />
                           </div>
                           <h2 className="text-xl font-semibold">Response</h2>
@@ -2107,7 +2123,7 @@ interface AnimatedAIChatProps {
                   {attachments.map((file, idx) => (
                     <motion.div
                       key={idx}
-                      className="flex items-center gap-2 text-xs bg-white/5 py-1.5 px-3 rounded-lg text-white/80 border border-white/10"
+                      className="flex items-center gap-2 text-xs bg-white/5 py-1.5 px-3 rounded-xl text-white/80 border border-white/10"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
@@ -2132,14 +2148,14 @@ interface AnimatedAIChatProps {
                   type="button"
                   onClick={handleAttachFile}
                   whileTap={{ scale: 0.94 }}
-                  className="p-2 text-white/50 hover:text-white rounded-lg"
+                  className="p-2 text-white/50 hover:text-white rounded-xl"
                 >
                   <Paperclip className="w-4 h-4" />
                 </motion.button>
                 <motion.button
                   onClick={() => setShowCommandPalette((p) => !p)}
                   whileTap={{ scale: 0.94 }}
-                  className="p-2 text-white/50 hover:text-white rounded-lg"
+                  className="p-2 text-white/50 hover:text-white rounded-xl"
                 >
                   <Command className="w-4 h-4" />
                 </motion.button>
@@ -2151,7 +2167,7 @@ interface AnimatedAIChatProps {
                 whileTap={{ scale: 0.98 }}
                 disabled={!value.trim() || isTyping}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2",
+                  "px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2",
                   value.trim() && !isTyping
                     ? "bg-white text-black shadow-lg shadow-white/20"
                     : "bg-white/10 text-white/50"
@@ -2177,7 +2193,7 @@ interface AnimatedAIChatProps {
                   onClick={() => onNavigateToVideoLearning?.(
                     (lessonJson && isLessonResponse(lessonJson) ? (lessonJson as Lesson).introduction?.split('\n')[0] || value.trim() : value.trim()) || "Generated Lesson"
                   )}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white"
                 >
                   <Video className="w-4 h-4" />
                   <span>Create lesson</span>
@@ -2192,7 +2208,7 @@ interface AnimatedAIChatProps {
               <motion.button
                 key={mode.label}
                 onClick={mode.action}
-                className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
+                className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
