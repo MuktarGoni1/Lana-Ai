@@ -329,43 +329,37 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
 
   const blocks = useMemo(() => {
     const blocks: { title?: string; content: string }[] = [];
+    // Track seen content to prevent duplicates
+    const seenContent = new Set<string>();
+    
+    // Helper function to check if content is already seen (case-insensitive, trimmed)
+    const isContentSeen = (content: string): boolean => {
+      const normalized = content.trim().toLowerCase();
+      return seenContent.has(normalized);
+    };
+    
+    // Helper function to add content if not seen
+    const addContent = (title: string, content: string) => {
+      const normalized = content.trim().toLowerCase();
+      if (!seenContent.has(normalized)) {
+        seenContent.add(normalized);
+        blocks.push({ title, content: content.trim() });
+      }
+    };
     
     // Handle error responses differently
     if (isErrorResponse) {
       const errorContent = lesson.introduction || "We're experiencing high demand. Please try again in a few minutes.";
-      const existingContent = blocks.some(block => block.content.trim() === errorContent.trim());
-      
-      if (!existingContent) {
-        blocks.push({ 
-          title: "Service Temporarily Unavailable", 
-          content: errorContent 
-        });
-      }
+      addContent("Service Temporarily Unavailable", errorContent);
       
       // Add helpful suggestions
       if (lesson.sections && lesson.sections.length > 0) {
         const suggestionContent = lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes";
-        const existingSuggestionContent = blocks.some(block => block.content.trim() === suggestionContent.trim());
-        
-        if (!existingSuggestionContent) {
-          blocks.push({ 
-            title: lesson.sections[0].title || "Suggestions", 
-            content: suggestionContent 
-          });
-        }
+        addContent(lesson.sections[0].title || "Suggestions", suggestionContent);
       }
     } else {
       if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-        // Check for duplicate content to prevent repetition
-        const introContent = lesson.introduction.trim();
-        const existingContent = blocks.some(block => block.content.trim() === introContent);
-        
-        if (!existingContent) {
-          blocks.push({
-            title: "Introduction",
-            content: introContent,
-          });
-        }
+        addContent("Introduction", lesson.introduction);
       }
 
       if (
@@ -383,15 +377,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           .join("\n");
 
         if (classificationContent) {
-          // Check for duplicate content to prevent repetition
-          const existingContent = blocks.some(block => block.content.trim() === classificationContent.trim());
-          
-          if (!existingContent) {
-            blocks.push({
-              title: "Classifications / Types",
-              content: classificationContent,
-            });
-          }
+          addContent("Classifications / Types", classificationContent);
         }
       }
 
@@ -399,31 +385,14 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       if (Array.isArray(lesson.sections)) {
         for (const section of lesson.sections) {
           if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-            // Check for duplicate content to prevent repetition
-            const content = section.content.trim();
-            const existingContent = blocks.some(block => block.content.trim() === content);
-            
-            if (!existingContent) {
-              blocks.push({
-                title: normalizeTitle(section.title.trim()),
-                content: content,
-              });
-            }
+            addContent(normalizeTitle(section.title.trim()), section.content);
           }
         }
       }
 
       if (lesson.diagram && lesson.diagram.trim()) {
-        // Check for duplicate content to prevent repetition
-        const diagramContent = lesson.diagram.trim();
-        const existingContent = blocks.some(block => block.content.trim() === diagramContent);
-        
-        if (!existingContent) {
-          blocks.push({
-            title: "Diagram Description",
-            content: diagramContent,
-          });
-        }
+        // Skip diagram section entirely as requested
+        // addContent("Diagram Description", lesson.diagram);
       }
     }
     
