@@ -273,9 +273,10 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      // Fallback to the data-based method first since lesson ID approach depends on backend endpoint
+      // Check if quiz data exists and has valid content
       if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
         console.warn("No quiz data available", lesson?.quiz);
+        // Don't show error, just don't show the quiz button
         return;
       }
       
@@ -285,10 +286,14 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         options: Array.isArray(item.options) ? item.options : 
                  Array.isArray(item.choices) ? item.choices : [], // Handle 'choices' as well
         answer: item.answer || item.correct || ""
-      })).filter(item => item.q && item.options.length > 0);
+      })).filter(item => {
+        // Filter to only include items that have both a question and options
+        return item.q && item.q.trim() !== "" && Array.isArray(item.options) && item.options.length > 0;
+      });
       
       if (transformedQuiz.length === 0) {
         console.warn("No valid quiz items after transformation", lesson.quiz);
+        // Don't show error, just don't show the quiz button
         return;
       }
       
@@ -327,24 +332,40 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     
     // Handle error responses differently
     if (isErrorResponse) {
-      blocks.push({ 
-        title: "Service Temporarily Unavailable", 
-        content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
-      });
+      const errorContent = lesson.introduction || "We're experiencing high demand. Please try again in a few minutes.";
+      const existingContent = blocks.some(block => block.content.trim() === errorContent.trim());
+      
+      if (!existingContent) {
+        blocks.push({ 
+          title: "Service Temporarily Unavailable", 
+          content: errorContent 
+        });
+      }
       
       // Add helpful suggestions
       if (lesson.sections && lesson.sections.length > 0) {
-        blocks.push({ 
-          title: lesson.sections[0].title || "Suggestions", 
-          content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
-        });
+        const suggestionContent = lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes";
+        const existingSuggestionContent = blocks.some(block => block.content.trim() === suggestionContent.trim());
+        
+        if (!existingSuggestionContent) {
+          blocks.push({ 
+            title: lesson.sections[0].title || "Suggestions", 
+            content: suggestionContent 
+          });
+        }
       }
     } else {
       if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-        blocks.push({
-          title: "Introduction",
-          content: lesson.introduction.trim(),
-        });
+        // Check for duplicate content to prevent repetition
+        const introContent = lesson.introduction.trim();
+        const existingContent = blocks.some(block => block.content.trim() === introContent);
+        
+        if (!existingContent) {
+          blocks.push({
+            title: "Introduction",
+            content: introContent,
+          });
+        }
       }
 
       if (
@@ -362,10 +383,15 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
           .join("\n");
 
         if (classificationContent) {
-          blocks.push({
-            title: "Classifications / Types",
-            content: classificationContent,
-          });
+          // Check for duplicate content to prevent repetition
+          const existingContent = blocks.some(block => block.content.trim() === classificationContent.trim());
+          
+          if (!existingContent) {
+            blocks.push({
+              title: "Classifications / Types",
+              content: classificationContent,
+            });
+          }
         }
       }
 
@@ -373,19 +399,31 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       if (Array.isArray(lesson.sections)) {
         for (const section of lesson.sections) {
           if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-            blocks.push({
-              title: normalizeTitle(section.title.trim()),
-              content: section.content.trim(),
-            });
+            // Check for duplicate content to prevent repetition
+            const content = section.content.trim();
+            const existingContent = blocks.some(block => block.content.trim() === content);
+            
+            if (!existingContent) {
+              blocks.push({
+                title: normalizeTitle(section.title.trim()),
+                content: content,
+              });
+            }
           }
         }
       }
 
       if (lesson.diagram && lesson.diagram.trim()) {
-        blocks.push({
-          title: "Diagram Description",
-          content: lesson.diagram.trim(),
-        });
+        // Check for duplicate content to prevent repetition
+        const diagramContent = lesson.diagram.trim();
+        const existingContent = blocks.some(block => block.content.trim() === diagramContent);
+        
+        if (!existingContent) {
+          blocks.push({
+            title: "Diagram Description",
+            content: diagramContent,
+          });
+        }
       }
     }
     
@@ -733,7 +771,11 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
                 : "Prepare & Listen"}
             </motion.button>
 
-            {lesson.quiz && Array.isArray(lesson.quiz) && lesson.quiz.length > 0 && (
+            {lesson.quiz && Array.isArray(lesson.quiz) && lesson.quiz.some(item => 
+              (item.q || item.question || item.Q) && 
+              ((Array.isArray(item.options) && item.options.length > 0) || 
+               (Array.isArray(item.choices) && item.choices.length > 0))
+            ) && (
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
