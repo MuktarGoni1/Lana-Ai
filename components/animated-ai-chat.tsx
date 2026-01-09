@@ -600,69 +600,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
-  // Handle error responses differently
-  if (isErrorResponse) {
-    blocks.push({ 
-      title: "Service Temporarily Unavailable", 
-      content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
-    });
-    
-    // Add helpful suggestions
-    if (lesson.sections && lesson.sections.length > 0) {
-      blocks.push({ 
-        title: lesson.sections[0].title || "Suggestions", 
-        content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
-      });
-    }
-  } else {
-    if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-      blocks.push({
-        title: "Introduction",
-        content: lesson.introduction.trim(),
-      });
-    }
-
-    if (
-      Array.isArray(lesson.classifications) &&
-      lesson.classifications.length > 0
-    ) {
-      const classificationContent = lesson.classifications
-        .map((c: { type?: string; description?: string }) => {
-          if (c?.type && c?.description) {
-            return `• ${c.type}: ${c.description}`;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join("\n");
-
-      if (classificationContent) {
-        blocks.push({
-          title: "Classifications / Types",
-          content: classificationContent,
-        });
-      }
-    }
-
-    // Detailed sections (now after classifications)
-    if (Array.isArray(lesson.sections)) {
-      for (const section of lesson.sections) {
-        if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-          blocks.push({
-            title: normalizeTitle(section.title.trim()),
-            content: section.content.trim(),
-          });
-        }
-      }
-    }
-
-    if (lesson.diagram && lesson.diagram.trim()) {
-      blocks.push({
-        title: "Diagram Description",
-        content: lesson.diagram.trim(),
-      });
-    }
-  }
 
   return (
     <motion.div
