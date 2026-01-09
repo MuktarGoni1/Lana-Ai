@@ -27,9 +27,27 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Content Security Policy
         # Use production CSP when not in debug mode
         if not _settings.api_debug:
+            # Allow Swagger UI scripts while maintaining security
             csp_policy = (
                 "default-src 'self'; "
-                "script-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # Allow Swagger UI scripts
+                "style-src 'self' 'unsafe-inline'; "
+                "img-src 'self' data: https:; "
+                "font-src 'self' data:; "
+                "connect-src 'self' https:; "
+                "media-src 'self'; "
+                "object-src 'none'; "
+                "base-uri 'self'; "
+                "form-action 'self'; "
+                "frame-ancestors 'none'; "
+                "upgrade-insecure-requests"
+            )
+            response.headers["Content-Security-Policy"] = csp_policy
+        else:
+            # For debug mode, allow more flexibility for development tools
+            csp_policy = (
+                "default-src 'self'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
                 "style-src 'self' 'unsafe-inline'; "
                 "img-src 'self' data: https:; "
                 "font-src 'self' data:; "
@@ -50,6 +68,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         # Cache control for API responses
+        # Apply strict cache control to API endpoints, but not to documentation
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
             response.headers["Pragma"] = "no-cache"
