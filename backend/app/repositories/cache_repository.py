@@ -1,12 +1,14 @@
-import redis.asyncio as aioredis
+import redis.asyncio as redis_async
 import orjson
 import time
 from cachetools import TTLCache
 from typing import Any, Dict, Optional
 import logging
 
-from backend.app.repositories.interfaces import ICacheRepository
-from backend.main import settings
+from app.repositories.interfaces import ICacheRepository
+from app.settings import load_settings
+
+settings = load_settings()
 
 logger = logging.getLogger(__name__)
 

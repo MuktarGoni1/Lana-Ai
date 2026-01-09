@@ -59,3 +59,18 @@ MATH_SOLVER_API_KEY = os.getenv("MATH_SOLVER_API_KEY", "")
 # Application Settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+RATE_LIMIT_PER_HOUR = int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
+
+# Redis Configuration
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
+REDIS_DB = int(os.getenv("REDIS_DB", "0"))
+REDIS_URL = os.getenv("REDIS_URL", f"redis://{REDIS_HOST}:{REDIS_PORT}")
+
+# Cache TTLs
+CACHE_TTL_LESSONS = int(os.getenv("CACHE_TTL_LESSONS", "3600"))
+CACHE_TTL_TTS = int(os.getenv("CACHE_TTL_TTS", "86400"))
+CACHE_TTL_HISTORY = int(os.getenv("CACHE_TTL_HISTORY", "300"))
+CACHE_TTL_POPULAR = int(os.getenv("CACHE_TTL_POPULAR", "3600"))
+CACHE_TTL_MATH = int(os.getenv("CACHE_TTL_MATH", "3600"))
