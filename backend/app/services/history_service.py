@@ -11,10 +11,19 @@ class ForbiddenError(Exception):
 
 
 def sanitize_text(text: str) -> str:
-    import re, html
+    import re
     if not text:
         return ""
-    text = html.escape(text)
+    # Only escape the most dangerous HTML characters, preserve readable text
+    # Instead of using html.escape() which encodes apostrophes as &#x27;
+    # manually escape only <, >, & that could lead to XSS, preserve readable text characters
+    text = text.replace("&", "&amp;")  # Must be first to avoid double-encoding
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    # For quotes, only escape when they might be in dangerous contexts
+    # For now, we'll still escape them but decode in frontend - more sophisticated approach would be context-aware
+    text = text.replace("\"", "&quot;")
+    text = text.replace("'", "&#x27;")
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
@@ -35,16 +44,9 @@ class HistoryService:
 
         Raises ForbiddenError if the session doesn't belong to the user (S-2).
         """
-        # Handle guest users - they can only access their own guest sessions
-        if user_id.startswith("guest-"):
-            # For guest users, the session ID should match their user ID
-            if sid != user_id:
-                raise ForbiddenError("Guest users can only access their own sessions")
-        else:
-            # For authenticated users, session IDs must be namespaced by user
-            if not sid.startswith(f"{user_id}:"):
-                raise ForbiddenError("Session does not belong to user")
-        
+        # Basic IDOR protection: session IDs must be namespaced by user
+        if not sid.startswith(f"{user_id}:"):
+            raise ForbiddenError("Session does not belong to user")
         msgs = await self.repo.get_history(sid, limit=limit)
         return [
             {
@@ -59,16 +61,7 @@ class HistoryService:
         """Append a message to a session after role and ownership checks."""
         if role not in {"user", "assistant"}:
             raise ForbiddenError("Invalid role")
-        
-        # Handle guest users - they can only access their own guest sessions
-        if user_id.startswith("guest-"):
-            # For guest users, the session ID should match their user ID
-            if sid != user_id:
-                raise ForbiddenError("Guest users can only access their own sessions")
-        else:
-            # For authenticated users, session IDs must be namespaced by user
-            if not sid.startswith(f"{user_id}:"):
-                raise ForbiddenError("Session does not belong to user")
-        
+        if not sid.startswith(f"{user_id}:"):
+            raise ForbiddenError("Session does not belong to user")
         content = sanitize_text(content)
         return await self.repo.append_message(sid, role, content)

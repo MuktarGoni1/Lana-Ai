@@ -161,7 +161,7 @@ function QuizContent() {
     return (
       <div className="min-h-screen bg-zinc-900 text-white flex items-center justify-center">
         <div className="text-center space-y-4">
-          <p>Sorry, no quiz questions are available for this lesson.</p>
+          <p>No quiz generated for this topic.</p>
           <p className="text-sm text-white/70">The lesson may not include quiz questions or there was an issue loading them.</p>
           <button
             onClick={() => router.back()}

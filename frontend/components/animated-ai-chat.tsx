@@ -7,6 +7,8 @@ import DOMPurify from "isomorphic-dompurify";
 import rateLimiter from "@/lib/rate-limiter";
 import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
 import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
+import { getErrorMessage } from "@/lib/api-errors";
+import { decodeHTMLEntities } from "@/lib/html-entity-decoder";
 import {
   Paperclip,
   Command,
@@ -20,11 +22,13 @@ import {
   BookOpen,
   PersonStandingIcon,
   RefreshCw,
+  Plus,
+  CheckIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import VideoLearningPage from "./personalised-Ai-tutor";
 import { useMotionValue } from "framer-motion";
-import { Plus } from "lucide-react";
+
 import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
@@ -109,28 +113,102 @@ function useAutoResizeTextarea({ minHeight, maxHeight }: UseAutoResizeTextareaPr
 interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
   containerClassName?: string;
   showRing?: boolean;
+  mode?: string; // Add mode prop for visual indication
+  onValueChange?: (value: string) => void; // Add callback for value changes
 }
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ className, containerClassName, showRing = true, ...props }, ref) => {
+  ({ className, containerClassName, showRing = true, mode, onValueChange, value = '', ...props }, ref) => {
     const [focused, setFocused] = useState(false);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    
+    // Get the current mode prefix from the value
+    const stringValue = typeof value === 'string' ? value : '';
+    const modeMatch = stringValue.match(/^\/\w+\s/);
+    const modePrefix = modeMatch ? modeMatch[0] : '';
+    const content = stringValue.slice(modePrefix.length);
+    
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (onValueChange && textareaRef.current) {
+        const target = textareaRef.current;
+        const cursorPosition = target.selectionStart;
+        
+        // If we're at the beginning or within the mode prefix, handle special deletion
+        if (cursorPosition <= modePrefix.length && modePrefix) {
+          if (e.key === 'Backspace' || e.key === 'Delete') {
+            e.preventDefault();
+            // Remove the entire mode prefix
+            onValueChange(content);
+            // Set cursor to the beginning of the content after update
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = 0;
+                textareaRef.current.selectionEnd = 0;
+              }
+            }, 0);
+          } else if (e.key.length === 1) { // Regular character input
+            e.preventDefault();
+            // Replace the entire mode prefix with the new character plus content
+            onValueChange(e.key + content);
+            // Set cursor after the new character
+            setTimeout(() => {
+              if (textareaRef.current) {
+                textareaRef.current.selectionStart = 1;
+                textareaRef.current.selectionEnd = 1;
+              }
+            }, 0);
+          }
+        }
+        
+        // Handle the original onKeyDown if it exists
+        if (props.onKeyDown) {
+          props.onKeyDown(e);
+        }
+      }
+    };
+    
     return (
       <div className={cn("relative", containerClassName)}>
         <textarea
           className={cn(
-            "flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+            "flex min-h-[60px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm",
             "transition-all duration-200 ease-in-out placeholder:text-muted-foreground",
             "disabled:cursor-not-allowed disabled:opacity-50",
             showRing && "focus:outline-none",
             className
           )}
-          ref={ref}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
+          ref={(node) => {
+            if (node) {
+              (textareaRef as React.MutableRefObject<HTMLTextAreaElement>).current = node;
+              if (typeof ref === 'function') {
+                ref(node);
+              } else if (ref) {
+                ref.current = node;
+              }
+            }
+          }}
+          value={value}
+          onChange={(e) => {
+            if (onValueChange) {
+              onValueChange(e.target.value);
+            }
+            if (props.onChange) {
+              props.onChange(e);
+            }
+          }}
+          onKeyDown={handleKeyDown}
+          onFocus={(e) => {
+            setFocused(true);
+            if (props.onFocus) props.onFocus(e);
+          }}
+          onBlur={(e) => {
+            setFocused(false);
+            if (props.onBlur) props.onBlur(e);
+          }}
           {...props}
         />
         {showRing && focused && (
           <motion.span
-            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20"
+            className="absolute inset-0 rounded-md pointer-events-none ring-2 ring-white/20 z-0"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -153,9 +231,14 @@ interface LessonSection {
 }
 
 interface LessonQuizItem {
-  q: string;
-  options: string[];
-  answer: string;
+  q?: string;
+  question?: string;
+  Q?: string; // Alternative field name
+  options?: string[];
+  choices?: string[]; // Alternative field name
+  answer?: string;
+  correct?: string; // Alternative field name
+  explanation?: string;
 }
 
 interface Lesson {
@@ -173,7 +256,9 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   
   // Lightly sanitize markdown-like tokens and normalize bullets per line
   const sanitizeLine = (line: string) => {
-    return line
+    // First decode HTML entities, then sanitize formatting
+    const decodedLine = decodeHTMLEntities(line);
+    return decodedLine
       .replaceAll("**", "")
       .replace(/^\s*[-*]\s+/, "• ")
       .replace(/`{1,3}/g, "")
@@ -191,40 +276,46 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const router = useRouter();
   const handleTakeQuiz = () => {
     try {
-      // Check if we have a lesson ID to use the new endpoint
-      if (lesson?.id) {
-        // Use the new endpoint that retrieves quiz by lesson ID
-        router.push(`/quiz?lessonId=${lesson.id}`);
-        return;
-      }
-      
-      // Fallback to the old method if no lesson ID is available
+      // Check if quiz data exists and has valid content
       if (!lesson?.quiz || !Array.isArray(lesson.quiz) || lesson.quiz.length === 0) {
         console.warn("No quiz data available", lesson?.quiz);
+        // Don't show error, just don't show the quiz button
         return;
       }
       
       // Transform quiz data to match frontend expectations
       const transformedQuiz = lesson.quiz.map((item: any) => ({
-        q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
-        options: Array.isArray(item.options) ? item.options : [],
-        answer: item.answer || ""
-      })).filter(item => item.q && item.options.length > 0);
+        q: item.q || item.question || item.Q || "",  // Handle 'q', 'question', or 'Q' properties
+        options: Array.isArray(item.options) ? item.options : 
+                 Array.isArray(item.choices) ? item.choices : [], // Handle 'choices' as well
+        answer: item.answer || item.correct || ""
+      })).filter(item => {
+        // Filter to only include items that have both a question and options
+        return item.q && item.q.trim() !== "" && Array.isArray(item.options) && item.options.length > 0;
+      });
       
       if (transformedQuiz.length === 0) {
         console.warn("No valid quiz items after transformation", lesson.quiz);
+        // Don't show error, just don't show the quiz button
         return;
       }
       
       const data = encodeURIComponent(JSON.stringify(transformedQuiz));
       router.push(`/quiz?data=${data}`);
+      
+      // Only try the lesson ID approach if we also have a lesson ID
+      // This is kept for future compatibility when backend endpoint is ready
+      /* 
+      if (lesson?.id) {
+        // Use the new endpoint that retrieves quiz by lesson ID
+        router.push(`/quiz?lessonId=${lesson.id}`);
+        return;
+      }
+      */
     } catch (err) {
       console.error("Failed to navigate to quiz:", err);
     }
   };
-
-  // Removed verbose debug logging for production readiness.
-  const blocks: { title?: string; content: string }[] = [];
 
   // TTS state and actions
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -238,6 +329,78 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+
+  const blocks = useMemo(() => {
+    const blocks: { title?: string; content: string }[] = [];
+    // Track seen content to prevent duplicates
+    const seenContent = new Set<string>();
+    
+    // Helper function to check if content is already seen (case-insensitive, trimmed)
+    const isContentSeen = (content: string): boolean => {
+      const normalized = content.trim().toLowerCase();
+      return seenContent.has(normalized);
+    };
+    
+    // Helper function to add content if not seen
+    const addContent = (title: string, content: string) => {
+      const normalized = content.trim().toLowerCase();
+      if (!seenContent.has(normalized)) {
+        seenContent.add(normalized);
+        blocks.push({ title, content: content.trim() });
+      }
+    };
+    
+    // Handle error responses differently
+    if (isErrorResponse) {
+      const errorContent = lesson.introduction || "We're experiencing high demand. Please try again in a few minutes.";
+      addContent("Service Temporarily Unavailable", errorContent);
+      
+      // Add helpful suggestions
+      if (lesson.sections && lesson.sections.length > 0) {
+        const suggestionContent = lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes";
+        addContent(lesson.sections[0].title || "Suggestions", suggestionContent);
+      }
+    } else {
+      if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
+        addContent("Introduction", lesson.introduction);
+      }
+
+      if (
+        Array.isArray(lesson.classifications) &&
+        lesson.classifications.length > 0
+      ) {
+        const classificationContent = lesson.classifications
+          .map((c: { type?: string; description?: string }) => {
+            if (c?.type && c?.description) {
+              return `• ${c.type}: ${c.description}`;
+            }
+            return null;
+          })
+          .filter(Boolean)
+          .join("\n");
+
+        if (classificationContent) {
+          addContent("Classifications / Types", classificationContent);
+        }
+      }
+
+      // Detailed sections (now after classifications)
+      if (Array.isArray(lesson.sections)) {
+        for (const section of lesson.sections) {
+          if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
+            addContent(normalizeTitle(section.title.trim()), section.content);
+          }
+        }
+      }
+
+      if (lesson.diagram && lesson.diagram.trim()) {
+        // Skip diagram section entirely as requested
+        // addContent("Diagram Description", lesson.diagram);
+      }
+    }
+    
+    return blocks;
+  }, [lesson, isErrorResponse, normalizeTitle]);
 
   const getFullLessonText = useCallback(() => {
     const lines: string[] = [];
@@ -440,69 +603,6 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
     }
   }, [isStreamingComplete, audioUrl, isTtsLoading, isRetrying, preloadTTS]);
 
-  // Handle error responses differently
-  if (isErrorResponse) {
-    blocks.push({ 
-      title: "Service Temporarily Unavailable", 
-      content: lesson.introduction || "We're experiencing high demand. Please try again in a few minutes." 
-    });
-    
-    // Add helpful suggestions
-    if (lesson.sections && lesson.sections.length > 0) {
-      blocks.push({ 
-        title: lesson.sections[0].title || "Suggestions", 
-        content: lesson.sections[0].content || "1. Try rephrasing your question\n2. Ask about a different topic\n3. Check back in a few minutes" 
-      });
-    }
-  } else {
-    if (lesson.introduction && typeof lesson.introduction === "string" && lesson.introduction.trim()) {
-      blocks.push({
-        title: "Introduction",
-        content: lesson.introduction.trim(),
-      });
-    }
-
-    if (
-      Array.isArray(lesson.classifications) &&
-      lesson.classifications.length > 0
-    ) {
-      const classificationContent = lesson.classifications
-        .map((c: { type?: string; description?: string }) => {
-          if (c?.type && c?.description) {
-            return `• ${c.type}: ${c.description}`;
-          }
-          return null;
-        })
-        .filter(Boolean)
-        .join("\n");
-
-      if (classificationContent) {
-        blocks.push({
-          title: "Classifications / Types",
-          content: classificationContent,
-        });
-      }
-    }
-
-    // Detailed sections (now after classifications)
-    if (Array.isArray(lesson.sections)) {
-      for (const section of lesson.sections) {
-        if (section?.title && section?.content && section.title.trim() && section.content.trim()) {
-          blocks.push({
-            title: normalizeTitle(section.title.trim()),
-            content: section.content.trim(),
-          });
-        }
-      }
-    }
-
-    if (lesson.diagram && lesson.diagram.trim()) {
-      blocks.push({
-        title: "Diagram Description",
-        content: lesson.diagram.trim(),
-      });
-    }
-  }
 
   return (
     <motion.div
@@ -580,7 +680,11 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
                 : "Prepare & Listen"}
             </motion.button>
 
-            {lesson.quiz && lesson.quiz.length > 0 && (
+            {lesson.quiz && Array.isArray(lesson.quiz) && lesson.quiz.some(item => 
+              (item.q || item.question || item.Q) && 
+              ((Array.isArray(item.options) && item.options.length > 0) || 
+               (Array.isArray(item.choices) && item.choices.length > 0))
+            ) && (
               <motion.button
                 whileHover={{ scale: 1.03 }}
                 whileTap={{ scale: 0.97 }}
@@ -681,11 +785,12 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
-        audioRef.current = null;
+        // Don't set audioRef.current to null as it's a ref
+        // Just clear the audio source to free memory
       }
       if (audioUrl) URL.revokeObjectURL(audioUrl);
     };
-  }, [audioUrl]);
+  }, []); // Empty dependency array to run only once on unmount
 
   if (data.error) {
     return (
@@ -748,6 +853,102 @@ interface CommandSuggestion {
   placeholder?: string;
   action?: () => void;
 }
+
+interface ChatResponse {
+  mode: string;
+  reply: string;
+  quiz?: LessonQuizItem[];
+  error?: string;
+}
+
+// Type guard functions
+function isLessonResponse(response: any): response is Lesson {
+  // Check if response has lesson-specific properties with meaningful content
+  if (!response) return false;
+  
+  // Check for introduction with actual content
+  if (response.introduction && typeof response.introduction === 'string' && response.introduction.trim() !== '') {
+    return true;
+  }
+  
+  // Check for sections with actual content
+  if (Array.isArray(response.sections) && response.sections.length > 0) {
+    // Check if at least one section has meaningful content
+    return response.sections.some((section: any) => 
+      (section && typeof section === 'object' && 
+       ((section.title && typeof section.title === 'string' && section.title.trim() !== '') || 
+        (section.content && typeof section.content === 'string' && section.content.trim() !== '')))
+    );
+  }
+  
+  // Check for quiz with actual content (enhanced validation)
+  if (Array.isArray(response.quiz) && response.quiz.length > 0) {
+    return response.quiz.some((quizItem: any) => {
+      if (!quizItem || typeof quizItem !== 'object') return false;
+      // Check for question field (could be 'q', 'question', or 'Q')
+      const hasQuestion = !!(quizItem.q || quizItem.question || quizItem.Q);
+      // Check for options field (could be 'options' or 'choices')
+      const hasOptions = Array.isArray(quizItem.options) || Array.isArray(quizItem.choices);
+      const optionsArray = Array.isArray(quizItem.options) ? quizItem.options : 
+                           Array.isArray(quizItem.choices) ? quizItem.choices : [];
+      return hasQuestion && optionsArray.length > 0;
+    });
+  }
+  
+  return false;
+}
+
+function isMathResponse(response: any): response is MathSolutionUI {
+  return response && 'problem' in response && 'solution' in response && 
+         typeof response.problem === 'string' && typeof response.solution === 'string' &&
+         !Array.isArray(response.quiz); // Ensure it's not a lesson response with quiz
+}
+
+function isChatResponse(response: any): response is ChatResponse {
+  // Check if it has reply and mode properties, and is not a math or lesson response
+  // Prioritize chat responses that have a reply property with actual content
+  return response && 
+         'reply' in response && 
+         'mode' in response && 
+         (typeof response.reply === 'string' || typeof response.reply === 'object') &&
+         !isMathResponse(response) && 
+         !isLessonResponse(response);
+}
+
+// Helper function to summarize lesson responses for quick mode
+const summarizeLessonResponse = (lesson: any): string => {
+  let summaryParts: string[] = [];
+  
+  // Add introduction if available
+  if (lesson.introduction && typeof lesson.introduction === 'string') {
+    summaryParts.push(lesson.introduction);
+  }
+  
+  // Add content from sections if available
+  if (Array.isArray(lesson.sections) && lesson.sections.length > 0) {
+    lesson.sections.forEach((section: any) => {
+      if (section && typeof section === 'object') {
+        if (section.title && typeof section.title === 'string') {
+          summaryParts.push(section.title);
+        }
+        if (section.content && typeof section.content === 'string') {
+          summaryParts.push(section.content);
+        }
+      }
+    });
+  }
+  
+  // Combine parts and limit length for quick response
+  let fullSummary = summaryParts.join(' ');
+  
+  // Limit to a reasonable length for quick responses (e.g., first 300 characters)
+  if (fullSummary.length > 300) {
+    fullSummary = fullSummary.substring(0, 300) + '...';
+  }
+  
+  return fullSummary || 'No content available.';
+};
+
 interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
@@ -762,31 +963,24 @@ interface AnimatedAIChatProps {
   useEffect(() => {
     const storedMode = getSelectedMode();
     if (storedMode) {
-      // Set the initial value based on the stored mode
-      switch (storedMode) {
-        case "lesson":
-          setValue("/lesson ");
-          break;
-        case "maths":
-          setValue("/Maths ");
-          break;
-        case "chat":
-          setValue("/Chat ");
-          break;
-        case "quick":
-          setValue("/quick ");
-          break;
-        default:
-          // For any other mode or default, we don't set a specific value
-          break;
-      }
+      // Save the stored mode to session storage (just to ensure it's set)
+      saveSelectedMode(storedMode);
+      setSelectedMode(storedMode);
+    } else {
+      // Default to lesson mode when no stored mode exists
+      saveSelectedMode('lesson');
+      setSelectedMode('lesson');
     }
+    // Initialize with empty value - the mode will be indicated visually
+    setValue("");
   }, []);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [activeSuggestion, setActiveSuggestion] = useState(-1);
+  const [selectedMode, setSelectedMode] = useState<string>('lesson'); // Track selected mode for UI
+  const [modeFeedback, setModeFeedback] = useState<string | null>(null); // Track mode selection feedback
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const [inputFocused, setInputFocused] = useState(false);
@@ -809,7 +1003,7 @@ interface AnimatedAIChatProps {
       }
     };
   }, []);
-  const [lessonJson, setLessonJson] = useState<Lesson | null>(null);   // NEW
+  const [lessonJson, setLessonJson] = useState<Lesson | ChatResponse | null>(null);   // NEW
   const [mathSolution, setMathSolution] = useState<MathSolutionUI | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const MAX_RETRIES = 3;
@@ -820,6 +1014,7 @@ interface AnimatedAIChatProps {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
+  const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
   const router = useRouter();
   
   const { textareaRef: autoRef, adjustHeight } = useAutoResizeTextarea({
@@ -830,35 +1025,36 @@ interface AnimatedAIChatProps {
   /* --- command palette data ---------------------------------------- */
   const commandSuggestions: CommandSuggestion[] = [
     { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/Maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/Chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
+    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
+    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
     { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
   ];
 
-  // Function to handle mode button clicks and activate command palette with placeholder text
+  // Function to handle mode button clicks and save the selected mode
   const handleModeClick = (mode: string) => {
     // Save the selected mode to session storage
     saveSelectedMode(mode);
     
-    switch (mode) {
-      case "lesson":
-        setValue("/lesson ");
-        break;
-      case "maths":
-        setValue("/Maths ");
-        break;
-      case "chat":
-        setValue("/Chat ");
-        break;
-      case "quick":
-        setValue("/quick ");
-        break;
-      default:
-        // For any other mode, we don't set a specific value
-        break;
+    // Update the selected mode state for UI feedback
+    setSelectedMode(mode);
+    
+    // Clear conversation history when switching between different types of modes
+    // but preserve history when switching between chat and quick modes
+    const isChatToQuick = (selectedMode === 'chat' && mode === 'quick') || (selectedMode === 'quick' && mode === 'chat');
+    if (mode !== selectedMode && !isChatToQuick) {
+      setConversationHistory([]);
     }
-    setShowCommandPalette(true);
-    // Focus the textarea after setting the value
+    
+    // Provide visual feedback for mode selection
+    setModeFeedback(mode);
+    setTimeout(() => {
+      setModeFeedback(null);
+    }, 1000); // Clear feedback after 1 second
+    
+    // Clear the input field and let the placeholder show the mode hint
+    setValue("");
+    
+    // Focus the textarea
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.focus();
@@ -869,7 +1065,7 @@ interface AnimatedAIChatProps {
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Explanation Mode",
+      label: "Explaner",
       description: "Comprehensive Ai explanations",
       action: () =>
         onNavigateToVideoLearning?.(
@@ -885,6 +1081,21 @@ interface AnimatedAIChatProps {
   ];
 
   /* --- effects ----------------------------------------------------- */
+  // Cleanup function for AbortController to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      // Abort any ongoing requests when component unmounts
+      abortRef.current?.abort();
+      abortRef.current = null;
+      
+      // Clear any ongoing timeouts/intervals
+      if (stallTickerRef.current) {
+        clearInterval(stallTickerRef.current);
+        stallTickerRef.current = null;
+      }
+    };
+  }, []);
+
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const loadAge = async () => {
@@ -936,19 +1147,44 @@ interface AnimatedAIChatProps {
     };
   }, [mouseX, mouseY]);
 
-  // Function to get the appropriate placeholder based on the current mode
+  // Function to get the appropriate placeholder based on the currently selected mode
   const getModePlaceholder = (): string => {
+    // If there's input text that starts with a mode prefix, use that mode
     if (value.startsWith("/lesson")) {
       return "/lesson - Please input a topic for structured learning";
-    } else if (value.startsWith("/Maths")) {
-      return "/Maths - Please input a maths question";
-    } else if (value.startsWith("/Chat")) {
-      return "/Chat - Please input your question";
+    } else if (value.startsWith("/maths")) {
+      return "/maths - Please input a maths question";
+    } else if (value.startsWith("/chat")) {
+      return "/chat - Please input your question";
     } else if (value.startsWith("/quick")) {
       return "/quick - Please input your question for a quick answer";
     }
-    // Default to structured lesson mode
-    return "/lesson - Please input a topic for structured learning";
+    
+    // Otherwise, use the currently stored mode
+    const currentMode = getSelectedMode() || 'lesson';
+    switch (currentMode) {
+      case "lesson":
+        return "/lesson - Please input a topic for structured learning";
+      case "maths":
+        return "/maths - Please input a maths question";
+      case "chat":
+        return "/chat - Please input your question";
+      case "quick":
+        return "/quick - Please input your question for a quick answer";
+      default:
+        // Default to structured lesson mode
+        return "/lesson - Please input a topic for structured learning";
+    }
+  };
+
+  // Function to get the current mode from input value
+  const getCurrentMode = (inputValue: string): string => {
+    const modeMatch = inputValue.match(/^\/?(\w+)\s*/);
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+    if (modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase())) {
+      return modeMatch[1].toLowerCase();
+    }
+    return 'lesson'; // Default mode
   };
 
   /* --- handlers ---------------------------------------------------- */
@@ -983,6 +1219,257 @@ interface AnimatedAIChatProps {
     setMathSolution(null);
     setError(null);
 
+    // Use the current mode from the input field for routing, with fallback to selected UI mode
+    const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
+        
+    // Check if the input explicitly contains a mode prefix
+    const hasExplicitModePrefix = /^\/\/(chat|quick|lesson|maths)\b/.test(sanitizedInput);
+        
+    const mode = hasExplicitModePrefix 
+      ? getCurrentMode(sanitizedInput)
+      : (getSelectedMode() || 'lesson');
+        
+    // Extract the actual message content by removing the mode prefix
+    const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
+    const cleanText = modeMatch && SUPPORTED_MODES.includes(modeMatch[1].toLowerCase()) 
+      ? modeMatch[2] 
+      : sanitizedInput;
+        
+    // Ensure we have a proper message for the API
+    const apiMessage = cleanText.trim() || sanitizedInput;
+          
+    // For all modes, use the appropriate API endpoint based on mode
+    if (SUPPORTED_MODES.includes(mode)) {
+      try {
+        // Get session ID for user identification
+        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+            
+        // Get user age if available
+        let userAge = null;
+        try {
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user) {
+            userAge = (session.user as any).user_metadata?.age || null;
+          }
+        } catch (ageError) {
+          console.warn('Could not retrieve user age:', ageError);
+        }
+            
+        // Prepare request payload based on mode
+        let payload: any, endpoint: string, response: Response;
+            
+        if (mode === 'maths') {
+          // For maths mode, use the math solver endpoint
+          payload = {
+            problem: apiMessage,
+            show_steps: true
+          };
+          endpoint = '/api/math-solver/solve';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+              
+          if (!response.ok) {
+            const errorMessage = getErrorMessage(response.status, "math");
+            throw new Error(errorMessage);
+          }
+              
+          const mathResponse = await response.json();
+              
+          // Validate and set math solution
+          if (mathResponse.error) {
+            setError(mathResponse.error);
+          } else {
+            setMathSolution(mathResponse);
+            // Also set lessonJson to the math response so it can be properly rendered
+            setLessonJson(mathResponse as any);
+            saveSelectedMode('maths');
+          }
+        } else if (mode === 'chat') {
+          // For chat mode, use the chat endpoint
+          payload = {
+            userId: sid,
+            message: apiMessage,
+            age: userAge,
+            mode: mode,
+            conversation_history: conversationHistory
+          };
+          endpoint = '/api/chat';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+                    
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+                    
+          if (!response.ok) {
+            const errorMessage = getErrorMessage(response.status, "chat");
+            throw new Error(errorMessage);
+          }
+                    
+          const chatResponse: ChatResponse = await response.json();
+              
+          if (chatResponse.error) {
+            setError(chatResponse.error);
+          } else {
+            // For chat mode, display the reply directly
+            if (chatResponse.mode === 'chat') {
+              // Safely handle the reply field in case it's not a string
+              const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
+              setStreamingText(replyText);
+              setStoredLong(replyText);
+              // Set the lessonJson to the chat response so it can be displayed in the UI
+              setLessonJson(chatResponse);
+              saveSelectedMode(chatResponse.mode);
+              
+              // Update conversation history with both user message and AI response
+              setConversationHistory(prev => [
+                ...prev,
+                { role: 'user', content: apiMessage },
+                { role: 'assistant', content: replyText }
+              ]);
+            }
+          }
+        } else if (mode === 'quick') {
+          // For quick mode, use the structured lesson endpoint
+          payload = {
+            topic: apiMessage,
+            age: userAge
+          };
+          endpoint = '/api/structured-lesson';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+                    
+          if (!response.ok) {
+            const errorMessage = getErrorMessage(response.status, "lesson");
+            throw new Error(errorMessage);
+          }
+                    
+          const lessonResponse = await response.json();
+                    
+          if (lessonResponse.error) {
+            setError(lessonResponse.error);
+          } else {
+            // Summarize the lesson response for quick mode
+            const summarizedResponse = summarizeLessonResponse(lessonResponse);
+                      
+            // Set the response for display
+            setStreamingText(summarizedResponse);
+            setStoredLong(summarizedResponse);
+            setLessonJson(lessonResponse); // Store the full lesson response
+            saveSelectedMode('quick');
+                      
+            // Update conversation history with both user message and AI response
+            setConversationHistory(prev => [
+              ...prev,
+              { role: 'user', content: apiMessage },
+              { role: 'assistant', content: summarizedResponse }
+            ]);
+          }
+        } else { // lesson mode
+          // For lesson mode, use the structured lesson endpoint
+          payload = {
+            topic: apiMessage,
+            age: userAge
+          };
+          endpoint = '/api/structured-lesson';
+              
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+              
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+                    
+          if (!response.ok) {
+            const errorMessage = getErrorMessage(response.status, "lesson");
+            throw new Error(errorMessage);
+          }
+                    
+          const lessonResponse = await response.json();
+                    
+          if (lessonResponse.error) {
+            setError(lessonResponse.error);
+          } else {
+            setLessonJson(lessonResponse);
+            saveSelectedMode('lesson');
+          }
+        }
+        
+        setIsTyping(false);
+        setShowVideoButton(true);
+        
+        // Save search history
+        const savePromise = saveSearch(sanitizedInput.trim()).catch(console.error);
+        await savePromise;
+        
+        return;
+      } catch (e: unknown) {
+        if (e instanceof Error && e.name === "AbortError") {
+          if (process.env.NODE_ENV === 'development') console.debug('[chat] aborted');
+          setError("Request was cancelled or timed out. Please try again.");
+        } else {
+          const errorMessage = e instanceof Error ? e.message : "Chat request failed";
+          setError(errorMessage);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[chat] error', e);
+          }
+        }
+      } finally {
+        setIsTyping(false);
+        setValue('');
+      }
+      // If we successfully processed a supported mode, return early to avoid fallback processing
+      return;
+    }
+    
     // legacy video path
     if (sanitizedInput.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
@@ -1118,6 +1605,8 @@ interface AnimatedAIChatProps {
         }
         if (data.error) setError(data.error);
         setMathSolution(data);
+        // Also set lessonJson to the math response so it can be properly rendered
+        setLessonJson(data as any);
         setIsTyping(false);
         await savePromise;
         return;
@@ -1128,7 +1617,7 @@ interface AnimatedAIChatProps {
       }
     }
 
-    // ✅ OPTIMIZED structured-lesson STREAMING path — FAST MODE
+    // ✅ OPTIMIZED structured-lesson STREAMING path
     try {
       // Debug: surface API base and outgoing topic
       if (process.env.NODE_ENV === 'development') {
@@ -1169,27 +1658,7 @@ interface AnimatedAIChatProps {
       clearTimeout(connectTimer);
 
       if (!response.ok) {
-        // Handle specific HTTP errors with user-friendly messages
-        let errorMessage = "Failed to get response from server";
-        switch (response.status) {
-          case 400:
-            errorMessage = "Invalid request. Please try rephrasing your question.";
-            break;
-          case 401:
-            errorMessage = "Authentication required. Please log in again.";
-            break;
-          case 429:
-            errorMessage = "Too many requests. Please wait a moment and try again.";
-            break;
-          case 500:
-            errorMessage = "Server error. Please try again later.";
-            break;
-          case 503:
-            errorMessage = "Service temporarily unavailable. Please try again later.";
-            break;
-          default:
-            errorMessage = `Server error (${response.status}). Please try again later.`;
-        }
+        const errorMessage = getErrorMessage(response.status, "lesson");
         throw new Error(errorMessage);
       }
 
@@ -1399,7 +1868,7 @@ interface AnimatedAIChatProps {
 
           {/* chat card */}
           <motion.div
-            className="relative backdrop-blur-2xl bg-white/5 rounded-2xl border border-white/10 shadow-2xl"
+            className="relative backdrop-blur-2xl bg-white/5 rounded-3xl border border-white/10 shadow-2xl overflow-hidden"
             initial={{ scale: 0.98 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1 }}
@@ -1427,7 +1896,15 @@ interface AnimatedAIChatProps {
                         if (s.action) {
                           s.action();
                         } else {
-                          setValue(s.prefix);
+                          // Save the selected mode based on the prefix without pre-filling the input
+                          const modeFromPrefix = s.prefix.replace('/', '').toLowerCase();
+                          saveSelectedMode(modeFromPrefix);
+                          setSelectedMode(modeFromPrefix); // Update UI state
+                          setModeFeedback(modeFromPrefix); // Show visual feedback
+                          setTimeout(() => {
+                            setModeFeedback(null);
+                          }, 1000); // Clear feedback after 1 second
+                          setValue(""); // Clear the input field
                           setShowCommandPalette(false);
                         }
                         // Focus the textarea after selection
@@ -1438,7 +1915,7 @@ interface AnimatedAIChatProps {
                         }, 0);
                       }}
                     >
-                      <div className="w-5 h-5 flex-center text-white/60">{s.icon}</div>
+                      <div className="w-5 h-5 flex-center text-white/60 rounded-lg">{s.icon}</div>
                       <div className="font-medium">{s.label}</div>
                       <div className="text-white/40 ml-1">{s.prefix}</div>
                     </motion.div>
@@ -1452,21 +1929,73 @@ interface AnimatedAIChatProps {
               <Textarea
                 ref={autoRef}
                 value={value}
-                onChange={(e) => {
-                  setValue(e.target.value);
+                onValueChange={(newValue) => {
+                  setValue(newValue);
                   adjustHeight();
                 }}
                 onKeyDown={handleKeyDown}
                 onFocus={() => setInputFocused(true)}
                 onBlur={() => setInputFocused(false)}
                 placeholder={getModePlaceholder()}
+                mode={getCurrentMode(value)}
                 containerClassName="w-full"
                 className="w-full px-4 py-3 resize-none bg-transparent border-none text-white/90 text-sm placeholder:text-white/30 min-h-[60px]"
                 showRing={false}
               />
             </div>
 
-            {/* AI response area — moved OUTSIDE input container */}
+            {/* mode selection buttons */}
+            <div className="px-4 flex flex-wrap gap-1 justify-center">
+              {commandSuggestions.map((suggestion, idx) => {
+                const mode = suggestion.prefix.replace('/', '').toLowerCase();
+                const isSelected = selectedMode === mode;
+                const isFeedback = modeFeedback === mode;
+                
+                return (
+                  <motion.button
+                    key={suggestion.label}
+                    onClick={() => handleModeClick(mode)}
+                    className={cn(
+                      "px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1 transition-all min-w-[70px]",
+                      isSelected
+                        ? "bg-white text-black shadow-md shadow-white/20"
+                        : "bg-white/10 text-white/80 hover:bg-white/20",
+                      isFeedback && "animate-pulse"
+                    )}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    <span className="flex items-center">{suggestion.icon}</span>
+                    <span className="truncate max-w-[50px]">{suggestion.label.split(' ')[0]}</span>
+                  </motion.button>
+                );
+              })}
+            </div>
+
+            {/* Conversation history for chat and quick modes */}
+            {(selectedMode === 'chat' || selectedMode === 'quick') && conversationHistory.length > 0 && (
+              <div className="px-4 pb-2 max-h-96 overflow-y-auto">
+                {conversationHistory.map((msg, index) => (
+                  <div 
+                    key={index} 
+                    className={`mb-3 p-3 rounded-2xl ${
+                      msg.role === 'user' 
+                        ? 'bg-white/10 ml-10 text-right' 
+                        : 'bg-white/5 mr-10 text-left'
+                    }`}
+                  >
+                    <div className="text-xs text-white/60 mb-1">
+                      {msg.role === 'user' ? 'You' : 'Assistant'}
+                    </div>
+                    <div className="text-white/90 text-sm">
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* AI response area */}
             {error && (
               <div className="px-4 pb-4">
                 <motion.div 
@@ -1475,7 +2004,7 @@ interface AnimatedAIChatProps {
                   role="alert"
                   aria-live="assertive"
                   aria-atomic="true"
-                  className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-200 text-sm"
+                  className="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 text-red-200 text-sm"
                 >
                   {error}
                   <button 
@@ -1490,18 +2019,48 @@ interface AnimatedAIChatProps {
 
             {lessonJson && (
               <div className="px-4 pb-4">
-                <StructuredLessonCard 
-                  lesson={lessonJson} 
-                  isStreamingComplete={!isTyping} 
-                />
+                {/* Check if the response is a structured lesson */}
+                {lessonJson && isLessonResponse(lessonJson) && selectedMode !== 'quick' ? (
+                  <StructuredLessonCard 
+                    lesson={lessonJson} 
+                    isStreamingComplete={!isTyping} 
+                  />
+                ) : isMathResponse(lessonJson) ? (
+                  /* Check if the response is a math solution */
+                  <MathSolutionCard 
+                    data={lessonJson as MathSolutionUI} 
+                  />
+                ) : (
+                  /* For chat responses in lessonJson, only show if not in chat/quick mode 
+                     (since chat responses are already shown in conversation history) */
+                  !['chat', 'quick'].includes(selectedMode) && (
+                    <div className="lesson-card border rounded-2xl p-6 space-y-6 bg-white/5 border-white/10">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-xl bg-white/10">
+                            <Sparkles className="w-5 h-5 text-white" />
+                          </div>
+                          <h2 className="text-xl font-semibold">Response</h2>
+                        </div>
+                      </div>
+                      <div className="space-y-4 text-sm">
+                        <div className="space-y-2">
+                          <p className="text-white/70 leading-relaxed">
+                            {isChatResponse(lessonJson) 
+                              ? (typeof (lessonJson as ChatResponse).reply === 'string' 
+                                ? (lessonJson as ChatResponse).reply 
+                                : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
+                              : JSON.stringify(lessonJson)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                )}
               </div>
             )}
 
-            {mathSolution && (
-              <div className="px-4 pb-4">
-                <MathSolutionCard data={mathSolution} />
-              </div>
-            )}
+            {/* Math solutions are now handled through lessonJson to ensure consistent rendering */}
 
             {/* attachments */}
             <AnimatePresence>
@@ -1515,7 +2074,7 @@ interface AnimatedAIChatProps {
                   {attachments.map((file, idx) => (
                     <motion.div
                       key={idx}
-                      className="flex items-center gap-2 text-xs bg-white/5 py-1.5 px-3 rounded-lg text-white/80 border border-white/10"
+                      className="flex items-center gap-2 text-xs bg-white/5 py-1.5 px-3 rounded-xl text-white/80 border border-white/10"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.9 }}
@@ -1540,14 +2099,14 @@ interface AnimatedAIChatProps {
                   type="button"
                   onClick={handleAttachFile}
                   whileTap={{ scale: 0.94 }}
-                  className="p-2 text-white/50 hover:text-white rounded-lg"
+                  className="p-2 text-white/50 hover:text-white rounded-xl"
                 >
                   <Paperclip className="w-4 h-4" />
                 </motion.button>
                 <motion.button
                   onClick={() => setShowCommandPalette((p) => !p)}
                   whileTap={{ scale: 0.94 }}
-                  className="p-2 text-white/50 hover:text-white rounded-lg"
+                  className="p-2 text-white/50 hover:text-white rounded-xl"
                 >
                   <Command className="w-4 h-4" />
                 </motion.button>
@@ -1559,7 +2118,7 @@ interface AnimatedAIChatProps {
                 whileTap={{ scale: 0.98 }}
                 disabled={!value.trim() || isTyping}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2",
+                  "px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2",
                   value.trim() && !isTyping
                     ? "bg-white text-black shadow-lg shadow-white/20"
                     : "bg-white/10 text-white/50"
@@ -1583,9 +2142,9 @@ interface AnimatedAIChatProps {
               >
                 <button
                   onClick={() => onNavigateToVideoLearning?.(
-                    lessonJson?.introduction?.split('\n')[0] || value.trim() || "Generated Lesson"
+                    (lessonJson && isLessonResponse(lessonJson) ? (lessonJson as Lesson).introduction?.split('\n')[0] || value.trim() : value.trim()) || "Generated Lesson"
                   )}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-white"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-white"
                 >
                   <Video className="w-4 h-4" />
                   <span>Create lesson</span>
@@ -1600,7 +2159,7 @@ interface AnimatedAIChatProps {
               <motion.button
                 key={mode.label}
                 onClick={mode.action}
-                className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
+                className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}

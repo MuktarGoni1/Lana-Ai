@@ -156,7 +156,7 @@ function Header() {
                 key={l} 
                 href={`#${l.toLowerCase()}`} 
                 onClick={() => setOpen(false)} 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
               >
                 {l}
               </Link>
@@ -196,14 +196,14 @@ function Header() {
                 <>
                   <Link 
                     href="/login" 
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2 flex-1 text-center"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center"
                     onClick={() => setOpen(false)}
                   >
                     Login
                   </Link>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] flex-1"
+                    className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] flex-1"
                     onClick={() => setOpen(false)}
                   >
                     Get Started
@@ -223,13 +223,13 @@ function HeroSection() {
   const { user } = useUnifiedAuth()
 
   return (
-    <section id="hero" className="py-20 md:py-32">
+    <section id="hero" className="py-12 md:py-20 lg:py-32">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
         <div className="flex flex-col gap-6">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight">
             {user ? `Welcome back, ${user.email}` : "Meet Lana, Your Child's AI Learning Companion"}
           </h1>
-          <p className="text-lg text-muted-foreground">
+          <p className="text-base md:text-lg text-muted-foreground">
             {user 
               ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
               : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
@@ -277,11 +277,12 @@ function HeroSection() {
           </ul>
         </div>
         <div className="relative h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl">
-          <img 
+          <Image 
             src="/first-section.jpg" 
             alt="Lana AI hero" 
-            className="object-cover w-full h-full"
-            loading="eager"
+            fill
+            className="object-cover"
+            priority
           />
         </div>
       </div>
@@ -308,7 +309,7 @@ function FeaturesSection() {
             Lana AI combines cutting-edge technology with proven educational methods to create a learning experience that's both effective and engaging.
           </p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 md:gap-8">
           {features.map((f, index) => (
             <div 
               key={f.title} 
@@ -362,7 +363,7 @@ function PricingSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 md:gap-8">
           {plans.map((p) => (
             <div
               key={p.name}
@@ -423,7 +424,7 @@ function CtaSection() {
             : "Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today."
           }
         </p>
-        <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
           {user ? (
             <Link 
               href="/homepage" 
@@ -436,14 +437,14 @@ function CtaSection() {
             <>
               <Link 
                 href="/register" 
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-3 text-sm sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Start Free Trial
                 <ArrowRight className="h-5 w-5" />
               </Link>
               <Link 
                 href="/login" 
-                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+                className="inline-flex items-center justify-center rounded-md border border-input bg-background px-5 py-3 text-sm sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-sm transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
               >
                 Login to Your Account
               </Link>
@@ -471,7 +472,7 @@ function ContactSection() {
         <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
           Reach out for demos, pricing questions, or partnership opportunities.
         </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-4 sm:grid-cols-2">
           <a 
             href="mailto:sales@lana.ai" 
             className="inline-flex items-center justify-center rounded-md bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
@@ -501,40 +502,40 @@ function Footer() {
     Support: ["Term Plan", "Feedback", "Settings"]
   }
   return (
-    <footer className="border-t border-border py-12 md:py-16">
+    <footer className="border-t border-border py-8 md:py-16">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 md:gap-12">
+        <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-5 md:gap-12">
           <div className="lg:col-span-2">
             <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
             <p className="text-muted-foreground text-sm mt-3 max-w-md">
               Empowering you and your child through personalized AI tutoring while keeping you connected to the learning journey.
             </p>
-            <div className="flex gap-4 mt-5">
+            <div className="flex gap-3 sm:gap-4 mt-5">
               <Link 
                 href="#" 
                 aria-label="Twitter" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-2 rounded-full hover:bg-muted transition-colors"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted transition-colors"
               >
                 <Twitter className="h-5 w-5 text-muted-foreground hover:text-foreground" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="Facebook" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-2 rounded-full hover:bg-muted transition-colors"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted transition-colors"
               >
                 <Facebook className="h-5 w-5 text-muted-foreground hover:text-foreground" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="Instagram" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-2 rounded-full hover:bg-muted transition-colors"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted transition-colors"
               >
                 <Instagram className="h-5 w-5 text-muted-foreground hover:text-foreground" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="LinkedIn" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-2 rounded-full hover:bg-muted transition-colors"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted transition-colors"
               >
                 <Linkedin className="h-5 w-5 text-muted-foreground hover:text-foreground" />
               </Link>

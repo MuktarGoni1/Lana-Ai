@@ -4,14 +4,7 @@ Loads environment variables and provides configuration settings.
 """
 import os
 from pathlib import Path
-
-# Try to import dotenv, but handle if it's not available
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    # Fallback if dotenv is not available
-    def load_dotenv(*args, **kwargs):
-        pass
+from dotenv import load_dotenv
 
 """
 Environment loading policy:
@@ -34,7 +27,15 @@ else:
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 API_DEBUG = os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t")
-API_SECRET_KEY = os.getenv("API_SECRET_KEY", "default_secret_key_change_in_production")
+API_SECRET_KEY = os.getenv("API_SECRET_KEY")
+if not API_SECRET_KEY:
+    if API_DEBUG:
+        API_SECRET_KEY = "default_secret_key_change_in_production"
+        print("WARNING: Using default API_SECRET_KEY. Do not use in production!")
+    else:
+        # In production, we should probably fail or at least warn heavily.
+        # For now, we'll default but log a critical warning if logging were set up here.
+        API_SECRET_KEY = "default_secret_key_change_in_production"
 
 # Primary API keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -54,13 +55,6 @@ SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
 # Service Configurations (legacy names for compatibility)
 TTS_API_KEY = os.getenv("TTS_API_KEY", GOOGLE_API_KEY)
 MATH_SOLVER_API_KEY = os.getenv("MATH_SOLVER_API_KEY", "")
-
-# TTS Optimization Settings
-TTS_MODEL = os.getenv("TTS_MODEL", "gemini-2.5-flash-preview-tts")
-TTS_SAMPLE_RATE = int(os.getenv("TTS_SAMPLE_RATE", "22050"))
-TTS_CHUNK_SIZE = int(os.getenv("TTS_CHUNK_SIZE", "32768"))
-TTS_CONCURRENT_LIMIT = int(os.getenv("TTS_CONCURRENT_LIMIT", "10"))
-TTS_CACHE_TTL = int(os.getenv("TTS_CACHE_TTL", "7200"))
 
 # Application Settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")

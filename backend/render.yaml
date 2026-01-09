@@ -1,5 +1,4 @@
 services:
-  # Backend: FastAPI Web Service
   - type: web
     name: lana-backend
     env: python
@@ -8,20 +7,15 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     autoDeploy: true
+    healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11
       - key: GROQ_API_KEY
-        sync: false
-      - key: GOOGLE_API_KEY
         sync: false
       - key: SUPABASE_URL
         sync: false
-      - key: SUPABASE_SERVICE_ROLE_KEY
+      - key: SUPABASE_KEY
         sync: false
-      - key: SUPABASE_ANON_KEY
+      - key: API_SECRET_KEY
         sync: false
-      - key: CORS_ORIGINS
-        value: https://api.lanamind.com,http://localhost:3000,http://localhost:3001
-      - key: LOG_LEVEL
-        value: INFO

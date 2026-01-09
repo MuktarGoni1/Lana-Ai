@@ -1,7 +1,7 @@
 """
 Lessons API routes.
 """
-from fastapi import APIRouter, Depends, HTTPException, Query  # type: ignore
+from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List
 from app.services.lesson_service import LessonService
 from app.repositories.interfaces import ILessonRepository
@@ -38,19 +38,3 @@ async def get_lesson(lesson_id: str, service: LessonService = Depends(get_lesson
     if not lesson:
         raise HTTPException(status_code=404, detail="Lesson not found")
     return lesson
-
-@router.get("/{lesson_id}/quiz")
-async def get_lesson_quiz(lesson_id: str, service: LessonService = Depends(get_lesson_service)):
-    """Get quiz data for a specific lesson by ID."""
-    lesson = await service.get_lesson_detail(lesson_id)
-    if not lesson:
-        raise HTTPException(status_code=404, detail="Lesson not found")
-    
-    # Extract quiz data from the lesson
-    quiz_data = lesson.get("quiz", [])
-    
-    # If no quiz data, return empty array
-    if not quiz_data:
-        return []
-    
-    return quiz_data
