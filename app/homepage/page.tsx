@@ -7,7 +7,8 @@
 import React, { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import rateLimiter from "@/lib/rate-limiter";
-import { isValidLessonResponse, sanitizeLessonContent } from "@/lib/response-validation";
+import { isValidLessonResponse, sanitizeLessonContent } from '@/lib/response-validation';
+import { decodeHTMLEntities } from '@/lib/html-entity-decoder';
 import { getSelectedMode, saveSelectedMode } from '@/lib/mode-storage';
 import {
   Paperclip,
@@ -452,7 +453,9 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   // Lightly sanitize markdown-like tokens and normalize bullets per line
 
   const sanitizeLine = (line: string) => {
-    return line
+    // First decode HTML entities, then sanitize formatting
+    const decodedLine = decodeHTMLEntities(line);
+    return decodedLine
       .replaceAll("**", "")
       .replace(/^\s*[-*]\s+/, "• ")
       .replace(/`{1,3}/g, "")
@@ -1352,8 +1355,8 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
           } else {
             setMathSolution(mathResponse);
           }
-        } else if (mode === 'chat' || mode === 'quick') {
-          // For chat and quick modes, use the chat endpoint
+        } else if (mode === 'chat') {
+          // For chat mode, use the chat endpoint
           payload = {
             userId: sid,
             message: apiMessage,
@@ -1401,14 +1404,14 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
             }
             throw new Error(errorMessage);
           }
-              
+                  
           const chatResponse = await response.json();
-              
+                  
           if (chatResponse.error) {
             setError(chatResponse.error);
           } else {
             // For chat mode, display the reply directly
-            if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') {
+            if (chatResponse.mode === 'chat') {
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
@@ -1416,6 +1419,61 @@ export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProp
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
             }
+          }
+        } else if (mode === 'quick') { // quick mode
+          // For quick mode, use the quick mode endpoint
+          payload = {
+            topic: apiMessage,
+            age: userAge
+          };
+          endpoint = '/api/quick';
+                  
+          if (!rateLimiter.isAllowed(endpoint)) {
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+            setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
+            setIsTyping(false);
+            return;
+          }
+                  
+          response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+            signal: abortRef.current.signal,
+          });
+                  
+          if (!response.ok) {
+            let errorMessage = "Failed to get response from server";
+            switch (response.status) {
+              case 400:
+                errorMessage = "Invalid request. Please try rephrasing your question.";
+                break;
+              case 401:
+                errorMessage = "Authentication required. Please log in again.";
+                break;
+              case 429:
+                errorMessage = "Too many requests. Please wait a moment and try again.";
+                break;
+              case 500:
+                errorMessage = "Server error. Please try again later.";
+                break;
+              case 503:
+                errorMessage = "Service temporarily unavailable. Please try again later.";
+                break;
+              default:
+                errorMessage = `Server error (${response.status}). Please try again later.`;
+            }
+            throw new Error(errorMessage);
+          }
+                  
+          const quickResponse = await response.json();
+                  
+          if (quickResponse.error) {
+            setError(quickResponse.error);
+          } else {
+            setLessonJson(quickResponse);
           }
         } else { // lesson mode
           // For lesson mode, use the structured lesson endpoint

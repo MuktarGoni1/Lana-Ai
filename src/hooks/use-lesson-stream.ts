@@ -10,7 +10,8 @@ import { useState, useRef, useCallback } from "react";
 import { API_BASE } from '../../lib/api-config';
 import rateLimiter from "../../lib/rate-limiter";
 import { saveSearch } from '../../lib/search';
-import { isValidLessonResponse, sanitizeLessonContent } from "../../lib/response-validation";
+import { isValidLessonResponse, sanitizeLessonContent } from '../../lib/response-validation';
+import { decodeLessonHTMLEntities } from '../../lib/html-entity-decoder';
 
 interface Lesson {
   id?: string;

@@ -8,6 +8,7 @@ import rateLimiter from "@/lib/rate-limiter";
 import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
 import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
 import { getErrorMessage } from "@/lib/api-errors";
+import { decodeHTMLEntities } from "@/lib/html-entity-decoder";
 import {
   Paperclip,
   Command,
@@ -255,7 +256,9 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
   
   // Lightly sanitize markdown-like tokens and normalize bullets per line
   const sanitizeLine = (line: string) => {
-    return line
+    // First decode HTML entities, then sanitize formatting
+    const decodedLine = decodeHTMLEntities(line);
+    return decodedLine
       .replaceAll("**", "")
       .replace(/^\s*[-*]\s+/, "• ")
       .replace(/`{1,3}/g, "")
@@ -1352,12 +1355,12 @@ interface AnimatedAIChatProps {
             }
           }
         } else if (mode === 'quick') {
-          // For quick mode, use the structured lesson endpoint
+          // For quick mode, use the quick mode endpoint
           payload = {
             topic: apiMessage,
             age: userAge
           };
-          endpoint = '/api/structured-lesson';
+          endpoint = '/api/quick';
               
           if (!rateLimiter.isAllowed(endpoint)) {
             const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
@@ -1385,20 +1388,15 @@ interface AnimatedAIChatProps {
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
-            // Summarize the lesson response for quick mode
-            const summarizedResponse = summarizeLessonResponse(lessonResponse);
-                      
-            // Set the response for display
-            setStreamingText(summarizedResponse);
-            setStoredLong(summarizedResponse);
-            setLessonJson(lessonResponse); // Store the full lesson response
+            // For quick mode, set the lesson response directly
+            setLessonJson(lessonResponse);
             saveSelectedMode('quick');
                       
             // Update conversation history with both user message and AI response
             setConversationHistory(prev => [
               ...prev,
               { role: 'user', content: apiMessage },
-              { role: 'assistant', content: summarizedResponse }
+              { role: 'assistant', content: JSON.stringify(lessonResponse) }
             ]);
           }
         } else { // lesson mode

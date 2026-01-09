@@ -1,6 +1,8 @@
 // lib/response-validation.ts
 // Utility functions for validating response structure and formatting
 
+import { decodeHTMLEntities } from './html-entity-decoder';
+
 /**
  * Validate that a lesson response has the required structure
  * @param lesson The lesson object to validate
@@ -116,7 +118,7 @@ export function sanitizeLessonContent(lesson: any): any {
 
   // Sanitize introduction
   sanitized.introduction = typeof lesson.introduction === 'string' 
-    ? lesson.introduction.trim() 
+    ? decodeHTMLEntities(lesson.introduction.trim()) 
     : '';
 
   // Sanitize sections
@@ -126,8 +128,8 @@ export function sanitizeLessonContent(lesson: any): any {
         return { title: '', content: '' };
       }
       return {
-        title: typeof section.title === 'string' ? section.title.trim() : '',
-        content: typeof section.content === 'string' ? section.content.trim() : ''
+        title: typeof section.title === 'string' ? decodeHTMLEntities(section.title.trim()) : '',
+        content: typeof section.content === 'string' ? decodeHTMLEntities(section.content.trim()) : ''
       };
     }).filter((section: any) => section.title || section.content); // Remove empty sections
   } else {
@@ -141,11 +143,11 @@ export function sanitizeLessonContent(lesson: any): any {
         return null;
       }
       return {
-        q: typeof quizItem.q === 'string' ? quizItem.q.trim() : '',
+        q: typeof quizItem.q === 'string' ? decodeHTMLEntities(quizItem.q.trim()) : '',
         options: Array.isArray(quizItem.options) 
-          ? quizItem.options.map((opt: any) => typeof opt === 'string' ? opt.trim() : '').filter(Boolean)
+          ? quizItem.options.map((opt: any) => typeof opt === 'string' ? decodeHTMLEntities(opt.trim()) : '').filter(Boolean)
           : [],
-        answer: typeof quizItem.answer === 'string' ? quizItem.answer.trim() : ''
+        answer: typeof quizItem.answer === 'string' ? decodeHTMLEntities(quizItem.answer.trim()) : ''
       };
     }).filter(Boolean); // Remove invalid quiz items
   } else {
@@ -169,8 +171,8 @@ export function sanitizeMathSolutionContent(solution: any): any {
   const sanitized: any = {};
 
   // Sanitize problem and solution
-  sanitized.problem = typeof solution.problem === 'string' ? solution.problem.trim() : '';
-  sanitized.solution = typeof solution.solution === 'string' ? solution.solution.trim() : '';
+  sanitized.problem = typeof solution.problem === 'string' ? decodeHTMLEntities(solution.problem.trim()) : '';
+  sanitized.solution = typeof solution.solution === 'string' ? decodeHTMLEntities(solution.solution.trim()) : '';
 
   // Sanitize steps
   if (Array.isArray(solution.steps)) {
@@ -179,8 +181,8 @@ export function sanitizeMathSolutionContent(solution: any): any {
         return { description: '', expression: null };
       }
       return {
-        description: typeof step.description === 'string' ? step.description.trim() : '',
-        expression: typeof step.expression === 'string' ? step.expression.trim() : (step.expression || null)
+        description: typeof step.description === 'string' ? decodeHTMLEntities(step.description.trim()) : '',
+        expression: typeof step.expression === 'string' ? decodeHTMLEntities(step.expression.trim()) : (step.expression || null)
       };
     }).filter((step: any) => step.description); // Remove empty steps
   } else {
