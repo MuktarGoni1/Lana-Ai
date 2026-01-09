@@ -25,15 +25,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
 
         # Content Security Policy
-        # Use production CSP when not in debug mode
-        if not _settings.api_debug:
-            # Allow Swagger UI scripts while maintaining security
+        # Apply different CSP based on the endpoint
+        if request.url.path in ["/docs", "/redoc", "/openapi.json"]:
+            # For documentation endpoints, allow external CDN resources for Swagger UI
             csp_policy = (
                 "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "  # Allow Swagger UI scripts
-                "style-src 'self' 'unsafe-inline'; "
+                "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+                "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
                 "img-src 'self' data: https:; "
-                "font-src 'self' data:; "
+                "font-src 'self' data: https://cdn.jsdelivr.net; "
                 "connect-src 'self' https:; "
                 "media-src 'self'; "
                 "object-src 'none'; "
@@ -44,22 +44,40 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
             response.headers["Content-Security-Policy"] = csp_policy
         else:
-            # For debug mode, allow more flexibility for development tools
-            csp_policy = (
-                "default-src 'self'; "
-                "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-                "style-src 'self' 'unsafe-inline'; "
-                "img-src 'self' data: https:; "
-                "font-src 'self' data:; "
-                "connect-src 'self' https:; "
-                "media-src 'self'; "
-                "object-src 'none'; "
-                "base-uri 'self'; "
-                "form-action 'self'; "
-                "frame-ancestors 'none'; "
-                "upgrade-insecure-requests"
-            )
-            response.headers["Content-Security-Policy"] = csp_policy
+            # For all other endpoints, use stricter security
+            if not _settings.api_debug:
+                csp_policy = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data: https:; "
+                    "font-src 'self' data:; "
+                    "connect-src 'self' https:; "
+                    "media-src 'self'; "
+                    "object-src 'none'; "
+                    "base-uri 'self'; "
+                    "form-action 'self'; "
+                    "frame-ancestors 'none'; "
+                    "upgrade-insecure-requests"
+                )
+                response.headers["Content-Security-Policy"] = csp_policy
+            else:
+                # For debug mode, allow more flexibility for development tools
+                csp_policy = (
+                    "default-src 'self'; "
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+                    "style-src 'self' 'unsafe-inline'; "
+                    "img-src 'self' data: https:; "
+                    "font-src 'self' data:; "
+                    "connect-src 'self' https:; "
+                    "media-src 'self'; "
+                    "object-src 'none'; "
+                    "base-uri 'self'; "
+                    "form-action 'self'; "
+                    "frame-ancestors 'none'; "
+                    "upgrade-insecure-requests"
+                )
+                response.headers["Content-Security-Policy"] = csp_policy
 
         # HSTS (HTTP Strict Transport Security)
         if request.url.scheme == "https":
