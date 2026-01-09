@@ -22,8 +22,9 @@ const nextConfig = {
       "sentry.server.config.ts",
     ],
   },
-  // Configure image optimization
   images: {
+    domains: ['www.lanamind.com', 'lanamind.com'],
+    formats: ['image/webp', 'image/avif'],
     remotePatterns: [
       {
         protocol: 'https',

@@ -117,10 +117,10 @@ export async function POST(req: Request) {
       }
     }
     
-    // For quick mode, we route to the production structured lesson endpoint but return a more concise response
-    const lessonUrl = 'https://api.lanamind.com/api/structured-lesson';
+    // For quick mode, we route to the production quick mode endpoint
+    const lessonUrl = 'https://api.lanamind.com/api/quick/generate';
     
-    // Prepare the payload for the production structured lesson API
+    // Prepare the payload for the production quick mode API
     const payload = { 
       topic: message,
       age: age
@@ -144,23 +144,12 @@ export async function POST(req: Request) {
       if (backendResponse.ok) {
         const responseData = await backendResponse.json();
         
-        // For quick mode, create a concise summary from the structured lesson response
-        let replyText = message;
-        if (responseData.introduction) {
-          replyText = responseData.introduction;
-          // For quick mode, only include introduction and first section if available
-          if (Array.isArray(responseData.sections) && responseData.sections.length > 0) {
-            const firstSection = responseData.sections[0];
-            if (firstSection.content) {
-              replyText += '\n\n' + (firstSection.title ? `**${firstSection.title}**: ` : '') + firstSection.content;
-            }
-          }
-        }
-        
+        // For quick mode, return the full response from the quick mode endpoint
+        // The quick mode endpoint already returns a properly formatted concise response
         return NextResponse.json({
           ...responseData,
           mode: mode,
-          reply: replyText
+          reply: responseData.introduction || message
         }, {
           status: 200,
           headers: {
