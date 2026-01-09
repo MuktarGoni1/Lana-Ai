@@ -1,6 +1,6 @@
 import time
 from typing import Tuple, Dict, Any
-import aioredis
+import redis.asyncio as aioredis
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -38,7 +38,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return None
         if self._redis_client is None or self._redis_client.closed:
             try:
-                self._redis_client = await aioredis.from_url(
+                self._redis_client = await redis_async.from_url(
                     settings.redis_url, encoding="utf-8", decode_responses=True
                 )
             except Exception as e:

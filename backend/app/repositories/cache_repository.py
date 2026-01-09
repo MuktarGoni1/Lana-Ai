@@ -1,4 +1,4 @@
-import aioredis
+import redis.asyncio as aioredis
 import orjson
 import time
 from cachetools import TTLCache
@@ -18,11 +18,11 @@ class CacheRepository(ICacheRepository):
 
     def __init__(self):
         """Initialize cache repository."""
-        self._redis_client: Optional[aioredis.Redis] = None
+        self._redis_client: Optional[redis_async.Redis] = None
         self._fallback_caches: Dict[str, TTLCache] = {}
         self._stats = {"hits": 0, "misses": 0, "errors": 0, "last_reset": time.time()}
 
-    async def _get_redis_client(self) -> Optional[aioredis.Redis]:
+    async def _get_redis_client(self) -> Optional[redis_async.Redis]:
         """Get or create Redis client."""
         global REDIS_AVAILABLE
         if not REDIS_AVAILABLE:
@@ -30,7 +30,7 @@ class CacheRepository(ICacheRepository):
 
         if not self._redis_client:
             try:
-                self._redis_client = await aioredis.from_url(
+                self._redis_client = await redis_async.from_url(
                     f"redis://{settings.redis_host}:{settings.redis_port}",
                     password=settings.redis_password,
                     db=settings.redis_db,
