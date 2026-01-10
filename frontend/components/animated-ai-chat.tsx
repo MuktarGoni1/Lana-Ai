@@ -9,6 +9,7 @@ import { getSelectedMode, saveSelectedMode } from "@/lib/mode-storage";
 import { isValidLessonResponse, isValidMathSolutionResponse, sanitizeLessonContent, sanitizeMathSolutionContent } from "@/lib/response-validation";
 import { getErrorMessage } from "@/lib/api-errors";
 import { decodeHTMLEntities } from "@/lib/html-entity-decoder";
+import { updateUserAge } from "@/lib/services/userService";
 import {
   Paperclip,
   Command,
@@ -1014,6 +1015,9 @@ interface AnimatedAIChatProps {
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [showSaveMessage, setShowSaveMessage] = useState(false);
   const [userAge, setUserAge] = useState<number | null>(null);
+  const [showAgeModal, setShowAgeModal] = useState(false);
+  const [inputAge, setInputAge] = useState<string>('');
+  const [ageValidationError, setAgeValidationError] = useState<string>('');
   const [conversationHistory, setConversationHistory] = useState<Array<{role: string, content: string}>>([]);
   const router = useRouter();
   
@@ -1096,6 +1100,15 @@ interface AnimatedAIChatProps {
     };
   }, []);
 
+  // Helper function to validate age
+  const validateAge = (ageStr: string): number | null => {
+    const ageNum = parseInt(ageStr, 10);
+    if (isNaN(ageNum) || ageNum < 5 || ageNum > 100) {
+      return null;
+    }
+    return ageNum;
+  };
+
   // Retrieve user age on component mount - ONLY for authenticated users
   useEffect(() => {
     const loadAge = async () => {
@@ -1115,6 +1128,13 @@ interface AnimatedAIChatProps {
           // If not in metadata, we don't have a users table, so we can't query it
           // The age should be in the user metadata from Supabase auth
           console.debug('User age not found in metadata, using null');
+          
+          // Check if we've already shown the age modal in this session
+          const hasSeenAgePrompt = sessionStorage.getItem('hasSeenAgePrompt');
+          if (!hasSeenAgePrompt) {
+            setShowAgeModal(true);
+            sessionStorage.setItem('hasSeenAgePrompt', 'true');
+          }
         }
       } catch (error) {
         console.error('Error retrieving user age:', error);
@@ -1187,6 +1207,35 @@ interface AnimatedAIChatProps {
     return 'lesson'; // Default mode
   };
 
+  // Handle age submission
+  const handleAgeSubmit = async () => {
+    const validatedAge = validateAge(inputAge);
+    
+    if (validatedAge === null) {
+      setAgeValidationError('Please enter a valid age between 5 and 100');
+      return;
+    }
+    
+    setAgeValidationError('');
+    
+    // Update user age in Supabase
+    const success = await updateUserAge(validatedAge);
+    if (success) {
+      setUserAge(validatedAge);
+      setShowAgeModal(false);
+      setInputAge('');
+    } else {
+      setAgeValidationError('Failed to save age. Please try again.');
+    }
+  };
+
+  // Handle dismissing the age modal without saving
+  const handleDismissAgeModal = () => {
+    setShowAgeModal(false);
+    setInputAge('');
+    setAgeValidationError('');
+  };
+
   /* --- handlers ---------------------------------------------------- */
   const handleSendMessage = async () => {
     const q = value.trim();
@@ -1209,16 +1258,11 @@ interface AnimatedAIChatProps {
     // Sanitize input to prevent XSS
     const sanitizedInput = DOMPurify.sanitize(q);
 
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
-    setIsTyping(true);
-    setStreamingText("");
-    setStoredLong("");
-    setShowVideoButton(false);
-    setLessonJson(null);
-    setMathSolution(null);
-    setError(null);
-
+    // Check if the user is authenticated and age is missing for educational modes
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    const isAuthenticated = !!session?.user;
+    
     // Use the current mode from the input field for routing, with fallback to selected UI mode
     const SUPPORTED_MODES = ['chat', 'quick', 'lesson', 'maths'];
         
@@ -1228,6 +1272,26 @@ interface AnimatedAIChatProps {
     const mode = hasExplicitModePrefix 
       ? getCurrentMode(sanitizedInput)
       : (getSelectedMode() || 'lesson');
+        
+    // Show age modal if user is authenticated, age is missing, and they're using an educational mode
+    if (isAuthenticated && userAge === null && ['chat', 'quick', 'lesson', 'maths'].includes(mode)) {
+      const hasSeenAgePrompt = sessionStorage.getItem('hasSeenAgePrompt');
+      if (!hasSeenAgePrompt) {
+        setShowAgeModal(true);
+        sessionStorage.setItem('hasSeenAgePrompt', 'true');
+        return; // Don't proceed with sending the message
+      }
+    }
+
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+    setIsTyping(true);
+    setStreamingText("");
+    setStoredLong("");
+    setShowVideoButton(false);
+    setLessonJson(null);
+    setMathSolution(null);
+    setError(null);
         
     // Extract the actual message content by removing the mode prefix
     const modeMatch = sanitizedInput.match(/^\/?(\w+)\s*(.*)/);
@@ -1244,17 +1308,8 @@ interface AnimatedAIChatProps {
         // Get session ID for user identification
         const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
             
-        // Get user age if available
-        let userAge = null;
-        try {
-          const supabase = createClient();
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session?.user) {
-            userAge = (session.user as any).user_metadata?.age || null;
-          }
-        } catch (ageError) {
-          console.warn('Could not retrieve user age:', ageError);
-        }
+        // Use the user age from state
+        const userAgeForPayload = userAge;
             
         // Prepare request payload based on mode
         let payload: any, endpoint: string, response: Response;
@@ -1263,7 +1318,8 @@ interface AnimatedAIChatProps {
           // For maths mode, use the math solver endpoint
           payload = {
             problem: apiMessage,
-            show_steps: true
+            show_steps: true,
+            age: userAgeForPayload
           };
           endpoint = '/api/math-solver/solve';
               
@@ -1304,7 +1360,7 @@ interface AnimatedAIChatProps {
           payload = {
             userId: sid,
             message: apiMessage,
-            age: userAge,
+            age: userAgeForPayload,
             mode: mode
           };
           endpoint = '/api/chat';
@@ -1358,7 +1414,7 @@ interface AnimatedAIChatProps {
           payload = {
             userId: sid,
             message: apiMessage,
-            age: userAge,
+            age: userAgeForPayload,
             mode: mode
           };
           endpoint = '/api/chat';
@@ -1411,7 +1467,7 @@ interface AnimatedAIChatProps {
           // For lesson mode, use the structured lesson endpoint
           payload = {
             topic: apiMessage,
-            age: userAge
+            age: userAgeForPayload
           };
           endpoint = '/api/structured-lesson';
               
@@ -2196,6 +2252,68 @@ interface AnimatedAIChatProps {
           }}
           transition={{ type: "spring", damping: 25, stiffness: 150, mass: 0.5 }}
         />
+      )}
+
+      {/* Age Modal */}
+      {showAgeModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gray-900 border border-white/10 rounded-2xl p-6 max-w-md w-full shadow-2xl"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <h3 className="text-xl font-semibold text-white">Personalize Your Experience</h3>
+              <button 
+                onClick={handleDismissAgeModal}
+                className="text-white/60 hover:text-white"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-white/80 mb-6">
+              Please input your age for a more personalized response
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="age-input" className="block text-sm font-medium text-white/80 mb-2">
+                  Your Age
+                </label>
+                <input
+                  id="age-input"
+                  type="number"
+                  value={inputAge}
+                  onChange={(e) => setInputAge(e.target.value)}
+                  min="5"
+                  max="100"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-white/20"
+                  placeholder="Enter your age (5-100)"
+                />
+                {ageValidationError && (
+                  <p className="mt-2 text-sm text-red-400">{ageValidationError}</p>
+                )}
+              </div>
+              
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={handleAgeSubmit}
+                  className="flex-1 bg-white text-black py-2.5 px-4 rounded-xl font-medium hover:bg-white/90 transition-colors"
+                >
+                  Submit
+                </button>
+                <button
+                  onClick={handleDismissAgeModal}
+                  className="bg-white/10 text-white py-2.5 px-4 rounded-xl font-medium hover:bg-white/20 transition-colors"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
     </div>
   );
