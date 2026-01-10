@@ -862,6 +862,19 @@ interface ChatResponse {
   error?: string;
 }
 
+// Define QuickModeResponse type to match backend API
+interface QuickModeResponse {
+  introduction?: string | null;
+  classifications: Array<{ type: string; description: string }>;
+  sections: Array<{ title: string; content: string }>;
+  diagram: string;
+  quiz: Array<{
+    question: string;
+    options: string[];
+    answer: string;
+  }>;
+}
+
 // Type guard functions
 function isLessonResponse(response: any): response is Lesson {
   // Check if response has lesson-specific properties with meaningful content
@@ -1357,14 +1370,14 @@ interface AnimatedAIChatProps {
           }
         } else if (mode === 'chat') {
           // For chat mode, use the chat endpoint
-          payload = {
-            userId: sid,
+          const chatPayload = {
+            user_id: sid,
             message: apiMessage,
             age: userAgeForPayload,
             mode: mode
           };
-          endpoint = 'https://api.lanamind.com/api/chat/';
-                      
+          const chatEndpoint = 'https://api.lanamind.com/api/chat/';
+                  
           if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1372,21 +1385,21 @@ interface AnimatedAIChatProps {
             return;
           }
                   
-          response = await fetch(endpoint, {
+          const chatResponseData = await fetch(chatEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(chatPayload),
             signal: abortRef.current.signal,
           });
                   
-          if (!response.ok) {
-            const errorMessage = getErrorMessage(response.status, "chat");
+          if (!chatResponseData.ok) {
+            const errorMessage = getErrorMessage(chatResponseData.status, "chat");
             throw new Error(errorMessage);
           }
                   
-          const chatResponse: ChatResponse = await response.json();
+          const chatResponse: ChatResponse = await chatResponseData.json();
                   
           if (chatResponse.error) {
             setError(chatResponse.error);
@@ -1410,15 +1423,14 @@ interface AnimatedAIChatProps {
               ]);
             }
           }
-        } else if (mode === 'quick') {
+        }
+        else if (mode === 'quick') {
           // For quick mode, use the quick lesson endpoint
-          payload = {
-            userId: sid,
-            message: apiMessage,
-            age: userAgeForPayload,
-            mode: mode
+          const quickPayload = {
+            topic: apiMessage,
+            age: userAgeForPayload
           };
-          endpoint = 'https://api.lanamind.com/api/quick/generate';
+          const quickEndpoint = 'https://api.lanamind.com/api/quick/generate';
                       
           if (!rateLimiter.isAllowed('/api/quick/generate')) { // Use original path for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest('/api/quick/generate');
@@ -1427,75 +1439,81 @@ interface AnimatedAIChatProps {
             return;
           }
                       
-          response = await fetch(endpoint, {
+          const quickResponse = await fetch(quickEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(quickPayload),
             signal: abortRef.current.signal,
           });
                       
-          if (!response.ok) {
-            const errorMessage = getErrorMessage(response.status, "quick");
+          if (!quickResponse.ok) {
+            const errorMessage = getErrorMessage(quickResponse.status, "quick");
             throw new Error(errorMessage);
           }
                       
-          const chatResponse: ChatResponse = await response.json();
+          const quickApiResponse: QuickModeResponse = await quickResponse.json();
                       
-          if (chatResponse.error) {
-            setError(chatResponse.error);
-          } else {
-            // For quick mode, display the reply directly
-            // Update to handle response regardless of response.mode value
-            if (selectedMode === 'quick') { // Use selectedMode instead of response.mode
-              // Safely handle the reply field in case it's not a string
-              const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
-              setStreamingText(replyText);
-              setStoredLong(replyText);
-              // Set the lessonJson to the chat response so it can be displayed in the UI
-              setLessonJson(chatResponse);
-              saveSelectedMode(mode);
-                        
-              // Update conversation history with both user message and AI response
-              setConversationHistory(prev => [
-                ...prev,
-                { role: 'user', content: apiMessage },
-                { role: 'assistant', content: replyText }
-              ]);
-            }
+          if (selectedMode === 'quick') { // Use selectedMode instead of response.mode
+            // For quick mode, display the lesson response
+            const replyText = quickApiResponse.introduction || 'Quick lesson response received.';
+            setStreamingText(replyText);
+            setStoredLong(replyText);
+            // Convert QuickModeResponse to compatible format for lessonJson
+            const convertedLesson: Lesson = {
+              introduction: quickApiResponse.introduction || '',
+              classifications: quickApiResponse.classifications,
+              sections: quickApiResponse.sections,
+              diagram: quickApiResponse.diagram,
+              quiz: quickApiResponse.quiz.map(item => ({
+                q: item.question,
+                options: item.options,
+                answer: item.answer
+              }))
+            };
+            // Set the lessonJson to the converted quick response so it can be displayed in the UI
+            setLessonJson(convertedLesson);
+            saveSelectedMode(mode);
+                      
+            // Update conversation history with both user message and AI response
+            setConversationHistory(prev => [
+              ...prev,
+              { role: 'user', content: apiMessage },
+              { role: 'assistant', content: replyText }
+            ]);
           }
         } else { // lesson mode
           // For lesson mode, use the structured lesson endpoint
-          payload = {
+          const lessonPayload = {
             topic: apiMessage,
             age: userAgeForPayload
           };
-          endpoint = 'https://api.lanamind.com/api/structured-lesson';
-              
+          const lessonEndpoint = 'https://api.lanamind.com/api/structured-lesson';
+                  
           if (!rateLimiter.isAllowed('/api/structured-lesson')) { // Use original path for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest('/api/structured-lesson');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-              
-          response = await fetch(endpoint, {
+                  
+          const lessonResponseData = await fetch(lessonEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(lessonPayload),
             signal: abortRef.current.signal,
           });
-                    
-          if (!response.ok) {
-            const errorMessage = getErrorMessage(response.status, "lesson");
+                  
+          if (!lessonResponseData.ok) {
+            const errorMessage = getErrorMessage(lessonResponseData.status, "lesson");
             throw new Error(errorMessage);
           }
-                    
-          const lessonResponse = await response.json();
-                    
+                  
+          const lessonResponse = await lessonResponseData.json();
+                  
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
