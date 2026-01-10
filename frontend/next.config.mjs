@@ -114,6 +114,7 @@ const nextConfig = {
       'check-user',
       'verify-user',
       'test-auth',
+      'test-auth-list',
       'deployment-test',
       'supabase-test',
       'avatar/streams',

@@ -427,7 +427,7 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`/api/tts/`, {
+      const res = await fetch(`https://api.lanamind.com/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -744,7 +744,7 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
       }
       
       // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`/api/tts/`, {
+      const res = await fetch(`https://api.lanamind.com/api/tts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -1321,10 +1321,10 @@ interface AnimatedAIChatProps {
             show_steps: true,
             age: userAgeForPayload
           };
-          endpoint = '/api/math-solver/solve';
+          endpoint = 'https://api.lanamind.com/api/math-solver/solve';
               
-          if (!rateLimiter.isAllowed(endpoint)) {
-            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          if (!rateLimiter.isAllowed('/api/math-solver/solve')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/math-solver/solve');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1363,15 +1363,15 @@ interface AnimatedAIChatProps {
             age: userAgeForPayload,
             mode: mode
           };
-          endpoint = '/api/chat';
-              
-          if (!rateLimiter.isAllowed(endpoint)) {
-            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          endpoint = 'https://api.lanamind.com/api/chat/';
+                      
+          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-                    
+                  
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1380,27 +1380,28 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-                    
+                  
           if (!response.ok) {
             const errorMessage = getErrorMessage(response.status, "chat");
             throw new Error(errorMessage);
           }
-                    
+                  
           const chatResponse: ChatResponse = await response.json();
-              
+                  
           if (chatResponse.error) {
             setError(chatResponse.error);
           } else {
             // For chat mode, display the reply directly
-            if (chatResponse.mode === 'chat') {
+            // Update to handle response regardless of response.mode value
+            if (selectedMode === 'chat') { // Use selectedMode instead of response.mode
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
               setStoredLong(replyText);
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
-              saveSelectedMode(chatResponse.mode);
-              
+              saveSelectedMode(mode);
+                      
               // Update conversation history with both user message and AI response
               setConversationHistory(prev => [
                 ...prev,
@@ -1410,17 +1411,17 @@ interface AnimatedAIChatProps {
             }
           }
         } else if (mode === 'quick') {
-          // For quick mode, use the chat endpoint with mode parameter
+          // For quick mode, use the quick lesson endpoint
           payload = {
             userId: sid,
             message: apiMessage,
             age: userAgeForPayload,
             mode: mode
           };
-          endpoint = '/api/chat';
+          endpoint = 'https://api.lanamind.com/api/quick/generate';
                       
-          if (!rateLimiter.isAllowed(endpoint)) {
-            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          if (!rateLimiter.isAllowed('/api/quick/generate')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/quick/generate');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1446,14 +1447,15 @@ interface AnimatedAIChatProps {
             setError(chatResponse.error);
           } else {
             // For quick mode, display the reply directly
-            if (chatResponse.mode === 'quick') {
+            // Update to handle response regardless of response.mode value
+            if (selectedMode === 'quick') { // Use selectedMode instead of response.mode
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
               setStoredLong(replyText);
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
-              saveSelectedMode(chatResponse.mode);
+              saveSelectedMode(mode);
                         
               // Update conversation history with both user message and AI response
               setConversationHistory(prev => [
@@ -1469,10 +1471,10 @@ interface AnimatedAIChatProps {
             topic: apiMessage,
             age: userAgeForPayload
           };
-          endpoint = '/api/structured-lesson';
+          endpoint = 'https://api.lanamind.com/api/structured-lesson';
               
-          if (!rateLimiter.isAllowed(endpoint)) {
-            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
+          if (!rateLimiter.isAllowed('/api/structured-lesson')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/structured-lesson');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1529,7 +1531,7 @@ interface AnimatedAIChatProps {
       return;
     }
     
-    // legacy video path
+    // legacy video path - keeping relative path for compatibility
     if (sanitizedInput.startsWith("/video")) {
       const sid = localStorage.getItem("lana_sid") || "";
 
@@ -1628,7 +1630,7 @@ interface AnimatedAIChatProps {
       try {
         setIsTyping(true);
         const savePromise = saveSearch(sanitizedInput.trim()).catch(() => {});
-        const res = await fetchWithTimeoutAndRetry(`/api/math-solver/solve`, {
+        const res = await fetchWithTimeoutAndRetry('https://api.lanamind.com/api/math-solver/solve', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ problem: sanitizedInput, show_steps: true }),
@@ -1702,9 +1704,8 @@ interface AnimatedAIChatProps {
         return;
       }
       
-      // Use relative path for frontend API routes to handle proxying
-      // The frontend API route at /api/structured-lesson will proxy to the backend
-      const lessonEndpoint = '/api/structured-lesson';
+      // Use the full API endpoint for direct access
+      const lessonEndpoint = 'https://api.lanamind.com/api/structured-lesson';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {
@@ -2090,9 +2091,12 @@ interface AnimatedAIChatProps {
                     data={lessonJson as MathSolutionUI} 
                   />
                 ) : (
-                  /* For chat responses in lessonJson, only show if not in chat/quick mode 
-                     (since chat responses are already shown in conversation history) */
-                  !['chat', 'quick'].includes(selectedMode) && (
+                  /* For chat responses in lessonJson, show in main content area if in chat/quick mode and there's no conversation history,
+                     OR show in main content area if not in chat/quick mode */
+                  (!['chat', 'quick'].includes(selectedMode) || 
+                   (['chat', 'quick'].includes(selectedMode) && 
+                    (!conversationHistory || conversationHistory.length === 0 || 
+                     !lessonJson || !isChatResponse(lessonJson)))) && (
                     <div className="lesson-card border rounded-2xl p-6 space-y-6 bg-white/5 border-white/10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
