@@ -33,13 +33,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid mode. Supported modes: chat, quick, lesson, maths' }, { status: 400 });
     }
 
+    // Define backend base URL for configurable API endpoints
+    const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+    
     console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
 
     // For chat mode, we need to generate a conversational response
-    // For quick mode, we route to structured lesson
+    // For quick mode, we route to configurable quick mode endpoint
     if (mode === 'chat') {
-      // For chat mode, generate a conversational response by calling the production AI service
-      const chatUrl = 'https://api.lanamind.com/api/chat/';
+      // For chat mode, generate a conversational response by calling the configurable AI service
+      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/chat/`;
       
       // The production URL is hardcoded and assumed to be valid
       
@@ -117,8 +120,8 @@ export async function POST(req: Request) {
       }
     }
     
-    // For quick mode, we route to the production quick mode endpoint
-    const lessonUrl = 'https://api.lanamind.com/api/quick/generate';
+    // For quick mode, we route to the configurable quick mode endpoint
+    const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/quick/generate`;
     
     // Prepare the payload for the production quick mode API
     const payload = { 

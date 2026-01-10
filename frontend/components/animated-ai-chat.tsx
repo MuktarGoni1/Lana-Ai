@@ -1305,8 +1305,7 @@ interface AnimatedAIChatProps {
             userId: sid,
             message: apiMessage,
             age: userAge,
-            mode: mode,
-            conversation_history: conversationHistory
+            mode: mode
           };
           endpoint = '/api/chat';
               
@@ -1355,20 +1354,22 @@ interface AnimatedAIChatProps {
             }
           }
         } else if (mode === 'quick') {
-          // For quick mode, use the structured lesson endpoint
+          // For quick mode, use the chat endpoint with mode parameter
           payload = {
-            topic: apiMessage,
-            age: userAge
+            userId: sid,
+            message: apiMessage,
+            age: userAge,
+            mode: mode
           };
-          endpoint = '/api/structured-lesson';
-              
+          endpoint = '/api/chat';
+                      
           if (!rateLimiter.isAllowed(endpoint)) {
             const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-              
+                      
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1377,32 +1378,34 @@ interface AnimatedAIChatProps {
             body: JSON.stringify(payload),
             signal: abortRef.current.signal,
           });
-                    
+                      
           if (!response.ok) {
-            const errorMessage = getErrorMessage(response.status, "lesson");
+            const errorMessage = getErrorMessage(response.status, "quick");
             throw new Error(errorMessage);
           }
-                    
-          const lessonResponse = await response.json();
-                    
-          if (lessonResponse.error) {
-            setError(lessonResponse.error);
+                      
+          const chatResponse: ChatResponse = await response.json();
+                      
+          if (chatResponse.error) {
+            setError(chatResponse.error);
           } else {
-            // Summarize the lesson response for quick mode
-            const summarizedResponse = summarizeLessonResponse(lessonResponse);
-                      
-            // Set the response for display
-            setStreamingText(summarizedResponse);
-            setStoredLong(summarizedResponse);
-            setLessonJson(lessonResponse); // Store the full lesson response
-            saveSelectedMode('quick');
-                      
-            // Update conversation history with both user message and AI response
-            setConversationHistory(prev => [
-              ...prev,
-              { role: 'user', content: apiMessage },
-              { role: 'assistant', content: summarizedResponse }
-            ]);
+            // For quick mode, display the reply directly
+            if (chatResponse.mode === 'quick') {
+              // Safely handle the reply field in case it's not a string
+              const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
+              setStreamingText(replyText);
+              setStoredLong(replyText);
+              // Set the lessonJson to the chat response so it can be displayed in the UI
+              setLessonJson(chatResponse);
+              saveSelectedMode(chatResponse.mode);
+                        
+              // Update conversation history with both user message and AI response
+              setConversationHistory(prev => [
+                ...prev,
+                { role: 'user', content: apiMessage },
+                { role: 'assistant', content: replyText }
+              ]);
+            }
           }
         } else { // lesson mode
           // For lesson mode, use the structured lesson endpoint
