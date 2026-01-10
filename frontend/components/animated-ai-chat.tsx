@@ -862,6 +862,14 @@ interface ChatResponse {
   error?: string;
 }
 
+// Extended ChatResponse that includes lesson fields for better type safety
+interface ExtendedChatResponse extends ChatResponse {
+  introduction?: string;
+  classifications?: Array<{ type: string; description: string }>;
+  sections?: LessonSection[];
+  diagram?: string;
+}
+
 // Define QuickModeResponse type to match backend API
 interface QuickModeResponse {
   introduction?: string | null;
@@ -1328,16 +1336,17 @@ interface AnimatedAIChatProps {
         let payload: any, endpoint: string, response: Response;
             
         if (mode === 'maths') {
-          // For maths mode, use the math solver endpoint
+          // For maths mode, use the frontend API gateway
           payload = {
-            problem: apiMessage,
-            show_steps: true,
-            age: userAgeForPayload
+            message: apiMessage,
+            userId: sid,
+            age: userAgeForPayload,
+            mode: 'maths'
           };
-          endpoint = 'https://api.lanamind.com/api/math-solver/solve';
+          endpoint = '/api/chat';
               
-          if (!rateLimiter.isAllowed('/api/math-solver/solve')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/math-solver/solve');
+          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1359,24 +1368,34 @@ interface AnimatedAIChatProps {
               
           const mathResponse = await response.json();
               
-          // Validate and set math solution
+          // Handle math response from frontend API gateway
           if (mathResponse.error) {
             setError(mathResponse.error);
           } else {
-            setMathSolution(mathResponse);
+            // Convert ChatResponse to MathSolutionUI format
+            const mathData: MathSolutionUI = {
+              problem: apiMessage,
+              solution: mathResponse.reply || '',
+              steps: mathResponse.quiz ? mathResponse.quiz.map((item: any) => ({
+                description: item.q || 'Step',
+                expression: item.options ? item.options.join(', ') : null
+              })) : undefined,
+              error: null,
+            };
+            setMathSolution(mathData);
             // Also set lessonJson to the math response so it can be properly rendered
-            setLessonJson(mathResponse as any);
+            setLessonJson(mathData as any);
             saveSelectedMode('maths');
           }
         } else if (mode === 'chat') {
-          // For chat mode, use the chat endpoint
+          // For chat mode, use the frontend API gateway
           const chatPayload = {
-            user_id: sid,
             message: apiMessage,
+            userId: sid,
             age: userAgeForPayload,
             mode: mode
           };
-          const chatEndpoint = 'https://api.lanamind.com/api/chat/';
+          const chatEndpoint = '/api/chat';
                   
           if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
@@ -1404,36 +1423,55 @@ interface AnimatedAIChatProps {
           if (chatResponse.error) {
             setError(chatResponse.error);
           } else {
-            // For chat mode, display the reply directly
-            // Update to handle response regardless of response.mode value
-            if (selectedMode === 'chat') { // Use selectedMode instead of response.mode
+            // Handle the response based on its type
+            if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') { // Use response.mode instead of selectedMode
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
               setStreamingText(replyText);
               setStoredLong(replyText);
               // Set the lessonJson to the chat response so it can be displayed in the UI
               setLessonJson(chatResponse);
-              saveSelectedMode(mode);
-                      
+              saveSelectedMode(chatResponse.mode);
+                                
               // Update conversation history with both user message and AI response
               setConversationHistory(prev => [
                 ...prev,
                 { role: 'user', content: apiMessage },
                 { role: 'assistant', content: replyText }
               ]);
+            } else if (chatResponse.mode === 'lesson') {
+              // For lesson mode, the response should be treated as a structured response
+              setLessonJson(chatResponse as Lesson);
+              saveSelectedMode(chatResponse.mode);
+            } else if (chatResponse.mode === 'maths') {
+              // For math mode, convert the response to MathSolutionUI format
+              const mathData: MathSolutionUI = {
+                problem: apiMessage,
+                solution: chatResponse.reply || '',
+                steps: chatResponse.quiz ? chatResponse.quiz.map((item: any) => ({
+                  description: item.q || 'Step',
+                  expression: item.options ? item.options.join(', ') : null
+                })) : undefined,
+                error: null,
+              };
+              setMathSolution(mathData);
+              setLessonJson(mathData as any);
+              saveSelectedMode(chatResponse.mode);
             }
           }
         }
         else if (mode === 'quick') {
-          // For quick mode, use the quick lesson endpoint
+          // For quick mode, use the frontend API gateway
           const quickPayload = {
-            topic: apiMessage,
-            age: userAgeForPayload
+            message: apiMessage,
+            userId: sid,
+            age: userAgeForPayload,
+            mode: 'quick'
           };
-          const quickEndpoint = 'https://api.lanamind.com/api/quick/generate';
+          const quickEndpoint = '/api/chat';
                       
-          if (!rateLimiter.isAllowed('/api/quick/generate')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/quick/generate');
+          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1453,28 +1491,30 @@ interface AnimatedAIChatProps {
             throw new Error(errorMessage);
           }
                       
-          const quickApiResponse: QuickModeResponse = await quickResponse.json();
+          const quickApiResponse: ExtendedChatResponse = await quickResponse.json();
                       
-          if (selectedMode === 'quick') { // Use selectedMode instead of response.mode
+          if (quickApiResponse.error) {
+            setError(quickApiResponse.error);
+          } else {
             // For quick mode, display the lesson response
-            const replyText = quickApiResponse.introduction || 'Quick lesson response received.';
+            const replyText = quickApiResponse.reply || quickApiResponse.introduction || 'Quick lesson response received.';
             setStreamingText(replyText);
             setStoredLong(replyText);
-            // Convert QuickModeResponse to compatible format for lessonJson
+            // Convert ExtendedChatResponse to compatible format for lessonJson
             const convertedLesson: Lesson = {
               introduction: quickApiResponse.introduction || '',
               classifications: quickApiResponse.classifications,
               sections: quickApiResponse.sections,
               diagram: quickApiResponse.diagram,
-              quiz: quickApiResponse.quiz.map(item => ({
-                q: item.question,
+              quiz: quickApiResponse.quiz ? quickApiResponse.quiz.map(item => ({
+                q: item.q || item.question,
                 options: item.options,
                 answer: item.answer
-              }))
+              })) : []
             };
             // Set the lessonJson to the converted quick response so it can be displayed in the UI
             setLessonJson(convertedLesson);
-            saveSelectedMode(mode);
+            saveSelectedMode('quick');
                       
             // Update conversation history with both user message and AI response
             setConversationHistory(prev => [
@@ -1484,15 +1524,17 @@ interface AnimatedAIChatProps {
             ]);
           }
         } else { // lesson mode
-          // For lesson mode, use the structured lesson endpoint
+          // For lesson mode, use the frontend API gateway
           const lessonPayload = {
-            topic: apiMessage,
-            age: userAgeForPayload
+            message: apiMessage,
+            userId: sid,
+            age: userAgeForPayload,
+            mode: 'lesson'
           };
-          const lessonEndpoint = 'https://api.lanamind.com/api/structured-lesson';
+          const lessonEndpoint = '/api/chat';
                   
-          if (!rateLimiter.isAllowed('/api/structured-lesson')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/structured-lesson');
+          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1517,7 +1559,8 @@ interface AnimatedAIChatProps {
           if (lessonResponse.error) {
             setError(lessonResponse.error);
           } else {
-            setLessonJson(lessonResponse);
+            // For lesson mode, handle the response as a structured lesson
+            setLessonJson(lessonResponse as Lesson);
             saveSelectedMode('lesson');
           }
         }
@@ -1549,172 +1592,21 @@ interface AnimatedAIChatProps {
       return;
     }
     
-    // legacy video path - keeping relative path for compatibility
-    if (sanitizedInput.startsWith("/video")) {
-      const sid = localStorage.getItem("lana_sid") || "";
-
-      let sseReconnectAttempts = 0;
-      let sseLastMsgAt = Date.now();
-      let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-
-      const connectSSE = () => {
-        const es = new EventSource(
-          `/ask/stream?q=${encodeURIComponent(sanitizedInput)}&sid=${encodeURIComponent(sid)}`,
-          { withCredentials: false }
-        );
-
-        es.onmessage = (ev) => {
-          sseLastMsgAt = Date.now();
-          try {
-            const data = JSON.parse(ev.data);
-            if (data.error) {
-              setError("Error: " + data.error);
-              es.close();
-              setIsTyping(false);
-              return;
-            }
-
-            // Throttle UI updates to ~20fps
-            if (data.short !== undefined) streamingThrottleRef.current.latestShort = data.short;
-            if (data.long) streamingThrottleRef.current.latestLong = data.long;
-
-            const now = Date.now();
-            const delta = now - (streamingThrottleRef.current.lastFlushTs || 0);
-            if (delta >= 50) {
-              flushStreamingUpdates();
-            } else if (!streamingThrottleRef.current.timer) {
-              streamingThrottleRef.current.timer = setTimeout(() => flushStreamingUpdates(), 50 - delta);
-            }
-
-            if (data.done) {
-              try { es.close(); } catch {}
-              if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-              setIsTyping(false);
-              setShowVideoButton(true);
-            }
-          } catch (e) {
-            console.error('Error parsing EventSource data:', e);
-            setError('Failed to parse response data');
-            try { es.close(); } catch {}
-            if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-            setIsTyping(false);
-          }
-        };
-
-        es.onerror = (e) => {
-          console.error('EventSource error:', e);
-          try { es.close(); } catch {}
-          if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-          if (sseReconnectAttempts < 2) {
-            const backoff = 300 * Math.pow(2, sseReconnectAttempts);
-            sseReconnectAttempts++;
-            setTimeout(connectSSE, backoff);
-          } else {
-            setError("Connection failed");
-            setIsTyping(false);
-          }
-        };
-
-        // Heartbeat: reconnect if no messages in 8s
-        if (heartbeatTimer) { clearInterval(heartbeatTimer); }
-        heartbeatTimer = setInterval(() => {
-          if (Date.now() - sseLastMsgAt > 8000) {
-            try { es.close(); } catch {}
-            if (sseReconnectAttempts < 2) {
-              const backoff = 300 * Math.pow(2, sseReconnectAttempts);
-              sseReconnectAttempts++;
-              setTimeout(connectSSE, backoff);
-            } else {
-              if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-              setError("Connection timed out");
-              setIsTyping(false);
-            }
-          }
-        }, 1000);
-
-        abortRef.current?.signal.addEventListener("abort", () => {
-          try { es.close(); } catch {}
-          if (heartbeatTimer) { clearInterval(heartbeatTimer); heartbeatTimer = null; }
-        });
-      };
-
-      connectSSE();
-      return;
-    }
-
-    // Fast math detection and solver path
-    const MATH_RE = /\b(solve|simplify|factor|expand|integrate|derivative|equation|sqrt|log|sin|cos|tan|polynomial|quadratic|linear|matrix|\d+[-+/^=]|\w+\s=)\b/i;
-    if (MATH_RE.test(sanitizedInput)) {
-      try {
-        setIsTyping(true);
-        const savePromise = saveSearch(sanitizedInput.trim()).catch(() => {});
-        const res = await fetchWithTimeoutAndRetry('https://api.lanamind.com/api/math-solver/solve', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ problem: sanitizedInput, show_steps: true }),
-          signal: abortRef.current.signal,
-        }, { timeoutMs: 10_000, retries: 2, retryDelayMs: 300 });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        // Validate and sanitize the math solution response
-        let data: MathSolutionUI;
-        if (!isValidMathSolutionResponse(json)) {
-          console.warn('[math-solver] Invalid math solution response structure', json);
-          // Try to sanitize the content
-          const sanitizedSolution = sanitizeMathSolutionContent(json);
-          if (!isValidMathSolutionResponse(sanitizedSolution)) {
-            throw new Error("Received an invalid math solution format from the server.");
-          }
-          // Use sanitized content
-          data = {
-            problem: sanitizedSolution.problem || q,
-            solution: sanitizedSolution.solution || '',
-            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || '', expression: s.expression || null })) : undefined,
-            error: sanitizedSolution.error || null,
-          };
-        } else {
-          // Even if valid, sanitize the content for display
-          const sanitizedSolution = sanitizeMathSolutionContent(json);
-          data = {
-            problem: sanitizedSolution.problem || q,
-            solution: sanitizedSolution.solution || '',
-            steps: Array.isArray(sanitizedSolution.steps) ? sanitizedSolution.steps.map((s: any) => ({ description: s.description || s.explanation || '', expression: s.expression || null })) : undefined,
-            error: sanitizedSolution.error || null,
-          };
-        }
-        if (data.error) setError(data.error);
-        setMathSolution(data);
-        // Also set lessonJson to the math response so it can be properly rendered
-        setLessonJson(data as any);
-        setIsTyping(false);
-        await savePromise;
-        return;
-      } catch (e: any) {
-        setError(e?.message || 'Math solving failed');
-        setIsTyping(false);
-        return;
-      }
-    }
-
-    // ✅ OPTIMIZED structured-lesson STREAMING path
+    // All requests should be handled by the explicit mode handling above
+    // If we reach this point, it means no explicit mode was detected
+    // So we default to lesson mode for backward compatibility
     try {
-      // Debug: surface API base and outgoing topic
-      if (process.env.NODE_ENV === 'development') {
-        console.info('[lesson-stream] request', { API_BASE, topic: sanitizedInput, age: userAge })
-      }
-      // Add explicit SSE Accept header and a connection timeout to avoid hanging
-      const connectTimer = setTimeout(() => {
-        try { abortRef.current?.abort(); } catch {}
-      }, Number(process.env.NEXT_PUBLIC_STREAM_TIMEOUT_MS ?? 15000));
-      // Build payload — omit age for guest users to remove age restrictions
-      const isGuest = isGuestClient()
-      const payload: any = { topic: sanitizedInput }
-      if (!isGuest && typeof userAge === 'number') {
-        payload.age = userAge
-      }
+      // Build payload for lesson mode as fallback
+      const sid = localStorage.getItem('lana_sid') || `guest_${Date.now()}`;
+      const payload: any = {
+        message: sanitizedInput,
+        userId: sid,
+        age: userAge,
+        mode: 'lesson'
+      };
       
       // Check rate limit before making request
-      const endpoint = '/api/structured-lesson';
+      const endpoint = '/api/chat';
       if (!rateLimiter.isAllowed(endpoint)) {
         const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
         setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
@@ -1722,8 +1614,8 @@ interface AnimatedAIChatProps {
         return;
       }
       
-      // Use the full API endpoint for direct access
-      const lessonEndpoint = 'https://api.lanamind.com/api/structured-lesson';
+      // Use the frontend API gateway
+      const lessonEndpoint = '/api/chat';
       const response = await fetch(lessonEndpoint, {
         method: "POST",
         headers: {
@@ -1733,7 +1625,6 @@ interface AnimatedAIChatProps {
         body: JSON.stringify(payload),
         signal: abortRef.current.signal,
       });
-      clearTimeout(connectTimer);
 
       if (!response.ok) {
         const errorMessage = getErrorMessage(response.status, "lesson");
@@ -1742,6 +1633,11 @@ interface AnimatedAIChatProps {
 
       // Handle non-streaming response (regular JSON)
       const finalLesson = await response.json();
+      
+      // Handle response from frontend API gateway
+      if (finalLesson.error) {
+        throw new Error(finalLesson.error);
+      }
       
       // Validate and sanitize the lesson response
       if (!isValidLessonResponse(finalLesson)) {
@@ -1788,28 +1684,16 @@ interface AnimatedAIChatProps {
     } catch (e: unknown) {
       // Treat AbortError (timeout or manual abort) as benign, avoid retry loops
       if (e instanceof Error && e.name === "AbortError") {
-        if (process.env.NODE_ENV === 'development') console.debug('[lesson-stream] aborted');
+        if (process.env.NODE_ENV === 'development') console.debug('[lesson] aborted');
         setError("Request was cancelled or timed out. Please try again.");
       } else {
-        const errorMessage = e instanceof Error ? e.message : "Streaming failed";
+        const errorMessage = e instanceof Error ? e.message : "Request failed";
         setError(errorMessage);
         if (process.env.NODE_ENV === 'development') {
-          console.error('[lesson-stream] catch', e)
-        }
-        // Only retry on non-abort errors
-        if (retryCount < MAX_RETRIES) {
-          setTimeout(() => {
-            setRetryCount(prev => prev + 1);
-            handleSendMessage();
-          }, 1000 * (retryCount + 1)); 
+          console.error('[lesson] catch', e)
         }
       }
     } finally {
-      // Cleanup stall detection
-      if (stallTickerRef.current) {
-        try { clearInterval(stallTickerRef.current); } catch {}
-        stallTickerRef.current = null;
-      }
       setIsTyping(false);
       setValue('')
     }
