@@ -505,6 +505,56 @@ function CtaSection() {
   )
 }
 
+/* ---------- LANA SECTION ---------- */
+function LanaSection() {
+  return (
+    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col lg:flex-row items-center gap-12">
+          <div className="lg:w-1/2 flex justify-center">
+            <div className="relative w-64 h-64 sm:w-80 sm:h-80 lg:w-96 lg:h-96 rounded-full overflow-hidden shadow-xl border-4 border-primary/20">
+              <Image 
+                src="/Lana Avatar.png" 
+                alt="Lana AI - Your Personalized Learning Companion" 
+                fill
+                className="object-cover object-center"
+                priority
+              />
+            </div>
+          </div>
+          <div className="lg:w-1/2 text-center lg:text-left">
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4 inline-block">AI-Powered Learning</span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground mb-6">Meet Lana, Your Personalized AI Tutor</h2>
+            <p className="text-muted-foreground text-base md:text-lg mb-6 max-w-2xl">
+              Lana is your child's dedicated AI learning companion, designed to explain complex concepts in ways that make sense to them. With personalized explanations and patient guidance, Lana adapts to your child's unique learning style.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-1 flex-shrink-0">
+                  <CheckCircle2 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                </div>
+                <p className="text-muted-foreground">Personalized explanations tailored to your child's learning pace</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 flex-shrink-0">
+                  <CheckCircle2 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                </div>
+                <p className="text-muted-foreground">Patient guidance for challenging concepts</p>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="mt-1 flex-shrink-0">
+                  <CheckCircle2 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                </div>
+                <p className="text-muted-foreground">Adapts to unique learning styles and preferences</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 /* ---------- EDUCATIONAL APPROACH ---------- */
 function EducationalApproachSection() {
   return (
@@ -829,6 +879,7 @@ export default function Home() {
       <main id="main-content" className="flex-grow">
         <HeroSection />
         <FeaturesSection />
+        <LanaSection />
         <EducationalApproachSection />
         <TermPlansSection />
         <StructuredLessonsSection />
