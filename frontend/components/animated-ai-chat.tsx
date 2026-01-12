@@ -1336,22 +1336,20 @@ interface AnimatedAIChatProps {
         let payload: any, endpoint: string, response: Response;
             
         if (mode === 'maths') {
-          // For maths mode, use the frontend API gateway
+          // For maths mode, use the math solver endpoint
           payload = {
-            message: apiMessage,
-            userId: sid,
-            age: userAgeForPayload,
-            mode: 'maths'
+            problem: apiMessage,
+            show_steps: true
           };
-          endpoint = '/api/chat';
-              
-          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
+          endpoint = '/api/math-solver/solve';
+                  
+          if (!rateLimiter.isAllowed(endpoint)) { // Use the actual endpoint for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest(endpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
           }
-              
+                  
           response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -1367,19 +1365,16 @@ interface AnimatedAIChatProps {
           }
               
           const mathResponse = await response.json();
-              
-          // Handle math response from frontend API gateway
+                    
+          // Handle math response from math solver endpoint
           if (mathResponse.error) {
             setError(mathResponse.error);
           } else {
-            // Convert ChatResponse to MathSolutionUI format
+            // Convert math solver response to MathSolutionUI format
             const mathData: MathSolutionUI = {
               problem: apiMessage,
-              solution: mathResponse.reply || '',
-              steps: mathResponse.quiz ? mathResponse.quiz.map((item: any) => ({
-                description: item.q || 'Step',
-                expression: item.options ? item.options.join(', ') : null
-              })) : undefined,
+              solution: mathResponse.solution || mathResponse.result || '',
+              steps: mathResponse.steps || mathResponse.working || undefined,
               error: null,
             };
             setMathSolution(mathData);
@@ -1461,17 +1456,15 @@ interface AnimatedAIChatProps {
           }
         }
         else if (mode === 'quick') {
-          // For quick mode, use the frontend API gateway
+          // For quick mode, use the quick mode endpoint
           const quickPayload = {
-            message: apiMessage,
-            userId: sid,
-            age: userAgeForPayload,
-            mode: 'quick'
+            topic: apiMessage,
+            age: userAgeForPayload
           };
-          const quickEndpoint = '/api/chat';
+          const quickEndpoint = '/api/quick-mode/generate';
                       
-          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
+          if (!rateLimiter.isAllowed(quickEndpoint)) { // Use the actual endpoint for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest(quickEndpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;
@@ -1491,25 +1484,25 @@ interface AnimatedAIChatProps {
             throw new Error(errorMessage);
           }
                       
-          const quickApiResponse: ExtendedChatResponse = await quickResponse.json();
-                      
+          const quickApiResponse = await quickResponse.json();
+                    
           if (quickApiResponse.error) {
             setError(quickApiResponse.error);
           } else {
             // For quick mode, display the lesson response
-            const replyText = quickApiResponse.reply || quickApiResponse.introduction || 'Quick lesson response received.';
+            const replyText = quickApiResponse.introduction || quickApiResponse.sections?.[0]?.content || 'Quick lesson response received.';
             setStreamingText(replyText);
             setStoredLong(replyText);
-            // Convert ExtendedChatResponse to compatible format for lessonJson
+            // Convert quick mode response to compatible format for lessonJson
             const convertedLesson: Lesson = {
               introduction: quickApiResponse.introduction || '',
-              classifications: quickApiResponse.classifications,
-              sections: quickApiResponse.sections,
-              diagram: quickApiResponse.diagram,
-              quiz: quickApiResponse.quiz ? quickApiResponse.quiz.map(item => ({
-                q: item.q || item.question,
-                options: item.options,
-                answer: item.answer
+              classifications: quickApiResponse.classifications || [],
+              sections: quickApiResponse.sections || [],
+              diagram: quickApiResponse.diagram || '',
+              quiz: quickApiResponse.quiz ? quickApiResponse.quiz.map((item: any) => ({
+                q: item.question || item.q || 'Question',
+                options: item.options || [],
+                answer: item.answer || ''
               })) : []
             };
             // Set the lessonJson to the converted quick response so it can be displayed in the UI
@@ -1524,17 +1517,15 @@ interface AnimatedAIChatProps {
             ]);
           }
         } else { // lesson mode
-          // For lesson mode, use the frontend API gateway
+          // For lesson mode, use the structured lesson endpoint
           const lessonPayload = {
-            message: apiMessage,
-            userId: sid,
-            age: userAgeForPayload,
-            mode: 'lesson'
+            topic: apiMessage,
+            age: userAgeForPayload
           };
-          const lessonEndpoint = '/api/chat';
+          const lessonEndpoint = '/api/structured-lesson';
                   
-          if (!rateLimiter.isAllowed('/api/chat')) { // Use original path for rate limiting
-            const waitTime = rateLimiter.getTimeUntilNextRequest('/api/chat');
+          if (!rateLimiter.isAllowed(lessonEndpoint)) { // Use the actual endpoint for rate limiting
+            const waitTime = rateLimiter.getTimeUntilNextRequest(lessonEndpoint);
             setError(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
             setIsTyping(false);
             return;

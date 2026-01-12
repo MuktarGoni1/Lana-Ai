@@ -89,10 +89,13 @@ function Header() {
 
           {/* desktop */}
           <nav className="hidden md:flex items-center gap-6">
-            {["Features", "Pricing", "Contact"].map((l) => (
+            {['Features', 'Pricing', 'Contact'].map((l) => (
               <Link 
                 key={l} 
-                href={`#${l.toLowerCase()}`} 
+                href={
+                  l === 'Features' ? '/features' :
+                  l === 'Pricing' ? '/pricing' :
+                  '#contact'} // Keep contact as anchor since it's on same page
                 className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 {l}
@@ -134,7 +137,7 @@ function Header() {
                 </Link>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-32"
                 >
                   Get Started
                 </Link>
@@ -160,10 +163,13 @@ function Header() {
           className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
         >
           <nav className="flex flex-col gap-4 py-4">
-            {["Features", "Pricing", "Contact"].map((l) => (
+            {['Features', 'Pricing', 'Contact'].map((l) => (
               <Link 
                 key={l} 
-                href={`#${l.toLowerCase()}`} 
+                href={
+                  l === 'Features' ? '/features' :
+                  l === 'Pricing' ? '/pricing' :
+                  '#contact'} // Keep contact as anchor since it's on same page
                 onClick={() => setOpen(false)} 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
               >
@@ -205,14 +211,14 @@ function Header() {
                 <>
                   <Link 
                     href="/login" 
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center min-h-12 flex items-center justify-center"
                     onClick={() => setOpen(false)}
                   >
                     Login
                   </Link>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] flex-1"
+                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] flex-1 min-h-12"
                     onClick={() => setOpen(false)}
                   >
                     Get Started
@@ -235,25 +241,25 @@ function HeroSection() {
     <section id="hero" className="py-12 md:py-20 lg:py-32 bg-transparent">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
         <div className="flex flex-col gap-6">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
-            {user ? `Welcome back, ${user.email}` : "Your Personalised Learning Companion."}
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
+            {user ? `Welcome back, ${user.email}` : "Your Personalised Learning Companion and the Future of Learning with AI"}
           </h1>
-          <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
             {user 
               ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
               : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
             }
           </p>
           {!user && (
-            <p className="text-sm md:text-base text-foreground leading-relaxed italic">
+            <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
               Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
             </p>
           )}
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
             {user ? (
               <Link 
                 href="/homepage" 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40"
               >
                 Continue Learning
                 <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
@@ -262,14 +268,14 @@ function HeroSection() {
               <>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40 flex-1 sm:flex-none"
                 >
                   Start Free Trial
                   <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
                 </Link>
                 <Link 
                   href="/login" 
-                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground"
+                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40 flex-1 sm:flex-none"
                 >
                   Login
                 </Link>
@@ -440,7 +446,7 @@ function PricingSection() {
               </ul>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-2 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12"
                 aria-label={`Get started with ${p.name} plan`}
               >
                 Get Started
@@ -476,7 +482,7 @@ function CtaSection() {
           {user ? (
             <Link 
               href="/homepage" 
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44"
             >
               Continue Learning
               <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
@@ -485,20 +491,20 @@ function CtaSection() {
             <>
               <Link 
                 href="/register" 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44 flex-1 sm:flex-none"
               >
                 Start Free Trial
                 <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
               </Link>
               <Link 
                 href="/login" 
-                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-sm sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground"
+                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-sm sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
               >
                 Login to Your Account
               </Link>
               <Link 
                 href="#contact" 
-                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground"
+                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
               >
                 Contact Sales
               </Link>
@@ -760,7 +766,7 @@ function ContactSection() {
         <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-4 sm:grid-cols-2">
           <a 
             href="mailto:sales@lana.ai" 
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44 flex-1 sm:flex-none"
           >
             Email Sales
           </a>
@@ -768,7 +774,7 @@ function ContactSection() {
             href="mailto:contact@lanamind.com" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground"
+            className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
           >
             Book a Demo
           </a>
@@ -845,6 +851,8 @@ function Footer() {
                         l === "Blog" ? "/blog" :
                         l === "Careers" ? "/careers" :
                         l === "Contact" ? "/contact" :
+                        l === "Demo" ? "/demo" :
+                        l === "API" ? "/api" :
                         "#"
                       }
                       className="hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
