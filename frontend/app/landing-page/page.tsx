@@ -236,7 +236,7 @@ function HeroSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
         <div className="flex flex-col gap-6">
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight tracking-tight">
-            {user ? `Welcome back, ${user.email}` : "Meet Lana, Your Child's AI Learning Companion"}
+            {user ? `Welcome back, ${user.email}` : "Your Personalised Learning Companion."}
           </h1>
           <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
             {user 
@@ -244,6 +244,11 @@ function HeroSection() {
               : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
             }
           </p>
+          {!user && (
+            <p className="text-sm md:text-base text-foreground leading-relaxed italic">
+              Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+            </p>
+          )}
           <div className="flex flex-col sm:flex-row gap-3">
             {user ? (
               <Link 
@@ -514,7 +519,7 @@ function LanaSection() {
           <div className="lg:w-1/2 flex justify-center">
             <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40">
               <Image 
-                src="/Updated avatar.jpeg" 
+                src="/Updated Avatar.png" 
                 alt="Lana AI - Your Personalized Learning Companion" 
                 fill
                 className="object-cover object-center p-2 rounded-2xl"
@@ -760,7 +765,7 @@ function ContactSection() {
             Email Sales
           </a>
           <a 
-            href="contact@lanamind.com" 
+            href="mailto:contact@lanamind.com" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground"
@@ -836,6 +841,10 @@ function Footer() {
                         l === "Terms of Service" ? "/terms-of-service" :
                         l === "Security Policy" ? "/security-policy" :
                         l === "Cookie Policy" ? "/cookie-policy" :
+                        l === "About" ? "/about" :
+                        l === "Blog" ? "/blog" :
+                        l === "Careers" ? "/careers" :
+                        l === "Contact" ? "/contact" :
                         "#"
                       }
                       className="hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"

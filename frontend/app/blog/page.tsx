@@ -192,160 +192,119 @@ function Header() {
   )
 }
 
-/* ---------- SECURITY POLICY CONTENT ---------- */
-function SecurityPolicyContent() {
+/* ---------- BLOG CONTENT ---------- */
+function BlogContent() {
   return (
     <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Security Policy</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Last updated: {new Date().toLocaleDateString()}</p>
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Lana AI Blog</h1>
+          <p className="text-muted-foreground text-base md:text-lg">Insights, tips, and stories about education and learning</p>
         </div>
         
-        <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
-          <p className="text-muted-foreground">
-            At Lana AI, we take the security of your personal information and data seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our platform.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Protection & Encryption</h2>
-          <p className="text-muted-foreground">
-            We employ industry-standard encryption protocols to protect your data both in transit and at rest. All sensitive information, including personal details and login credentials, is encrypted using advanced cryptographic methods such as AES-256 encryption and TLS 1.3 for data transmission.
-          </p>
-          <p className="text-muted-foreground">
-            Our databases are secured with multiple layers of protection, including access controls, firewalls, and intrusion detection systems. Access to sensitive data is restricted to authorized personnel only, with strict authentication protocols in place.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Authentication & Access Control</h2>
-          <p className="text-muted-foreground">
-            We implement robust authentication mechanisms to ensure that only authorized users can access their accounts. This includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Multi-factor authentication (MFA) options for enhanced account security</li>
-            <li>Secure password policies requiring strong, unique passwords</li>
-            <li>Regular session management and automatic logout for inactive sessions</li>
-            <li>Role-based access controls limiting data access based on user roles</li>
-            <li>IP whitelisting for administrative access to sensitive systems</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Infrastructure Security</h2>
-          <p className="text-muted-foreground">
-            Our infrastructure is hosted on secure cloud platforms with enterprise-grade security measures. We utilize:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Redundant servers distributed across multiple geographic locations</li>
-            <li>DDoS protection and mitigation services</li>
-            <li>Regular vulnerability assessments and penetration testing</li>
-            <li>Network segmentation to isolate sensitive data</li>
-            <li>24/7 monitoring and alerting systems</li>
-            <li>Automated backup and disaster recovery procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Application Security</h2>
-          <p className="text-muted-foreground">
-            Our application development follows secure coding practices and industry standards:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular security audits and code reviews</li>
-            <li>Input validation and sanitization to prevent injection attacks</li>
-            <li>Protection against cross-site scripting (XSS) and cross-site request forgery (CSRF)</li>
-            <li>Secure API endpoints with rate limiting and authentication</li>
-            <li>Regular updates and patching of software dependencies</li>
-            <li>Principle of least privilege for all system components</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Handling & Privacy</h2>
-          <p className="text-muted-foreground">
-            We follow strict data handling procedures aligned with privacy regulations such as GDPR and applicable local laws:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data minimization: collecting only necessary information</li>
-            <li>Pseudonymization and anonymization techniques where appropriate</li>
-            <li>Regular data retention reviews and secure deletion procedures</li>
-            <li>Transparent data processing with clear consent mechanisms</li>
-            <li>Breach notification procedures compliant with regulatory requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Employee Security Training</h2>
-          <p className="text-muted-foreground">
-            All employees undergo comprehensive security training covering:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data protection best practices</li>
-            <li>Phishing and social engineering awareness</li>
-            <li>Incident response procedures</li>
-            <li>Access control responsibilities</li>
-            <li>Confidentiality and non-disclosure requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Compliance & Certifications</h2>
-          <p className="text-muted-foreground">
-            We maintain compliance with relevant security standards and regulations:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular third-party security audits</li>
-            <li>Compliance with SOC 2 Type II standards</li>
-            <li>GDPR and CCPA compliance measures</li>
-            <li>ISO 27001 information security management standards</li>
-            <li>Regular security certifications for our team members</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Incident Response</h2>
-          <p className="text-muted-foreground">
-            We maintain a comprehensive incident response plan that includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>24/7 security monitoring and alerting</li>
-            <li>Immediate containment and investigation procedures</li>
-            <li>Communication protocols for affected users</li>
-            <li>Regulatory reporting as required by law</li>
-            <li>Post-incident analysis and preventive measures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">User Responsibilities</h2>
-          <p className="text-muted-foreground">
-            While we implement extensive security measures, users also play a critical role in maintaining security:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Using strong, unique passwords for their accounts</li>
-            <li>Enabling multi-factor authentication when available</li>
-            <li>Keeping their login credentials confidential</li>
-            <li>Reporting suspicious activities immediately</li>
-            <li>Logging out of shared devices</li>
-            <li>Keeping their devices and software updated</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Regular Security Audits</h2>
-          <p className="text-muted-foreground">
-            We conduct regular security assessments including:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Quarterly penetration testing by certified security professionals</li>
-            <li>Monthly vulnerability scans of our systems</li>
-            <li>Annual comprehensive security audits</li>
-            <li>Continuous monitoring for emerging threats</li>
-            <li>Regular updates to our security policies and procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Contact Information</h2>
-          <p className="text-muted-foreground">
-            If you have any security concerns or believe you have identified a vulnerability in our system, please contact our security team immediately:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Security email: security@lana.ai</li>
-            <li>Security hotline: Available 24/7 for urgent matters</li>
-            <li>Report vulnerabilities through our responsible disclosure program</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Policy Updates</h2>
-          <p className="text-muted-foreground">
-            This Security Policy is reviewed and updated regularly to address emerging threats and incorporate best practices. Significant changes will be communicated to users through our official channels. The "Last Updated" date at the top of this page indicates the most recent revision.
-          </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* Blog Post 1 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">The Future of Personalized Learning</h3>
+            <p className="text-muted-foreground text-sm mb-4">Discover how AI is transforming education and making learning more personalized than ever before.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">May 15, 2024</span>
+              <Link href="/blog/personalized-learning" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+          
+          {/* Blog Post 2 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Understanding How Children Learn Best</h3>
+            <p className="text-muted-foreground text-sm mb-4">Research-backed insights into different learning styles and how to support your child's unique needs.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">April 28, 2024</span>
+              <Link href="/blog/learning-styles" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+          
+          {/* Blog Post 3 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Tips for Supporting Your Child's Education</h3>
+            <p className="text-muted-foreground text-sm mb-4">Practical advice for parents on how to stay engaged with their child's learning journey.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">April 12, 2024</span>
+              <Link href="/blog/parent-support" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+          
+          {/* Blog Post 4 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Technology in Early Childhood Education</h3>
+            <p className="text-muted-foreground text-sm mb-4">Exploring the benefits and considerations of introducing technology to young learners.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">March 30, 2024</span>
+              <Link href="/blog/technology-early-ed" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+          
+          {/* Blog Post 5 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Building Confidence in Math and Science</h3>
+            <p className="text-muted-foreground text-sm mb-4">Strategies to help your child develop confidence and interest in STEM subjects.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">March 18, 2024</span>
+              <Link href="/blog/stem-confidence" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+          
+          {/* Blog Post 6 */}
+          <div className="bg-card rounded-xl border p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-muted rounded-lg h-48 mb-4 overflow-hidden">
+              <div className="w-full h-full bg-gradient-to-r from-blue-100 to-cyan-100 dark:from-blue-900/30 dark:to-cyan-900/30 flex items-center justify-center">
+                <span className="text-muted-foreground text-sm">Blog Image</span>
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-foreground">Creating a Learning-Friendly Home Environment</h3>
+            <p className="text-muted-foreground text-sm mb-4">Simple changes you can make at home to support your child's learning and development.</p>
+            <div className="flex justify-between items-center">
+              <span className="text-xs text-muted-foreground">February 25, 2024</span>
+              <Link href="/blog/home-learning" className="text-sm text-primary hover:underline">Read more</Link>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-12 text-center">
+          <button className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]">
+            Load More Articles
+          </button>
         </div>
       </div>
     </section>
   )
 }
 
+/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -353,7 +312,6 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
-/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -435,7 +393,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function SecurityPolicyPage() {
+export default function BlogPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -453,7 +411,7 @@ export default function SecurityPolicyPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <SecurityPolicyContent />
+        <BlogContent />
       </main>
       <Footer />
     </div>

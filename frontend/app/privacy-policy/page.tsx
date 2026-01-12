@@ -405,6 +405,10 @@ function Footer() {
                         l === "Terms of Service" ? "/terms-of-service" :
                         l === "Security Policy" ? "/security-policy" :
                         l === "Cookie Policy" ? "/cookie-policy" :
+                        l === "About" ? "/about" :
+                        l === "Blog" ? "/blog" :
+                        l === "Careers" ? "/careers" :
+                        l === "Contact" ? "/contact" :
                         "#"
                       }
                       className="hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"

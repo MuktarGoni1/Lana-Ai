@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
+import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Mail, Phone, MapPin, MessageCircle, Send, User, AtSign, FileText } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -192,160 +192,223 @@ function Header() {
   )
 }
 
-/* ---------- SECURITY POLICY CONTENT ---------- */
-function SecurityPolicyContent() {
+/* ---------- CONTACT CONTENT ---------- */
+function ContactContent() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    subject: '',
+    message: ''
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, you would handle form submission here
+    console.log('Form submitted:', formData);
+    alert('Thank you for your message! We will get back to you soon.');
+    setFormData({ name: '', email: '', subject: '', message: '' });
+  };
+
   return (
     <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Security Policy</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Last updated: {new Date().toLocaleDateString()}</p>
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Get in Touch</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">Have questions about Lana AI? We'd love to hear from you. Reach out to us using the information below or fill out the contact form.</p>
         </div>
         
-        <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
-          <p className="text-muted-foreground">
-            At Lana AI, we take the security of your personal information and data seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our platform.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Protection & Encryption</h2>
-          <p className="text-muted-foreground">
-            We employ industry-standard encryption protocols to protect your data both in transit and at rest. All sensitive information, including personal details and login credentials, is encrypted using advanced cryptographic methods such as AES-256 encryption and TLS 1.3 for data transmission.
-          </p>
-          <p className="text-muted-foreground">
-            Our databases are secured with multiple layers of protection, including access controls, firewalls, and intrusion detection systems. Access to sensitive data is restricted to authorized personnel only, with strict authentication protocols in place.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Authentication & Access Control</h2>
-          <p className="text-muted-foreground">
-            We implement robust authentication mechanisms to ensure that only authorized users can access their accounts. This includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Multi-factor authentication (MFA) options for enhanced account security</li>
-            <li>Secure password policies requiring strong, unique passwords</li>
-            <li>Regular session management and automatic logout for inactive sessions</li>
-            <li>Role-based access controls limiting data access based on user roles</li>
-            <li>IP whitelisting for administrative access to sensitive systems</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Infrastructure Security</h2>
-          <p className="text-muted-foreground">
-            Our infrastructure is hosted on secure cloud platforms with enterprise-grade security measures. We utilize:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Redundant servers distributed across multiple geographic locations</li>
-            <li>DDoS protection and mitigation services</li>
-            <li>Regular vulnerability assessments and penetration testing</li>
-            <li>Network segmentation to isolate sensitive data</li>
-            <li>24/7 monitoring and alerting systems</li>
-            <li>Automated backup and disaster recovery procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Application Security</h2>
-          <p className="text-muted-foreground">
-            Our application development follows secure coding practices and industry standards:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular security audits and code reviews</li>
-            <li>Input validation and sanitization to prevent injection attacks</li>
-            <li>Protection against cross-site scripting (XSS) and cross-site request forgery (CSRF)</li>
-            <li>Secure API endpoints with rate limiting and authentication</li>
-            <li>Regular updates and patching of software dependencies</li>
-            <li>Principle of least privilege for all system components</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Handling & Privacy</h2>
-          <p className="text-muted-foreground">
-            We follow strict data handling procedures aligned with privacy regulations such as GDPR and applicable local laws:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data minimization: collecting only necessary information</li>
-            <li>Pseudonymization and anonymization techniques where appropriate</li>
-            <li>Regular data retention reviews and secure deletion procedures</li>
-            <li>Transparent data processing with clear consent mechanisms</li>
-            <li>Breach notification procedures compliant with regulatory requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Employee Security Training</h2>
-          <p className="text-muted-foreground">
-            All employees undergo comprehensive security training covering:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data protection best practices</li>
-            <li>Phishing and social engineering awareness</li>
-            <li>Incident response procedures</li>
-            <li>Access control responsibilities</li>
-            <li>Confidentiality and non-disclosure requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Compliance & Certifications</h2>
-          <p className="text-muted-foreground">
-            We maintain compliance with relevant security standards and regulations:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular third-party security audits</li>
-            <li>Compliance with SOC 2 Type II standards</li>
-            <li>GDPR and CCPA compliance measures</li>
-            <li>ISO 27001 information security management standards</li>
-            <li>Regular security certifications for our team members</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Incident Response</h2>
-          <p className="text-muted-foreground">
-            We maintain a comprehensive incident response plan that includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>24/7 security monitoring and alerting</li>
-            <li>Immediate containment and investigation procedures</li>
-            <li>Communication protocols for affected users</li>
-            <li>Regulatory reporting as required by law</li>
-            <li>Post-incident analysis and preventive measures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">User Responsibilities</h2>
-          <p className="text-muted-foreground">
-            While we implement extensive security measures, users also play a critical role in maintaining security:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Using strong, unique passwords for their accounts</li>
-            <li>Enabling multi-factor authentication when available</li>
-            <li>Keeping their login credentials confidential</li>
-            <li>Reporting suspicious activities immediately</li>
-            <li>Logging out of shared devices</li>
-            <li>Keeping their devices and software updated</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Regular Security Audits</h2>
-          <p className="text-muted-foreground">
-            We conduct regular security assessments including:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Quarterly penetration testing by certified security professionals</li>
-            <li>Monthly vulnerability scans of our systems</li>
-            <li>Annual comprehensive security audits</li>
-            <li>Continuous monitoring for emerging threats</li>
-            <li>Regular updates to our security policies and procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Contact Information</h2>
-          <p className="text-muted-foreground">
-            If you have any security concerns or believe you have identified a vulnerability in our system, please contact our security team immediately:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Security email: security@lana.ai</li>
-            <li>Security hotline: Available 24/7 for urgent matters</li>
-            <li>Report vulnerabilities through our responsible disclosure program</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Policy Updates</h2>
-          <p className="text-muted-foreground">
-            This Security Policy is reviewed and updated regularly to address emerging threats and incorporate best practices. Significant changes will be communicated to users through our official channels. The "Last Updated" date at the top of this page indicates the most recent revision.
-          </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          <div>
+            <div className="bg-card rounded-xl border p-6 shadow-sm">
+              <h2 className="text-xl font-bold mb-6 text-foreground">Contact Information</h2>
+              
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <Mail className="h-5 w-5 text-primary dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Email</h3>
+                    <p className="text-muted-foreground">support@lanaai.com</p>
+                    <p className="text-muted-foreground">info@lanaai.com</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <Phone className="h-5 w-5 text-primary dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Phone</h3>
+                    <p className="text-muted-foreground">+1 (555) 123-4567</p>
+                    <p className="text-muted-foreground">+1 (555) 987-6543</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <MapPin className="h-5 w-5 text-primary dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Office</h3>
+                    <p className="text-muted-foreground">123 Education Street</p>
+                    <p className="text-muted-foreground">Lagos, Nigeria</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-4">
+                  <div className="bg-primary/10 p-3 rounded-lg">
+                    <MessageCircle className="h-5 w-5 text-primary dark:text-blue-400" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">Support Hours</h3>
+                    <p className="text-muted-foreground">Monday - Friday: 9:00 AM - 6:00 PM</p>
+                    <p className="text-muted-foreground">Saturday: 10:00 AM - 2:00 PM</p>
+                    <p className="text-muted-foreground">Sunday: Closed</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-8">
+                <h3 className="font-bold text-lg text-foreground mb-4">Frequently Asked Questions</h3>
+                <ul className="space-y-2">
+                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How does Lana AI work?</li>
+                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">What subjects does Lana AI cover?</li>
+                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How much does Lana AI cost?</li>
+                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">Is Lana AI safe for children?</li>
+                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How can I track my child's progress?</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <div className="bg-card rounded-xl border p-6 shadow-sm">
+              <h2 className="text-xl font-bold mb-6 text-foreground">Send Us a Message</h2>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div>
+                  <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1">Name</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                      <User className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="text"
+                      id="name"
+                      name="name"
+                      value={formData.name}
+                      onChange={handleChange}
+                      required
+                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                      placeholder="Your name"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">Email</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                      <AtSign className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="email"
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                      placeholder="your.email@example.com"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-1">Subject</label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <input
+                      type="text"
+                      id="subject"
+                      name="subject"
+                      value={formData.subject}
+                      onChange={handleChange}
+                      required
+                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                      placeholder="How can we help you?"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1">Message</label>
+                  <textarea
+                    id="message"
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    rows={5}
+                    className="w-full px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
+                    placeholder="Your message here..."
+                  ></textarea>
+                </div>
+                
+                <button
+                  type="submit"
+                  className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                >
+                  Send Message
+                  <Send className="ml-2 h-4 w-4" />
+                </button>
+              </form>
+            </div>
+            
+            <div className="bg-card rounded-xl border p-6 shadow-sm mt-6">
+              <h3 className="font-bold text-lg text-foreground mb-3">Why Contact Us?</h3>
+              <ul className="space-y-2 text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Get personalized support for your learning journey</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Request a demo of our platform</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Learn about our educational approach</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  </div>
+                  <span>Partner with us for educational initiatives</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
+/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -353,7 +416,6 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
-/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -435,7 +497,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function SecurityPolicyPage() {
+export default function ContactPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -453,7 +515,7 @@ export default function SecurityPolicyPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <SecurityPolicyContent />
+        <ContactContent />
       </main>
       <Footer />
     </div>

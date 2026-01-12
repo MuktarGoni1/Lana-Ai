@@ -192,153 +192,57 @@ function Header() {
   )
 }
 
-/* ---------- SECURITY POLICY CONTENT ---------- */
-function SecurityPolicyContent() {
+/* ---------- ABOUT CONTENT ---------- */
+function AboutContent() {
   return (
     <section className="py-16 md:py-24 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Security Policy</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Last updated: {new Date().toLocaleDateString()}</p>
+          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">About Lana AI</h1>
+          <p className="text-muted-foreground text-base md:text-lg">Empowering the next generation through personalized learning</p>
         </div>
         
         <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Mission</h2>
           <p className="text-muted-foreground">
-            At Lana AI, we take the security of your personal information and data seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our platform.
+            At Lana AI, we believe that every child deserves a personalized learning experience that adapts to their unique needs, pace, and learning style. Our mission is to bridge the gap between traditional education and innovative technology, creating an environment where learning is both effective and enjoyable.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Protection & Encryption</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Story</h2>
           <p className="text-muted-foreground">
-            We employ industry-standard encryption protocols to protect your data both in transit and at rest. All sensitive information, including personal details and login credentials, is encrypted using advanced cryptographic methods such as AES-256 encryption and TLS 1.3 for data transmission.
-          </p>
-          <p className="text-muted-foreground">
-            Our databases are secured with multiple layers of protection, including access controls, firewalls, and intrusion detection systems. Access to sensitive data is restricted to authorized personnel only, with strict authentication protocols in place.
+            Founded by educators and technologists who recognized the need for more personalized approaches to learning, Lana AI was created to address the challenges faced by both students and parents in the educational journey. Our team brings together expertise in artificial intelligence, pedagogy, and user experience design to create solutions that truly make a difference.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Authentication & Access Control</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Approach</h2>
           <p className="text-muted-foreground">
-            We implement robust authentication mechanisms to ensure that only authorized users can access their accounts. This includes:
+            We combine adaptive learning algorithms with proven educational methodologies to create a learning experience that's tailored to each student. Our AI-powered tutor understands how each child learns best and adjusts the content, pace, and teaching style accordingly.
           </p>
+          <p className="text-muted-foreground mt-3">
+            Our platform focuses on building foundational skills while fostering curiosity and critical thinking. We believe that learning should be a collaborative journey where parents are kept informed and connected to their child's progress.
+          </p>
+
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Values</h2>
           <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Multi-factor authentication (MFA) options for enhanced account security</li>
-            <li>Secure password policies requiring strong, unique passwords</li>
-            <li>Regular session management and automatic logout for inactive sessions</li>
-            <li>Role-based access controls limiting data access based on user roles</li>
-            <li>IP whitelisting for administrative access to sensitive systems</li>
+            <li><strong>Personalization:</strong> Every child is unique, and their learning experience should reflect that.</li>
+            <li><strong>Accessibility:</strong> Quality education should be available to all, regardless of background or circumstance.</li>
+            <li><strong>Transparency:</strong> Parents should always be informed and connected to their child's learning journey.</li>
+            <li><strong>Innovation:</strong> We embrace technology to enhance learning while maintaining the human element that's essential for growth.</li>
+            <li><strong>Trust:</strong> We prioritize data security and privacy to ensure families can engage confidently with our platform.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Infrastructure Security</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Impact</h2>
           <p className="text-muted-foreground">
-            Our infrastructure is hosted on secure cloud platforms with enterprise-grade security measures. We utilize:
+            Since our launch, we've helped thousands of students improve their academic performance and develop a love for learning. Our platform has supported parents in staying connected to their child's education while providing teachers with valuable insights into student progress and areas needing attention.
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Redundant servers distributed across multiple geographic locations</li>
-            <li>DDoS protection and mitigation services</li>
-            <li>Regular vulnerability assessments and penetration testing</li>
-            <li>Network segmentation to isolate sensitive data</li>
-            <li>24/7 monitoring and alerting systems</li>
-            <li>Automated backup and disaster recovery procedures</li>
-          </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Application Security</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Team</h2>
           <p className="text-muted-foreground">
-            Our application development follows secure coding practices and industry standards:
+            Our diverse team includes experienced educators, AI researchers, child psychologists, and software engineers who are passionate about transforming education. We're committed to continuous improvement and staying at the forefront of educational technology.
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular security audits and code reviews</li>
-            <li>Input validation and sanitization to prevent injection attacks</li>
-            <li>Protection against cross-site scripting (XSS) and cross-site request forgery (CSRF)</li>
-            <li>Secure API endpoints with rate limiting and authentication</li>
-            <li>Regular updates and patching of software dependencies</li>
-            <li>Principle of least privilege for all system components</li>
-          </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Handling & Privacy</h2>
+          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Looking Forward</h2>
           <p className="text-muted-foreground">
-            We follow strict data handling procedures aligned with privacy regulations such as GDPR and applicable local laws:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data minimization: collecting only necessary information</li>
-            <li>Pseudonymization and anonymization techniques where appropriate</li>
-            <li>Regular data retention reviews and secure deletion procedures</li>
-            <li>Transparent data processing with clear consent mechanisms</li>
-            <li>Breach notification procedures compliant with regulatory requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Employee Security Training</h2>
-          <p className="text-muted-foreground">
-            All employees undergo comprehensive security training covering:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data protection best practices</li>
-            <li>Phishing and social engineering awareness</li>
-            <li>Incident response procedures</li>
-            <li>Access control responsibilities</li>
-            <li>Confidentiality and non-disclosure requirements</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Compliance & Certifications</h2>
-          <p className="text-muted-foreground">
-            We maintain compliance with relevant security standards and regulations:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular third-party security audits</li>
-            <li>Compliance with SOC 2 Type II standards</li>
-            <li>GDPR and CCPA compliance measures</li>
-            <li>ISO 27001 information security management standards</li>
-            <li>Regular security certifications for our team members</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Incident Response</h2>
-          <p className="text-muted-foreground">
-            We maintain a comprehensive incident response plan that includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>24/7 security monitoring and alerting</li>
-            <li>Immediate containment and investigation procedures</li>
-            <li>Communication protocols for affected users</li>
-            <li>Regulatory reporting as required by law</li>
-            <li>Post-incident analysis and preventive measures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">User Responsibilities</h2>
-          <p className="text-muted-foreground">
-            While we implement extensive security measures, users also play a critical role in maintaining security:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Using strong, unique passwords for their accounts</li>
-            <li>Enabling multi-factor authentication when available</li>
-            <li>Keeping their login credentials confidential</li>
-            <li>Reporting suspicious activities immediately</li>
-            <li>Logging out of shared devices</li>
-            <li>Keeping their devices and software updated</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Regular Security Audits</h2>
-          <p className="text-muted-foreground">
-            We conduct regular security assessments including:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Quarterly penetration testing by certified security professionals</li>
-            <li>Monthly vulnerability scans of our systems</li>
-            <li>Annual comprehensive security audits</li>
-            <li>Continuous monitoring for emerging threats</li>
-            <li>Regular updates to our security policies and procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Contact Information</h2>
-          <p className="text-muted-foreground">
-            If you have any security concerns or believe you have identified a vulnerability in our system, please contact our security team immediately:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Security email: security@lana.ai</li>
-            <li>Security hotline: Available 24/7 for urgent matters</li>
-            <li>Report vulnerabilities through our responsible disclosure program</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Policy Updates</h2>
-          <p className="text-muted-foreground">
-            This Security Policy is reviewed and updated regularly to address emerging threats and incorporate best practices. Significant changes will be communicated to users through our official channels. The "Last Updated" date at the top of this page indicates the most recent revision.
+            We're constantly evolving and expanding our offerings to better serve students, parents, and educators. Our roadmap includes enhanced multilingual support, expanded subject coverage, and more sophisticated adaptive learning algorithms that will further personalize the educational experience.
           </p>
         </div>
       </div>
@@ -346,6 +250,7 @@ function SecurityPolicyContent() {
   )
 }
 
+/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -353,7 +258,6 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
-/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -435,7 +339,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function SecurityPolicyPage() {
+export default function AboutPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -453,7 +357,7 @@ export default function SecurityPolicyPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <SecurityPolicyContent />
+        <AboutContent />
       </main>
       <Footer />
     </div>
