@@ -82,7 +82,7 @@ function Header() {
   const { user } = useUnifiedAuth()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <span className="text-xl font-bold text-foreground">Lana AI</span>
@@ -320,7 +320,7 @@ function FeaturesSection() {
     { title: "And more", desc: "Additional educational tools designed for modern learning experiences.", icon: MoreHorizontal },
   ]
   return (
-    <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-white to-blue-50 dark:from-background dark:to-blue-900/10">
+    <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Core Features</span>
@@ -333,11 +333,10 @@ function FeaturesSection() {
           {features.map((f, index) => (
             <div 
               key={f.title} 
-              className="rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl"
-            >
+              className="rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
               <f.icon className="text-primary h-6 w-6 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
               <h3 className="text-xl font-semibold mb-3 text-foreground leading-tight">{f.title}</h3>
-              <p className="text-muted-foreground text-base leading-relaxed">{f.desc}</p>
+              <p className="text-foreground/90 text-base leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -359,20 +358,20 @@ function StructuredLessonsSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <BookOpen className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Approach</h3>
-            <p className="text-muted-foreground leading-relaxed">Lessons are carefully structured to build upon each other, ensuring solid understanding.</p>
+            <p className="text-foreground/90 leading-relaxed">Lessons are carefully structured to build upon each other, ensuring solid understanding.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <GraduationCap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progressive Learning</h3>
-            <p className="text-muted-foreground leading-relaxed">Each lesson builds on previous knowledge, creating a solid foundation for advanced topics.</p>
+            <p className="text-foreground/90 leading-relaxed">Each lesson builds on previous knowledge, creating a solid foundation for advanced topics.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Interactive Content</h3>
-            <p className="text-muted-foreground leading-relaxed">Engaging activities and quizzes reinforce learning at each step of the way.</p>
+            <p className="text-foreground/90 leading-relaxed">Engaging activities and quizzes reinforce learning at each step of the way.</p>
           </div>
         </div>
       </div>
@@ -421,8 +420,7 @@ function PricingSection() {
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}
-            >
+              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 text-foreground ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}>
               {"popular" in p && p.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                   Most Popular
@@ -434,11 +432,11 @@ function PricingSection() {
                   <span className="text-4xl font-extrabold">${p.price}</span>
                   <span className="text-muted-foreground">{periodLabel}</span>
                 </div>
-                <p className="text-muted-foreground leading-relaxed">{p.desc}</p>
+                <p className="text-foreground/90 leading-relaxed">{p.desc}</p>
               </div>
               <ul className="space-y-2 mb-6">
                 {p.feats.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
+                  <li key={f} className="flex items-center gap-2 text-sm text-foreground/90">
                     <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
                     <span>{f}</span>
                   </li>
@@ -464,7 +462,7 @@ function CtaSection() {
   const { user } = useUnifiedAuth()
 
   return (
-    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
+    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-gray-700 to-stone-800 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
       <div className="mx-auto max-w-4xl px-4 text-center">
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
           {user 
@@ -523,7 +521,7 @@ function LanaSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-blue-100 to-cyan-100 dark:from-blue-900/40 dark:to-cyan-900/40">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-200 to-stone-200 dark:from-gray-800/50 dark:to-stone-800/50">
               <Image 
                 src="/Updated Avatar.png" 
                 alt="Lana AI - Your Personalized Learning Companion" 
@@ -560,25 +558,25 @@ function EducationalApproachSection() {
         </div>
         <div className="flex flex-col lg:flex-row items-center gap-8 max-w-6xl mx-auto">
           <div className="lg:w-1/2">
-            <div className="bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <Bot className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">AI-Powered Adaptation</h3>
-                  <p className="text-muted-foreground leading-relaxed">The system adapts to each learner's pace and style, providing personalized content and challenges.</p>
+                  <p className="text-foreground/90 leading-relaxed">The system adapts to each learner's pace and style, providing personalized content and challenges.</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl mt-6">
+            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl mt-6">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <BarChart3 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progress Tracking</h3>
-                  <p className="text-muted-foreground leading-relaxed">Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.</p>
+                  <p className="text-foreground/90 leading-relaxed">Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.</p>
                 </div>
               </div>
             </div>
@@ -614,20 +612,20 @@ function TermPlansSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Calendar className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Long-term Planning</h3>
-            <p className="text-muted-foreground leading-relaxed">Comprehensive curriculum plans spanning weeks and months to ensure steady progress.</p>
+            <p className="text-foreground/90 leading-relaxed">Comprehensive curriculum plans spanning weeks and months to ensure steady progress.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Zap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Milestone Tracking</h3>
-            <p className="text-muted-foreground leading-relaxed">Clear checkpoints to measure achievement and adjust learning paths as needed.</p>
+            <p className="text-foreground/90 leading-relaxed">Clear checkpoints to measure achievement and adjust learning paths as needed.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Flexible Adjustments</h3>
-            <p className="text-muted-foreground leading-relaxed">Adapt curriculum plans based on individual learning pace and evolving needs.</p>
+            <p className="text-foreground/90 leading-relaxed">Adapt curriculum plans based on individual learning pace and evolving needs.</p>
           </div>
         </div>
       </div>
@@ -648,25 +646,25 @@ function MathTutorSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div className="bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Calculator className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Solutions</h3>
-                <p className="text-muted-foreground leading-relaxed">Understand how to solve problems with detailed explanations for each step.</p>
+                <p className="text-foreground/90 leading-relaxed">Understand how to solve problems with detailed explanations for each step.</p>
               </div>
             </div>
           </div>
-          <div className="bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Zap className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Visual Problem Solving</h3>
-                <p className="text-muted-foreground leading-relaxed">See diagrams and visual aids that clarify complex mathematical concepts.</p>
+                <p className="text-foreground/90 leading-relaxed">See diagrams and visual aids that clarify complex mathematical concepts.</p>
               </div>
             </div>
           </div>
@@ -689,20 +687,20 @@ function QuickExplainerSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Concept Simplification</h3>
-            <p className="text-muted-foreground leading-relaxed">Complex topics broken down into simple, digestible explanations.</p>
+            <p className="text-foreground/90 leading-relaxed">Complex topics broken down into simple, digestible explanations.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Zap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Immediate Help</h3>
-            <p className="text-muted-foreground leading-relaxed">Get answers to your questions without waiting for office hours.</p>
+            <p className="text-foreground/90 leading-relaxed">Get answers to your questions without waiting for office hours.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Bot className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">24/7 Availability</h3>
-            <p className="text-muted-foreground leading-relaxed">Help is available whenever you need it, day or night.</p>
+            <p className="text-foreground/90 leading-relaxed">Help is available whenever you need it, day or night.</p>
           </div>
         </div>
       </div>
@@ -723,25 +721,25 @@ function MoreFeaturesSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <GraduationCap className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">Progress Reports</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">Performance Analytics</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <Bot className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">AI Guidance</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <MoreHorizontal className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
@@ -881,7 +879,7 @@ export default function Home() {
   if (!mounted) { return null }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-cyan-900/20 text-foreground font-sans">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-100 via-stone-200 to-gray-300 dark:from-gray-800/30 dark:via-stone-800/30 dark:to-gray-800/30 text-foreground font-sans">
       {/* Skip to main content link for accessibility */}
       <a 
         href="#main-content" 
