@@ -60,8 +60,8 @@ def extract_mode(message: str) -> tuple[str, str]:
         clean_text = match.group(2).strip()
         return mode, clean_text
     
-    # Default mode if no command found
-    return "default", message.strip()
+    # Default to chat mode for unprefixed messages to handle conversational requests
+    return "chat", message.strip()
 
 # Stub lesson generation (similar to what's in main.py)
 class ClassificationItem(BaseModel):
