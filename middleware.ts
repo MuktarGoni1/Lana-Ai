@@ -53,7 +53,11 @@ export async function middleware(req: NextRequest) {
       '/quiz',
       '/term-plan',
       '/settings',
-      '/feedback'
+      '/feedback',
+      '/demo',
+      '/api',
+      '/features',
+      '/pricing'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through

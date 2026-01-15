@@ -28,3 +28,28 @@ export async function getCurrentUserAge(): Promise<number | null> {
     return null;
   }
 }
+
+/**
+ * Update the current authenticated user's age in their metadata.
+ *
+ * @param age - The age to set for the user
+ * @returns A promise that resolves to true if successful, false otherwise
+ */
+export async function updateUserAge(age: number): Promise<boolean> {
+  try {
+    const { error } = await supabase.auth.updateUser({
+      data: { age }
+    });
+
+    if (error) {
+      console.error('[userService.updateUserAge] Error updating user age:', error);
+      return false;
+    }
+
+    console.debug('[userService.updateUserAge] User age updated successfully:', age);
+    return true;
+  } catch (error) {
+    console.error('[userService.updateUserAge] Unexpected error updating user age:', error);
+    return false;
+  }
+}

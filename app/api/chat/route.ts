@@ -33,13 +33,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid mode. Supported modes: chat, quick, lesson, maths' }, { status: 400 });
     }
 
+    // Define backend base URL for configurable API endpoints
+    const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+    
     console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
 
     // For chat mode, we need to generate a conversational response
-    // For quick mode, we route to structured lesson
+    // For quick mode, we route to configurable quick mode endpoint
     if (mode === 'chat') {
-      // For chat mode, generate a conversational response by calling the production AI service
-      const chatUrl = 'https://api.lanamind.com/api/chat/';
+      // For chat mode, generate a conversational response by calling the configurable AI service
+      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/chat/`;
       
       // The production URL is hardcoded and assumed to be valid
       
@@ -117,10 +120,10 @@ export async function POST(req: Request) {
       }
     }
     
-    // For quick mode, we route to the production structured lesson endpoint but return a more concise response
-    const lessonUrl = 'https://api.lanamind.com/api/structured-lesson';
+    // For quick mode, we route to the configurable quick mode endpoint
+    const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/quick/generate`;
     
-    // Prepare the payload for the production structured lesson API
+    // Prepare the payload for the production quick mode API
     const payload = { 
       topic: message,
       age: age
@@ -144,23 +147,12 @@ export async function POST(req: Request) {
       if (backendResponse.ok) {
         const responseData = await backendResponse.json();
         
-        // For quick mode, create a concise summary from the structured lesson response
-        let replyText = message;
-        if (responseData.introduction) {
-          replyText = responseData.introduction;
-          // For quick mode, only include introduction and first section if available
-          if (Array.isArray(responseData.sections) && responseData.sections.length > 0) {
-            const firstSection = responseData.sections[0];
-            if (firstSection.content) {
-              replyText += '\n\n' + (firstSection.title ? `**${firstSection.title}**: ` : '') + firstSection.content;
-            }
-          }
-        }
-        
+        // For quick mode, return the full response from the quick mode endpoint
+        // The quick mode endpoint already returns a properly formatted concise response
         return NextResponse.json({
           ...responseData,
           mode: mode,
-          reply: replyText
+          reply: responseData.introduction || message
         }, {
           status: 200,
           headers: {
