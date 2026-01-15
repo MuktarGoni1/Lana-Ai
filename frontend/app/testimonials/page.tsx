@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import { ArrowRight, Users, GraduationCap, Award, Shield, Globe, Star } from "lucide-react";
+import { Star, Quote, ArrowRight } from "lucide-react";
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -62,9 +62,15 @@ function Header() {
             </Link>
             <Link 
               href="/about"
-              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               About
+            </Link>
+            <Link 
+              href="/testimonials"
+              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Testimonials
             </Link>
             <Link 
               href="/features"
@@ -138,9 +144,16 @@ function Header() {
             <Link 
               href="/about"
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
             >
               About
+            </Link>
+            <Link 
+              href="/testimonials"
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
+            >
+              Testimonials
             </Link>
             <Link 
               href="/features"
@@ -204,12 +217,12 @@ function HeroSection() {
     <section className="py-16 md:py-24 lg:py-32 bg-transparent">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">About Us</span>
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">What Our Users Say</span>
           <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight tracking-tight mt-4">
-            Empowering Education Through AI Innovation
+            Real Stories from Real Learners
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto mt-6 leading-relaxed">
-            Learn about our mission to transform learning experiences with personalized AI tutoring that adapts to every student's unique needs.
+            Hear from students, parents, and educators who have transformed their learning experience with LANA AI.
           </p>
         </div>
       </div>
@@ -217,165 +230,111 @@ function HeroSection() {
   );
 }
 
-function MissionSection() {
-  return (
-    <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-          <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-6">Our Mission</h2>
-            <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
-              At LANA AI, we believe that every student deserves access to personalized, high-quality education. Our mission is to democratize learning by providing AI-powered tutoring that adapts to each student's unique learning style, pace, and preferences.
-            </p>
-            <p className="text-lg text-muted-foreground mb-6 leading-relaxed">
-              We're committed to helping students of all ages achieve academic success through innovative technology that makes learning engaging, effective, and enjoyable.
-            </p>
-            <div className="flex flex-wrap gap-4 mt-8">
-              <div className="flex items-center gap-2">
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <GraduationCap className="h-5 w-5 text-primary" />
-                </div>
-                <span className="font-medium">Personalized Learning</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Star className="h-5 w-5 text-primary" />
-                </div>
-                <span className="font-medium">Quality Content</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Shield className="h-5 w-5 text-primary" />
-                </div>
-                <span className="font-medium">Safe & Secure</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-center">
-            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-xl bg-gradient-to-br from-blue-50 to-indigo-50 p-6">
-              <Image 
-                src="/Happy child.jpg" 
-                alt="Students engaged in learning with LANA AI" 
-                width={600}
-                height={400}
-                className="object-contain rounded-xl"
-                priority
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function TeamSection() {
-  const teamMembers = [
+function TestimonialsGrid() {
+  const testimonials = [
     {
-      name: "Sarah Johnson",
-      role: "CEO & Co-founder",
-      bio: "Former educator with 15 years of experience in EdTech innovation and personalized learning systems.",
-      image: "/Avatar frontface.png"
+      id: 1,
+      name: "Emma Rodriguez",
+      role: "High School Student",
+      content: "LANA AI helped me understand calculus concepts that my teacher couldn't explain clearly. My grades improved from a C to an A in just two months!",
+      rating: 5,
+      avatar: "/Avatar frontface.png",
+      verified: true
     },
     {
-      name: "Michael Chen",
-      role: "CTO & Co-founder", 
-      bio: "AI researcher specializing in natural language processing and machine learning for education.",
-      image: "/Avatar frontface.png"
+      id: 2,
+      name: "David Thompson",
+      role: "Parent",
+      content: "As a parent, I love being able to track my daughter's progress in real-time. She's become more confident in math since using LANA AI.",
+      rating: 5,
+      avatar: "/Avatar frontface.png",
+      verified: true
     },
     {
-      name: "Dr. Emily Rodriguez",
-      role: "Head of Pedagogy",
-      bio: "Educational psychologist with expertise in cognitive learning theories and adaptive instruction.",
-      image: "/Avatar frontface.png"
+      id: 3,
+      name: "Mrs. Jennifer Park",
+      role: "8th Grade Math Teacher",
+      content: "My students are more engaged and asking deeper questions since using LANA AI. It's become an invaluable supplement to my classroom teaching.",
+      rating: 5,
+      avatar: "/Avatar frontface.png",
+      verified: true
+    },
+    {
+      id: 4,
+      name: "James Wilson",
+      role: "College Freshman",
+      content: "The step-by-step explanations for complex problems have been a game-changer for me. I wish I had this tool in high school!",
+      rating: 4,
+      avatar: "/Avatar frontface.png",
+      verified: true
+    },
+    {
+      id: 5,
+      name: "Sophia Chen",
+      role: "Middle School Student",
+      content: "I used to hate math, but LANA AI makes it fun and easy to understand. I actually look forward to my homework now!",
+      rating: 5,
+      avatar: "/Avatar frontface.png",
+      verified: true
+    },
+    {
+      id: 6,
+      name: "Robert Garcia",
+      role: "Parent",
+      content: "The personalized learning approach has helped my son overcome his anxiety around math. His confidence has grown tremendously.",
+      rating: 5,
+      avatar: "/Avatar frontface.png",
+      verified: true
     }
   ];
 
   return (
     <section className="py-16 md:py-24 bg-transparent">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Leadership Team</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mt-4">Meet Our Leadership</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mt-4">
-            Experts in education, technology, and business who share our vision for transforming learning.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {teamMembers.map((member, index) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {testimonials.map((testimonial) => (
             <div 
-              key={index} 
-              className="rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-center"
+              key={testimonial.id} 
+              className="rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl"
             >
-              <div className="flex justify-center mb-4">
-                <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-primary/20">
+              <div className="flex items-center mb-4">
+                <div className="relative w-12 h-12 rounded-full overflow-hidden mr-4">
                   <Image 
-                    src={member.image} 
-                    alt={member.name} 
-                    width={100}
-                    height={100}
+                    src={testimonial.avatar} 
+                    alt={testimonial.name} 
+                    width={48}
+                    height={48}
                     className="object-cover"
                   />
                 </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">{testimonial.name}</h3>
+                  <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold mb-1 text-foreground">{member.name}</h3>
-              <p className="text-primary font-medium mb-3">{member.role}</p>
-              <p className="text-muted-foreground text-sm">{member.bio}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ValuesSection() {
-  const values = [
-    {
-      icon: <GraduationCap className="h-8 w-8 text-primary" />,
-      title: "Educational Excellence",
-      description: "We prioritize pedagogically sound approaches to ensure effective learning outcomes."
-    },
-    {
-      icon: <Users className="h-8 w-8 text-primary" />,
-      title: "Student-Centered",
-      description: "Every feature is designed with the student's learning journey at the center."
-    },
-    {
-      icon: <Award className="h-8 w-8 text-primary" />,
-      title: "Quality & Innovation",
-      description: "We combine the best of educational research with cutting-edge AI technology."
-    },
-    {
-      icon: <Shield className="h-8 w-8 text-primary" />,
-      title: "Safety & Privacy",
-      description: "Student data protection and privacy are our highest priorities."
-    }
-  ];
-
-  return (
-    <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Our Values</span>
-          <h2 className="text-3xl md:text-4xl font-bold text-foreground mt-4">Core Principles</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mt-4">
-            The foundational beliefs that guide everything we do at LANA AI.
-          </p>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {values.map((value, index) => (
-            <div 
-              key={index} 
-              className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl"
-            >
-              <div className="flex justify-center mb-4">
-                {value.icon}
+              
+              <div className="flex mb-3">
+                {[...Array(5)].map((_, i) => (
+                  <Star 
+                    key={i} 
+                    className={`h-4 w-4 ${i < testimonial.rating ? 'text-yellow-400 fill-current' : 'text-muted-foreground'}`} 
+                  />
+                ))}
               </div>
-              <h3 className="text-xl font-semibold mb-2 text-foreground">{value.title}</h3>
-              <p className="text-muted-foreground text-sm">{value.description}</p>
+              
+              <div className="relative">
+                <Quote className="absolute top-0 left-0 h-6 w-6 text-primary/20 -mt-2 -ml-2" />
+                <p className="text-muted-foreground pl-6 mt-2 leading-relaxed">
+                  "{testimonial.content}"
+                </p>
+              </div>
+              
+              {testimonial.verified && (
+                <div className="flex items-center mt-4 text-sm text-green-600">
+                  <span className="mr-1">✓</span>
+                  <span>Verified User</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -386,15 +345,21 @@ function ValuesSection() {
 
 function StatsSection() {
   const stats = [
-    { number: "10K+", label: "Students Served" },
-    { number: "98%", label: "Satisfaction Rate" },
-    { number: "24/7", label: "Availability" },
-    { number: "50+", label: "Countries Supported" }
+    { number: "98%", label: "User Satisfaction" },
+    { number: "4.9/5", label: "Average Rating" },
+    { number: "10K+", label: "Active Users" },
+    { number: "2M+", label: "Lessons Completed" }
   ];
 
   return (
     <section className="py-16 md:py-24 bg-gradient-to-r from-gray-600 to-stone-700 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
       <div className="mx-auto max-w-6xl px-4">
+        <div className="text-center mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">Trusted by Thousands of Learners</h2>
+          <p className="text-muted-foreground/80 max-w-2xl mx-auto">
+            Our impact on education continues to grow as more students discover the power of personalized learning.
+          </p>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
           {stats.map((stat, index) => (
             <div key={index}>
@@ -413,10 +378,10 @@ function CtaSection() {
     <section className="py-20 md:py-32 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 text-center">
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight">
-          Ready to Transform Your Learning Experience?
+          Join Our Community of Successful Learners
         </h2>
         <p className="text-muted-foreground mt-4 max-w-2xl mx-auto leading-relaxed">
-          Join thousands of students who are already benefiting from personalized AI tutoring.
+          Experience the difference that personalized AI tutoring can make in your educational journey.
         </p>
         <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
           <Link 
@@ -427,10 +392,10 @@ function CtaSection() {
             <ArrowRight className="h-5 w-5" />
           </Link>
           <Link 
-            href="/contact" 
+            href="/features" 
             className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-6 py-4 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44"
           >
-            Contact Sales
+            Explore Features
           </Link>
         </div>
       </div>
@@ -441,7 +406,7 @@ function CtaSection() {
 function Footer() {
   const footerLinks = {
     Product: ["Features", "Pricing", "Demo", "API"],
-    Company: ["About", "Blog", "Careers", "Contact"],
+    Company: ["About", "Testimonials", "Blog", "Careers", "Contact"],
     Legal: ["Privacy Policy", "Terms of Service", "Security Policy", "Cookie Policy"],
     Support: ["Help Center", "Feedback", "Settings"]
   };
@@ -512,6 +477,7 @@ function Footer() {
                     <Link 
                       href={
                         l === "About" ? "/about" :
+                        l === "Testimonials" ? "/testimonials" :
                         l === "Privacy Policy" ? "/privacy-policy" :
                         l === "Terms of Service" ? "/terms-of-service" :
                         l === "Security Policy" ? "/security-policy" :
@@ -536,27 +502,13 @@ function Footer() {
         </div>
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} LANA AI Education Technologies Inc. All rights reserved.</p>
-          <div className="mt-2 flex flex-wrap justify-center gap-4">
-            <span className="flex items-center gap-1">
-              <Shield className="h-4 w-4" />
-              <span>FERPA Compliant</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Globe className="h-4 w-4" />
-              <span>COPPA Certified</span>
-            </span>
-            <span className="flex items-center gap-1">
-              <Award className="h-4 w-4" />
-              <span>Educator Approved</span>
-            </span>
-          </div>
         </div>
       </div>
     </footer>
   );
 }
 
-export default function AboutPage() {
+export default function TestimonialsPage() {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); setTheme("light") }, []);
@@ -567,9 +519,7 @@ export default function AboutPage() {
       <Header />
       <main className="flex-grow">
         <HeroSection />
-        <MissionSection />
-        <TeamSection />
-        <ValuesSection />
+        <TestimonialsGrid />
         <StatsSection />
         <CtaSection />
       </main>

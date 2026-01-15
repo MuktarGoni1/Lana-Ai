@@ -85,16 +85,27 @@ function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-50/80 to-stone-50/80 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <span className="text-xl font-bold text-foreground">Lana AI</span>
+          <div className="flex items-center space-x-2">
+            <Image 
+              src="/images/lana-logo-transparent.png" 
+              alt="Lana AI Logo" 
+              width={40}
+              height={40}
+              className="object-contain"
+            />
+            <span className="text-xl font-bold text-foreground">Lana AI</span>
+          </div>
 
           {/* desktop */}
           <nav className="hidden md:flex items-center gap-6">
-            {['Features', 'Pricing', 'Contact'].map((l) => (
+            {['Features', 'Pricing', 'About', 'Testimonials', 'Contact'].map((l) => (
               <Link 
                 key={l} 
                 href={
                   l === 'Features' ? '/features' :
                   l === 'Pricing' ? '/pricing' :
+                  l === 'About' ? '/about' :
+                  l === 'Testimonials' ? '/testimonials' :
                   '#contact'} // Keep contact as anchor since it's on same page
                 className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
@@ -163,12 +174,14 @@ function Header() {
           className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
         >
           <nav className="flex flex-col gap-4 py-4">
-            {['Features', 'Pricing', 'Contact'].map((l) => (
+            {['Features', 'Pricing', 'About', 'Testimonials', 'Contact'].map((l) => (
               <Link 
                 key={l} 
                 href={
                   l === 'Features' ? '/features' :
                   l === 'Pricing' ? '/pricing' :
+                  l === 'About' ? '/about' :
+                  l === 'Testimonials' ? '/testimonials' :
                   '#contact'} // Keep contact as anchor since it's on same page
                 onClick={() => setOpen(false)} 
                 className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
@@ -523,12 +536,13 @@ function LanaSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-100 to-stone-100 dark:from-gray-900/40 dark:to-stone-900/40">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-100 to-stone-100 dark:from-gray-900/40 dark:to-stone-900/40 flex items-center justify-center">
               <Image 
                 src="/Updated Avatar.png" 
                 alt="Lana AI - Your Personalized Learning Companion" 
-                fill
-                className="object-cover object-center p-2 rounded-2xl"
+                width={300}
+                height={300}
+                className="object-contain p-4"
                 priority
               />
             </div>
@@ -584,13 +598,13 @@ function EducationalApproachSection() {
             </div>
           </div>
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-xl">
+            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-xl flex items-center justify-center bg-white p-4">
               <Image 
                 src="/Happy child.jpg" 
                 alt="Happy child engaged in learning with Lana AI" 
                 width={600}
                 height={400}
-                className="object-cover object-center"
+                className="object-contain rounded-xl"
                 priority
               />
             </div>
@@ -788,7 +802,7 @@ function ContactSection() {
 function Footer() {
   const footerLinks = {
     Product: ["Features", "Pricing", "Demo", "API"],
-    Company: ["About", "Blog", "Careers", "Contact"],
+    Company: ["About", "Testimonials", "Blog", "Careers", "Contact"],
     Legal: ["Privacy Policy", "Terms of Service", "Security Policy", "Cookie Policy"],
     Support: ["Term Plan", "Feedback", "Settings"]
   }
@@ -848,6 +862,7 @@ function Footer() {
                         l === "Security Policy" ? "/security-policy" :
                         l === "Cookie Policy" ? "/cookie-policy" :
                         l === "About" ? "/about" :
+                        l === "Testimonials" ? "/testimonials" :
                         l === "Blog" ? "/blog" :
                         l === "Careers" ? "/careers" :
                         l === "Contact" ? "/contact" :

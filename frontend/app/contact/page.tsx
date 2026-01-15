@@ -1,21 +1,20 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Mail, Phone, MapPin, MessageCircle, Send, User, AtSign, FileText } from "lucide-react"
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useTheme } from "next-themes";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { Mail, Phone, MapPin, MessageSquare, Send, ArrowRight } from "lucide-react";
 
-/* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true) }, [])
-  // Show placeholder to prevent layout shift before mount
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true) }, []);
   if (!mounted) {
     return (
       <div className="inline-flex items-center justify-center rounded-md w-9 h-9" />
-    )
+    );
   }
 
   return (
@@ -26,56 +25,64 @@ function ThemeToggle() {
       aria-pressed={resolvedTheme === "dark"}
     >
       {resolvedTheme === "dark" ? (
-        <Moon className="h-5 w-5 text-blue-400 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <span className="h-5 w-5 text-blue-400 dark:text-blue-400 dark:hover:text-blue-300">🌙</span>
       ) : (
-        <Sun className="h-5 w-5 text-yellow-500 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <span className="h-5 w-5 text-yellow-500 dark:text-blue-400 dark:hover:text-blue-300">☀️</span>
       )}
     </button>
-  )
+  );
 }
 
-/* ---------- HEADER ---------- */
 function Header() {
-  const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const [open, setOpen] = useState(false);
+  const { user } = useUnifiedAuth();
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-50/80 to-stone-50/80 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
+          <div className="flex items-center space-x-2">
+            <Image 
+              src="/images/lana-logo-transparent.png" 
+              alt="Lana AI Logo" 
+              width={40}
+              height={40}
+              className="object-contain"
+            />
+            <span className="text-xl font-bold text-foreground">Lana AI</span>
+          </div>
 
           {/* desktop */}
           <nav className="hidden md:flex items-center gap-6">
             <Link 
-              href="/" 
+              href="/"
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Home
             </Link>
             <Link 
-              href="/landing-page" 
+              href="/about"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              About
+            </Link>
+            <Link 
+              href="/contact"
+              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Contact
+            </Link>
+            <Link 
+              href="/features"
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               Features
             </Link>
             <Link 
-              href="/term-plan" 
+              href="/pricing"
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
-              Term Plan
-            </Link>
-            <Link 
-              href="/feedback" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              Feedback
-            </Link>
-            <Link 
-              href="/settings" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            >
-              Settings
+              Pricing
             </Link>
             <ThemeToggle />
             {user ? (
@@ -95,7 +102,7 @@ function Header() {
                 </Link>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-32"
                 >
                   Get Started
                 </Link>
@@ -111,7 +118,7 @@ function Header() {
             aria-controls="mobile-nav"
             aria-label="Toggle navigation menu"
           >
-            {open ? <X className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" /> : <Menu className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />}
+            <span>☰</span>
           </button>
         </div>
 
@@ -122,39 +129,39 @@ function Header() {
         >
           <nav className="flex flex-col gap-4 py-4">
             <Link 
-              href="/" 
+              href="/"
               onClick={() => setOpen(false)} 
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
             >
               Home
             </Link>
             <Link 
-              href="/landing-page" 
+              href="/about"
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
+            >
+              About
+            </Link>
+            <Link 
+              href="/contact"
+              onClick={() => setOpen(false)} 
+              className="text-sm font-medium text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
+            >
+              Contact
+            </Link>
+            <Link 
+              href="/features"
               onClick={() => setOpen(false)} 
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
             >
               Features
             </Link>
             <Link 
-              href="/term-plan" 
+              href="/pricing"
               onClick={() => setOpen(false)} 
               className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
             >
-              Term Plan
-            </Link>
-            <Link 
-              href="/feedback" 
-              onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
-            >
-              Feedback
-            </Link>
-            <Link 
-              href="/settings" 
-              onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
-            >
-              Settings
+              Pricing
             </Link>
             <div className="mt-2 flex items-center gap-2 pt-2 border-t border-border">
               <ThemeToggle />
@@ -170,14 +177,14 @@ function Header() {
                 <>
                   <Link 
                     href="/login" 
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center min-h-12 flex items-center justify-center"
                     onClick={() => setOpen(false)}
                   >
                     Login
                   </Link>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] flex-1"
+                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] flex-1 min-h-12"
                     onClick={() => setOpen(false)}
                   >
                     Get Started
@@ -189,293 +196,348 @@ function Header() {
         </div>
       </div>
     </header>
-  )
+  );
 }
 
-/* ---------- CONTACT CONTENT ---------- */
-function ContactContent() {
+function HeroSection() {
+  return (
+    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold leading-tight tracking-tight mt-4">
+            Get in Touch
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mt-6 leading-relaxed">
+            Have questions about our AI tutoring platform? Reach out to our team for support, partnerships, or general inquiries.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ContactForm() {
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
+    name: "",
+    email: "",
+    subject: "",
+    message: ""
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real app, you would handle form submission here
-    console.log('Form submitted:', formData);
-    alert('Thank you for your message! We will get back to you soon.');
-    setFormData({ name: '', email: '', subject: '', message: '' });
+    setIsSubmitting(true);
+    
+    // Simulate form submission
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setSubmitSuccess(true);
+      setFormData({ name: "", email: "", subject: "", message: "" });
+      
+      // Reset success message after 5 seconds
+      setTimeout(() => setSubmitSuccess(false), 5000);
+    }, 1500);
   };
 
   return (
-    <section className="py-16 md:py-24 bg-transparent">
+    <section className="py-8 md:py-16 bg-transparent">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Get in Touch</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">Have questions about Lana AI? We'd love to hear from you. Reach out to us using the information below or fill out the contact form.</p>
-        </div>
-        
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           <div>
-            <div className="bg-card rounded-xl border p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-6 text-foreground">Contact Information</h2>
-              
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Mail className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Email</h3>
-                    <p className="text-muted-foreground">support@lanaai.com</p>
-                    <p className="text-muted-foreground">info@lanaai.com</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Phone className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Phone</h3>
-                    <p className="text-muted-foreground">+1 (555) 123-4567</p>
-                    <p className="text-muted-foreground">+1 (555) 987-6543</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <MapPin className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Office</h3>
-                    <p className="text-muted-foreground">123 Education Street</p>
-                    <p className="text-muted-foreground">Lagos, Nigeria</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <MessageCircle className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Support Hours</h3>
-                    <p className="text-muted-foreground">Monday - Friday: 9:00 AM - 6:00 PM</p>
-                    <p className="text-muted-foreground">Saturday: 10:00 AM - 2:00 PM</p>
-                    <p className="text-muted-foreground">Sunday: Closed</p>
-                  </div>
-                </div>
+            <h2 className="text-2xl font-bold text-foreground mb-6">Send us a message</h2>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-300"
+                  placeholder="Your name"
+                />
               </div>
               
-              <div className="mt-8">
-                <h3 className="font-bold text-lg text-foreground mb-4">Frequently Asked Questions</h3>
-                <ul className="space-y-2">
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How does Lana AI work?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">What subjects does Lana AI cover?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How much does Lana AI cost?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">Is Lana AI safe for children?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How can I track my child's progress?</li>
-                </ul>
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-300"
+                  placeholder="your.email@example.com"
+                />
               </div>
-            </div>
+              
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-2">Subject</label>
+                <input
+                  type="text"
+                  id="subject"
+                  name="subject"
+                  value={formData.subject}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-3 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-300"
+                  placeholder="How can we help you?"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">Message</label>
+                <textarea
+                  id="message"
+                  name="message"
+                  value={formData.message}
+                  onChange={handleChange}
+                  required
+                  rows={5}
+                  className="w-full px-4 py-3 rounded-xl border border-input bg-background focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all duration-300 resize-none"
+                  placeholder="Your message here..."
+                ></textarea>
+              </div>
+              
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 disabled:opacity-70"
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    Send Message
+                    <Send className="h-5 w-5" />
+                  </>
+                )}
+              </button>
+              
+              {submitSuccess && (
+                <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700">
+                  Thank you for your message! Our team will get back to you shortly.
+                </div>
+              )}
+            </form>
           </div>
           
           <div>
-            <div className="bg-card rounded-xl border p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-6 text-foreground">Send Us a Message</h2>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1">Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="Your name"
-                    />
-                  </div>
+            <h2 className="text-2xl font-bold text-foreground mb-6">Contact Information</h2>
+            <div className="space-y-8">
+              <div className="flex items-start">
+                <div className="bg-primary/10 p-3 rounded-full mr-4">
+                  <Mail className="h-6 w-6 text-primary" />
                 </div>
-                
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <AtSign className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="your.email@example.com"
-                    />
-                  </div>
+                  <h3 className="font-semibold text-foreground">General Inquiries</h3>
+                  <p className="text-muted-foreground mt-1">contact@lanamind.com</p>
                 </div>
-                
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-primary/10 p-3 rounded-full mr-4">
+                  <Phone className="h-6 w-6 text-primary" />
+                </div>
                 <div>
-                  <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-1">Subject</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      id="subject"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="How can we help you?"
-                    />
-                  </div>
+                  <h3 className="font-semibold text-foreground">Support</h3>
+                  <p className="text-muted-foreground mt-1">support@lanamind.com</p>
+                  <p className="text-muted-foreground mt-1">(Available 9AM - 6PM PST)</p>
                 </div>
-                
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-primary/10 p-3 rounded-full mr-4">
+                  <MapPin className="h-6 w-6 text-primary" />
+                </div>
                 <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1">Message</label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    required
-                    rows={5}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                    placeholder="Your message here..."
-                  ></textarea>
+                  <h3 className="font-semibold text-foreground">Office</h3>
+                  <p className="text-muted-foreground mt-1">1234 Education Lane</p>
+                  <p className="text-muted-foreground">San Francisco, CA 94107</p>
                 </div>
-                
-                <button
-                  type="submit"
-                  className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
-                >
-                  Send Message
-                  <Send className="ml-2 h-4 w-4" />
-                </button>
-              </form>
+              </div>
+              
+              <div className="flex items-start">
+                <div className="bg-primary/10 p-3 rounded-full mr-4">
+                  <MessageSquare className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Live Chat</h3>
+                  <p className="text-muted-foreground mt-1">Chat with our support team</p>
+                  <p className="text-muted-foreground mt-1">(Available during business hours)</p>
+                </div>
+              </div>
             </div>
             
-            <div className="bg-card rounded-xl border p-6 shadow-sm mt-6">
-              <h3 className="font-bold text-lg text-foreground mb-3">Why Contact Us?</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Get personalized support for your learning journey</span>
+            <div className="mt-12 p-6 bg-card rounded-xl border shadow-sm">
+              <h3 className="font-bold text-foreground mb-3">Frequently Asked Questions</h3>
+              <ul className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>How does the AI tutoring work?</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Request a demo of our platform</span>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>What grade levels do you support?</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Learn about our educational approach</span>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>How do you ensure student privacy?</span>
                 </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Partner with us for educational initiatives</span>
+                <li className="flex items-start">
+                  <span className="mr-2">•</span>
+                  <span>Do you offer institutional pricing?</span>
                 </li>
               </ul>
+              <Link 
+                href="/faq" 
+                className="mt-4 inline-flex items-center text-primary hover:underline"
+              >
+                View Full FAQ
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </Link>
             </div>
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-/* ---------- FOOTER ---------- */
-const footerLinks = {
-  Product: ["Features", "Pricing", "Demo", "API"],
-  Company: ["About", "Blog", "Careers", "Contact"],
-  Legal: ["Privacy Policy", "Terms of Service", "Security Policy", "Cookie Policy"],
-  Support: ["Term Plan", "Feedback", "Settings"]
+function CtaSection() {
+  return (
+    <section className="py-20 md:py-32 bg-gradient-to-r from-gray-600 to-stone-700 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
+      <div className="mx-auto max-w-4xl px-4 text-center">
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight">
+          Ready to Transform Learning?
+        </h2>
+        <p className="text-lg text-muted-foreground/80 mt-4 max-w-2xl mx-auto leading-relaxed">
+          Contact us today to learn more about how LANA AI can benefit your educational institution or student.
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <Link 
+            href="/demo" 
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-white text-gray-900 px-6 py-4 text-base font-medium hover:bg-gray-100 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44"
+          >
+            Schedule a Demo
+            <ArrowRight className="h-5 w-5" />
+          </Link>
+          <Link 
+            href="/pricing" 
+            className="inline-flex items-center justify-center rounded-xl border border-white bg-transparent px-6 py-4 text-base font-medium hover:bg-white hover:text-gray-900 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-white min-h-12 min-w-44"
+          >
+            View Pricing
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function Footer() {
+  const footerLinks = {
+    Product: ["Features", "Pricing", "Demo", "API"],
+    Company: ["About", "Testimonials", "Blog", "Careers", "Contact"],
+    Legal: ["Privacy Policy", "Terms of Service", "Security Policy", "Cookie Policy"],
+    Support: ["Help Center", "Feedback", "Settings"]
+  };
+
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-5 md:gap-12">
           <div className="lg:col-span-2">
-            <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
-            <p className="text-muted-foreground text-sm mt-3 max-w-md">
-              Empowering you and your child through personalized AI tutoring while keeping you connected to the learning journey.
+            <div className="flex items-center space-x-2">
+              <Image 
+                src="/images/lana-logo-transparent.png" 
+                alt="Lana AI Logo" 
+                width={40}
+                height={40}
+                className="object-contain"
+              />
+              <span className="text-xl font-bold text-foreground">Lana AI</span>
+            </div>
+            <p className="text-muted-foreground text-sm mt-3 max-w-md leading-relaxed">
+              Empowering students worldwide through personalized AI tutoring that adapts to each learner's unique needs.
             </p>
             <div className="flex gap-3 sm:gap-4 mt-5">
               <Link 
-                href="#" 
+                href="https://twitter.com/LANAAI" 
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Twitter" 
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
               >
-                <Twitter className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <span className="h-5 w-5 text-muted-foreground hover:text-foreground">🐦</span>
               </Link>
               <Link 
-                href="#" 
+                href="https://www.facebook.com/LANAAI" 
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Facebook" 
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
               >
-                <Facebook className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <span className="h-5 w-5 text-muted-foreground hover:text-foreground">📘</span>
               </Link>
               <Link 
-                href="#" 
+                href="https://www.instagram.com/LANAAI" 
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="Instagram" 
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
               >
-                <Instagram className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <span className="h-5 w-5 text-muted-foreground hover:text-foreground">📸</span>
               </Link>
               <Link 
-                href="#" 
+                href="https://www.linkedin.com/company/lana-ai" 
+                target="_blank"
+                rel="noopener noreferrer"
                 aria-label="LinkedIn" 
                 className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
               >
-                <Linkedin className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <span className="h-5 w-5 text-muted-foreground hover:text-foreground">💼</span>
               </Link>
             </div>
           </div>
           {Object.entries(footerLinks).map(([cat, links]) => (
             <div key={cat}>
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-foreground mb-4">{cat}</h4>
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-foreground mb-4 leading-tight">{cat}</h4>
               <ul className="space-y-3 text-sm text-muted-foreground">
                 {links.map((l) => (
                   <li key={l}>
                     <Link 
                       href={
-                        l === "Term Plan" ? "/term-plan" :
-                        l === "Feedback" ? "/feedback" :
-                        l === "Settings" ? "/settings" :
+                        l === "About" ? "/about" :
+                        l === "Testimonials" ? "/testimonials" :
                         l === "Privacy Policy" ? "/privacy-policy" :
                         l === "Terms of Service" ? "/terms-of-service" :
                         l === "Security Policy" ? "/security-policy" :
                         l === "Cookie Policy" ? "/cookie-policy" :
-                        l === "About" ? "/about" :
                         l === "Blog" ? "/blog" :
                         l === "Careers" ? "/careers" :
                         l === "Contact" ? "/contact" :
+                        l === "Demo" ? "/demo" :
+                        l === "API" ? "/api" :
+                        l === "Help Center" ? "/help" :
                         "#"
                       }
                       className="hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
@@ -489,35 +551,28 @@ function Footer() {
           ))}
         </div>
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Lana AI. All rights reserved.
+          <p>© {new Date().getFullYear()} LANA AI Education Technologies Inc. All rights reserved.</p>
         </div>
       </div>
     </footer>
-  )
+  );
 }
 
-/* ---------- PAGE ---------- */
 export default function ContactPage() {
-  const { setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => { setMounted(true); setTheme("light") }, [])
+  const { setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); setTheme("light") }, []);
   if (!mounted) { return null }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 via-indigo-50 to-cyan-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-cyan-900/20 text-foreground font-sans">
-      {/* Skip to main content link for accessibility */}
-      <a 
-        href="#main-content" 
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
-      >
-        Skip to main content
-      </a>
-      
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-50 via-stone-50 to-gray-100 dark:from-gray-900/20 dark:via-stone-900/20 dark:to-gray-900/20 text-foreground font-sans">
       <Header />
-      <main id="main-content" className="flex-grow">
-        <ContactContent />
+      <main className="flex-grow">
+        <HeroSection />
+        <ContactForm />
+        <CtaSection />
       </main>
       <Footer />
     </div>
-  )
+  );
 }
