@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
@@ -237,73 +237,79 @@ function Header() {
 function HeroSection() {
   const { user } = useUnifiedAuth()
 
+  // Define button styles for reusability
+  const primaryButtonClasses = "inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40";
+  const secondaryButtonClasses = "inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40";
+
   return (
-    <section id="hero" className="py-12 md:py-20 lg:py-32 bg-transparent">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
-        <div className="flex flex-col gap-6">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight tracking-tight">
-            {user ? `Welcome back, ${user.email}` : "Your Personalised Learning Companion and the Future of Learning with AI"}
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            {user 
-              ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
-              : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
-            }
-          </p>
-          {!user && (
-            <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
-              Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+    <section id="hero" className="py-12 md:py-20 lg:py-32 bg-gradient-to-br from-gray-100 via-stone-100 to-gray-200 dark:from-gray-900 dark:via-stone-900 dark:to-gray-800 relative overflow-hidden">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 items-center">
+          <div className="flex flex-col gap-4 sm:gap-6">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
+              {user ? `Welcome back, ${user.email}` : "Your Ai Learning Companion"}
+            </h1>
+            <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
+              {user 
+                ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
+                : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
+              }
             </p>
-          )}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {user ? (
-              <Link 
-                href="/homepage" 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40"
-              >
-                Continue Learning
-                <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
-              </Link>
-            ) : (
-              <>
+            {!user && (
+              <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
+                Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+              </p>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3">
+              {user ? (
                 <Link 
-                  href="/register" 
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40 flex-1 sm:flex-none"
+                  href="/homepage" 
+                  className={primaryButtonClasses}
                 >
-                  Start Free Trial
+                  Continue Learning
                   <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
                 </Link>
-                <Link 
-                  href="/login" 
-                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40 flex-1 sm:flex-none"
-                >
-                  Login
-                </Link>
-              </>
+              ) : (
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Link 
+                    href="/register" 
+                    className={`${primaryButtonClasses} flex-1 sm:flex-none`}
+                  >
+                    Start Free Trial
+                    <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+                  </Link>
+                  <Link 
+                    href="/login" 
+                    className={`${secondaryButtonClasses} flex-1 sm:flex-none`}
+                  >
+                    Login
+                  </Link>
+                </div>
+              )}
+            </div>
+            {!user && (
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
+              </p>
             )}
+            <ul className="space-y-2 pt-2 sm:pt-4">
+              {FEATURES.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          {!user && (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
-            </p>
-          )}
-          <ul className="space-y-2 pt-4">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="relative h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl">
-          <Image 
-            src="/first-section.jpg" 
-            alt="Lana AI hero" 
-            fill
-            className="object-cover"
-            priority
-          />
+          <div className="relative h-80 sm:h-96 md:h-[500px] lg:h-full max-h-96 lg:max-h-[600px] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center border border-white/20 dark:border-white/10 bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-800/30 dark:to-stone-800/30">
+            <Image 
+              src="/first-section.jpg" 
+              alt="Lana AI hero" 
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
         </div>
       </div>
     </section>
@@ -516,6 +522,103 @@ function CtaSection() {
   )
 }
 
+/* ---------- VIDEO PLAYER UTILITIES ---------- */
+function useOnScreen(ref: React.RefObject<HTMLElement>, rootMargin = "0px") {
+  const [isIntersecting, setIntersecting] = useState(false);
+  
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIntersecting(entry.isIntersecting);
+      },
+      { rootMargin }
+    );
+    
+    if (ref.current) {
+      observer.observe(ref.current);
+    }
+    
+    return () => {
+      if (ref.current) {
+        observer.unobserve(ref.current);
+      }
+    };
+  }, [ref, rootMargin]);
+  
+  return isIntersecting;
+}
+
+/* ---------- SCROLL-TRIGGERED VIDEO COMPONENT ---------- */
+function ScrollTriggeredVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const divRef = useRef<HTMLDivElement>(null);
+  const [isMuted, setIsMuted] = useState(true);
+  const isVisible = useOnScreen(divRef);
+  
+  useEffect(() => {
+    if (videoRef.current) {
+      if (isVisible) {
+        videoRef.current.play().catch(e => console.log("Auto-play prevented by browser policy", e));
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  }, [isVisible]);
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      if (isMuted) {
+        videoRef.current.muted = false;
+        setIsMuted(false);
+      } else {
+        videoRef.current.muted = true;
+        setIsMuted(true);
+      }
+    }
+  };
+
+  return (
+    <div ref={divRef} className="relative w-80 h-96 sm:w-96 sm:h-[400px] lg:w-[500px] lg:h-[450px] xl:w-[600px] xl:h-[500px] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 flex items-center justify-center">
+      <video
+        ref={videoRef}
+        muted={isMuted}
+        loop
+        playsInline
+        preload="metadata"
+        onClick={toggleMute}
+        className="object-cover object-center w-full h-full rounded-3xl opacity-0 transition-opacity duration-500 ease-in-out cursor-pointer"
+        onLoadedData={(e) => {
+          // Fade in the video once loaded
+          const video = e.target as HTMLVideoElement;
+          video.classList.remove("opacity-0");
+          video.classList.add("opacity-100");
+        }}
+      >
+        <source src="/lana intro landing.mp4" type="video/mp4" />
+        Your browser does not support the video tag.
+      </video>
+      {/* Gradient overlay for visual effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/10 pointer-events-none rounded-3xl"></div>
+      {/* Mute/Unmute indicator */}
+      <div className="absolute bottom-4 right-4 bg-black/50 text-white rounded-full p-2 z-10 cursor-pointer" onClick={toggleMute}>
+        {isMuted ? (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M23 9l-6 6" />
+            <path d="M17 9l6 6" />
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ---------- LANA SECTION ---------- */
 function LanaSection() {
   return (
@@ -523,15 +626,7 @@ function LanaSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-100 to-stone-100 dark:from-gray-900/40 dark:to-stone-900/40">
-              <Image 
-                src="/Updated Avatar.png" 
-                alt="Lana AI - Your Personalized Learning Companion" 
-                fill
-                className="object-cover object-center p-2 rounded-2xl"
-                priority
-              />
-            </div>
+            <ScrollTriggeredVideo />
           </div>
           <div className="lg:w-1/2 text-center lg:text-left">
             <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4 inline-block">AI-Powered Learning</span>
