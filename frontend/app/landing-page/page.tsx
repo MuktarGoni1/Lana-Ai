@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
@@ -29,10 +29,11 @@ MoreHorizontal,
 
 /* ---------- CONFIG ---------- */
 const FEATURES = [
-"Personalised and Adaptive lessons tailored to your learning pace",
+"Personalised and Adaptive lessons tailored to your age and learning pace",
 "Real-time progress reports for parents",
 "Crystal-clear explanations by Lana AI",
 "Personalized learning avatar",
+"structured learning paths",
 ] as const
 
 const PLANS = {
@@ -82,7 +83,7 @@ function Header() {
   const { user } = useUnifiedAuth()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-50/80 to-stone-50/80 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <span className="text-xl font-bold text-foreground">Lana AI</span>
@@ -237,79 +238,74 @@ function Header() {
 function HeroSection() {
   const { user } = useUnifiedAuth()
 
-  // Define button styles for reusability
-  const primaryButtonClasses = "inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40";
-  const secondaryButtonClasses = "inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40";
-
   return (
-    <section id="hero" className="py-12 md:py-20 lg:py-32 bg-gradient-to-br from-gray-100 via-stone-100 to-gray-200 dark:from-gray-900 dark:via-stone-900 dark:to-gray-800 relative overflow-hidden">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 items-center">
-          <div className="flex flex-col gap-4 sm:gap-6">
-            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400">
-              {user ? `Welcome back, ${user.email}` : "Your Ai Learning Companion"}
-            </h1>
-            <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-              {user 
-                ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
-                : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
-              }
+    <section id="hero" className="py-12 md:py-20 lg:py-32 bg-transparent">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
+        <div className="flex flex-col gap-6">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
+            {user ? `Welcome back, ${user.email}` : "Your Ai Learning Companion."}
+          </h1>
+          <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
+            {user 
+              ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
+              : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
+            }
+          </p>
+          {!user && (
+            <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
+              Revolutionizing the future of learning by using cutting edge Ai technology.
+              Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
             </p>
-            {!user && (
-              <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
-                Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
-              </p>
-            )}
-            <div className="flex flex-col sm:flex-row gap-3">
-              {user ? (
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            {user ? (
+              <Link 
+                href="/homepage" 
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40"
+              >
+                Continue Learning
+                <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+              </Link>
+            ) : (
+              <>
                 <Link 
-                  href="/homepage" 
-                  className={primaryButtonClasses}
+                  href="/register" 
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40 flex-1 sm:flex-none"
                 >
-                  Continue Learning
+                  Start Free Trial
                   <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
                 </Link>
-              ) : (
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link 
-                    href="/register" 
-                    className={`${primaryButtonClasses} flex-1 sm:flex-none`}
-                  >
-                    Start Free Trial
-                    <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
-                  </Link>
-                  <Link 
-                    href="/login" 
-                    className={`${secondaryButtonClasses} flex-1 sm:flex-none`}
-                  >
-                    Login
-                  </Link>
-                </div>
-              )}
-            </div>
-            {!user && (
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
-              </p>
+                <Link 
+                  href="/login" 
+                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40 flex-1 sm:flex-none"
+                >
+                  Login
+                </Link>
+              </>
             )}
-            <ul className="space-y-2 pt-2 sm:pt-4">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
           </div>
-          <div className="relative h-80 sm:h-96 md:h-[500px] lg:h-full max-h-96 lg:max-h-[600px] rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center border border-white/20 dark:border-white/10 bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-800/30 dark:to-stone-800/30">
-            <Image 
-              src="/first-section.jpg" 
-              alt="Lana AI hero" 
-              fill
-              className="object-cover"
-              priority
-            />
-          </div>
+          {!user && (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
+            </p>
+          )}
+          <ul className="space-y-2 pt-4">
+            {FEATURES.map((f) => (
+              <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+        <div className="relative h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl">
+          <Image 
+            src="/first-section.jpg" 
+            alt="Lana AI hero" 
+            fill
+            className="object-cover"
+            priority
+          />
         </div>
       </div>
     </section>
@@ -326,7 +322,7 @@ function FeaturesSection() {
     { title: "And more", desc: "Additional educational tools designed for modern learning experiences.", icon: MoreHorizontal },
   ]
   return (
-    <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-white to-gray-100 dark:from-background dark:to-gray-900/10">
+    <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Core Features</span>
@@ -339,11 +335,10 @@ function FeaturesSection() {
           {features.map((f, index) => (
             <div 
               key={f.title} 
-              className="rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl"
-            >
+              className="rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
               <f.icon className="text-primary h-6 w-6 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
               <h3 className="text-xl font-semibold mb-3 text-foreground leading-tight">{f.title}</h3>
-              <p className="text-muted-foreground text-base leading-relaxed">{f.desc}</p>
+              <p className="text-foreground/90 text-base leading-relaxed">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -365,20 +360,20 @@ function StructuredLessonsSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <BookOpen className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Approach</h3>
-            <p className="text-muted-foreground leading-relaxed">Lessons are carefully structured to build upon each other, ensuring solid understanding.</p>
+            <p className="text-foreground/90 leading-relaxed">Lessons are carefully structured to build upon each other, ensuring solid understanding.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <GraduationCap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progressive Learning</h3>
-            <p className="text-muted-foreground leading-relaxed">Each lesson builds on previous knowledge, creating a solid foundation for advanced topics.</p>
+            <p className="text-foreground/90 leading-relaxed">Each lesson builds on previous knowledge, creating a solid foundation for advanced topics.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Interactive Content</h3>
-            <p className="text-muted-foreground leading-relaxed">Engaging activities and quizzes reinforce learning at each step of the way.</p>
+            <p className="text-foreground/90 leading-relaxed">Engaging activities and quizzes reinforce learning at each step of the way.</p>
           </div>
         </div>
       </div>
@@ -427,8 +422,7 @@ function PricingSection() {
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}
-            >
+              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 text-foreground ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}>
               {"popular" in p && p.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                   Most Popular
@@ -440,11 +434,11 @@ function PricingSection() {
                   <span className="text-4xl font-extrabold">${p.price}</span>
                   <span className="text-muted-foreground">{periodLabel}</span>
                 </div>
-                <p className="text-muted-foreground leading-relaxed">{p.desc}</p>
+                <p className="text-foreground/90 leading-relaxed">{p.desc}</p>
               </div>
               <ul className="space-y-2 mb-6">
                 {p.feats.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm">
+                  <li key={f} className="flex items-center gap-2 text-sm text-foreground/90">
                     <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
                     <span>{f}</span>
                   </li>
@@ -470,7 +464,7 @@ function CtaSection() {
   const { user } = useUnifiedAuth()
 
   return (
-    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-gray-600 to-stone-700 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
+    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-gray-700 to-stone-800 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
       <div className="mx-auto max-w-4xl px-4 text-center">
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
           {user 
@@ -522,103 +516,6 @@ function CtaSection() {
   )
 }
 
-/* ---------- VIDEO PLAYER UTILITIES ---------- */
-function useOnScreen(ref: React.RefObject<HTMLElement>, rootMargin = "0px") {
-  const [isIntersecting, setIntersecting] = useState(false);
-  
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setIntersecting(entry.isIntersecting);
-      },
-      { rootMargin }
-    );
-    
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
-    
-    return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
-    };
-  }, [ref, rootMargin]);
-  
-  return isIntersecting;
-}
-
-/* ---------- SCROLL-TRIGGERED VIDEO COMPONENT ---------- */
-function ScrollTriggeredVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const divRef = useRef<HTMLDivElement>(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const isVisible = useOnScreen(divRef);
-  
-  useEffect(() => {
-    if (videoRef.current) {
-      if (isVisible) {
-        videoRef.current.play().catch(e => console.log("Auto-play prevented by browser policy", e));
-      } else {
-        videoRef.current.pause();
-      }
-    }
-  }, [isVisible]);
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      if (isMuted) {
-        videoRef.current.muted = false;
-        setIsMuted(false);
-      } else {
-        videoRef.current.muted = true;
-        setIsMuted(true);
-      }
-    }
-  };
-
-  return (
-    <div ref={divRef} className="relative w-80 h-96 sm:w-96 sm:h-[400px] lg:w-[500px] lg:h-[450px] xl:w-[600px] xl:h-[500px] rounded-3xl overflow-hidden shadow-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 flex items-center justify-center">
-      <video
-        ref={videoRef}
-        muted={isMuted}
-        loop
-        playsInline
-        preload="metadata"
-        onClick={toggleMute}
-        className="object-cover object-center w-full h-full rounded-3xl opacity-0 transition-opacity duration-500 ease-in-out cursor-pointer"
-        onLoadedData={(e) => {
-          // Fade in the video once loaded
-          const video = e.target as HTMLVideoElement;
-          video.classList.remove("opacity-0");
-          video.classList.add("opacity-100");
-        }}
-      >
-        <source src="/lana intro landing.mp4" type="video/mp4" />
-        Your browser does not support the video tag.
-      </video>
-      {/* Gradient overlay for visual effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/10 pointer-events-none rounded-3xl"></div>
-      {/* Mute/Unmute indicator */}
-      <div className="absolute bottom-4 right-4 bg-black/50 text-white rounded-full p-2 z-10 cursor-pointer" onClick={toggleMute}>
-        {isMuted ? (
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
-            <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
-          </svg>
-        ) : (
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
-            <path d="M23 9l-6 6" />
-            <path d="M17 9l6 6" />
-          </svg>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ---------- LANA SECTION ---------- */
 function LanaSection() {
   return (
@@ -626,7 +523,15 @@ function LanaSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 flex justify-center">
-            <ScrollTriggeredVideo />
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-200 to-stone-200 dark:from-gray-800/50 dark:to-stone-800/50">
+              <Image 
+                src="/Updated Avatar.png" 
+                alt="Lana AI - Your Personalized Learning Companion" 
+                fill
+                className="object-cover object-center p-2 rounded-2xl"
+                priority
+              />
+            </div>
           </div>
           <div className="lg:w-1/2 text-center lg:text-left">
             <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4 inline-block">AI-Powered Learning</span>
@@ -655,25 +560,25 @@ function EducationalApproachSection() {
         </div>
         <div className="flex flex-col lg:flex-row items-center gap-8 max-w-6xl mx-auto">
           <div className="lg:w-1/2">
-            <div className="bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <Bot className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">AI-Powered Adaptation</h3>
-                  <p className="text-muted-foreground leading-relaxed">The system adapts to each learner's pace and style, providing personalized content and challenges.</p>
+                  <p className="text-foreground/90 leading-relaxed">The system adapts to each learner's pace and style, providing personalized content and challenges.</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl mt-6">
+            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl mt-6">
               <div className="flex items-start gap-4">
                 <div className="bg-primary/10 p-3 rounded-lg">
                   <BarChart3 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
                 </div>
                 <div>
                   <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progress Tracking</h3>
-                  <p className="text-muted-foreground leading-relaxed">Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.</p>
+                  <p className="text-foreground/90 leading-relaxed">Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.</p>
                 </div>
               </div>
             </div>
@@ -709,20 +614,20 @@ function TermPlansSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Calendar className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Long-term Planning</h3>
-            <p className="text-muted-foreground leading-relaxed">Comprehensive curriculum plans spanning weeks and months to ensure steady progress.</p>
+            <p className="text-foreground/90 leading-relaxed">Comprehensive curriculum plans spanning weeks and months to ensure steady progress.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Zap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Milestone Tracking</h3>
-            <p className="text-muted-foreground leading-relaxed">Clear checkpoints to measure achievement and adjust learning paths as needed.</p>
+            <p className="text-foreground/90 leading-relaxed">Clear checkpoints to measure achievement and adjust learning paths as needed.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Flexible Adjustments</h3>
-            <p className="text-muted-foreground leading-relaxed">Adapt curriculum plans based on individual learning pace and evolving needs.</p>
+            <p className="text-foreground/90 leading-relaxed">Adapt curriculum plans based on individual learning pace and evolving needs.</p>
           </div>
         </div>
       </div>
@@ -743,25 +648,25 @@ function MathTutorSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div className="bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Calculator className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Solutions</h3>
-                <p className="text-muted-foreground leading-relaxed">Understand how to solve problems with detailed explanations for each step.</p>
+                <p className="text-foreground/90 leading-relaxed">Understand how to solve problems with detailed explanations for each step.</p>
               </div>
             </div>
           </div>
-          <div className="bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="flex items-start gap-4">
               <div className="bg-primary/10 p-3 rounded-lg">
                 <Zap className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Visual Problem Solving</h3>
-                <p className="text-muted-foreground leading-relaxed">See diagrams and visual aids that clarify complex mathematical concepts.</p>
+                <p className="text-foreground/90 leading-relaxed">See diagrams and visual aids that clarify complex mathematical concepts.</p>
               </div>
             </div>
           </div>
@@ -784,20 +689,100 @@ function QuickExplainerSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
             <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Concept Simplification</h3>
-            <p className="text-muted-foreground leading-relaxed">Complex topics broken down into simple, digestible explanations.</p>
+            <p className="text-foreground/90 leading-relaxed">Complex topics broken down into simple, digestible explanations.</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
-            <Zap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Immediate Help</h3>
-            <p className="text-muted-foreground leading-relaxed">Get answers to your questions without waiting for office hours.</p>
-          </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
-            <Bot className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">24/7 Availability</h3>
-            <p className="text-muted-foreground leading-relaxed">Help is available whenever you need it, day or night.</p>
+          <div className="col-span-2 flex justify-center items-center p-0 rounded-xl bg-transparent shadow-none border-0 transition-all duration-300 text-foreground">
+            <div className="w-full max-w-lg p-0 relative">
+              <div className="relative rounded-lg overflow-hidden border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-[inset_0_0_20px_rgba(0,0,0,0.1)]">
+                <video 
+                  src="/lana intro landing.mp4" 
+                  controls={false}
+                  muted={true}
+                  className="w-full h-auto object-cover video-element"
+                  ref={(el) => {
+                    if (el) {
+                      el.volume = 0.7; // Set default volume to 70%
+                      // Update volume icon based on muted state
+                      const updateVolumeIcon = () => {
+                        const container = el.closest('.relative');
+                        if (container) {
+                          if (el.muted) {
+                            container.classList.add('video-muted');
+                            container.classList.remove('video-unmuted');
+                            // Hide unmuted icon, show muted icon
+                            const unmutedIcon = container.querySelector('.volume-unmuted');
+                            const mutedIcon = container.querySelector('.volume-muted');
+                            if (unmutedIcon) unmutedIcon.classList.add('hidden');
+                            if (mutedIcon) mutedIcon.classList.remove('hidden');
+                          } else {
+                            container.classList.add('video-unmuted');
+                            container.classList.remove('video-muted');
+                            // Show unmuted icon, hide muted icon
+                            const unmutedIcon = container.querySelector('.volume-unmuted');
+                            const mutedIcon = container.querySelector('.volume-muted');
+                            if (unmutedIcon) unmutedIcon.classList.remove('hidden');
+                            if (mutedIcon) mutedIcon.classList.add('hidden');
+                          }
+                        }
+                      };
+                                      
+                      // Initial state setup
+                      setTimeout(() => {
+                        const container = el.closest('.relative');
+                        if (container) {
+                          const unmutedIcon = container.querySelector('.volume-unmuted');
+                          const mutedIcon = container.querySelector('.volume-muted');
+                          // Initially show muted icon since video starts muted
+                          if (unmutedIcon) unmutedIcon.classList.add('hidden');
+                          if (mutedIcon) mutedIcon.classList.remove('hidden');
+                        }
+                      }, 0);
+                                      
+                      // Update when muted state changes
+                      el.addEventListener('volumechange', updateVolumeIcon);
+                    }
+                  }}
+                  onClick={(e) => {
+                    const video = e.currentTarget;
+                    if (video.paused) {
+                      video.play().then(() => {
+                        video.muted = false;
+                      }).catch(e => console.log("Autoplay prevented: ", e));
+                    } else {
+                      if (!video.muted) {
+                        video.muted = true;
+                      } else {
+                        video.muted = false;
+                      }
+                    }
+                  }}
+                  loop
+                  playsInline
+                />
+                <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-r from-stone-900/10 via-transparent to-stone-900/10"></div>
+                <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-b from-stone-900/10 via-transparent to-stone-900/10"></div>
+
+                <div className="absolute top-3 right-3 flex items-center gap-2">
+                  <div className="bg-black/50 backdrop-blur-sm rounded-full p-2">
+                    <div className="volume-container relative w-4 h-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-2 h-4 w-4 absolute top-0 left-0 volume-unmuted">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+                      </svg>
+                      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-x h-4 w-4 absolute top-0 left-0 volume-muted">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                        <line x1="23" y1="9" x2="17" y2="15"/>
+                        <line x1="17" y1="9" x2="23" y2="15"/>
+                      </svg>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -818,25 +803,25 @@ function MoreFeaturesSection() {
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <GraduationCap className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">Progress Reports</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">Performance Analytics</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <Bot className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
             <h3 className="font-semibold text-foreground leading-tight">AI Guidance</h3>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-50 to-stone-50 dark:from-gray-900/30 dark:to-stone-900/30 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl">
+          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
             <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <MoreHorizontal className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
             </div>
@@ -976,7 +961,7 @@ export default function Home() {
   if (!mounted) { return null }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-50 via-stone-50 to-gray-100 dark:from-gray-900/20 dark:via-stone-900/20 dark:to-gray-900/20 text-foreground font-sans">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-100 via-stone-200 to-gray-300 dark:from-gray-800/30 dark:via-stone-800/30 dark:to-gray-800/30 text-foreground font-sans">
       {/* Skip to main content link for accessibility */}
       <a 
         href="#main-content" 
