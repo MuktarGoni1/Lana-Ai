@@ -86,7 +86,7 @@ function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          <span className="text-xl font-bold text-foreground">Lana AI</span>
+          <span className="text-xl font-bold text-foreground">LanaMind</span>
 
           {/* desktop */}
           <nav className="hidden md:flex items-center gap-6">

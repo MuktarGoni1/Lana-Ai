@@ -57,7 +57,15 @@ export async function middleware(req: NextRequest) {
       '/demo',
       '/api',
       '/features',
-      '/pricing'
+      '/pricing',
+      '/about',
+      '/blog',
+      '/careers',
+      '/contact',
+      '/privacy-policy',
+      '/terms-of-service',
+      '/security-policy',
+      '/cookie-policy'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -159,10 +167,17 @@ export async function middleware(req: NextRequest) {
     }
     
     // If there's an authentication error and we're not accessing a public path, redirect to landing page
-    if (error && !isPublic) {
+    // Prevent infinite redirect loops by checking if we're already on the landing page
+    if (error && !isPublic && pathname !== '/landing-page') {
       console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
       const dest = new URL('/landing-page', req.url);
       return NextResponse.redirect(dest);
+    }
+    
+    // If there's an authentication error and we're already on the landing page, allow access to prevent loop
+    if (error && !isPublic && pathname === '/landing-page') {
+      console.log('[Middleware] Authentication error but on landing page, allowing access to prevent redirect loop');
+      return res;
     }
 
     // If the user is not authenticated and trying to access a protected route, redirect to login
@@ -285,6 +300,7 @@ export async function middleware(req: NextRequest) {
     return res
   } catch (error) {
     // On any middleware error, redirect to landing page
+    // Prevent infinite redirect loops by checking if we're already on the landing page
     console.error('[middleware] error:', error)
     // Add error tracking
     try {
@@ -308,7 +324,13 @@ export async function middleware(req: NextRequest) {
       console.error('[middleware] failed to log error details:', logError);
     }
     
-    // Redirect to landing page as fallback
+    // Redirect to landing page as fallback, but prevent infinite loops
+    const currentPath = req.nextUrl.pathname;
+    if (currentPath === '/landing-page') {
+      console.log('[Middleware] Already on landing page, returning next to prevent redirect loop');
+      return NextResponse.next();
+    }
+    
     try {
       return NextResponse.redirect(new URL('/landing-page', req.url))
     } catch (redirectError) {

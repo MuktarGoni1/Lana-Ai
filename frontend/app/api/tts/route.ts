@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
+import serverRateLimiter from '@/lib/server-rate-limiter';
 
 export async function POST(req: Request) {
   try {
+    // Check server-side rate limiting (primary defense)
+    const endpoint = '/api/tts';
+    const serverRateLimitCheck = await serverRateLimiter.isAllowedSimple(endpoint, req.headers.get('x-forwarded-for') || 'unknown');
+    if (!serverRateLimitCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          message: `Too many requests. Please try again in ${serverRateLimitCheck.retryAfter} seconds.`,
+          retryAfter: serverRateLimitCheck.retryAfter
+        }, 
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': serverRateLimitCheck.retryAfter?.toString() || '60'
+          }
+        }
+      );
+    }
+    
     const body = await req.json();
     const { text } = body;
 

@@ -226,9 +226,9 @@ export default function OnboardingPage() {
             title: "Offline Mode",
             description: result.message,
           })
-          // Still redirect to term-plan to continue onboarding
-          console.log('[Onboarding] Redirecting to term-plan in offline mode');
-          navigateToNextStep(router, 'onboarding', null);
+          // Show diagnostic quiz even in offline mode
+          console.log('[Onboarding] Showing diagnostic quiz in offline mode');
+          setShowDiagnosticQuiz(true);
           return;
         }
         
@@ -261,9 +261,9 @@ export default function OnboardingPage() {
           description: "Child data has been saved locally and will be synced when connection is restored.",
         })
         
-        // Still redirect to term-plan to continue onboarding
-        console.log('[Onboarding] Redirecting to term-plan despite local save');
-        navigateToNextStep(router, 'onboarding', user || null);
+        // Show diagnostic quiz even after local save
+        console.log('[Onboarding] Showing diagnostic quiz after local save');
+        setShowDiagnosticQuiz(true);
       }
     } catch (err: unknown) {
       console.error('[Onboarding] Unexpected error:', err);

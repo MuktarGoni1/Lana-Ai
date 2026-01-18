@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Briefcase, MapPin, Clock, Users, Award, Globe } from "lucide-react"
+import { Mail, Phone, MapPin, Clock, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -192,205 +192,130 @@ function Header() {
   )
 }
 
-/* ---------- CAREERS CONTENT ---------- */
-function CareersContent() {
+/* ---------- CONTACT CONTENT ---------- */
+function ContactContent() {
   return (
     <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Join Our Team</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">Be part of revolutionizing education through innovative technology and personalized learning experiences.</p>
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Get in Touch</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">
+            Have questions about Lana AI? We'd love to hear from you. Reach out to our team for support, partnerships, or general inquiries.
+          </p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-lg border p-5 shadow-sm">
-              <h2 className="text-xl md:text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Why Work With Us?
-              </h2>
-              <p className="text-muted-foreground mb-5">
-                At Lana AI, we're building the future of education. We bring together passionate educators, 
-                innovative technologists, and creative designers to create transformative learning experiences 
-                for children worldwide. Join us in our mission to make personalized education accessible to all.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Users className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Collaborative Culture</h3>
-                    <p className="text-sm text-muted-foreground">Work with diverse, talented individuals who share your passion for education.</p>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Contact Information */}
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-5 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Contact Information
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Mail className="h-5 w-5 text-primary" />
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Award className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Meaningful Impact</h3>
-                    <p className="text-sm text-muted-foreground">Directly contribute to improving children's learning outcomes globally.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Globe className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Global Reach</h3>
-                    <p className="text-sm text-muted-foreground">Our platform serves learners in multiple countries and languages.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Briefcase className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Growth Opportunities</h3>
-                    <p className="text-sm text-muted-foreground">Continuous learning and advancement in a fast-growing field.</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">General Inquiries</h3>
+                  <p className="text-muted-foreground text-sm">contact@lanamind.com</p>
                 </div>
               </div>
               
-              <h3 className="text-lg md:text-xl font-bold mb-3 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Current Openings
-              </h3>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Phone className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Phone</h3>
+                  <p className="text-muted-foreground text-sm">+1 (555) 123-4567</p>
+                </div>
+              </div>
               
-              <div className="space-y-3">
-                {/* Job Opening 1 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Senior AI Engineer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Develop and implement advanced machine learning algorithms for personalized learning.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>3+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-primary" />
                 </div>
-                
-                {/* Job Opening 2 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Educational Content Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Create engaging, age-appropriate educational content for our platform.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Lagos, Nigeria</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>2+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Office</h3>
+                  <p className="text-muted-foreground text-sm">
+                    123 Education Street<br />
+                    San Francisco, CA 94107<br />
+                    United States
+                  </p>
                 </div>
-                
-                {/* Job Opening 3 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">UX/UI Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Design intuitive interfaces for both children and adult users.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>4+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Business Hours</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Monday - Friday: 9:00 AM - 6:00 PM<br />
+                    Saturday: 10:00 AM - 2:00 PM<br />
+                    Sunday: Closed
+                  </p>
                 </div>
               </div>
             </div>
           </div>
           
-          <div>
-            <div className="bg-card rounded-lg border p-5 shadow-sm sticky top-24">
-              <h3 className="font-bold text-base md:text-lg text-foreground mb-3 flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Benefits & Perks
-              </h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Competitive salary and equity packages</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Comprehensive health, dental, and vision insurance</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Flexible working arrangements</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Professional development budget</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Unlimited PTO policy</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Learning and conference allowances</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Childcare support and family-friendly policies</span>
-                </li>
-              </ul>
-              
-              <div className="mt-4 pt-4 border-t border-border">
-                <h4 className="font-medium text-foreground mb-2">Culture & Values</h4>
-                <p className="text-muted-foreground text-sm">
-                  We foster an environment of continuous learning, collaboration, and innovation. 
-                  Our values of empathy, excellence, and impact guide everything we do.
-                </p>
+          {/* Contact Form */}
+          <div className="bg-card rounded-lg p-5 md:p-6 shadow-sm border">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-5 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Send us a Message
+            </h2>
+            <form className="space-y-3">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1.5">Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="Your name"
+                />
               </div>
-            </div>
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="your.email@example.com"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-1.5">Subject</label>
+                <input
+                  type="text"
+                  id="subject"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="How can we help you?"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">Message</label>
+                <textarea
+                  id="message"
+                  rows={5}
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+                  placeholder="Your message here..."
+                ></textarea>
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-10"
+              >
+                Send Message
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -398,7 +323,6 @@ function CareersContent() {
   )
 }
 
-/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -406,6 +330,7 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
+/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -487,7 +412,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function CareersPage() {
+export default function ContactPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -505,7 +430,7 @@ export default function CareersPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <CareersContent />
+        <ContactContent />
       </main>
       <Footer />
     </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Briefcase, MapPin, Clock, Users, Award, Globe } from "lucide-react"
+import { Users, GraduationCap, Lightbulb, Bot, BarChart3, Globe, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -192,204 +192,132 @@ function Header() {
   )
 }
 
-/* ---------- CAREERS CONTENT ---------- */
-function CareersContent() {
+/* ---------- ABOUT CONTENT ---------- */
+function AboutContent() {
   return (
     <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Join Our Team</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">Be part of revolutionizing education through innovative technology and personalized learning experiences.</p>
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">About Lana AI</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+            Revolutionizing education through artificial intelligence. We're on a mission to make personalized learning accessible to every child and family worldwide.
+          </p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-lg border p-5 shadow-sm">
-              <h2 className="text-xl md:text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Why Work With Us?
-              </h2>
-              <p className="text-muted-foreground mb-5">
-                At Lana AI, we're building the future of education. We bring together passionate educators, 
-                innovative technologists, and creative designers to create transformative learning experiences 
-                for children worldwide. Join us in our mission to make personalized education accessible to all.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Users className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Collaborative Culture</h3>
-                    <p className="text-sm text-muted-foreground">Work with diverse, talented individuals who share your passion for education.</p>
-                  </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div className="space-y-4">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Our Story
+            </h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Founded in 2023, Lana AI began with a simple vision: to bridge the gap between traditional education and the digital age. We recognized that every child learns differently and at their own pace, yet traditional classroom settings often struggle to accommodate these individual differences.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Our team of educators, technologists, and parents came together to create an AI-powered learning companion that adapts to each child's unique learning style, keeping parents connected to their child's educational journey every step of the way.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Today, thousands of families trust Lana AI to help their children learn, grow, and succeed in an increasingly complex world.
+            </p>
+          </div>
+          <div className="bg-card rounded-lg p-6 shadow-sm border">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Our Mission
+            </h2>
+            <p className="text-muted-foreground mb-5 leading-relaxed">
+              To empower every child with personalized AI tutoring that adapts to their unique learning style, while keeping parents connected to their child's progress and educational journey.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <GraduationCap className="h-5 w-5 text-primary" />
                 </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Award className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Meaningful Impact</h3>
-                    <p className="text-sm text-muted-foreground">Directly contribute to improving children's learning outcomes globally.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Globe className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Global Reach</h3>
-                    <p className="text-sm text-muted-foreground">Our platform serves learners in multiple countries and languages.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Briefcase className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Growth Opportunities</h3>
-                    <p className="text-sm text-muted-foreground">Continuous learning and advancement in a fast-growing field.</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Personalized Learning</h3>
+                  <p className="text-muted-foreground text-sm">Tailored education for each child's unique needs</p>
                 </div>
               </div>
-              
-              <h3 className="text-lg md:text-xl font-bold mb-3 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Current Openings
-              </h3>
-              
-              <div className="space-y-3">
-                {/* Job Opening 1 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Senior AI Engineer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Develop and implement advanced machine learning algorithms for personalized learning.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>3+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <Globe className="h-5 w-5 text-primary" />
                 </div>
-                
-                {/* Job Opening 2 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Educational Content Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Create engaging, age-appropriate educational content for our platform.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Lagos, Nigeria</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>2+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+                <div>
+                  <h3 className="font-semibold text-foreground">Global Access</h3>
+                  <p className="text-muted-foreground text-sm">Making quality education accessible worldwide</p>
                 </div>
-                
-                {/* Job Opening 3 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">UX/UI Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Design intuitive interfaces for both children and adult users.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>4+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Family Connection</h3>
+                  <p className="text-muted-foreground text-sm">Keeping parents engaged in their child's learning</p>
                 </div>
               </div>
             </div>
           </div>
-          
-          <div>
-            <div className="bg-card rounded-lg border p-5 shadow-sm sticky top-24">
-              <h3 className="font-bold text-base md:text-lg text-foreground mb-3 flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Benefits & Perks
-              </h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Competitive salary and equity packages</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Comprehensive health, dental, and vision insurance</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Flexible working arrangements</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Professional development budget</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Unlimited PTO policy</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Learning and conference allowances</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Childcare support and family-friendly policies</span>
-                </li>
-              </ul>
-              
-              <div className="mt-4 pt-4 border-t border-border">
-                <h4 className="font-medium text-foreground mb-2">Culture & Values</h4>
-                <p className="text-muted-foreground text-sm">
-                  We foster an environment of continuous learning, collaboration, and innovation. 
-                  Our values of empathy, excellence, and impact guide everything we do.
-                </p>
+        </div>
+        
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-foreground text-center mb-8 md:mb-12 flex items-center justify-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+            How We Transform Learning
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <Bot className="h-6 w-6 text-primary" />
               </div>
+              <h3 className="font-semibold text-foreground mb-2">AI-Powered Tutoring</h3>
+              <p className="text-muted-foreground text-sm">
+                Advanced AI that explains concepts in ways that make sense to each individual child
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Progress Tracking</h3>
+              <p className="text-muted-foreground text-sm">
+                Detailed insights that help parents and educators monitor growth and identify areas for improvement
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <Lightbulb className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Adaptive Learning</h3>
+              <p className="text-muted-foreground text-sm">
+                Content that adjusts to each child's pace and learning style for optimal comprehension
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 md:p-8">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-3 flex items-center justify-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Join Our Community
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Become part of a growing community of families who are transforming education through technology. Together, we're shaping the future of learning.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link 
+                href="/register" 
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-10"
+              >
+                Get Started
+              </Link>
+              <Link 
+                href="/contact" 
+                className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-5 py-2.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-10"
+              >
+                Contact Us
+              </Link>
             </div>
           </div>
         </div>
@@ -398,7 +326,6 @@ function CareersContent() {
   )
 }
 
-/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -406,6 +333,7 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
+/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -487,7 +415,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function CareersPage() {
+export default function AboutPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -505,7 +433,7 @@ export default function CareersPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <CareersContent />
+        <AboutContent />
       </main>
       <Footer />
     </div>

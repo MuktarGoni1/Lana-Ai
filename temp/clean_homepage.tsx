@@ -1,4 +1,4 @@
-// Lana AI - Main Homepage Component
+﻿// Lana AI - Main Homepage Component
 // This file serves as the primary entry point for the Lana AI application
 // Contains the complete chat interface with all core functionality
 
@@ -84,7 +84,7 @@ export default function HomePage() {
         try {
           // Try to refresh the session to check if it's still valid
           const { data: { session }, error } = await supabase.auth.getSession();
-
+          
           if (error || !session) {
             // Session has expired or there was an error
             toast({

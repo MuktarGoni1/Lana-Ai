@@ -13,7 +13,7 @@ type Question = {
   q: string; 
   options: string[];
   answer: string;
-  explanation?: string; // supplied by backend
+  explanation?: string;
 };
 
 /* ---------------- helpers ---------------- */
@@ -174,43 +174,43 @@ function QuizContent() {
   /* ---------- empty guard ---------- */
   if (loading)
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden">
+      <div className="min-h-screen bg-[#1a1a1a] text-gray-100 flex items-center justify-center relative overflow-hidden">
         <AnimatedBackground />
         <div className="relative z-10 text-center space-y-4">
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full mx-auto"
+            className="w-12 h-12 border-4 border-gray-700 border-t-blue-500 rounded-full mx-auto"
           />
-          <p className="text-white/80">Preparing your quiz...</p>
+          <p className="text-gray-300">Preparing your quiz...</p>
         </div>
       </div>
     );
 
-  if (!quiz.length)
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden px-6">
-        <AnimatedBackground />
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 text-center space-y-6 max-w-md w-full"
-        >
-          <div className="p-4 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10">
-            <BookOpen className="w-12 h-12 text-white/40 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No Quiz Available</h2>
-            <p className="text-white/70 mb-6">This lesson doesn't include quiz questions or there was an issue loading them.</p>
-            <button
-              onClick={() => router.back()}
-              className="px-6 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all flex items-center gap-2 mx-auto"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Lesson
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    );
+if (!quiz.length)
+  return (
+    <div className="min-h-screen bg-[#1a1a1a] text-gray-100 flex items-center justify-center relative overflow-hidden px-6">
+      <AnimatedBackground />
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative z-10 text-center space-y-6 max-w-md w-full"
+      >
+        <div className="p-4 bg-gray-800/20 backdrop-blur-xl rounded-2xl border border-gray-700">
+          <BookOpen className="w-12 h-12 text-gray-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Quiz Available</h2>
+          <p className="text-gray-400 mb-6">This lesson doesn't include quiz questions or there was an issue loading them.</p>
+          <button
+            onClick={() => router.back()}
+            className="px-6 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-all flex items-center gap-2 mx-auto"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Lesson
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
 
   /* ---------- handlers ---------- */
   const choose = (opt: string) => {
@@ -227,9 +227,9 @@ function QuizContent() {
 
   /* ---------- components ---------- */
   const ProgressBar = () => (
-    <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/10">
+    <div className="w-full h-2 bg-gray-800/30 rounded-full overflow-hidden border border-gray-700">
       <motion.div
-        className="h-full bg-gradient-to-r from-blue-400 via-purple-500 to-pink-500"
+        className="h-full bg-gradient-to-r from-green-500 to-blue-500"
         initial={{ width: 0 }}
         animate={{ width: `${percentage(idx + 1, quiz.length)}%` }}
         transition={{ type: "spring", stiffness: 120 }}
@@ -257,7 +257,7 @@ function QuizContent() {
             cx="50%"
             cy="50%"
             r="50"
-            stroke="rgba(255,255,255,.05)"
+            stroke="rgba(55,65,81,.2)" // gray-700/20
             strokeWidth="12"
             fill="transparent"
           />
@@ -281,8 +281,8 @@ function QuizContent() {
           </defs>
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-4xl font-bold">{pct}%</div>
-          <div className="text-sm text-white/70 mt-1">Accuracy</div>
+          <div className="text-4xl font-bold text-white">{pct}%</div>
+          <div className="text-sm text-gray-400 mt-1">Accuracy</div>
         </div>
       </div>
     );
@@ -291,7 +291,7 @@ function QuizContent() {
   /* ---------- finished screen ---------- */
   if (submitted)
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6 relative overflow-hidden">
+      <div className="min-h-screen bg-[#1a1a1a] text-gray-100 flex items-center justify-center px-6 relative overflow-hidden">
         <AnimatedBackground />
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -305,20 +305,20 @@ function QuizContent() {
             className="flex items-center justify-center gap-4 mb-4"
           >
             <Trophy className="w-8 h-8 text-yellow-400" />
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
               Quiz Complete!
             </h1>
             <Trophy className="w-8 h-8 text-yellow-400 transform scale-x-[-1]" />
           </motion.div>
-          
+        
           <ScoreCircle value={score} total={quiz.length} />
-          
-          <div className="flex flex-wrap justify-center gap-4 text-sm text-white/80 mb-6">
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10">
+        
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-gray-300 mb-6">
+            <div className="flex items-center gap-2 bg-gray-800/20 px-4 py-2 rounded-lg border border-gray-700">
               <Clock className="w-4 h-4" />
               Time: {formatTime(timeElapsed)}
             </div>
-            <div className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 bg-gray-800/20 px-4 py-2 rounded-lg border border-gray-700">
               <BookOpen className="w-4 h-4" />
               {quiz.length} Questions
             </div>
@@ -329,7 +329,7 @@ function QuizContent() {
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            <h2 className="text-2xl font-bold mb-2">
+            <h2 className="text-2xl font-bold mb-2 text-white">
               {score === quiz.length
                 ? "🌟 Perfect Score!"
                 : score >= Math.ceil(quiz.length * 0.8)
@@ -338,7 +338,7 @@ function QuizContent() {
                 ? "👍 Good Job!"
                 : "📚 Keep Practicing!"}
             </h2>
-            <p className="text-white/70">
+            <p className="text-gray-400">
               You answered {score} out of {quiz.length} questions correctly.
             </p>
           </motion.div>
@@ -363,13 +363,13 @@ function QuizContent() {
                   className={cn(
                     "p-5 rounded-2xl border backdrop-blur-sm",
                     wrong 
-                      ? "border-red-500/20 bg-red-500/5 shadow-lg shadow-red-500/5" 
-                      : "border-green-500/20 bg-green-500/5 shadow-lg shadow-green-500/5"
+                      ? "border-red-500/20 bg-red-900/10 shadow-lg shadow-red-500/5" 
+                      : "border-green-500/20 bg-green-900/10 shadow-lg shadow-green-500/5"
                   )}
                 >
                   <div className="flex items-start justify-between mb-3">
-                    <p className={cn("font-medium flex-1 pr-4", wrong && "text-red-300")}>
-                      <span className="text-white/60 mr-2">{i + 1}.</span>
+                    <p className={cn("font-medium flex-1 pr-4 text-white", wrong && "text-red-300")}>
+                      <span className="text-gray-400 mr-2">{i + 1}.</span>
                       {q.q}
                     </p>
                     <div className="flex-shrink-0">
@@ -394,12 +394,12 @@ function QuizContent() {
                         animate={{ opacity: 1 }}
                         transition={{ delay: 0.1 * optIdx }}
                         className={cn(
-                          "px-4 py-3 rounded-xl border text-sm flex items-center justify-between transition-all",
+                          "px-4 py-3 rounded-xl border text-sm flex items-center justify-between transition-all text-gray-200",
                           opt === correct
-                            ? "border-green-500/40 bg-green-500/15 shadow-inner"
+                            ? "border-green-500/40 bg-green-900/20 shadow-inner"
                             : opt === user
-                            ? "border-red-500/40 bg-red-500/15 shadow-inner"
-                            : "border-white/10 bg-white/5 hover:border-white/20"
+                            ? "border-red-500/40 bg-red-900/20 shadow-inner"
+                            : "border-gray-700 bg-gray-800/20 hover:border-gray-500"
                         )}
                       >
                         <span>{opt}</span>
@@ -426,13 +426,13 @@ function QuizContent() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-4 p-3 bg-blue-500/5 rounded-xl border border-blue-500/20"
+                        className="mt-4 p-3 bg-blue-900/20 rounded-xl border border-blue-500/20"
                       >
                         <div className="flex items-start gap-2">
                           <Sparkles className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" />
                           <div>
                             <p className="text-sm text-blue-200 font-medium mb-1">Explanation:</p>
-                            <p className="text-white/80 text-sm">{q.explanation}</p>
+                            <p className="text-gray-300 text-sm">{q.explanation}</p>
                           </div>
                         </div>
                       </motion.div>
@@ -459,7 +459,7 @@ function QuizContent() {
                 startTimeRef.current = Date.now();
                 setTimeElapsed(0);
               }}
-              className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 flex items-center gap-2 backdrop-blur-sm transition-all"
+              className="px-5 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 border border-gray-700 flex items-center gap-2 backdrop-blur-sm transition-all text-white"
             >
               <RotateCcw className="w-4 h-4" /> Try Again
             </motion.button>
@@ -467,7 +467,7 @@ function QuizContent() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.push("/homepage")}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2"
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-green-500 to-blue-500 text-white font-medium hover:shadow-lg hover:shadow-green-500/25 transition-all flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" /> More Questions
             </motion.button>
@@ -475,7 +475,7 @@ function QuizContent() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.back()}
-              className="px-5 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all flex items-center gap-2"
+              className="px-5 py-3 rounded-xl bg-blue-500 text-white font-medium hover:bg-blue-600 transition-all flex items-center gap-2"
             >
               <BookOpen className="w-4 h-4" /> Back to Lesson
             </motion.button>
@@ -490,7 +490,7 @@ function QuizContent() {
   const isLast = idx === quiz.length - 1;
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
+    <div className="min-h-screen bg-[#1a1a1a] text-gray-100 relative overflow-hidden">
       <AnimatedBackground />
       <div className="max-w-3xl mx-auto px-6 py-8 relative z-10">
         {/* top bar with enhanced styling */}
@@ -503,16 +503,16 @@ function QuizContent() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-sm bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl border border-white/20 backdrop-blur-sm transition-all"
+            className="flex items-center gap-2 text-sm bg-gray-800/30 hover:bg-gray-700/40 px-4 py-2 rounded-xl border border-gray-700 backdrop-blur-sm transition-all text-white"
           >
             <ArrowLeft className="w-4 h-4" /> Back to Lesson
           </motion.button>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 text-sm bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+            <div className="flex items-center gap-2 text-sm bg-gray-800/20 px-3 py-1.5 rounded-lg border border-gray-700 text-gray-300">
               <Clock className="w-4 h-4 text-blue-400" />
               <span className="font-mono">{formatTime(timeElapsed)}</span>
             </div>
-            <span className="text-sm text-white/70 bg-white/5 px-3 py-1.5 rounded-lg border border-white/10">
+            <span className="text-sm text-gray-400 bg-gray-800/20 px-3 py-1.5 rounded-lg border border-gray-700">
               {idx + 1} / {quiz.length}
             </span>
           </div>
@@ -526,14 +526,14 @@ function QuizContent() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="mt-8 mb-8 p-6 bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl"
+          className="mt-8 mb-8 p-6 bg-gray-800/20 backdrop-blur-xl rounded-2xl border border-gray-700 shadow-2xl"
         >
           <div className="flex items-start gap-3 mb-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-blue-500 flex items-center justify-center">
               <span className="text-white text-sm font-bold">{idx + 1}</span>
             </div>
             <motion.h2 
-              className="text-xl font-semibold flex-1"
+              className="text-xl font-semibold flex-1 text-white"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -557,21 +557,21 @@ function QuizContent() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 className={cn(
-                  "w-full text-left px-5 py-4 rounded-xl border transition-all duration-200 flex items-center gap-3",
+                  "w-full text-left px-5 py-4 rounded-xl border transition-all duration-200 flex items-center gap-3 text-gray-200",
                   chosen
                     ? "border-white bg-white/15 shadow-lg shadow-white/10"
-                    : "border-white/20 hover:border-white/40 hover:bg-white/5 backdrop-blur-sm"
+                    : "border-gray-700 hover:border-gray-500 hover:bg-gray-800/30 backdrop-blur-sm"
                 )}
               >
                 <div className={cn(
-                  "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all",
+                  "w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all text-gray-800",
                   chosen 
-                    ? "bg-white text-black" 
-                    : "bg-white/10 border border-white/20"
+                    ? "bg-white text-gray-800" 
+                    : "bg-gray-700 border border-gray-600 text-gray-300"
                 )}>
                   {String.fromCharCode(65 + optIdx)}
                 </div>
-                <span className="text-left flex-1">{opt}</span>
+                <span className="text-left flex-1 text-white">{opt}</span>
                 {chosen && (
                   <motion.div
                     initial={{ scale: 0 }}
@@ -599,7 +599,7 @@ function QuizContent() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setIdx((i) => i - 1)}
-                className="px-5 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-sm flex items-center gap-2 transition-all"
+                className="px-5 py-3 rounded-xl bg-gray-800/30 hover:bg-gray-700/40 border border-gray-700 backdrop-blur-sm flex items-center gap-2 transition-all text-white"
               >
                 <ArrowLeft className="w-4 h-4" /> Previous
               </motion.button>
@@ -611,7 +611,7 @@ function QuizContent() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => router.push("/homepage")}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium hover:shadow-lg hover:shadow-blue-500/25 transition-all flex items-center gap-2"
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-green-500 to-blue-500 text-white font-medium hover:shadow-lg hover:shadow-green-500/25 transition-all flex items-center gap-2"
             >
               <Sparkles className="w-4 h-4" /> More Questions
             </motion.button>
@@ -626,7 +626,7 @@ function QuizContent() {
                     "px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all",
                     answers[idx]
                       ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-lg hover:shadow-green-500/25"
-                      : "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
+                      : "bg-gray-800/30 text-gray-500 cursor-not-allowed border border-gray-700"
                   )}
                 >
                   <Trophy className="w-4 h-4" /> Submit Quiz
@@ -640,8 +640,8 @@ function QuizContent() {
                   className={cn(
                     "px-6 py-3 rounded-xl text-sm font-medium flex items-center gap-2 transition-all",
                     answers[idx]
-                      ? "bg-white text-black hover:bg-white/90 shadow-lg"
-                      : "bg-white/5 text-white/30 cursor-not-allowed border border-white/10"
+                      ? "bg-blue-500 text-white hover:bg-blue-600 shadow-lg"
+                      : "bg-gray-800/30 text-gray-500 cursor-not-allowed border border-gray-700"
                   )}
                 >
                   Next <ArrowLeft className="w-4 h-4 transform rotate-180" />
@@ -658,7 +658,7 @@ function QuizContent() {
 export default function QuizPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden">
+      <div className="min-h-screen bg-[#1a1a1a] text-gray-100 flex items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[128px] animate-pulse" />
           <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-[128px] animate-pulse delay-700" />
@@ -667,9 +667,9 @@ export default function QuizPage() {
           <motion.div
             animate={{ rotate: 360 }}
             transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full mx-auto"
+            className="w-12 h-12 border-4 border-gray-700 border-t-blue-500 rounded-full mx-auto"
           />
-          <p className="text-white/80">Loading your quiz...</p>
+          <p className="text-gray-300">Loading your quiz...</p>
         </div>
       </div>
     }>

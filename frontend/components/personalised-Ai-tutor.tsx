@@ -6,6 +6,7 @@ import { ArrowLeft, Video, Loader2, AlertCircle, Home, Play } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
 
 interface PersonalisedAiTutorProps {
   question?: string;
@@ -14,6 +15,7 @@ interface PersonalisedAiTutorProps {
 
 export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAiTutorProps) {
   const router = useRouter();
+  const { isAuthenticated } = useEnhancedAuth();
   const [input, setInput] = useState<string>(question || '');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -322,7 +324,17 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
           <Button
             variant="ghost"
             size="sm"
-            onClick={onBack || (() => router.back())}
+            onClick={() => {
+              if (onBack) {
+                onBack();
+              } else {
+                if (isAuthenticated) {
+                  router.push('/homepage');
+                } else {
+                  router.back();
+                }
+              }
+            }}
             className="text-white/60 hover:text-white hover:bg-white/10 transition-all"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -617,7 +629,17 @@ export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAi
                   </Button>
                   <Button
                     variant="ghost"
-                    onClick={onBack || (() => router.back())}
+                    onClick={() => {
+                      if (onBack) {
+                        onBack();
+                      } else {
+                        if (isAuthenticated) {
+                          router.push('/homepage');
+                        } else {
+                          router.back();
+                        }
+                      }
+                    }}
                     className="px-8 py-4 text-white/80 hover:text-white hover:bg-white/10 rounded-2xl border border-white/20 transition-all"
                   >
                     Back

@@ -71,10 +71,17 @@ export default function SettingsPage() {
     
     if (auth.user) {
       const meta = auth.user.user_metadata
-      setRole(meta?.role ?? "child")
+      // Ensure role is properly set based on user metadata
+      const userRole = meta?.role
+      if (userRole && (userRole === "guardian" || userRole === "child")) {
+        setRole(userRole)
+      } else {
+        // Default to guardian if no role is set, assuming the user registered as a guardian
+        setRole("guardian")
+      }
       setParentEmail(meta?.guardian_email ?? "")
       setDark(localStorage.getItem("theme") === "dark")
-      if (meta?.role === "guardian" && auth.user.email) loadParentPrefs(auth.user.email)
+      if ((userRole === "guardian" || meta?.role === "guardian") && auth.user.email) loadParentPrefs(auth.user.email)
     }
   }, [auth, router])
 
@@ -162,11 +169,13 @@ export default function SettingsPage() {
                     const result: any = await (supabase as any)
                       .from("guardians")
                       .update({ 
-                        'weekly_report': !weekly
+                        'weekly_report': !weekly,
+                        'monthly_report': weekly  // Set opposite of weekly
                       })
                       .eq("email", auth.user!.email!)
                     if (result.error) throw result.error
                     setWeekly(!weekly)
+                    setMonthly(weekly)  // Set opposite of weekly
                     toast({ title: "Updated", description: `Switched to ${!weekly ? "weekly" : "monthly"} reports.` })
                   } catch (err: unknown) {
                     let errorMessage = "Could not update report preference."

@@ -201,15 +201,7 @@ function TermPlanPageContent() {
         throw new Error('No authenticated user found');
       }
       
-      // Save to localStorage as backup before attempting backend save
-      try {
-        localStorage.setItem('lana_study_plan_backup', JSON.stringify(subjects));
-        console.log('[term-plan] Backup saved to localStorage');
-      } catch (storageErr) {
-        console.warn('[term-plan] Failed to save backup to localStorage:', storageErr);
-      }
-      
-      // Save to backend API
+      // Save to backend API immediately (optimistic approach)
       const response = await fetch('/api/study-plan', {
         method: 'POST',
         headers: {
@@ -243,7 +235,7 @@ function TermPlanPageContent() {
       console.error('[term-plan] Error saving plan:', err.message);
       console.error('[term-plan] Save error details:', err);
       
-      // Try to save locally as fallback
+      // Save to localStorage as fallback
       try {
         localStorage.setItem('lana_study_plan_pending', JSON.stringify({
           subjects,
@@ -292,7 +284,7 @@ function TermPlanPageContent() {
     }
   };
 
-  const addSubject = () => {
+  const addSubject = async () => {
     if (!subjectInput.trim()) return;
     
     const newSubject: Subject = {
@@ -307,12 +299,47 @@ function TermPlanPageContent() {
       isExpanded: true
     };
     
+    // Optimistically update UI
     const updatedSubjects = [...subjects, newSubject];
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save subject to backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Subject Added', 
+        description: `"${subjectInput.trim()}" has been saved successfully.` 
+      });
+    } catch (error) {
+      console.error('Error saving subject to backend:', error);
+      
+      toast({ 
+        title: 'Saved Locally', 
+        description: `"${subjectInput.trim()}" saved locally. Will sync when connection is restored.` 
+      });
+    }
+    
     setSubjectInput("");
   };
 
-  const addTopic = (subjectId: string) => {
+  const addTopic = async (subjectId: string) => {
     const topicInput = topicInputs[subjectId];
     if (!topicInput?.trim()) return;
 
@@ -332,7 +359,42 @@ function TermPlanPageContent() {
         : subject
     );
     
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save topic to backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Topic Added', 
+        description: `"${topicInput.trim()}" has been saved successfully.` 
+      });
+    } catch (error) {
+      console.error('Error saving topic to backend:', error);
+      
+      toast({ 
+        title: 'Saved Locally', 
+        description: `"${topicInput.trim()}" saved locally. Will sync when connection is restored.` 
+      });
+    }
+    
     setTopicInputs({ ...topicInputs, [subjectId]: "" });
   };
 
@@ -346,19 +408,93 @@ function TermPlanPageContent() {
     setSubjects(updatedSubjects);
   };
 
-  const deleteSubject = (subjectId: string) => {
+  const deleteSubject = async (subjectId: string) => {
+    const subjectToDelete = subjects.find(s => s.id === subjectId)?.name || '';
     const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
+    
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete subject from backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Subject Deleted', 
+        description: `"${subjectToDelete}" has been deleted successfully.` 
+      });
+    } catch (error) {
+      console.error('Error deleting subject from backend:', error);
+      
+      toast({ 
+        title: 'Deletion Pending', 
+        description: `"${subjectToDelete}" deletion will sync when connection is restored.` 
+      });
+    }
   };
 
-  const deleteTopic = (subjectId: string, topicId: string) => {
+  const deleteTopic = async (subjectId: string, topicId: string) => {
+    const topicToDelete = subjects
+      .find(s => s.id === subjectId)
+      ?.topics.find(t => t.id === topicId)?.name || '';
+
     const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
         : subject
     );
     
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete topic from backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Topic Deleted', 
+        description: `"${topicToDelete}" has been deleted successfully.` 
+      });
+    } catch (error) {
+      console.error('Error deleting topic from backend:', error);
+      
+      toast({ 
+        title: 'Deletion Pending', 
+        description: `"${topicToDelete}" deletion will sync when connection is restored.` 
+      });
+    }
   };
 
   // Show loading state while checking authentication

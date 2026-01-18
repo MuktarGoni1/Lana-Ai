@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Briefcase, MapPin, Clock, Users, Award, Globe } from "lucide-react"
+import { Shield, Lock, Eye, FileText, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -192,213 +192,124 @@ function Header() {
   )
 }
 
-/* ---------- CAREERS CONTENT ---------- */
-function CareersContent() {
+/* ---------- SECURITY POLICY CONTENT ---------- */
+function SecurityPolicyContent() {
   return (
     <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8 md:mb-12">
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Join Our Team</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">Be part of revolutionizing education through innovative technology and personalized learning experiences.</p>
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Security Policy</h1>
+          <p className="text-muted-foreground text-sm md:text-base">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">
-            <div className="bg-card rounded-lg border p-5 shadow-sm">
-              <h2 className="text-xl md:text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Why Work With Us?
-              </h2>
-              <p className="text-muted-foreground mb-5">
-                At Lana AI, we're building the future of education. We bring together passionate educators, 
-                innovative technologists, and creative designers to create transformative learning experiences 
-                for children worldwide. Join us in our mission to make personalized education accessible to all.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Users className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Collaborative Culture</h3>
-                    <p className="text-sm text-muted-foreground">Work with diverse, talented individuals who share your passion for education.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Award className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Meaningful Impact</h3>
-                    <p className="text-sm text-muted-foreground">Directly contribute to improving children's learning outcomes globally.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Globe className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Global Reach</h3>
-                    <p className="text-sm text-muted-foreground">Our platform serves learners in multiple countries and languages.</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-3">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Briefcase className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Growth Opportunities</h3>
-                    <p className="text-sm text-muted-foreground">Continuous learning and advancement in a fast-growing field.</p>
-                  </div>
-                </div>
-              </div>
-              
-              <h3 className="text-lg md:text-xl font-bold mb-3 text-foreground flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Current Openings
-              </h3>
-              
-              <div className="space-y-3">
-                {/* Job Opening 1 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Senior AI Engineer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Develop and implement advanced machine learning algorithms for personalized learning.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>3+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
-                </div>
-                
-                {/* Job Opening 2 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">Educational Content Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Create engaging, age-appropriate educational content for our platform.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Lagos, Nigeria</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>2+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
-                </div>
-                
-                {/* Job Opening 3 */}
-                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold text-base md:text-lg text-foreground">UX/UI Designer</h4>
-                      <p className="text-muted-foreground text-sm mt-1">Design intuitive interfaces for both children and adult users.</p>
-                    </div>
-                    <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
-                  </div>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <MapPin className="h-4 w-4" />
-                      <span>Remote</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      <span>4+ Years Experience</span>
-                    </div>
-                  </div>
-                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div>
-            <div className="bg-card rounded-lg border p-5 shadow-sm sticky top-24">
-              <h3 className="font-bold text-base md:text-lg text-foreground mb-3 flex items-center gap-2">
-                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                Benefits & Perks
-              </h3>
-              <ul className="space-y-2">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Competitive salary and equity packages</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Comprehensive health, dental, and vision insurance</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Flexible working arrangements</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Professional development budget</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Unlimited PTO policy</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Learning and conference allowances</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span className="text-muted-foreground text-sm">Childcare support and family-friendly policies</span>
-                </li>
-              </ul>
-              
-              <div className="mt-4 pt-4 border-t border-border">
-                <h4 className="font-medium text-foreground mb-2">Culture & Values</h4>
-                <p className="text-muted-foreground text-sm">
-                  We foster an environment of continuous learning, collaboration, and innovation. 
-                  Our values of empathy, excellence, and impact guide everything we do.
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="bg-card rounded-xl p-6 md:p-8 shadow-sm border border-border/50">
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            At Lana AI, we take the security of your personal information seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our services.
+          </p>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Data Protection
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We employ industry-standard security measures to protect your personal information from unauthorized access, alteration, disclosure, or destruction. These measures include:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li><span className="font-semibold text-foreground">Encryption:</span> All data transmitted between your device and our servers is encrypted using TLS (Transport Layer Security).</li>
+            <li><span className="font-semibold text-foreground">Secure Storage:</span> Personal information is stored on secure servers with restricted physical and digital access.</li>
+            <li><span className="font-semibold text-foreground">Regular Audits:</span> We conduct regular security audits to identify and address potential vulnerabilities.</li>
+            <li><span className="font-semibold text-foreground">Access Controls:</span> Strict access controls ensure that only authorized personnel can access sensitive data.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Account Security
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We implement multiple layers of security to protect your account:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li><span className="font-semibold text-foreground">Password Protection:</span> All passwords are hashed using bcrypt encryption.</li>
+            <li><span className="font-semibold text-foreground">Two-Factor Authentication:</span> We support two-factor authentication for additional account security.</li>
+            <li><span className="font-semibold text-foreground">Session Management:</span> Secure session tokens with automatic expiration help prevent unauthorized access.</li>
+            <li><span className="font-semibold text-foreground">Activity Monitoring:</span> We monitor account activity for suspicious behavior and alert users when necessary.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Data Access & Control
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We believe in transparency and user control over personal data:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>You have the right to access, update, or delete your personal information at any time through your account settings.</li>
+            <li>We provide clear information about what data we collect and how it's used.</li>
+            <li>You can opt out of certain data collection practices where legally permissible.</li>
+            <li>We comply with applicable data protection regulations including GDPR and CCPA.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Incident Response
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            In the unlikely event of a security incident:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>We have established incident response procedures to quickly address and contain security breaches.</li>
+            <li>Users will be notified of any security incidents that may affect their personal information within 72 hours of detection.</li>
+            <li>We conduct post-incident reviews to improve our security measures.</li>
+            <li>We maintain insurance coverage for cybersecurity incidents.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Employee Training & Security Culture
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            Security is everyone's responsibility at Lana AI:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>All employees undergo comprehensive security training during onboarding and annually thereafter.</li>
+            <li>We maintain strict confidentiality agreements with all staff members.</li>
+            <li>Access to sensitive data is granted on a need-to-know basis only.</li>
+            <li>We regularly update our security policies and procedures based on emerging threats and best practices.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Third-Party Security
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We carefully vet all third-party vendors and service providers:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>All third-party services must meet our security standards and sign data protection agreements.</li>
+            <li>We regularly assess vendor security practices and compliance.</li>
+            <li>We limit data sharing with third parties to what is necessary for service provision.</li>
+            <li>We maintain contracts that hold third parties accountable for data protection.</li>
+          </ul>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Contact Security Team
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            If you have security concerns or wish to report a vulnerability, please contact our security team:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
+            <li>By email: <a href="mailto:contact@lanamind.com" className="text-primary hover:underline">contact@lanamind.com</a></li>
+            <li>By encrypted message: security@lana.ai (PGP key available upon request)</li>
+            <li>Please include detailed information about the security concern or vulnerability</li>
+            <li>We commit to responding to security reports within 48 hours</li>
+          </ul>
         </div>
       </div>
     </section>
   )
 }
 
-/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -406,6 +317,7 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
+/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">
@@ -487,7 +399,7 @@ function Footer() {
 }
 
 /* ---------- PAGE ---------- */
-export default function CareersPage() {
+export default function SecurityPolicyPage() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
@@ -505,7 +417,7 @@ export default function CareersPage() {
       
       <Header />
       <main id="main-content" className="flex-grow">
-        <CareersContent />
+        <SecurityPolicyContent />
       </main>
       <Footer />
     </div>

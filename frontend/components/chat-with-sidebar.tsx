@@ -100,11 +100,23 @@ function ChatWithSidebarContent() {
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
     const initSessionId = async () => {
-      // For guest users, generate a standard session ID
-      // For authenticated users, we'll namespace it with their user ID
+      // Check authentication state first to avoid race conditions
       let id = localStorage.getItem("lana_sid");
       
-      if (!id) {
+      // If user is authenticated, ensure session ID is properly namespaced
+      if (user && user.id) {
+        const uidPrefix = `${user.id}:`;
+        if (id && !id.startsWith(uidPrefix)) {
+          // Update existing ID to be user-namespaced
+          id = `${user.id}:${id}`;
+          localStorage.setItem("lana_sid", id);
+        } else if (!id) {
+          // Create new user-namespaced ID
+          id = `${user.id}:${uuid()}`;
+          localStorage.setItem("lana_sid", id);
+        }
+      } else if (!id) {
+        // For guest users, generate a standard session ID
         id = uuid();
         localStorage.setItem("lana_sid", id);
       }
@@ -122,12 +134,12 @@ function ChatWithSidebarContent() {
     };
     
     initSessionId();
-  }, [])
+  }, [user])
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async (forceRefresh = false) => {
+  const fetchHistory = useCallback(async (forceRefresh = false) => {
     if (!sid) return;
     setLoadingHistory(true);
     setHistoryError(null);
@@ -180,7 +192,7 @@ function ChatWithSidebarContent() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [sid, accessToken, api, isAuthenticated]);
 
   // Fetch user session - simplified with useEnhancedAuth
   useEffect(() => {
@@ -196,19 +208,18 @@ function ChatWithSidebarContent() {
       getAccessToken()
       
       // Ensure session id is namespaced by user id to satisfy backend auth checks
+      // Only update if needed to avoid redundant updates after initial session setup
       try {
         const currentSid = localStorage.getItem("lana_sid");
         const uidPrefix = `${user.id}:`;
+        // Only update if current SID doesn't start with user ID prefix
         if (currentSid && !currentSid.startsWith(uidPrefix)) {
           const newSid = `${user.id}:${currentSid}`;
           localStorage.setItem("lana_sid", newSid);
           setSid(newSid);
-        } else if (!currentSid) {
-          // If no SID exists, create a new one with user ID prefix
-          const newSid = `${user.id}:${uuid()}`;
-          localStorage.setItem("lana_sid", newSid);
-          setSid(newSid);
         }
+        // Note: If currentSid is null or already properly prefixed, we don't need to create a new one
+        // as it would have been handled by the first effect
       } catch (error) {
         console.error('Error namespacing session ID:', error);
       }
