@@ -448,7 +448,7 @@ export class RobustAuthService {
 
       // Clear local storage items related to auth
       if (typeof window !== 'undefined') {
-        localStorage.removeItem("lana_sid");
+        // Note: We no longer store lana_sid in localStorage as per the new architecture
         localStorage.removeItem("lana_onboarding_complete");
         localStorage.removeItem("lana_local_children");
         localStorage.removeItem("lana_last_visited");

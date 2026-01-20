@@ -189,12 +189,31 @@ export class AuthService {
       const { data, error } = await supabase.auth.signInWithOtp({
         email: trimmedEmail,
         options: {
-          data: { role: "guardian" },
+          data: { role: "parent" }, // Changed from "guardian" to "parent"
           emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       });
 
       if (error) throw error;
+      
+      // After successful sign-up, create a profile record in the new profiles table
+      if (data && (data as any).user?.id) {
+        const userData = (data as any).user;
+        const profileInsert = await (supabase as any).from('profiles').upsert({
+          id: userData.id,
+          full_name: userData.email?.split('@')[0] || '', // Use email prefix as full_name
+          role: 'parent',
+          parent_id: null, // Parents have no parent_id
+          diagnostic_completed: false, // Parents don't need diagnostics
+          is_active: true
+        }, { onConflict: 'id' });
+        
+        if (profileInsert.error) {
+          console.error('[AuthService] Failed to create profile record:', profileInsert.error);
+        } else {
+          console.log('[AuthService] Successfully created profile record for parent');
+        }
+      }
       
       return data;
     } catch (error: unknown) {
@@ -236,11 +255,8 @@ export class AuthService {
         throw new Error(result.message || 'Failed to register child');
       }
       
-      // Store session ID in localStorage for anonymous users (using first child if bulk)
-      if (typeof window !== 'undefined' && result.data && result.data.length > 0) {
-        const childData = result.data[0];
-        localStorage.setItem("lana_sid", childData.child_uid);
-      }
+      // Note: We no longer store lana_sid in localStorage as per the new architecture
+      // The unified auth system manages session and role detection
       
       return result;
     } catch (error: unknown) {
@@ -400,6 +416,54 @@ export class AuthService {
         success: false,
         message: error instanceof Error ? error.message : 'Failed to link local children'
       };
+    }
+  }
+  
+  async completeOnboarding() {
+    try {
+      console.log('[AuthService] Starting onboarding completion process');
+      
+      // Update user metadata to mark onboarding as complete
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error('[AuthService] Error getting user for onboarding completion:', userError.message);
+        throw userError;
+      }
+      
+      if (!user) {
+        console.warn('[AuthService] No user found when trying to complete onboarding');
+        throw new Error('No authenticated user found');
+      }
+      
+      console.log('[AuthService] Updating user metadata with onboarding_complete flag');
+      console.log('[AuthService] User ID:', user.id);
+      
+      const { error } = await supabase.auth.updateUser({
+        data: { onboarding_complete: true },
+      });
+      
+      if (error) {
+        console.error('[AuthService] failed to set onboarding_complete in metadata:', error.message);
+        throw error;
+      } else {
+        console.log('[AuthService] successfully updated user metadata with onboarding_complete flag');
+      }
+      
+      // Cookie fallback to handle network failures and ensure middleware bypass
+      try {
+        console.log('[AuthService] Setting completion cookie');
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+        console.log('[AuthService] successfully set completion cookie');
+      } catch (cookieErr: any) {
+        console.warn('[AuthService] failed to set completion cookie:', cookieErr.message);
+      }
+      
+      return { success: true, message: 'Onboarding completed successfully' };
+    } catch (error: any) {
+      console.error('[AuthService] Error completing onboarding:', error);
+      return { success: false, message: error.message };
     }
   }
 }

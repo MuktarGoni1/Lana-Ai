@@ -1327,7 +1327,8 @@ interface AnimatedAIChatProps {
     if (SUPPORTED_MODES.includes(mode)) {
       try {
         // Get session ID for user identification
-        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        const { data: { user } } = await supabase.auth.getUser();
+        const sid = user?.id || `guest_${Date.now()}`;
             
         // Use the user age from state
         const userAgeForPayload = userAge;
@@ -1588,7 +1589,8 @@ interface AnimatedAIChatProps {
     // So we default to lesson mode for backward compatibility
     try {
       // Build payload for lesson mode as fallback
-      const sid = localStorage.getItem('lana_sid') || `guest_${Date.now()}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      const sid = user?.id || `guest_${Date.now()}`;
       const payload: any = {
         message: sanitizedInput,
         userId: sid,

@@ -10,7 +10,8 @@ import { skipToHomepage, navigateToNextStep } from "@/lib/navigation"
 import { AuthService } from "@/lib/services/authService"
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
-import DiagnosticQuiz from '@/components/diagnostic-quiz'
+import EnhancedDiagnosticQuiz from '@/components/enhanced-diagnostic-quiz'
+import AccountLinkSuccessNotification from '@/components/account-link-success-notification'
 export default function OnboardingPage() {
   const router = useRouter()
   const { toast } = useToast()
@@ -23,6 +24,54 @@ export default function OnboardingPage() {
   
   // Diagnostic quiz state
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false)
+  
+  // Loading state for initial data sync
+  const [initialSyncComplete, setInitialSyncComplete] = useState(false)
+  
+  // Account linking success notification state
+  const [showLinkSuccess, setShowLinkSuccess] = useState(false)
+  const [linkedChildrenNames, setLinkedChildrenNames] = useState<string[]>([])
+  
+  // Complete onboarding and redirect function
+  const completeOnboardingAndRedirect = async () => {
+    try {
+      console.log('[Onboarding] Starting onboarding completion process');
+      
+      // Create authService instance
+      const authService = new AuthService();
+      
+      // Complete onboarding via AuthService
+      const result = await authService.completeOnboarding();
+      
+      if (!result.success) {
+        console.error('[Onboarding] Failed to complete onboarding:', result.message);
+        toast({
+          title: "Onboarding Completion Failed",
+          description: result.message,
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      console.log('[Onboarding] Successfully completed onboarding');
+      toast({ 
+        title: 'Onboarding Complete', 
+        description: 'Your setup is complete. Redirecting to dashboard...' 
+      });
+      
+      // Redirect to next step (term-plan)
+      navigateToNextStep(router, 'onboarding', user || null);
+    } catch (error: any) {
+      console.error('[Onboarding] Error completing onboarding:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to complete onboarding. Please try again.",
+        variant: "destructive",
+      });
+      // Use our error handler to reload the page instead of redirecting
+      handleErrorWithReload(error, "Onboarding completion failed. Reloading page to try again...");
+    }
+  };
   
   // Check for and sync local children data when component mounts
   useEffect(() => {
@@ -60,10 +109,18 @@ export default function OnboardingPage() {
               });
             }
           }
+          
+          // Show diagnostic quiz for both parent and child users when they arrive at onboarding
+          // This handles the case where any authenticated user arrives at onboarding after successful account linking
+          console.log('[Onboarding] Authenticated user detected, showing diagnostic quiz for both parent and child users');
+          setShowDiagnosticQuiz(true);
         }
       } catch (error) {
         console.error('[Onboarding] Error syncing local children:', error);
-        handleErrorWithReload(error, "Failed to sync local children data. Reloading page...");
+        // Don't reload on sync error as it's not critical to the onboarding flow
+        console.warn('[Onboarding] Continuing despite sync error');
+      } finally {
+        setInitialSyncComplete(true);
       }
     };
     
@@ -236,15 +293,12 @@ export default function OnboardingPage() {
           throw new Error(result.message);
         }
         
-        toast({ 
-          title: "Success", 
-          description: children.length === 1 
-            ? "Child successfully linked to your account!"
-            : `${children.length} children successfully linked to your account!`
-        })
+        // Show account linking success notification instead of toast
+        setLinkedChildrenNames(children.map(child => child.nickname));
+        setShowLinkSuccess(true);
                 
-        // Show diagnostic quiz before proceeding
-        console.log('[Onboarding] Showing diagnostic quiz')
+        // After successful account linking, show diagnostic quiz for both parent and child users
+        console.log('[Onboarding] Successful account linking, showing diagnostic quiz for both parent and child users');
         setShowDiagnosticQuiz(true);
       } catch (err: unknown) {
         // Handle registration failure by saving locally
@@ -261,8 +315,8 @@ export default function OnboardingPage() {
           description: "Child data has been saved locally and will be synced when connection is restored.",
         })
         
-        // Show diagnostic quiz even after local save
-        console.log('[Onboarding] Showing diagnostic quiz after local save');
+        // After successful account linking (even after local save), show diagnostic quiz for both parent and child users
+        console.log('[Onboarding] Successful account linking (after local save), showing diagnostic quiz for both parent and child users');
         setShowDiagnosticQuiz(true);
       }
     } catch (err: unknown) {
@@ -441,7 +495,21 @@ export default function OnboardingPage() {
   const triggerFileInput = () => {
     fileInputRef.current?.click()
   }
-
+  
+  
+  
+  // Show loading state while initializing
+  if (!initialSyncComplete) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-4 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/50">Setting up your account...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
       {showDiagnosticQuiz ? (
@@ -473,9 +541,10 @@ export default function OnboardingPage() {
             </p>
           </div>
           
-          <DiagnosticQuiz 
+          <EnhancedDiagnosticQuiz 
             onComplete={() => navigateToNextStep(router, 'onboarding', user || null)} 
-            childAge={children[0]?.age ? Number(children[0].age) : undefined} 
+            childAge={children[0]?.age ? Number(children[0].age) : undefined}
+            childGrade={children[0]?.grade}
           />
           
           <div className="pt-4 flex justify-center">
@@ -740,6 +809,18 @@ Bob,15,10`}
           </p>
         </div>
       )}
+      
+      {/* Account Link Success Notification */}
+      <AccountLinkSuccessNotification
+        parentName={user?.email?.split('@')[0] || 'Parent'}
+        childrenNames={linkedChildrenNames}
+        isVisible={showLinkSuccess}
+        onDismiss={() => {
+          setShowLinkSuccess(false);
+          // After dismissing notification, complete onboarding
+          completeOnboardingAndRedirect();
+        }}
+      />
     </div>
   )
 }

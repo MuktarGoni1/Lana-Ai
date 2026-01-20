@@ -69,13 +69,66 @@ function TermPlanPageContent() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
     }
-  }, [subjects]);  // Check if user is a child user
+  }, [subjects]);
+  
+  // Check if user is a child user
   useEffect(() => {
     if (user) {
       const isChild = user.email?.endsWith('@child.lana') || false;
       setIsChildUser(isChild);
     }
   }, [user]);
+  
+  // Check for pending sync data on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pendingData = localStorage.getItem('lana_study_plan_pending');
+      if (pendingData) {
+        try {
+          const pendingObj = JSON.parse(pendingData);
+          // Attempt to sync pending data if online
+          if (navigator.onLine && user?.email) {
+            syncPendingData(pendingObj, user.email);
+          }
+        } catch (e) {
+          console.error('Error parsing pending data:', e);
+        }
+      }
+    }
+  }, [user]);
+  
+  const syncPendingData = async (pendingObj: any, userEmail: string) => {
+    try {
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          subjects: pendingObj.subjects
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Clear pending data on success
+        localStorage.removeItem('lana_study_plan_pending');
+        toast({
+          title: 'Sync Complete',
+          description: 'Your study plan has been synced successfully.',
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing pending data:', error);
+      toast({
+        title: 'Sync Failed',
+        description: 'Could not sync your study plan. Will retry when connection is restored.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
