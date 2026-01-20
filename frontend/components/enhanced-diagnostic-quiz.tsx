@@ -63,10 +63,11 @@ interface AssessmentResults {
   recommendations: string[];
 }
 
-export default function EnhancedDiagnosticQuiz({ onComplete, childAge, childGrade }: { 
+export default function EnhancedDiagnosticQuiz({ onComplete, childAge, childGrade, isParent = false }: { 
   onComplete: () => void; 
   childAge?: number;
   childGrade?: string;
+  isParent?: boolean;
 }) {
   const [currentSection, setCurrentSection] = useState<'intro' | 'assessment' | 'results'>('intro');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -512,9 +513,11 @@ export default function EnhancedDiagnosticQuiz({ onComplete, childAge, childGrad
             </svg>
           </div>
           <div className="space-y-4">
-            <h1 className="text-3xl font-bold text-white">Learning Assessment</h1>
+            <h1 className="text-3xl font-bold text-white">{isParent ? 'Child Performance Review' : 'Learning Assessment'}</h1>
             <p className="text-gray-300 text-lg">
-              Welcome! This assessment will help us understand your learning style and create a personalized experience just for you.
+              {isParent 
+                ? "Let's take a short diagnostic quiz to review/check your child's current performance." 
+                : "Welcome! This assessment will help us understand your learning style and create a personalized experience just for you."}
             </p>
             <div className="bg-gray-800/50 rounded-lg p-6 text-left space-y-3">
               <h3 className="font-semibold text-white">What we'll cover:</h3>
@@ -537,12 +540,23 @@ export default function EnhancedDiagnosticQuiz({ onComplete, childAge, childGrad
               Takes approximately 10-15 minutes to complete
             </p>
           </div>
-          <Button
-            onClick={() => setCurrentSection('assessment')}
-            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 text-lg"
-          >
-            Begin Assessment
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              onClick={() => setCurrentSection('assessment')}
+              className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-3 text-lg"
+            >
+              {isParent ? 'Review Child Performance' : 'Begin Assessment'}
+            </Button>
+            {isParent && (
+              <Button
+                variant="outline"
+                onClick={onComplete}
+                className="border-gray-600 text-gray-300 hover:bg-gray-800 px-8 py-3 text-lg"
+              >
+                Skip to Term Plans
+              </Button>
+            )}
+          </div>
         </motion.div>
       </div>
     );

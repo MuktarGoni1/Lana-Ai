@@ -24,6 +24,7 @@ export default function OnboardingPage() {
   
   // Diagnostic quiz state
   const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false)
+  const [isParentUser, setIsParentUser] = useState(false)
   
   // Loading state for initial data sync
   const [initialSyncComplete, setInitialSyncComplete] = useState(false)
@@ -110,9 +111,14 @@ export default function OnboardingPage() {
             }
           }
           
+          // Determine if user is a parent (not a child account)
+          const isParent = !session.user.email?.endsWith('@child.lana');
+          setIsParentUser(isParent);
+          
           // Show diagnostic quiz for both parent and child users when they arrive at onboarding
           // This handles the case where any authenticated user arrives at onboarding after successful account linking
           console.log('[Onboarding] Authenticated user detected, showing diagnostic quiz for both parent and child users');
+          console.log('[Onboarding] User type:', isParent ? 'Parent' : 'Child');
           setShowDiagnosticQuiz(true);
         }
       } catch (error) {
@@ -545,6 +551,7 @@ export default function OnboardingPage() {
             onComplete={() => navigateToNextStep(router, 'onboarding', user || null)} 
             childAge={children[0]?.age ? Number(children[0].age) : undefined}
             childGrade={children[0]?.grade}
+            isParent={isParentUser}
           />
           
           <div className="pt-4 flex justify-center">
