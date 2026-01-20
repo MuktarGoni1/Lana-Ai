@@ -112,13 +112,15 @@ export default function OnboardingPage() {
           }
           
           // Determine if user is a parent (not a child account)
-          const isParent = !session.user.email?.endsWith('@child.lana');
-          setIsParentUser(isParent);
+          const isChildUser = session.user.email?.endsWith('@child.lana') ||
+                             session.user.user_metadata?.role === 'child' ||
+                             session.user.user_metadata?.age; // Assuming age indicates child
+          setIsParentUser(!isChildUser);
           
           // Show diagnostic quiz for both parent and child users when they arrive at onboarding
           // This handles the case where any authenticated user arrives at onboarding after successful account linking
           console.log('[Onboarding] Authenticated user detected, showing diagnostic quiz for both parent and child users');
-          console.log('[Onboarding] User type:', isParent ? 'Parent' : 'Child');
+          console.log('[Onboarding] User type:', isChildUser ? 'Child' : 'Parent');
           setShowDiagnosticQuiz(true);
         }
       } catch (error) {

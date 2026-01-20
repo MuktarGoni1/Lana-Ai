@@ -230,10 +230,10 @@ export async function middleware(req: NextRequest) {
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
-      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')
-      await authLogger.logRedirect(pathname, '/term-plan?onboarding=1', 'incomplete_onboarding', user?.id, user?.email);
+      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
+      await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
+      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
     

@@ -68,26 +68,14 @@ export default function AutoLoginPage() {
         // Check if user has completed onboarding
         const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
 
-        // If onboarding is not complete, redirect appropriately based on user type
+        // If onboarding is not complete, redirect to onboarding regardless of user type
         if (!onboardingComplete) {
           setStatus("confirmed");
           
-          // Check if this is a child user
-          const isChildUser = user.email?.endsWith('@child.lana') || false;
-          
-          if (isChildUser) {
-            // Child users go directly to term-plan
-            toast({ title: "Authentication confirmed", description: "Setting up your study plan..." });
-            setTimeout(() => {
-              router.push("/term-plan?onboarding=1");
-            }, 1000);
-          } else {
-            // Parent users go through onboarding flow
-            toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
-            setTimeout(() => {
-              router.push("/onboarding");
-            }, 1000);
-          }
+          toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
+          setTimeout(() => {
+            router.push("/onboarding");
+          }, 1000);
           return;
         }
 
