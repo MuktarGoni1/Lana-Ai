@@ -51,8 +51,10 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed/child',
       '/auth/auto-login',
       '/quiz',
+      '/diagnostic-quiz',
       '/term-plan',
       '/settings',
+      '/children',
       '/feedback',
       '/demo',
       '/api',
@@ -144,7 +146,8 @@ export async function middleware(req: NextRequest) {
     const protectedPaths = [
       '/dashboard',
       '/guardian',
-      '/personalised-ai-tutor'
+      '/personalised-ai-tutor',
+      '/children'
     ]
 
     const isProtectedRoute = protectedPaths.some(path => 
@@ -286,8 +289,8 @@ export async function middleware(req: NextRequest) {
     }
 
     // Role-based normalization
-    if (pathname.startsWith('/guardian') && role !== 'guardian') {
-      console.log('[Middleware] Non-guardian user accessing guardian path, redirecting to landing page')
+    if ((pathname.startsWith('/guardian') || pathname.startsWith('/children')) && role !== 'guardian') {
+      console.log('[Middleware] Non-guardian user accessing guardian/children path, redirecting to landing page')
       await authLogger.logRedirect(pathname, '/landing-page', 'role_mismatch_guardian_path', user?.id, user?.email);
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)

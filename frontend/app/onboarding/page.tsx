@@ -338,8 +338,10 @@ export default function OnboardingPage() {
         description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
         variant: "destructive",
       })
-      // Use our error handler to reload the page instead of redirecting
-      handleErrorWithReload(err, "Registration failed. Reloading page to try again...");
+      
+      // Even if there's an error, show the diagnostic quiz to ensure onboarding continues
+      console.log('[Onboarding] Showing diagnostic quiz after unexpected error');
+      setShowDiagnosticQuiz(true);
     } finally {
       setLoading(false)
     }

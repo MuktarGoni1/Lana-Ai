@@ -386,302 +386,73 @@ function ParentFlow() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 py-12">
-      {/* Background gradient effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-      </div>
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 py-8 font-sans antialiased">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-gray-600/10 to-gray-800/10 rounded-3xl mb-6 border-2 border-gray-600/20">
+            <Shield className="w-10 h-10 text-gray-400" />
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-3">
+            Parent Registration 👨‍👩‍👧
+          </h1>
+          <p className="text-white/70 text-lg font-medium">
+            Secure access to monitor your child's learning journey
+          </p>
+        </div>
 
-      <div className="w-full max-w-md relative z-10">
-        <PageHeader
-          icon={<Shield className="w-8 h-8 text-white/80" />}
-          title="Parent Registration"
-          subtitle="Secure access to monitor your child's progress"
-        />
-
-        <GlassCard className="p-8">
+        <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.02] border border-white/[0.1] rounded-3xl p-10 shadow-xl shadow-white/[0.05]">
           <form onSubmit={handleParent} className="space-y-6">
-            <FormInput
-              id="email"
-              type="email"
-              icon={Mail}
-              label="Email Address"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-              placeholder="parent@example.com"
-              error={errors.email}
-              required
-            />
-
-            <div className="pt-2">
-              <SubmitButton loading={isLoading} loadingText="Sending magic link...">
-                Send Magic Link
-              </SubmitButton>
-            </div>
-
-            {/* Google Sign Up Button */}
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-white/10"></div>
+            <div className="space-y-3">
+              <label htmlFor="email" className="block text-lg font-bold text-white/90">
+                Email Address 📧
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                  placeholder="parent@example.com"
+                  className={`
+                    w-full pl-12 pr-4 py-4 rounded-2xl 
+                    bg-white/[0.05] border-2 ${errors.email ? 'border-red-500/70' : 'border-white/[0.15]'}
+                    text-white placeholder-white/40 text-base
+                    focus:outline-none focus:border-gray-500 focus:bg-white/[0.08]
+                    transition-all duration-300
+                  `}
+                  required
+                />
               </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-black px-2 text-white/30">OR</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleRegister}
-              disabled={isLoading}
-              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
-                       text-white font-medium text-sm
-                       hover:bg-white/[0.1] transition-all duration-200
-                       flex items-center justify-center gap-3 disabled:opacity-50"
-            >
-              <Chrome className="h-4 w-4" />
-              Sign up with Google
-            </button>
-
-            {/* Additional info */}
-            <div className="pt-4 space-y-2">
-              <div className="flex items-start gap-2">
-                <Sparkles className="w-3 h-3 text-white/30 mt-0.5" />
-                <p className="text-xs text-white/30">
-                  We'll send you a secure login link to access your dashboard
+              {errors.email && (
+                <p className="text-red-400 text-xs mt-1">
+                  {errors.email}
                 </p>
-              </div>
+              )}
             </div>
-          </form>
-        </GlassCard>
 
-        <BackButton onClick={() => router.push("/register")} />
-      </div>
-    </div>
-  )
-}
-
-// =============== CHILD FLOW ===============
-
-function ChildFlow() {
-  const router = useRouter()
-  const [formData, setFormData] = useState({
-    childEmail: "",
-    guardianEmail: "",
-    nickname: "",
-    age: "" as number | "",
-    grade: ""
-  })
-  const [errors, setErrors] = useState<Record<string, string>>({})
-  const [isLoading, setIsLoading] = useState(false)
-  const { toast } = useToast()
-  const authService = new AuthService()
-  const { loginWithGoogle } = useEnhancedAuth()
-
-  const validateForm = (): boolean => {
-    const newErrors: Record<string, string> = {}
-    
-    if (!z.string().email().safeParse(formData.childEmail).success) {
-      newErrors.childEmail = "Invalid email format"
-    }
-    if (!z.string().email().safeParse(formData.guardianEmail).success) {
-      newErrors.guardianEmail = "Invalid parent email"
-    }
-    if (!formData.nickname || formData.nickname.length < 2) {
-      newErrors.nickname = "Nickname must be at least 2 characters"
-    }
-    if (!formData.age || formData.age < 6 || formData.age > 18) {
-      newErrors.age = "Age must be between 6 and 18"
-    }
-    if (!formData.grade) {
-      newErrors.grade = "Please select a grade"
-    }
-
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
-  }
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'age' ? (value === '' ? '' : Number(value)) : value
-    }))
-    // Clear error for this field when user types
-    setErrors(prev => ({ ...prev, [name]: "" }))
-  }
-
-  const handleChild = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!validateForm()) return
-
-    setIsLoading(true)
-    try {
-      // Register the child through the API
-      const result = await authService.registerChild(
-        formData.nickname, 
-        Number(formData.age), 
-        formData.grade, 
-        formData.guardianEmail
-      )
-      
-      if (!result.success) {
-        throw new Error(result.message || "Failed to register child");
-      }
-      
-      // After successful registration, redirect to magic link sent page
-      // This ensures consistency with parent registration flow
-      setTimeout(() => {
-        router.push(`/register/magic-link-sent?email=${encodeURIComponent(formData.guardianEmail)}`)
-      }, 100)
-    } catch (error) {
-      console.error("Child registration error:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create account.",
-        variant: "destructive",
-      })
-    } finally {
-      // Keep loading state for a bit longer to prevent UI flickering
-      setTimeout(() => {
-        setIsLoading(false)
-      }, 300)
-    }
-  }
-
-  const handleGoogleRegister = async () => {
-    try {
-      setIsLoading(true)
-      const result = await loginWithGoogle()
-      
-      if (!result.success) {
-        toast({
-          title: "Error",
-          description: result.error || "Failed to initiate Google registration. Please try again.",
-          variant: "destructive",
-        })
-      }
-      // Note: For OAuth, the redirect happens automatically
-    } catch (error) {
-      console.error("Child Google registration error:", error)
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to initiate Google registration. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      // Keep loading state for a bit longer to prevent UI flickering
-      setTimeout(() => {
-        setIsLoading(false)
-      }, 300)
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4 py-12">
-      {/* Background gradient effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-white/5 rounded-full blur-3xl" />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        <PageHeader
-          icon={<GraduationCap className="w-8 h-8 text-white/80" />}
-          title="Student Registration"
-          subtitle="Begin your personalized learning adventure"
-        />
-
-        <GlassCard className="p-8">
-          <form onSubmit={handleChild} className="space-y-5">
-            <FormInput
-              id="childEmail"
-              name="childEmail"
-              type="email"
-              icon={Mail}
-              label="Your Email"
-              value={formData.childEmail}
-              onChange={handleInputChange}
-              placeholder="student@example.com"
-              error={errors.childEmail}
-              required
-            />
-
-            <FormInput
-              id="guardianEmail"
-              name="guardianEmail"
-              type="email"
-              icon={Shield}
-              label="Parent/Guardian Email"
-              value={formData.guardianEmail}
-              onChange={handleInputChange}
-              placeholder="parent@example.com"
-              error={errors.guardianEmail}
-              required
-            />
-
-            <FormInput
-              id="nickname"
-              name="nickname"
-              type="text"
-              icon={User}
-              label="Nickname"
-              value={formData.nickname}
-              onChange={handleInputChange}
-              placeholder="How should we call you?"
-              error={errors.nickname}
-              required
-            />
-
-            <FormInput
-              id="age"
-              name="age"
-              type="number"
-              min="6"
-              max="18"
-              icon={Calendar}
-              label="Age"
-              value={formData.age}
-              onChange={handleInputChange}
-              placeholder="14"
-              error={errors.age}
-              required
-            />
-
-            <FormSelect
-              id="grade"
-              name="grade"
-              icon={GraduationCap}
-              label="Grade Level"
-              value={formData.grade}
-              onChange={handleInputChange}
-              error={errors.grade}
-              required
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-4 bg-gradient-to-r from-gray-600 to-gray-800 text-white rounded-2xl font-bold text-lg hover:from-gray-700 hover:to-gray-900 transition-all duration-300 shadow-xl shadow-gray-500/25 hover:shadow-gray-600/35 hover:-translate-y-1 disabled:opacity-50 min-h-14"
             >
-              <option value="">Select your grade</option>
-              <option value="6">Grade 6</option>
-              <option value="7">Grade 7</option>
-              <option value="8">Grade 8</option>
-              <option value="9">Grade 9</option>
-              <option value="10">Grade 10</option>
-              <option value="11">Grade 11</option>
-              <option value="12">Grade 12</option>
-              <option value="college">College</option>
-            </FormSelect>
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-3" />
+                  Sending Magic Link...
+                </span>
+              ) : (
+                "Send Magic Link ✨"
+              )}
+            </button>
 
-            <div className="pt-2">
-              <SubmitButton loading={isLoading} loadingText="Creating account...">
-                Create Account
-              </SubmitButton>
-            </div>
-
-            {/* Google Sign Up Button */}
+            {/* Divider */}
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-white/10"></div>
               </div>
               <div className="relative flex justify-center text-xs">
-                <span className="bg-black px-2 text-white/30">OR</span>
+                <span className="bg-black px-2 text-white/40">OR</span>
               </div>
             </div>
 
@@ -689,18 +460,30 @@ function ChildFlow() {
               type="button"
               onClick={handleGoogleRegister}
               disabled={isLoading}
-              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
-                       text-white font-medium text-sm
-                       hover:bg-white/[0.1] transition-all duration-200
-                       flex items-center justify-center gap-3 disabled:opacity-50"
+              className="w-full py-4 rounded-2xl bg-gradient-to-r from-gray-600/20 to-gray-800/20 border-2 border-gray-600/30 
+                       text-white font-bold text-lg
+                       hover:from-gray-700/30 hover:to-gray-900/30 transition-all duration-300 shadow-xl shadow-gray-500/15 hover:shadow-gray-600/25 hover:-translate-y-1 disabled:opacity-50 min-h-14"
             >
-              <Chrome className="h-4 w-4" />
               Sign up with Google
             </button>
-          </form>
-        </GlassCard>
 
-        <BackButton onClick={() => router.push("/register")} />
+            <div className="text-center pt-4">
+              <p className="text-xs text-white/40">
+                We'll send you a secure login link to access your dashboard
+              </p>
+            </div>
+          </form>
+        </div>
+
+        <div className="text-center mt-6">
+          <button 
+            onClick={() => router.push("/register")}
+            className="text-white/50 hover:text-white/70 transition-colors text-sm flex items-center justify-center gap-1 mx-auto"
+          >
+            <ChevronLeft className="w-3 h-3" />
+            Back to options
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -712,10 +495,29 @@ function RegisterFormContent() {
   const searchParams = useSearchParams()
   const role = searchParams.get("role")
 
+  // Only show parent flow - redirect any child registration attempts to parent registration
+  if (role === "child") {
+    // Automatically redirect to parent registration
+    useEffect(() => {
+      const timer = setTimeout(() => {
+        window.location.href = "/register/form?role=parent";
+      }, 100); // Small delay to allow the redirect to process
+      return () => clearTimeout(timer);
+    }, []);
+
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-12 h-12 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/50">Redirecting to parent registration...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <AnimatePresence mode="wait">
       {role === "parent" && <ParentFlow key="parent" />}
-      {role === "child" && <ChildFlow key="child" />}
       {!role && (
         <motion.div
           initial={{ opacity: 0 }}

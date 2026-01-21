@@ -266,6 +266,20 @@ export default function GuardianDashboard() {
             </Button>
           </div>
           
+          <div className="bg-white/5 border border-white/10 rounded-xl p-6 space-y-4">
+            <h2 className="font-semibold text-white/90">Option 3: Manage existing children</h2>
+            <p className="text-white/60 text-sm">
+              View or update information for children you've already added:
+            </p>
+            <Button
+              onClick={() => router.push("/children")}
+              className="w-full px-4 py-3 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all duration-200 flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Manage children
+            </Button>
+          </div>
+          
           <div className="pt-4">
             <button
               onClick={() => router.push("/homepage")}
@@ -319,13 +333,21 @@ export default function GuardianDashboard() {
         </div>
 
         {/* Add child button */}
-        <div className="flex justify-end">
+        <div className="flex flex-col sm:flex-row gap-3">
           <Button
             onClick={() => router.push("/onboarding")}
             className="px-4 py-2 rounded-xl bg-white text-black font-medium hover:bg-white/90 transition-all duration-200 flex items-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Add Child
+          </Button>
+          <Button
+            onClick={() => router.push("/children")}
+            variant="outline"
+            className="px-4 py-2 rounded-xl border border-white/20 text-white font-medium hover:bg-white/10 transition-all duration-200 flex items-center gap-2"
+          >
+            <User className="w-4 h-4" />
+            Manage All Children
           </Button>
         </div>
 

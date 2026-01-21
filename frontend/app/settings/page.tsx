@@ -73,8 +73,10 @@ export default function SettingsPage() {
       const meta = auth.user.user_metadata
       // Ensure role is properly set based on user metadata
       const userRole = meta?.role
-      if (userRole && (userRole === "guardian" || userRole === "child")) {
-        setRole(userRole)
+      if (userRole && (userRole === "guardian" || userRole === "parent")) {
+        setRole("guardian") // Map both guardian and parent to guardian for settings
+      } else if (userRole && userRole === "child") {
+        setRole("child")
       } else {
         // Default to guardian if no role is set, assuming the user registered as a guardian
         setRole("guardian")
@@ -89,17 +91,15 @@ export default function SettingsPage() {
     // Only load prefs if email is provided
     if (!email) return;
     
-    // Completely bypass TypeScript typing issues
-    const result: any = await (supabase as any)
+    const { data, error } = await supabase
       .from("guardians")
       .select("weekly_report, monthly_report")
       .eq("email", email)
       .single()
       
-    if (result.data && !result.error) { 
-      // Using bracket notation to avoid TypeScript issues
-      setWeekly(result.data['weekly_report'] ?? false); 
-      setMonthly(result.data['monthly_report'] ?? false); 
+    if (data && !error) { 
+      setWeekly(data.weekly_report ?? false); 
+      setMonthly(data.monthly_report ?? false); 
     }
   }
 
@@ -140,13 +140,13 @@ export default function SettingsPage() {
           <section className="space-y-4">
             <h2 className="text-xl font-semibold flex items-center gap-2"><UserIcon className="w-5 h-5" />Reports</h2>
 
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 opacity-60">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
               <Label>Weekly report</Label>
               <Switch checked={weekly} disabled={role === "child"} />
               {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
             </div>
 
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 opacity-60">
+            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
               <Label>Monthly report</Label>
               <Switch checked={monthly} disabled={role === "child"} />
               {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
@@ -165,20 +165,25 @@ export default function SettingsPage() {
               <button
                 onClick={async () => {
                   try {
-                    // Completely bypass TypeScript typing issues
-                    const result: any = await (supabase as any)
+                    // Update both weekly and monthly reports
+                    const newWeekly = !weekly;
+                    const newMonthly = !monthly;
+                    
+                    const { error } = await supabase
                       .from("guardians")
                       .update({ 
-                        'weekly_report': !weekly,
-                        'monthly_report': weekly  // Set opposite of weekly
+                        weekly_report: newWeekly,
+                        monthly_report: newMonthly
                       })
                       .eq("email", auth.user!.email!)
-                    if (result.error) throw result.error
-                    setWeekly(!weekly)
-                    setMonthly(weekly)  // Set opposite of weekly
-                    toast({ title: "Updated", description: `Switched to ${!weekly ? "weekly" : "monthly"} reports.` })
+                    
+                    if (error) throw error
+                    
+                    setWeekly(newWeekly)
+                    setMonthly(newMonthly)
+                    toast({ title: "Updated", description: `Report preferences updated.` })
                   } catch (err: unknown) {
-                    let errorMessage = "Could not update report preference."
+                    let errorMessage = "Could not update report preferences."
                     if (err instanceof Error) {
                       errorMessage = err.message
                     }
@@ -191,8 +196,19 @@ export default function SettingsPage() {
                 }}
                 className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left"
               >
-                {weekly ? "Switch to monthly" : "Switch to weekly"}
+                Update Report Preferences
               </button>
+              
+              {/* Child management section */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Children Management</h3>
+                <button
+                  onClick={() => router.push("/children")}
+                  className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left"
+                >
+                  Add or Manage Children
+                </button>
+              </div>
             </section>
           )}
 

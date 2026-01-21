@@ -243,7 +243,7 @@ function HeroSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
         <div className="flex flex-col gap-6">
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
-            {user ? `Welcome back, ${user.email}` : "Your Ai Learning Companion."}
+            {user ? `Welcome back, ${user.email}` : "The World's first Superhuman afterclass tutor."}
           </h1>
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
             {user 
@@ -324,6 +324,18 @@ function FeaturesSection() {
   return (
     <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        {/* Diagnostic Quiz Button at the top */}
+        <div className="text-center mb-12 md:mb-16">
+          <Link 
+            href="/diagnostic-quiz"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] mb-8 max-w-2xl mx-auto w-full"
+          >
+            Take a free diagnostic quiz today to test your child's performance level - see the difference after 30 days
+            <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+          </Link>
+        </div>
+        
+        {/* Core Features Heading and Content */}
         <div className="text-center mb-12 md:mb-16">
           <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Core Features</span>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Everything You Need to Succeed in Learning</h2>
