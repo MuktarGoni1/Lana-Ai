@@ -5,6 +5,7 @@ import './globals.css'
 import { ClientProviders } from './providers'
 import { ThemeProvider } from 'next-themes'
 import { LocalChildrenManager } from '@/components/local-children-manager'
+import { ComprehensiveAuthProvider } from '@/contexts/ComprehensiveAuthContext'
 import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
@@ -26,7 +27,7 @@ export const metadata: Metadata = {
     description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
     images: [
       {
-        url: '/icons/icon-512.png',
+        url: 'https://lanamind.com/icons/icon-512.png',
         width: 512,
         height: 512,
         alt: 'LanaMind Logo',
@@ -37,12 +38,17 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'LanaMind – AI Tutor for Clear, Structured Learning',
     description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
-    images: ['/icons/icon-512.png'],
+    images: ['https://lanamind.com/icons/icon-512.png'],
   },
   icons: {
-    icon: '/icons/icon-192.png',
-    shortcut: '/icons/icon-16.png',
-    apple: '/icons/icon-192.png',
+    icon: '/favicon.ico',
+    shortcut: '/favicon-16x16.png',
+    apple: '/apple-touch-icon.png',
+    other: [
+      { rel: 'icon', type: 'image/png', sizes: '32x32', url: '/favicon-32x32.png' },
+      { rel: 'icon', type: 'image/png', sizes: '16x16', url: '/favicon-16x16.png' },
+      { rel: 'apple-touch-icon', sizes: '180x180', url: '/apple-touch-icon.png' },
+    ],
   },
   manifest: '/manifest.json',
 }
@@ -75,12 +81,14 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <StructuredData />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <UnifiedAuthProvider>
-            <ClientProviders>
-              {children}
-              <LocalChildrenManager />
-              <SessionTimeoutHandler />
-              <SessionMonitor />
-            </ClientProviders>
+            <ComprehensiveAuthProvider>
+              <ClientProviders>
+                {children}
+                <LocalChildrenManager />
+                <SessionTimeoutHandler />
+                <SessionMonitor />
+              </ClientProviders>
+            </ComprehensiveAuthProvider>
           </UnifiedAuthProvider>
         </ThemeProvider>
       </body>

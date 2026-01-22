@@ -439,3 +439,7 @@ export default function AboutPage() {
     </div>
   )
 }
+
+function useComprehensiveAuth(): { user: any; isAuthenticated: any; isLoading: any } {
+    throw new Error("Function not implemented.")
+}

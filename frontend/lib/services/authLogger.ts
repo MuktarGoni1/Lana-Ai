@@ -22,7 +22,14 @@ type AuthEventType =
   | 'ROLE_VALIDATION'
   | 'GUEST_CONVERSION_START'
   | 'GUEST_CONVERSION_COMPLETE'
-  | 'GUEST_CONVERSION_FAILURE';
+  | 'GUEST_CONVERSION_FAILURE'
+  | 'CONSENT_REQUESTED'
+  | 'CONSENT_GRANTED'
+  | 'CONSENT_DENIED'
+  | 'CONSENT_UPDATED'
+  | 'CHILD_REGISTRATION_PENDING'
+  | 'CHILD_REGISTRATION_APPROVED'
+  | 'CHILD_REGISTRATION_DENIED';
 
 // Define the structure of a log entry
 interface LogEntry {
@@ -317,6 +324,64 @@ class AuthLogger {
       userId: guestId,
       userEmail: email,
       error
+    });
+  }
+
+  // Methods for tracking consent events
+  public async logConsentRequested(userId: string, email: string, consentTypes: string[]): Promise<void> {
+    await this.info('CONSENT_REQUESTED', `Consent requested for user`, {
+      userId,
+      userEmail: email,
+      metadata: { consentTypes }
+    });
+  }
+
+  public async logConsentGranted(userId: string, email: string, consentDetails: Record<string, any>): Promise<void> {
+    await this.info('CONSENT_GRANTED', `Consent granted by user`, {
+      userId,
+      userEmail: email,
+      metadata: { consentDetails }
+    });
+  }
+
+  public async logConsentDenied(userId: string, email: string, consentTypes: string[]): Promise<void> {
+    await this.warn('CONSENT_DENIED', `Consent denied by user`, {
+      userId,
+      userEmail: email,
+      metadata: { consentTypes }
+    });
+  }
+
+  public async logConsentUpdated(userId: string, email: string, updatedFields: string[]): Promise<void> {
+    await this.info('CONSENT_UPDATED', `Consent updated by user`, {
+      userId,
+      userEmail: email,
+      metadata: { updatedFields }
+    });
+  }
+
+  // Methods for tracking child registration events
+  public async logChildRegistrationPending(parentId: string, parentEmail: string, childNickname: string): Promise<void> {
+    await this.info('CHILD_REGISTRATION_PENDING', `Child registration placed in pending state`, {
+      userId: parentId,
+      userEmail: parentEmail,
+      metadata: { childNickname }
+    });
+  }
+
+  public async logChildRegistrationApproved(parentId: string, parentEmail: string, childId: string, childNickname: string): Promise<void> {
+    await this.info('CHILD_REGISTRATION_APPROVED', `Child registration approved by parent`, {
+      userId: parentId,
+      userEmail: parentEmail,
+      metadata: { childId, childNickname }
+    });
+  }
+
+  public async logChildRegistrationDenied(parentId: string, parentEmail: string, childNickname: string, reason: string): Promise<void> {
+    await this.warn('CHILD_REGISTRATION_DENIED', `Child registration denied by parent`, {
+      userId: parentId,
+      userEmail: parentEmail,
+      metadata: { childNickname, reason }
     });
   }
 }

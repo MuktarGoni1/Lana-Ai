@@ -4,11 +4,12 @@ import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/db"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
-import { Moon, LogOut } from "lucide-react"
+import { Moon, LogOut, Bell } from "lucide-react"
 import { UserIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { User as SupabaseUser } from "@supabase/supabase-js"
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import PremiumFeatureGuard from "@/components/PremiumFeatureGuard"
 
 // Use the unified auth context directly since it's available through the provider
 function useSettingsAuth() {
@@ -179,6 +180,25 @@ export default function SettingsPage() {
             >
               Update Report Preferences
             </button>
+            
+            {/* Premium Feature: Class Review Alarms */}
+            <PremiumFeatureGuard featureName="Class Review Alarms" showUpgradeOption={true}>
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium flex items-center gap-2"><Bell className="w-4 h-4" />Class Review Alarms</h3>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                  <Label>Reminder alarms</Label>
+                  <Switch id="reminder-alarms" />
+                </div>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                  <Label>Daily summary</Label>
+                  <Switch id="daily-summary" />
+                </div>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+                  <Label>Progress notifications</Label>
+                  <Switch id="progress-notifications" />
+                </div>
+              </div>
+            </PremiumFeatureGuard>
             
             {/* Child management section */}
             <div className="space-y-2">

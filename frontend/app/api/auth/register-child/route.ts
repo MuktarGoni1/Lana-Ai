@@ -55,7 +55,7 @@ const logChildRegistration = async (adminClient: any, operation: string, details
   }
 }
 
-// Enhanced child registration function
+// Enhanced child registration function - now stores pending registration
 const registerSingleChild = async (adminClient: any, childData: any, guardianEmail: string, clientIP: string) => {
   try {
     // Get the authenticated parent user
@@ -66,7 +66,7 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
     }
     
     // Log the attempt
-    await logChildRegistration(adminClient, 'CHILD_REGISTRATION_ATTEMPT', {
+    await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_ATTEMPT', {
       parent_id: parentUser.id,
       guardianEmail,
       nickname: childData.nickname,
@@ -74,72 +74,34 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
       timestamp: new Date().toISOString()
     })
 
-    // Create the auth user
-    const { data: childAuthData, error: signUpError } = await adminClient.auth.admin.createUser({
-      email: `${crypto.randomUUID()}@child.lana`,
-      password: crypto.randomUUID(),
-      user_metadata: { 
-        role: "child", 
-        nickname: childData.nickname, 
-        age: childData.age, 
-        grade: childData.grade, 
-        guardian_email: guardianEmail 
-      },
-    })
+    // Instead of creating the user immediately, store in pending registrations
+    // Import the service
+    const { pendingChildRegistrationService } = await import('@/lib/services/pendingChildRegistrationService');
+    
+    const result = await pendingChildRegistrationService.storePendingChildRegistration({
+      nickname: childData.nickname,
+      age: childData.age,
+      grade: childData.grade,
+      guardianEmail,
+      parentId: parentUser.id
+    });
 
-    if (signUpError) {
-      await logChildRegistration(adminClient, 'CHILD_REGISTRATION_FAILED', {
+    if (!result.success) {
+      await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_FAILED', {
         parent_id: parentUser.id,
         guardianEmail,
-        error: signUpError.message,
+        error: result.error || 'Unknown error',
         ipAddress: clientIP,
         timestamp: new Date().toISOString()
-      })
+      });
       
-      console.error('[API Register Child] Supabase Admin Auth error:', signUpError)
-      
-      // Provide specific error messages
-      let message = 'Failed to create account'
-      if (signUpError.message?.includes('Email rate limit exceeded')) {
-        message = 'Too many requests. Please wait before trying again.'
-      } else if (signUpError.message?.includes('already been registered')) {
-        message = 'This email is already registered. Please use a different email.'
-      } else if (signUpError.message?.includes('Invalid email')) {
-        message = 'Invalid email address provided.'
-      }
-      
-      throw new Error(message)
+      console.error('[API Register Child] Error storing pending child registration:', result.error);
+      throw new Error(result.error || 'Failed to store pending registration');
     }
     
-    const childUserId = childAuthData.user?.id;
-    
-    if (!childUserId) {
-      throw new Error('Failed to create child user account');
-    }
-
-    // Create the profile record linking child to parent with account status flags
-    const { error: profileError } = await adminClient.from('profiles').insert({
-      id: childUserId,
-      full_name: childData.nickname,
-      role: 'child',
-      parent_id: parentUser.id,
-      diagnostic_completed: false,
-      is_active: true,
-      created_at: new Date().toISOString()
-    });
-    
-    if (profileError) {
-      console.error('[API Register Child] Failed to create profile:', profileError);
-      
-      // Rollback: Delete the created user since profile creation failed
-      await adminClient.auth.admin.deleteUser(childUserId);
-      
-      throw new Error('Failed to create child profile');
-    }
-    
-    console.log('[API Register Child] Successfully registered child and created profile')
-    await logChildRegistration(adminClient, 'CHILD_REGISTRATION_SUCCESS', {
-      child_id: childUserId,
+    console.log('[API Register Child] Successfully stored pending child registration with ID:', result.id)
+    await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_SUCCESS', {
+      pending_id: result.id,
       parent_id: parentUser.id,
       guardianEmail,
       nickname: childData.nickname,
@@ -149,7 +111,7 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
     
     return {
       success: true,
-      child_uid: childUserId,
+      pending_id: result.id,
       nickname: childData.nickname
     }
   } catch (error) {

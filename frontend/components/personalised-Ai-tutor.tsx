@@ -6,7 +6,7 @@ import { ArrowLeft, Video, Loader2, AlertCircle, Home, Play } from "lucide-react
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext";
 
 interface PersonalisedAiTutorProps {
   question?: string;
@@ -15,7 +15,7 @@ interface PersonalisedAiTutorProps {
 
 export default function PersonalisedAiTutor({ question, onBack }: PersonalisedAiTutorProps) {
   const router = useRouter();
-  const { isAuthenticated } = useEnhancedAuth();
+  const { isAuthenticated } = useComprehensiveAuth();
   const [input, setInput] = useState<string>(question || '');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);

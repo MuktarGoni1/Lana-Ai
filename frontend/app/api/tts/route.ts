@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import serverRateLimiter from '@/lib/server-rate-limiter';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 export async function POST(req: Request) {
   try {
@@ -21,6 +23,30 @@ export async function POST(req: Request) {
           }
         }
       );
+    }
+    
+    // Check subscription status for premium features
+    const supabase = createRouteHandlerClient({ cookies });
+    const { data: { session } } = await supabase.auth.getSession();
+    
+    if (session) {
+      const isPro = Boolean(session.user.user_metadata?.is_pro || session.user.user_metadata?.pro);
+      
+      // If user is not pro, limit the length of text they can convert to audio
+      if (!isPro) {
+        const { text } = await req.json();
+        if (text && text.length > 500) { // Limit to 500 characters for non-pro users
+          return NextResponse.json(
+            { 
+              error: 'Free tier limit exceeded', 
+              message: 'Free users can only convert up to 500 characters. Upgrade to Pro for longer audio generation.',
+            }, 
+            { 
+              status: 402, // Payment Required
+            }
+          );
+        }
+      }
     }
     
     const body = await req.json();

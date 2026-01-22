@@ -7,6 +7,8 @@ export function useEnhancedAuth() {
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    isPro: false,
+    checkingPro: true,
     error: null
   });
 
@@ -22,6 +24,10 @@ export function useEnhancedAuth() {
     return () => {
       unsubscribe();
     };
+  }, [authService]);
+
+  const refreshProStatus = useCallback(async () => {
+    return await authService.refreshProStatus();
   }, [authService]);
 
   const loginWithEmail = useCallback(async (email: string) => {
@@ -74,7 +80,8 @@ export function useEnhancedAuth() {
     refreshSession,
     completeOnboarding,
     getUserRole,
-    isOnboardingComplete
+    isOnboardingComplete,
+    refreshProStatus
   };
   
   return returnValue;

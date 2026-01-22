@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext"
 import {
 CheckCircle2,
 ArrowRight,
@@ -80,7 +80,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user } = useComprehensiveAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
@@ -239,7 +239,7 @@ function Header() {
 
 /* ---------- HERO ---------- */
 function HeroSection() {
-  const { user } = useUnifiedAuth()
+  const { user } = useComprehensiveAuth()
   const [isMuted, setIsMuted] = useState(true)
 
   const toggleAudio = () => {
@@ -497,7 +497,7 @@ function PricingSection() {
 
 /* ---------- CTA ---------- */
 function CtaSection() {
-  const { user } = useUnifiedAuth()
+  const { user } = useComprehensiveAuth()
 
   return (
     <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-gray-700 to-stone-800 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
@@ -1025,3 +1025,5 @@ export default function Home() {
     </div>
   )
 }
+
+

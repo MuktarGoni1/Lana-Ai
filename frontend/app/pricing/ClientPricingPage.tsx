@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext";
 
 const PLANS = {
   monthly: [
@@ -24,7 +24,7 @@ export default function ClientPricingPage() {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
-  const { user } = useUnifiedAuth();
+  const { user } = useComprehensiveAuth();
   const plans = PLANS[interval];
   const periodLabel = interval === "yearly" ? "/mo (billed yearly)" : "/mo";
 

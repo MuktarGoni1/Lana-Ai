@@ -11,6 +11,9 @@ import { supabase } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
 import { dataSyncService } from '@/lib/services/dataSyncService';
 import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler';
+
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
 /* ---------- Types ---------- */
 interface Topic {
   id: string;

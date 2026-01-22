@@ -4,9 +4,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
-import { RobustAuthService, type RobustAuthState } from '@/lib/services/robustAuthService';
+import { comprehensiveAuthService, type ComprehensiveAuthState } from '@/lib/services/comprehensiveAuthService';
 
-interface UnifiedAuthContextType {
+interface ComprehensiveAuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -21,14 +21,16 @@ interface UnifiedAuthContextType {
   refreshUser: () => Promise<void>;
   refreshProStatus: () => Promise<void>;
   setUser: (user: User | null) => void;
-  checkAuthStatus: (forceRefresh?: boolean) => Promise<RobustAuthState>;
+  checkAuthStatus: (forceRefresh?: boolean) => Promise<ComprehensiveAuthState>;
   getUserRole: () => 'child' | 'guardian' | 'parent' | null;
   isOnboardingComplete: () => boolean;
+  requestUserConsent: (consentData: any) => Promise<{ success: boolean; error?: string }>;
+  hasGivenConsent: () => boolean;
 }
 
-const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
+const ComprehensiveAuthContext = createContext<ComprehensiveAuthContextType | undefined>(undefined);
 
-export function UnifiedAuthProvider({ children }: { children: React.ReactNode }) {
+export function ComprehensiveAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -38,7 +40,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
   const [lastChecked, setLastChecked] = useState<number | null>(null);
   const router = useRouter();
 
-  const authService = RobustAuthService.getInstance();
+  const authService = comprehensiveAuthService;
 
   // Refresh user data from Supabase
   const refreshUser = useCallback(async () => {
@@ -46,7 +48,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       const { data: { user: currentUser }, error } = await supabase.auth.getUser();
       
       if (error) {
-        console.error('[UnifiedAuthContext] Error refreshing user:', error);
+        console.error('[ComprehensiveAuthContext] Error refreshing user:', error);
         setUser(null);
         setIsAuthenticated(false);
         setError(error.message);
@@ -57,7 +59,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsAuthenticated(!!currentUser);
       setError(null);
     } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected error refreshing user:', error);
+      console.error('[ComprehensiveAuthContext] Unexpected error refreshing user:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -100,10 +102,12 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsAuthenticated(state.isAuthenticated);
       setError(state.error);
       setLastChecked(state.lastChecked);
+      setIsPro(state.isPro);
+      setCheckingPro(state.checkingPro);
       setIsLoading(false);
       return state;
     } catch (error) {
-      console.error('[UnifiedAuthContext] Error checking auth status:', error);
+      console.error('[ComprehensiveAuthContext] Error checking auth status:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -113,8 +117,11 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
         user: null,
         isAuthenticated: false,
         isLoading: false,
+        isPro: false,
+        checkingPro: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        lastChecked: Date.now()
+        lastChecked: Date.now(),
+        consent: null
       };
     }
   }, [authService]);
@@ -132,6 +139,8 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setUser(state.user);
       setIsAuthenticated(state.isAuthenticated);
       setIsLoading(state.isLoading);
+      setIsPro(state.isPro);
+      setCheckingPro(state.checkingPro);
       setError(state.error);
       setLastChecked(state.lastChecked);
     });
@@ -152,7 +161,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
       if (error) throw error;
     } catch (error) {
-      console.error('[UnifiedAuthContext] Login error:', error);
+      console.error('[ComprehensiveAuthContext] Login error:', error);
       throw error;
     }
   }, []);
@@ -167,14 +176,14 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       const result = await authService.loginWithGoogle();
       
       if (!result.success) {
-        console.error('[UnifiedAuthContext] Google login error:', result.error);
+        console.error('[ComprehensiveAuthContext] Google login error:', result.error);
         return { success: false, error: result.error };
       }
 
       // For OAuth, the redirect happens automatically
       return { success: true };
     } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected Google login error:', error);
+      console.error('[ComprehensiveAuthContext] Unexpected Google login error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error occurred during Google login' 
@@ -192,7 +201,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       setIsAuthenticated(false);
       router.push('/login');
     } catch (error) {
-      console.error('[UnifiedAuthContext] Logout error:', error);
+      console.error('[ComprehensiveAuthContext] Logout error:', error);
       throw error;
     }
   }, [router]);
@@ -217,6 +226,15 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     return Boolean(user.user_metadata?.onboarding_complete);
   }, [user]);
 
+  // Consent management
+  const requestUserConsent = useCallback(async (consentData: any) => {
+    return await authService.requestUserConsent(consentData);
+  }, [authService]);
+
+  const hasGivenConsent = useCallback(() => {
+    return authService.hasGivenConsent();
+  }, [authService]);
+
   const value = {
     user,
     isLoading,
@@ -234,20 +252,22 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     setUser,
     checkAuthStatus,
     getUserRole,
-    isOnboardingComplete
+    isOnboardingComplete,
+    requestUserConsent,
+    hasGivenConsent
   };
 
   return (
-    <UnifiedAuthContext.Provider value={value}>
+    <ComprehensiveAuthContext.Provider value={value}>
       {children}
-    </UnifiedAuthContext.Provider>
+    </ComprehensiveAuthContext.Provider>
   );
 }
 
-export function useUnifiedAuth() {
-  const context = useContext(UnifiedAuthContext);
+export function useComprehensiveAuth() {
+  const context = useContext(ComprehensiveAuthContext);
   if (context === undefined) {
-    throw new Error('useUnifiedAuth must be used within a UnifiedAuthProvider');
+    throw new Error('useComprehensiveAuth must be used within a ComprehensiveAuthProvider');
   }
   return context;
 }

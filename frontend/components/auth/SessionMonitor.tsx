@@ -3,8 +3,8 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-// Create a safe version of useUnifiedAuth that doesn't throw during SSR
-function useSafeUnifiedAuth() {
+// Create a safe version of useComprehensiveAuth that doesn't throw during SSR
+function useSafeComprehensiveAuth() {
   const [authState, setAuthState] = useState<{
     checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
     isAuthenticated: boolean;
@@ -15,10 +15,10 @@ function useSafeUnifiedAuth() {
     // Dynamically import the useUnifiedAuth hook only on the client side
     const loadAuth = async () => {
       try {
-        const { useUnifiedAuth } = await import('@/contexts/UnifiedAuthContext');
+        const { useComprehensiveAuth } = await import('@/contexts/ComprehensiveAuthContext');
         // Try to use the hook, but catch any errors
         try {
-          const auth = useUnifiedAuth();
+          const auth = useComprehensiveAuth();
           setAuthState({
             checkAuthStatus: auth.checkAuthStatus,
             isAuthenticated: auth.isAuthenticated,
@@ -41,7 +41,7 @@ function useSafeUnifiedAuth() {
 }
 
 export function SessionMonitor() {
-  const auth = useSafeUnifiedAuth();
+  const auth = useSafeComprehensiveAuth();
   const { toast } = useToast();
   const [isInitialized, setIsInitialized] = useState(false);
 

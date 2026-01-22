@@ -223,16 +223,38 @@ export async function middleware(req: NextRequest) {
       res.headers.set('x-last-visited', pathname)
     }
 
-    // First-time onboarding enforcement
+    // First-time onboarding enforcement - ONLY rely on server-side verified user metadata
+    // Previously vulnerable to client-side cookie manipulation
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
-    const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
+    const hasConsent = Boolean(user?.user_metadata?.consent?.privacyPolicyAccepted && user?.user_metadata?.consent?.termsOfServiceAccepted)
     const isOnboardingRoute = pathname === '/onboarding' || pathname === '/term-plan'
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
     
     // Check if this is a redirect from onboarding completion
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
-    if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
+    // Enhanced security: Check if user has given explicit consent before allowing access to most routes
+    const consentRequiredRoutes = [
+      '/dashboard',
+      '/guardian',
+      '/personalised-ai-tutor',
+      '/children',
+      '/settings',
+      '/homepage'
+    ];
+    
+    const isConsentRequiredRoute = consentRequiredRoutes.some(route => pathname.startsWith(route));
+    
+    // Redirect to consent form if user hasn't given explicit consent and is accessing a consent-required route
+    if (sessionExists && !hasConsent && isConsentRequiredRoute && pathname !== '/onboarding' && pathname !== '/consent') {
+      console.log('[Middleware] Authenticated user without explicit consent, redirecting to consent form')
+      await authLogger.logRedirect(pathname, '/consent', 'missing_explicit_consent', user?.id, user?.email);
+      const returnTo = `${pathname}${url.search}`
+      const dest = new URL(`/consent?returnTo=${encodeURIComponent(returnTo)}`, req.url)
+      return NextResponse.redirect(dest)
+    }
+    
+    if (sessionExists && !onboardingComplete && !isOnboardingRoute) {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
       await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`

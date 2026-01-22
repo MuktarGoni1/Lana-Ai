@@ -11,6 +11,9 @@ import { AuthService } from "@/lib/services/authService"
 import { motion, AnimatePresence } from "framer-motion"
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 // =============== SHARED COMPONENTS ===============
 
 // Reusable components matching login page styling

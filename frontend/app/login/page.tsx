@@ -7,6 +7,9 @@ import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 // --- Reusable Components ---
 const FormWrapper = ({ children }: { children: React.ReactNode }) => (
   <div className="min-h-screen bg-black flex items-center justify-center p-4">

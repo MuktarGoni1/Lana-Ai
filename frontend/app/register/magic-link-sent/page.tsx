@@ -4,6 +4,9 @@ import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 function MagicLinkSentContent() {
   const params = useSearchParams();
   const email = params.get("email") || "your email";

@@ -22,7 +22,7 @@ import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext"
 
 // Centralized API base with optional proxying via Next.js rewrites
 // Using unified API configuration
@@ -80,7 +80,7 @@ function ChatWithSidebarContent() {
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
   // Replace individual auth state variables with useEnhancedAuth hook
-  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useComprehensiveAuth();
   const [role, setRole] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)

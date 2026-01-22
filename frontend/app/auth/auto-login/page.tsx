@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 // Create a safe version of useRobustAuth that doesn't throw during SSR
 function useSafeRobustAuth() {
   const [authState, setAuthState] = useState<{

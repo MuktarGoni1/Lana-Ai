@@ -6,6 +6,8 @@ export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isPro: boolean;
+  checkingPro: boolean;
   error: string | null;
 }
 
@@ -15,6 +17,8 @@ export class EnhancedAuthService {
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    isPro: false,
+    checkingPro: true,
     error: null
   };
   private listeners: Array<(state: AuthState) => void> = [];
@@ -164,6 +168,38 @@ export class EnhancedAuthService {
 
   getCurrentState(): AuthState {
     return { ...this.authState };
+  }
+
+  async refreshProStatus(): Promise<{ isPro: boolean; error?: string }> {
+    try {
+      // Update the checking state
+      this.updateAuthState({ checkingPro: true });
+      
+      const response = await fetch('/api/subscription/status');
+      
+      if (response.ok) {
+        const data = await response.json();
+        const isPro = Boolean(data.is_pro);
+        
+        // Update the auth state with the new pro status
+        this.updateAuthState({ isPro, checkingPro: false });
+        
+        return { isPro };
+      } else {
+        // Handle specific error cases
+        if (response.status === 404) {
+          console.error('Subscription status endpoint not found');
+        }
+        
+        // Set isPro to false if there's an error
+        this.updateAuthState({ isPro: false, checkingPro: false });
+        return { isPro: false, error: 'Subscription status unavailable' };
+      }
+    } catch (e: unknown) {
+      console.error('Error checking subscription status:', e);
+      this.updateAuthState({ isPro: false, checkingPro: false });
+      return { isPro: false, error: e instanceof Error ? e.message : 'Unknown error' };
+    }
   }
 
   async loginWithEmail(email: string): Promise<{ success: boolean; error?: string }> {
@@ -537,10 +573,8 @@ export class EnhancedAuthService {
   isOnboardingComplete(): boolean {
     if (!this.authState.user) return false;
     
-    return Boolean(
-      this.authState.user.user_metadata?.onboarding_complete ||
-      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1'))
-    );
+    // Only rely on server-side verified user metadata
+    return Boolean(this.authState.user.user_metadata?.onboarding_complete);
   }
 
   // Complete onboarding
@@ -559,11 +593,7 @@ export class EnhancedAuthService {
         return { success: false, error: error.message };
       }
 
-      // Set cookie for middleware bypass
-      if (typeof window !== 'undefined') {
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-      }
+      // Cookie setting removed - only server-side verification is trusted
 
       // Refresh user data
       await this.refreshSession();

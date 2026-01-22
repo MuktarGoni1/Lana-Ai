@@ -6,6 +6,9 @@ import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
 import { navigateToHomepage } from "@/lib/navigation";
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 export default function GuardianConfirmedPage() {
   const router = useRouter();
   const { toast } = useToast();

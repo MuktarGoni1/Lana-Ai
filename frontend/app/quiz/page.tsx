@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { Check, X, ArrowLeft, RotateCcw, Sparkles, BookOpen, Trophy, Clock } from "lucide-react";
 import { Suspense } from "react";
 
+// Ensure this page is not statically generated
+export const dynamic = 'force-dynamic';
+
 /* ---------------- types ---------------- */
 type Question = {
   q: string; 

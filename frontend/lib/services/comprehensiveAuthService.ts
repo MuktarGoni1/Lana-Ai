@@ -3,24 +3,39 @@ import { type User } from '@supabase/supabase-js';
 import { authLogger } from './authLogger';
 import { dataSyncService } from './dataSyncService';
 
-export interface ConsolidatedAuthState {
+// Define consent types
+export interface UserConsent {
+  privacyPolicyAccepted: boolean;
+  termsOfServiceAccepted: boolean;
+  marketingCommunication: boolean;
+  childDataUsage: boolean;
+  createdAt: string;
+}
+
+export interface ComprehensiveAuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  isPro: boolean;
+  checkingPro: boolean;
   error: string | null;
   lastChecked: number | null;
+  consent: UserConsent | null;
 }
 
-export class ConsolidatedAuthService {
-  private static instance: ConsolidatedAuthService;
-  private authState: ConsolidatedAuthState = {
+export class ComprehensiveAuthService {
+  private static instance: ComprehensiveAuthService;
+  private authState: ComprehensiveAuthState = {
     user: null,
     isAuthenticated: false,
     isLoading: true,
+    isPro: false,
+    checkingPro: true,
     error: null,
-    lastChecked: null
+    lastChecked: null,
+    consent: null
   };
-  private listeners: Array<(state: ConsolidatedAuthState) => void> = [];
+  private listeners: Array<(state: ComprehensiveAuthState) => void> = [];
   private refreshInterval: NodeJS.Timeout | null = null;
   private networkStatus: 'online' | 'offline' = 'online';
 
@@ -30,17 +45,17 @@ export class ConsolidatedAuthService {
     this.startPeriodicRefresh();
   }
 
-  static getInstance(): ConsolidatedAuthService {
-    if (!ConsolidatedAuthService.instance) {
-      ConsolidatedAuthService.instance = new ConsolidatedAuthService();
+  static getInstance(): ComprehensiveAuthService {
+    if (!ComprehensiveAuthService.instance) {
+      ComprehensiveAuthService.instance = new ComprehensiveAuthService();
     }
-    return ConsolidatedAuthService.instance;
+    return ComprehensiveAuthService.instance;
   }
 
   private initializeAuthListener() {
     // Listen for auth state changes
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[ConsolidatedAuthService] Auth state changed:', event);
+      console.log('[ComprehensiveAuthService] Auth state changed:', event);
       
       switch (event) {
         case 'SIGNED_IN':
@@ -108,17 +123,12 @@ export class ConsolidatedAuthService {
 
     // Initial check
     this.checkAuthStatus();
-
-    // Return unsubscribe function
-    return () => {
-      data?.subscription.unsubscribe();
-    };
   }
 
   private initializeNetworkListener() {
     if (typeof window !== 'undefined') {
       window.addEventListener('online', () => {
-        console.log('[ConsolidatedAuthService] Network online');
+        console.log('[ComprehensiveAuthService] Network online');
         this.networkStatus = 'online';
         // When coming back online, refresh the auth status
         this.checkAuthStatus();
@@ -127,7 +137,7 @@ export class ConsolidatedAuthService {
       });
       
       window.addEventListener('offline', () => {
-        console.log('[ConsolidatedAuthService] Network offline');
+        console.log('[ComprehensiveAuthService] Network offline');
         this.networkStatus = 'offline';
         // When going offline, update state but don't change auth status
         this.updateAuthState({ 
@@ -146,7 +156,7 @@ export class ConsolidatedAuthService {
     }, 5 * 60 * 1000); // 5 minutes
   }
 
-  private updateAuthState(newState: Partial<ConsolidatedAuthState>) {
+  private updateAuthState(newState: Partial<ComprehensiveAuthState>) {
     this.authState = {
       ...this.authState,
       ...newState,
@@ -157,7 +167,7 @@ export class ConsolidatedAuthService {
     this.listeners.forEach(listener => listener(this.authState));
   }
 
-  async checkAuthStatus(forceRefresh = false): Promise<ConsolidatedAuthState> {
+  async checkAuthStatus(forceRefresh = false): Promise<ComprehensiveAuthState> {
     // If we checked recently (within 30 seconds) and not forcing refresh, return current state
     if (!forceRefresh && this.authState.lastChecked && 
         Date.now() - this.authState.lastChecked < 30000) {
@@ -177,7 +187,7 @@ export class ConsolidatedAuthService {
       const { data, error } = result;
       
       if (error) {
-        console.error('[ConsolidatedAuthService] Error checking auth status:', error);
+        console.error('[ComprehensiveAuthService] Error checking auth status:', error);
         this.updateAuthState({ 
           user: null, 
           isAuthenticated: false, 
@@ -187,16 +197,23 @@ export class ConsolidatedAuthService {
         return { ...this.authState };
       }
       
+      // Load consent information if user exists
+      let consent: UserConsent | null = null;
+      if (data?.user) {
+        consent = await this.loadUserConsent(data.user.id);
+      }
+      
       this.updateAuthState({ 
         user: data?.user || null, 
         isAuthenticated: !!data?.user,
         isLoading: false,
-        error: null
+        error: null,
+        consent
       });
       
       return { ...this.authState };
     } catch (error) {
-      console.error('[ConsolidatedAuthService] Unexpected error checking auth status:', error);
+      console.error('[ComprehensiveAuthService] Unexpected error checking auth status:', error);
       this.updateAuthState({ 
         user: null, 
         isAuthenticated: false, 
@@ -207,7 +224,7 @@ export class ConsolidatedAuthService {
     }
   }
 
-  subscribe(listener: (state: ConsolidatedAuthState) => void): () => void {
+  subscribe(listener: (state: ComprehensiveAuthState) => void): () => void {
     this.listeners.push(listener);
     
     // Immediately notify the new listener with current state
@@ -222,7 +239,7 @@ export class ConsolidatedAuthService {
     };
   }
 
-  getCurrentState(): ConsolidatedAuthState {
+  getCurrentState(): ComprehensiveAuthState {
     return { ...this.authState };
   }
 
@@ -264,7 +281,7 @@ export class ConsolidatedAuthService {
         const json = await res.json();
         const t2 = performance.now();
         if (process.env.NODE_ENV === 'development') {
-          console.info('[ConsolidatedAuthService.verifyEmail] timings_ms', { fetch_ms: Math.round(t1 - t0), parse_ms: Math.round(t2 - t1) });
+          console.info('[ComprehensiveAuthService.verifyEmail] timings_ms', { fetch_ms: Math.round(t1 - t0), parse_ms: Math.round(t2 - t1) });
         }
         return { exists: Boolean(json?.exists), confirmed: Boolean(json?.confirmed), userId: json?.userId ?? null };
       };
@@ -276,9 +293,9 @@ export class ConsolidatedAuthService {
       } catch (err) {
         // Retry once for network/abort errors
         if (err instanceof DOMException && err.name === 'AbortError') {
-          console.warn('[ConsolidatedAuthService.verifyEmail] request timed out, retrying once');
+          console.warn('[ComprehensiveAuthService.verifyEmail] request timed out, retrying once');
         } else if (err instanceof Error && /network|fetch|failed|timeout/i.test(err.message)) {
-          console.warn('[ConsolidatedAuthService.verifyEmail] network error, retrying once');
+          console.warn('[ComprehensiveAuthService.verifyEmail] network error, retrying once');
         } else {
           clearTimeout(timeout);
           throw err;
@@ -290,7 +307,7 @@ export class ConsolidatedAuthService {
         return result;
       }
     } catch (error) {
-      console.warn('[ConsolidatedAuthService.verifyEmail] error', error);
+      console.warn('[ComprehensiveAuthService.verifyEmail] error', error);
       throw error instanceof Error ? error : new Error('Network or server error during verification.');
     }
   }
@@ -321,12 +338,12 @@ export class ConsolidatedAuthService {
         
         // Handle specific error cases
         if (response.status === 504) {
-          console.debug('[ConsolidatedAuthService] Network timeout while checking user authentication');
+          console.debug('[ComprehensiveAuthService] Network timeout while checking user authentication');
           throw new Error('Network timeout while checking user authentication. Please check your connection and try again.');
         }
         
         // If the API call fails, fall back to using the verify-email endpoint
-        console.debug('[ConsolidatedAuthService] API check failed, falling back to verify-email');
+        console.debug('[ComprehensiveAuthService] API check failed, falling back to verify-email');
         const verifyResponse = await fetch('/api/auth/verify-email', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -340,13 +357,13 @@ export class ConsolidatedAuthService {
         
         // Handle specific error cases for verify-email endpoint
         if (verifyResponse.status === 504) {
-          console.debug('[ConsolidatedAuthService] Network timeout while verifying email');
+          console.debug('[ComprehensiveAuthService] Network timeout while verifying email');
           throw new Error('Network timeout while verifying email. Please check your connection and try again.');
         }
         
         return false;
       } catch (apiError) {
-        console.debug('[ConsolidatedAuthService] API check error, falling back:', apiError);
+        console.debug('[ComprehensiveAuthService] API check error, falling back:', apiError);
         // If it's a network timeout error, re-throw it
         if (apiError instanceof Error && apiError.message.includes('timeout')) {
           throw apiError;
@@ -354,7 +371,7 @@ export class ConsolidatedAuthService {
         return false;
       }
     } catch (error) {
-      console.debug('[ConsolidatedAuthService] isEmailAuthenticated error:', error);
+      console.debug('[ComprehensiveAuthService] isEmailAuthenticated error:', error);
       throw error;
     }
   }
@@ -367,18 +384,24 @@ export class ConsolidatedAuthService {
       const verificationResult = await this.verifyEmailWithSupabaseAuth(email.trim());
       
       if (verificationResult.exists && verificationResult.confirmed) {
-        // User is authenticated, sign them in directly
-        // For security, we still need to use Supabase's authentication flow
-        // We'll send a magic link but with a custom redirect that handles automatic login
-        const { data, error } = await supabase.auth.signInWithOtp({
-          email: email.trim(),
-          options: {
-            shouldCreateUser: false, // Don't create a new user if they don't exist
-            emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+        // User is authenticated, send them a magic link
+        // Use our enhanced magic link API route to ensure proper onboarding enforcement
+        const response = await fetch('/api/auth/magic-link', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            email: email.trim(),
+            redirectTo: '/onboarding' // Always redirect to onboarding for new users
+          }),
         });
 
-        if (error) throw error;
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to send magic link');
+        }
         
         return { success: true };
       } else if (verificationResult.exists && !verificationResult.confirmed) {
@@ -387,7 +410,7 @@ export class ConsolidatedAuthService {
         throw new Error('Email not authenticated. Please register first.');
       }
     } catch (error: unknown) {
-      console.debug("[ConsolidatedAuthService] login error:", error);
+      console.debug("[ComprehensiveAuthService] login error:", error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         isLoading: false, 
@@ -401,13 +424,13 @@ export class ConsolidatedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      console.log('[ConsolidatedAuthService] Initiating Google login');
-      console.log('[ConsolidatedAuthService] Supabase auth object:', supabase.auth);
+      console.log('[ComprehensiveAuthService] Initiating Google login');
+      console.log('[ComprehensiveAuthService] Supabase auth object:', supabase.auth);
       
       // Check if supabase.auth exists
       if (!supabase.auth) {
         const errorMessage = 'Supabase auth object is undefined';
-        console.error('[ConsolidatedAuthService] Google login error:', errorMessage);
+        console.error('[ComprehensiveAuthService] Google login error:', errorMessage);
         this.updateAuthState({ 
           isLoading: false, 
           error: errorMessage 
@@ -418,8 +441,8 @@ export class ConsolidatedAuthService {
       // Check if supabase.auth.signInWithOAuth exists
       if (typeof supabase.auth.signInWithOAuth !== 'function') {
         const errorMessage = 'signInWithOAuth is not available. This method may not be supported in the current Supabase client configuration.';
-        console.error('[ConsolidatedAuthService] Google login error:', errorMessage);
-        console.error('[ConsolidatedAuthService] Available methods on supabase.auth:', Object.keys(supabase.auth));
+        console.error('[ComprehensiveAuthService] Google login error:', errorMessage);
+        console.error('[ComprehensiveAuthService] Available methods on supabase.auth:', Object.keys(supabase.auth));
         this.updateAuthState({ 
           isLoading: false, 
           error: errorMessage 
@@ -428,17 +451,18 @@ export class ConsolidatedAuthService {
       }
       
       // Call signInWithOAuth with the correct parameters
-      console.log('[ConsolidatedAuthService] Calling signInWithOAuth with provider: google');
+      // Redirect to our dedicated Google callback handler to ensure proper onboarding enforcement
+      console.log('[ComprehensiveAuthService] Calling signInWithOAuth with provider: google');
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
+          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/api/auth/google/callback`,
           scopes: 'openid email profile',
         },
       });
 
       if (error) {
-        console.error('[ConsolidatedAuthService] Google login error:', error);
+        console.error('[ComprehensiveAuthService] Google login error:', error);
         this.updateAuthState({ 
           isLoading: false, 
           error: error.message 
@@ -446,13 +470,13 @@ export class ConsolidatedAuthService {
         return { success: false, error: error.message };
       }
 
-      console.log('[ConsolidatedAuthService] Google login initiated successfully', data);
+      console.log('[ComprehensiveAuthService] Google login initiated successfully', data);
       
       // For OAuth, the redirect happens automatically
       this.updateAuthState({ isLoading: false });
       return { success: true };
     } catch (error) {
-      console.error('[ConsolidatedAuthService] Unexpected Google login error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected Google login error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred during Google login';
       this.updateAuthState({ 
         isLoading: false, 
@@ -476,31 +500,31 @@ export class ConsolidatedAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[ConsolidatedAuthService] Failed to create guardian record:', insertError);
+        console.warn('[ComprehensiveAuthService] Failed to create guardian record:', insertError);
       }
 
-      // Send magic link
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: {
-          data: { role: "guardian" },
-          emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
+      // Send magic link using our enhanced API route to ensure proper onboarding enforcement
+      const response = await fetch('/api/auth/magic-link', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          redirectTo: '/onboarding' // Always redirect to onboarding for new users
+        }),
       });
 
-      if (error) {
-        console.error('[ConsolidatedAuthService] Registration error:', error);
-        this.updateAuthState({ 
-          isLoading: false, 
-          error: error.message 
-        });
-        return { success: false, error: error.message };
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to send magic link');
       }
 
       this.updateAuthState({ isLoading: false });
       return { success: true };
     } catch (error: unknown) {
-      console.error('[ConsolidatedAuthService] Unexpected registration error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected registration error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         isLoading: false, 
@@ -531,7 +555,7 @@ export class ConsolidatedAuthService {
       
       if (!result.success) {
         const errorMessage = result.message || 'Failed to register child';
-        console.error('[ConsolidatedAuthService] Child registration error:', errorMessage);
+        console.error('[ComprehensiveAuthService] Child registration error:', errorMessage);
         this.updateAuthState({ 
           isLoading: false, 
           error: errorMessage 
@@ -550,7 +574,7 @@ export class ConsolidatedAuthService {
       this.updateAuthState({ isLoading: false });
       return { success: true, data: result.data };
     } catch (error: unknown) {
-      console.error('[ConsolidatedAuthService] Unexpected child registration error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected child registration error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         isLoading: false, 
@@ -567,7 +591,7 @@ export class ConsolidatedAuthService {
       const { error } = await supabase.auth.signOut();
       
       if (error) {
-        console.error('[ConsolidatedAuthService] Logout error:', error);
+        console.error('[ComprehensiveAuthService] Logout error:', error);
         this.updateAuthState({ 
           isLoading: false, 
           error: error.message 
@@ -595,7 +619,7 @@ export class ConsolidatedAuthService {
       
       return { success: true };
     } catch (error) {
-      console.error('[ConsolidatedAuthService] Unexpected logout error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected logout error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         isLoading: false, 
@@ -612,7 +636,7 @@ export class ConsolidatedAuthService {
       const { data, error } = await supabase.auth.refreshSession();
       
       if (error) {
-        console.error('[ConsolidatedAuthService] Session refresh error:', error);
+        console.error('[ComprehensiveAuthService] Session refresh error:', error);
         this.updateAuthState({ 
           isLoading: false, 
           error: error.message 
@@ -629,7 +653,7 @@ export class ConsolidatedAuthService {
       
       return { success: true };
     } catch (error) {
-      console.error('[ConsolidatedAuthService] Unexpected session refresh error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected session refresh error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       this.updateAuthState({ 
         isLoading: false, 
@@ -671,7 +695,7 @@ export class ConsolidatedAuthService {
       });
 
       if (error) {
-        console.error('[ConsolidatedAuthService] Onboarding completion error:', error);
+        console.error('[ComprehensiveAuthService] Onboarding completion error:', error);
         return { success: false, error: error.message };
       }
 
@@ -682,11 +706,124 @@ export class ConsolidatedAuthService {
       
       return { success: true };
     } catch (error) {
-      console.error('[ConsolidatedAuthService] Unexpected onboarding completion error:', error);
+      console.error('[ComprehensiveAuthService] Unexpected onboarding completion error:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Unknown error' 
       };
+    }
+  }
+
+  // Consent Management
+  async requestUserConsent(consentData: Partial<UserConsent>): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (!this.authState.user) {
+        return { success: false, error: 'No authenticated user' };
+      }
+
+      // Validate consent data
+      const requiredConsents = {
+        privacyPolicyAccepted: consentData.privacyPolicyAccepted || false,
+        termsOfServiceAccepted: consentData.termsOfServiceAccepted || false,
+        marketingCommunication: consentData.marketingCommunication || false,
+        childDataUsage: consentData.childDataUsage || false,
+        createdAt: consentData.createdAt || new Date().toISOString()
+      };
+
+      // Update user metadata with consent information
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          consent: requiredConsents
+        }
+      });
+
+      if (error) {
+        console.error('[ComprehensiveAuthService] Consent update error:', error);
+        return { success: false, error: error.message };
+      }
+
+      // Update local state
+      this.updateAuthState({
+        consent: requiredConsents as UserConsent
+      });
+
+      // Log consent event
+      await authLogger.logConsentGranted(this.authState.user.id, this.authState.user.email || '', {
+        privacyPolicyAccepted: requiredConsents.privacyPolicyAccepted,
+        termsOfServiceAccepted: requiredConsents.termsOfServiceAccepted,
+        marketingCommunication: requiredConsents.marketingCommunication,
+        childDataUsage: requiredConsents.childDataUsage,
+        createdAt: requiredConsents.createdAt
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('[ComprehensiveAuthService] Unexpected consent error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }
+
+  async loadUserConsent(userId: string): Promise<UserConsent | null> {
+    try {
+      // In a real implementation, this would fetch from the database
+      // For now, we'll get it from user metadata
+      const { data: { user }, error } = await supabase.auth.getUser();
+      
+      if (error) {
+        console.error('[ComprehensiveAuthService] Error loading user consent:', error);
+        return null;
+      }
+
+      if (user?.user_metadata?.consent) {
+        return user.user_metadata.consent as UserConsent;
+      }
+
+      return null;
+    } catch (error) {
+      console.error('[ComprehensiveAuthService] Error loading user consent:', error);
+      return null;
+    }
+  }
+
+  hasGivenConsent(): boolean {
+    return this.authState.consent !== null && 
+           this.authState.consent.privacyPolicyAccepted && 
+           this.authState.consent.termsOfServiceAccepted;
+  }
+
+  // Subscription status management
+  async refreshProStatus(): Promise<{ isPro: boolean; error?: string }> {
+    try {
+      // Update the checking state
+      this.updateAuthState({ checkingPro: true });
+      
+      const response = await fetch('/api/subscription/status');
+      
+      if (response.ok) {
+        const data = await response.json();
+        const isPro = Boolean(data.is_pro);
+        
+        // Update the auth state with the new pro status
+        this.updateAuthState({ isPro, checkingPro: false });
+        
+        return { isPro };
+      } else {
+        // Handle specific error cases
+        if (response.status === 404) {
+          console.error('Subscription status endpoint not found');
+        }
+        
+        // Set isPro to false if there's an error
+        this.updateAuthState({ isPro: false, checkingPro: false });
+        return { isPro: false, error: 'Subscription status unavailable' };
+      }
+    } catch (e: unknown) {
+      console.error('Error checking subscription status:', e);
+      this.updateAuthState({ isPro: false, checkingPro: false });
+      return { isPro: false, error: e instanceof Error ? e.message : 'Unknown error' };
     }
   }
 
@@ -699,4 +836,4 @@ export class ConsolidatedAuthService {
 }
 
 // Export singleton instance
-export const consolidatedAuthService = ConsolidatedAuthService.getInstance();
+export const comprehensiveAuthService = ComprehensiveAuthService.getInstance();

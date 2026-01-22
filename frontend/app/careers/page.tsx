@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext'
 import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Briefcase, MapPin, Clock, Users, Award, Globe } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
+  const { user, isAuthenticated, isLoading } = useComprehensiveAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -510,4 +510,8 @@ export default function CareersPage() {
       <Footer />
     </div>
   )
+}
+
+function useEnhancedAuth(): { user: any; isAuthenticated: any; isLoading: any } {
+    throw new Error("Function not implemented.")
 }

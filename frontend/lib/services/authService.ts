@@ -450,15 +450,7 @@ export class AuthService {
         console.log('[AuthService] successfully updated user metadata with onboarding_complete flag');
       }
       
-      // Cookie fallback to handle network failures and ensure middleware bypass
-      try {
-        console.log('[AuthService] Setting completion cookie');
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-        console.log('[AuthService] successfully set completion cookie');
-      } catch (cookieErr: any) {
-        console.warn('[AuthService] failed to set completion cookie:', cookieErr.message);
-      }
+      // Cookie setting removed - only server-side verification is trusted
       
       return { success: true, message: 'Onboarding completed successfully' };
     } catch (error: any) {
