@@ -471,6 +471,7 @@ function ChatWithSidebarContent() {
                 <AnimatedAIChat
                   onNavigateToVideoLearning={handleSelect}
                   onSend={debouncedFetchHistory}
+                  user={user}
                 />
               </Suspense>
             ) : (

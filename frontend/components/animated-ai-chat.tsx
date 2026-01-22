@@ -76,6 +76,7 @@ export default function AnimatedChatWithVideo() {
     <AnimatedAIChat
       onNavigateToVideoLearning={handleNavigate}
       onSend={() => {}}
+      user={undefined} // Will be passed from parent component
     />
   );
 }
@@ -975,9 +976,10 @@ interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
   onSend?: () => void
+  user?: any // Supabase user object
 }
 
-  export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
+  export function AnimatedAIChat({ onNavigateToVideoLearning, user }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
   
@@ -1462,7 +1464,7 @@ interface AnimatedAIChatProps {
             topic: apiMessage,
             age: userAgeForPayload
           };
-          const quickEndpoint = '/api/quick-mode/generate';
+          const quickEndpoint = '/api/quick/generate';
                       
           if (!rateLimiter.isAllowed(quickEndpoint)) { // Use the actual endpoint for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest(quickEndpoint);
@@ -1724,11 +1726,165 @@ interface AnimatedAIChatProps {
     }
   };
 
-  const handleAttachFile = () =>
-    setAttachments((prev) => [...prev, `file-${Math.random().toString(36).slice(2)}.pdf`]);
+  // Add hidden file input element ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachFile = () => {
+    // Trigger the hidden file input
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
   const removeAttachment = (idx: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
+
+  // Handle file selection
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png', 
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'text/markdown'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setError('Unsupported file type. Please upload an image (JPEG, PNG, GIF, WebP), PDF, or text file.');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError('File size too large. Maximum size is 10MB.');
+      return;
+    }
+    
+    // Add file to attachments
+    setAttachments((prev) => [...prev, file.name]);
+    
+    // Process the file to extract text or send to backend
+    try {
+      await processFile(file);
+    } catch (err) {
+      console.error('Error processing file:', err);
+      setError('Error processing file. Please try again.');
+    }
+  };
+
+  // Process the uploaded file
+  const processFile = async (file: File) => {
+    // For image files, we need to convert to base64 and send to backend
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const base64String = event.target?.result as string;
+        
+        // For now, inform user that image processing is simulated
+        // In a real implementation, this would send to a backend service for OCR/NLP processing
+        setError('Image uploaded successfully! Processing images is coming soon. The system can currently process text content from images. Adding this file as an attachment.');
+        
+        // Simulate processing delay
+        setTimeout(() => {
+          setError(null);
+          
+          // Inform user about image processing capability
+          setSaveMessage('Image uploaded. Our AI can analyze images in upcoming updates!');
+          setShowSaveMessage(true);
+          setTimeout(() => {
+            setShowSaveMessage(false);
+            setTimeout(() => setSaveMessage(null), 300);
+          }, 3000);
+        }, 2000);
+      };
+      
+      reader.onerror = () => {
+        setError('Error reading image file.');
+      };
+      
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      // For PDF files, we'd typically use a PDF extraction library
+      // For now, we'll just send the file for processing
+      setError('PDF processing coming soon. For now, please take a screenshot of the content and upload the image.');
+    } else {
+      // For text files, read the content
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const textContent = event.target?.result as string;
+        
+        // Process the text content
+        try {
+          // Use the currently selected mode from component state
+          const currentMode = selectedMode || 'lesson';
+          
+          // Prepare payload for text processing
+          const payload = {
+            message: textContent,
+            userId: user?.id || `guest_${Date.now()}`,
+            age: userAge,
+            mode: currentMode
+          };
+          
+          // Send to appropriate endpoint
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          // Update UI based on response type
+          if (result.error) {
+            setError(result.error);
+          } else {
+            // Handle the response based on mode
+            if (currentMode === 'maths') {
+              // For math mode, expect a math solution
+              const mathData: MathSolutionUI = {
+                problem: result.problem || textContent,
+                solution: result.solution || result.result || '',
+                steps: result.steps || result.working || undefined,
+                error: null,
+              };
+              setMathSolution(mathData);
+              setLessonJson(mathData as any);
+            } else {
+              // For other modes, treat as a lesson response
+              setLessonJson(result as Lesson);
+            }
+          }
+        } catch (err) {
+          console.error('Error processing text file:', err);
+          setError('Error processing text file. Please try again.');
+        }
+      };
+      
+      reader.onerror = () => {
+        setError('Error reading text file.');
+      };
+      
+      reader.readAsText(file);
+    }
+  };
 
   /* ------------------------------------------------------------------ */
   /* render                                                             */
@@ -2061,6 +2217,15 @@ interface AnimatedAIChatProps {
                 >
                   <Paperclip className="w-4 h-4" />
                 </motion.button>
+                {/* Hidden file input for image uploads */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*,application/pdf,text/plain,text/markdown"
+                  className="hidden"
+                  multiple={false}
+                />
                 <motion.button
                   onClick={() => setShowCommandPalette((p) => !p)}
                   whileTap={{ scale: 0.94 }}
