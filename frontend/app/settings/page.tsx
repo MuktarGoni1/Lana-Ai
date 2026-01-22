@@ -8,84 +8,59 @@ import { Moon, LogOut } from "lucide-react"
 import { UserIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { User as SupabaseUser } from "@supabase/supabase-js"
-import { AuthGuard } from "@/components/auth/AuthGuard"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 
-// Create a safe version of useRobustAuth that doesn't throw during SSR
-function useSafeRobustAuth() {
-  const [authState, setAuthState] = useState<{
-    user: SupabaseUser | null;
-    isAuthenticated: boolean;
-    isLoading: boolean;
-  } | null>(null);
-
-  useEffect(() => {
-    // Dynamically import the useRobustAuth hook only on the client side
-    const loadAuth = async () => {
-      try {
-        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
-        // Try to use the hook, but catch any errors
-        try {
-          const auth = useRobustAuth();
-          setAuthState({
-            user: auth.user,
-            isAuthenticated: auth.isAuthenticated,
-            isLoading: auth.isLoading,
-          });
-        } catch (error) {
-          // If useRobustAuth throws (e.g., outside provider), set to null state
-          setAuthState(null);
-        }
-      } catch (error) {
-        // If import fails, set to null state
-        setAuthState(null);
-      }
-    };
-
-    loadAuth();
-  }, []);
-
-  return authState;
+// Use the unified auth context directly since it's available through the provider
+function useSettingsAuth() {
+  const unifiedAuth = useUnifiedAuth();
+  
+  // Return the auth state in the same format as before for compatibility
+  return {
+    user: unifiedAuth.user,
+    isAuthenticated: unifiedAuth.isAuthenticated,
+    isLoading: unifiedAuth.isLoading,
+  };
 }
 
 export default function SettingsPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const auth = useSafeRobustAuth()
-  const [role, setRole]           = useState<"child" | "guardian" | null>(null)
-  const [weekly, setWeekly]       = useState(true)
-  const [monthly, setMonthly]     = useState(false)
+  const auth = useSettingsAuth()
+  const [role, setRole] = useState<"child" | "guardian" | null>(null)
+  const [weekly, setWeekly] = useState(true)
+  const [monthly, setMonthly] = useState(false)
   const [parentEmail, setParentEmail] = useState("")
-  const [dark, setDark]           = useState(false)
+  const [dark, setDark] = useState(false)
 
   useEffect(() => {
-    // Guard against unauthenticated access
-    if (!auth) {
-      router.push("/login")
-      return
-    }
-    
-    if (!auth.isLoading && !auth.isAuthenticated) {
-      router.push("/login")
-      return
-    }
-    
-    if (auth.user) {
-      const meta = auth.user.user_metadata
-      // Ensure role is properly set based on user metadata
-      const userRole = meta?.role
-      if (userRole && (userRole === "guardian" || userRole === "parent")) {
-        setRole("guardian") // Map both guardian and parent to guardian for settings
-      } else if (userRole && userRole === "child") {
-        setRole("child")
-      } else {
-        // Default to guardian if no role is set, assuming the user registered as a guardian
-        setRole("guardian")
+    // Guard against unauthenticated access - but be more lenient to prevent redirect loops
+    if (auth && !auth.isLoading) {
+      if (!auth.isAuthenticated) {
+        console.log('[SettingsPage] User not authenticated, redirecting to login');
+        router.push("/login");
+        return;
       }
-      setParentEmail(meta?.guardian_email ?? "")
-      setDark(localStorage.getItem("theme") === "dark")
-      if ((userRole === "guardian" || meta?.role === "guardian") && auth.user.email) loadParentPrefs(auth.user.email)
+      
+      if (auth.user) {
+        const meta = auth.user.user_metadata;
+        // Ensure role is properly set based on user metadata
+        const userRole = meta?.role;
+        if (userRole && (userRole === "guardian" || userRole === "parent")) {
+          setRole("guardian"); // Map both guardian and parent to guardian for settings
+        } else if (userRole && userRole === "child") {
+          setRole("child");
+        } else {
+          // Default to guardian if no role is set, assuming the user registered as a guardian
+          setRole("guardian");
+        }
+        setParentEmail(meta?.guardian_email ?? "");
+        setDark(localStorage.getItem("theme") === "dark");
+        if ((userRole === "guardian" || meta?.role === "guardian") && auth.user.email) {
+          loadParentPrefs(auth.user.email);
+        }
+      }
     }
-  }, [auth, router])
+  }, [auth, router]);
 
   async function loadParentPrefs(email: string) {
     // Only load prefs if email is provided
@@ -118,122 +93,127 @@ export default function SettingsPage() {
           <p className="text-white/50">Loading settings...</p>
         </div>
       </div>
-    )
+    );
+  }
+
+  // If authentication failed completely, redirect to login
+  if (auth && !auth.isLoading && !auth.isAuthenticated) {
+    console.log('[SettingsPage] Authentication failed, redirecting to login');
+    router.push('/login');
+    return null;
   }
 
   return (
-    <AuthGuard requireAuth={true}>
-      <div className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-10">
-        <div className="w-full max-w-2xl space-y-8">
-          <h1 className="text-3xl font-bold">Settings</h1>
+    <div className="min-h-screen bg-black text-white flex flex-col items-center px-6 py-10">
+      <div className="w-full max-w-2xl space-y-8">
+        <h1 className="text-3xl font-bold">Settings</h1>
 
-          {/* ----- Universal ----- */}
+        {/* ----- Universal ----- */}
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2"><Moon className="w-5 h-5" />Appearance</h2>
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+            <Label>Dark mode</Label>
+            <Switch checked={dark} onCheckedChange={toggleDark} />
+          </div>
+        </section>
+
+        {/* ----- Reports (child = view-only) ----- */}
+        <section className="space-y-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2"><UserIcon className="w-5 h-5" />Reports</h2>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+            <Label>Weekly report</Label>
+            <Switch checked={weekly} disabled={role === "child"} />
+            {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
+          </div>
+
+          <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
+            <Label>Monthly report</Label>
+            <Switch checked={monthly} disabled={role === "child"} />
+            {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
+          </div>
+
+          <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+            <Label className="text-white/70">Parent / Guardian e-mail</Label>
+            <p className="text-sm mt-1">{parentEmail || "Not linked"}</p>
+          </div>
+        </section>
+
+        {/* ----- Parent full controls ----- */}
+        {role === "guardian" && auth.user?.email && (
           <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2"><Moon className="w-5 h-5" />Appearance</h2>
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
-              <Label>Dark mode</Label>
-              <Switch checked={dark} onCheckedChange={toggleDark} />
-            </div>
-          </section>
-
-          {/* ----- Reports (child = view-only) ----- */}
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2"><UserIcon className="w-5 h-5" />Reports</h2>
-
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
-              <Label>Weekly report</Label>
-              <Switch checked={weekly} disabled={role === "child"} />
-              {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
-            </div>
-
-            <div className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10">
-              <Label>Monthly report</Label>
-              <Switch checked={monthly} disabled={role === "child"} />
-              {role === "child" && <span className="text-xs text-white/50 ml-2">Ask parent</span>}
-            </div>
-
-            <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-              <Label className="text-white/70">Parent / Guardian e-mail</Label>
-              <p className="text-sm mt-1">{parentEmail || "Not linked"}</p>
-            </div>
-          </section>
-
-          {/* ----- Parent full controls ----- */}
-          {role === "guardian" && auth.user?.email && (
-            <section className="space-y-4">
-              <h2 className="text-xl font-semibold">Parent controls</h2>
-              <button
-                onClick={async () => {
-                  try {
-                    // Update both weekly and monthly reports
-                    const newWeekly = !weekly;
-                    const newMonthly = !monthly;
-                    
-                    const { error } = await supabase
-                      .from("guardians")
-                      .update({ 
-                        weekly_report: newWeekly,
-                        monthly_report: newMonthly
-                      })
-                      .eq("email", auth.user!.email!)
-                    
-                    if (error) throw error
-                    
-                    setWeekly(newWeekly)
-                    setMonthly(newMonthly)
-                    toast({ title: "Updated", description: `Report preferences updated.` })
-                  } catch (err: unknown) {
-                    let errorMessage = "Could not update report preferences."
-                    if (err instanceof Error) {
-                      errorMessage = err.message
-                    }
-                    toast({
-                      title: "Update failed",
-                      description: errorMessage,
-                      variant: "destructive",
+            <h2 className="text-xl font-semibold">Parent controls</h2>
+            <button
+              onClick={async () => {
+                try {
+                  // Update both weekly and monthly reports
+                  const newWeekly = !weekly;
+                  const newMonthly = !monthly;
+                  
+                  const { error } = await supabase
+                    .from("guardians")
+                    .update({ 
+                      weekly_report: newWeekly,
+                      monthly_report: newMonthly
                     })
+                    .eq("email", auth.user!.email!)
+                  
+                  if (error) throw error
+                  
+                  setWeekly(newWeekly)
+                  setMonthly(newMonthly)
+                  toast({ title: "Updated", description: `Report preferences updated.` })
+                } catch (err: unknown) {
+                  let errorMessage = "Could not update report preferences."
+                  if (err instanceof Error) {
+                    errorMessage = err.message
                   }
-                }}
+                  toast({
+                    title: "Update failed",
+                    description: errorMessage,
+                    variant: "destructive",
+                  })
+                }
+              }}
+              className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left"
+            >
+              Update Report Preferences
+            </button>
+            
+            {/* Child management section */}
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Children Management</h3>
+              <button
+                onClick={() => router.push("/children")}
                 className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left"
               >
-                Update Report Preferences
+                Add or Manage Children
               </button>
-              
-              {/* Child management section */}
-              <div className="space-y-2">
-                <h3 className="text-lg font-medium">Children Management</h3>
-                <button
-                  onClick={() => router.push("/children")}
-                  className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-left"
-                >
-                  Add or Manage Children
-                </button>
-              </div>
-            </section>
-          )}
+            </div>
+          </section>
+        )}
 
-          {/* ----- Sign out ----- */}
-          <button
-            onClick={async () => {
-              try {
-                await supabase.auth.signOut()
-                router.push("/login")
-              } catch (error) {
-                console.error('[Settings] Logout error:', error)
-                toast({
-                  title: "Logout failed",
-                  description: "Could not sign out. Please try again.",
-                  variant: "destructive",
-                })
-              }
-            }}
-            className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center gap-2"
-          >
-            <LogOut className="w-4 h-4" />
-            <span>Sign out</span>
-          </button>
-        </div>
+        {/* ----- Sign out ----- */}
+        <button
+          onClick={async () => {
+            try {
+              await supabase.auth.signOut()
+              router.push("/login")
+            } catch (error) {
+              console.error('[Settings] Logout error:', error)
+              toast({
+                title: "Logout failed",
+                description: "Could not sign out. Please try again.",
+                variant: "destructive",
+              })
+            }
+          }}
+          className="w-full px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 flex items-center justify-center gap-2"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Sign out</span>
+        </button>
       </div>
-    </AuthGuard>
+    </div>
   )
 }

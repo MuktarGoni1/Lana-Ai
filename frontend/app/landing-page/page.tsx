@@ -64,14 +64,14 @@ function ThemeToggle() {
   return (
     <button
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="inline-flex items-center justify-center rounded-xl w-9 h-9 hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+      className="inline-flex items-center justify-center rounded-xl w-10 h-10 xs:w-11 xs:h-11 hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl min-h-10 min-w-10 xs:min-h-11 xs:min-w-11"
       aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
       aria-pressed={resolvedTheme === "dark"}
     >
       {resolvedTheme === "dark" ? (
-        <Moon className="h-5 w-5 text-blue-400 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <Moon className="h-5 w-5 xs:h-6 xs:w-6 text-blue-400 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
       ) : (
-        <Sun className="h-5 w-5 text-yellow-500 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <Sun className="h-5 w-5 xs:h-6 xs:w-6 text-yellow-500 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
       )}
     </button>
   )
@@ -85,11 +85,11 @@ function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <span className="text-xl font-bold text-foreground">LanaMind</span>
+        <div className="flex h-14 xs:h-16 items-center justify-between">
+          <span className="text-lg xs:text-xl font-bold text-foreground">LanaMind</span>
 
           {/* desktop */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-4 lg:gap-6">
             {['Features', 'Pricing', 'Contact'].map((l) => (
               <Link 
                 key={l} 
@@ -97,26 +97,26 @@ function Header() {
                   l === 'Features' ? '/features' :
                   l === 'Pricing' ? '/pricing' :
                   '#contact'} // Keep contact as anchor since it's on same page
-                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
               >
                 {l}
               </Link>
             ))}
             <Link 
               href="/term-plan" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
             >
               Term Plan
             </Link>
             <Link 
               href="/feedback" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
             >
               Feedback
             </Link>
             <Link 
               href="/settings" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
             >
               Settings
             </Link>
@@ -124,7 +124,7 @@ function Header() {
             {user ? (
               <Link 
                 href="/homepage" 
-                className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
+                className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 xs:px-4 xs:py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-24 xs:min-w-32"
               >
                 Dashboard
               </Link>
@@ -132,13 +132,13 @@ function Header() {
               <>
                 <Link 
                   href="/login" 
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
                 >
                   Login
                 </Link>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-32"
+                  className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 xs:px-4 xs:py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-28 xs:min-w-32"
                 >
                   Get Started
                 </Link>
@@ -149,7 +149,7 @@ function Header() {
           {/* mobile burger */}
           <button
             onClick={() => setOpen((o) => !o)}
-            className="md:hidden p-2 rounded-xl hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+            className="md:hidden p-2 rounded-xl hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl min-h-11 min-w-11 flex items-center justify-center"
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label="Toggle navigation menu"
@@ -163,7 +163,7 @@ function Header() {
           id="mobile-nav"
           className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
         >
-          <nav className="flex flex-col gap-4 py-4">
+          <nav className="flex flex-col gap-2 py-3 xs:py-4">
             {['Features', 'Pricing', 'Contact'].map((l) => (
               <Link 
                 key={l} 
@@ -172,7 +172,7 @@ function Header() {
                   l === 'Pricing' ? '/pricing' :
                   '#contact'} // Keep contact as anchor since it's on same page
                 onClick={() => setOpen(false)} 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2"
+                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
               >
                 {l}
               </Link>
@@ -180,30 +180,33 @@ function Header() {
             <Link 
               href="/term-plan" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
             >
               Term Plan
             </Link>
             <Link 
               href="/feedback" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
             >
               Feedback
             </Link>
             <Link 
               href="/settings" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-2"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
             >
               Settings
             </Link>
-            <div className="mt-2 flex items-center gap-2 pt-2 border-t border-border">
-              <ThemeToggle />
+            <div className="mt-2 pt-3 border-t border-border">
+              <div className="flex items-center gap-3 pb-3 px-3">
+                <ThemeToggle />
+                <span className="text-sm text-muted-foreground">Theme</span>
+              </div>
               {user ? (
                 <Link 
                   href="/homepage" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full"
+                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full min-h-12"
                   onClick={() => setOpen(false)}
                 >
                   Dashboard
@@ -212,14 +215,14 @@ function Header() {
                 <>
                   <Link 
                     href="/login" 
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-2 flex-1 text-center min-h-12 flex items-center justify-center"
+                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center justify-center"
                     onClick={() => setOpen(false)}
                   >
                     Login
                   </Link>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] flex-1 min-h-12"
+                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] w-full min-h-12 mt-2"
                     onClick={() => setOpen(false)}
                   >
                     Get Started
@@ -237,75 +240,96 @@ function Header() {
 /* ---------- HERO ---------- */
 function HeroSection() {
   const { user } = useUnifiedAuth()
+  const [isMuted, setIsMuted] = useState(true)
+
+  const toggleAudio = () => {
+    setIsMuted(prev => !prev)
+  }
 
   return (
-    <section id="hero" className="py-12 md:py-20 lg:py-32 bg-transparent">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 grid lg:grid-cols-2 gap-10 items-center">
-        <div className="flex flex-col gap-6">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
-            {user ? `Welcome back, ${user.email}` : "The World's first Superhuman afterclass tutor."}
-          </h1>
-          <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            {user 
-              ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
-              : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
-            }
-          </p>
-          {!user && (
-            <p className="text-xs sm:text-sm md:text-base text-foreground leading-relaxed italic">
-              Revolutionizing the future of learning by using cutting edge Ai technology.
-              Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+    <section id="hero" className="py-8 sm:py-12 md:py-20 lg:py-32 bg-transparent">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-12 items-center">
+          <div className="flex flex-col gap-5 sm:gap-6">
+            <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
+              {user ? `Welcome back, ${user.email}` : "The World's first Superhuman afterclass tutor."}
+            </h1>
+            <p className="text-sm xs:text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
+              {user 
+                ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
+                : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
+              }
             </p>
-          )}
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            {user ? (
-              <Link 
-                href="/homepage" 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40"
-              >
-                Continue Learning
-                <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
-              </Link>
-            ) : (
-              <>
-                <Link 
-                  href="/register" 
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-40 flex-1 sm:flex-none"
-                >
-                  Start Free Trial
-                  <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
-                </Link>
-                <Link 
-                  href="/login" 
-                  className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-40 flex-1 sm:flex-none"
-                >
-                  Login
-                </Link>
-              </>
+            {!user && (
+              <p className="text-xs xs:text-sm sm:text-base text-foreground leading-relaxed italic">
+                Revolutionizing the future of learning by using cutting edge Ai technology.
+                Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+              </p>
             )}
+            <div className="flex flex-col xs:flex-row gap-3 w-full">
+              {user ? (
+                <Link 
+                  href="/homepage" 
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-36 xs:min-w-40"
+                >
+                  Continue Learning
+                  <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+                </Link>
+              ) : (
+                <>
+                  <Link 
+                    href="/register" 
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-36 xs:min-w-40 flex-1"
+                  >
+                    Start Free Trial
+                    <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+                  </Link>
+                  <Link 
+                    href="/login" 
+                    className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-11 xs:min-h-12 min-w-36 xs:min-w-40 flex-1"
+                  >
+                    Login
+                  </Link>
+                </>
+              )}
+            </div>
+            {!user && (
+              <p className="text-sm xs:text-base text-muted-foreground leading-relaxed">
+                Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
+              </p>
+            )}
+            <ul className="space-y-2 pt-4">
+              {FEATURES.map((f) => (
+                <li key={f} className="flex items-center gap-2 text-sm xs:text-base text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 xs:h-5 xs:w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
           </div>
-          {!user && (
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
-            </p>
-          )}
-          <ul className="space-y-2 pt-4">
-            {FEATURES.map((f) => (
-              <li key={f} className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        <div className="relative h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl">
-          <Image 
-            src="/first-section.jpg" 
-            alt="Lana AI hero" 
-            fill
-            className="object-cover"
-            priority
-          />
+          <div className="relative h-64 xs:h-72 sm:h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl cursor-pointer" onClick={toggleAudio}>
+            <video 
+              src="/landing.mp4" 
+              autoPlay
+              muted={isMuted}
+              loop
+              playsInline
+              className="object-cover w-full h-full"
+            />
+            {/* Audio indicator */}
+            <div className="absolute top-3 xs:top-4 right-3 xs:right-4 bg-gradient-to-br from-blue-600/90 to-purple-600/90 backdrop-blur-md rounded-full p-2 xs:p-3 shadow-lg border-2 border-white/20 transition-all duration-300 hover:scale-110 hover:from-blue-500/95 hover:to-purple-500/95">
+              {isMuted ? (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 xs:h-6 xs:w-6 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 xs:h-6 xs:w-6 text-white drop-shadow-md animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M12 6a9 9 0 010 12" />
+                </svg>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -322,35 +346,35 @@ function FeaturesSection() {
     { title: "And more", desc: "Additional educational tools designed for modern learning experiences.", icon: MoreHorizontal },
   ]
   return (
-    <section id="features" className="py-16 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section id="features" className="py-12 xs:py-16 sm:py-20 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
+      <div className="mx-auto max-w-7xl px-4 xs:px-6 sm:px-8 lg:px-8">
         {/* Diagnostic Quiz Button at the top */}
-        <div className="text-center mb-12 md:mb-16">
+        <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
           <Link 
             href="/diagnostic-quiz"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-4 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] mb-8 max-w-2xl mx-auto w-full"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-lg font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] mb-6 xs:mb-7 sm:mb-8 max-w-2xl mx-auto w-full min-h-12 xs:min-h-14"
           >
             Take a free diagnostic quiz today to test your child's performance level - see the difference after 30 days
-            <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+            <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
           </Link>
         </div>
         
         {/* Core Features Heading and Content */}
-        <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Core Features</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Everything You Need to Succeed in Learning</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg">
+        <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
+          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs xs:text-sm font-medium text-primary">Core Features</span>
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Everything You Need to Succeed in Learning</h2>
+          <p className="text-muted-foreground mt-3 xs:mt-4 max-w-2xl mx-auto text-sm xs:text-base md:text-lg leading-relaxed">
             Lana AI combines cutting-edge technology with proven educational methods to create a learning experience that's both effective and engaging.
           </p>
         </div>
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3 md:gap-8">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-7 lg:gap-8">
           {features.map((f, index) => (
             <div 
               key={f.title} 
-              className="rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-              <f.icon className="text-primary h-6 w-6 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
-              <h3 className="text-xl font-semibold mb-3 text-foreground leading-tight">{f.title}</h3>
-              <p className="text-foreground/90 text-base leading-relaxed">{f.desc}</p>
+              className="rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-5 xs:p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground min-h-64 flex flex-col">
+              <f.icon className="text-primary h-6 w-6 xs:h-7 xs:w-7 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
+              <h3 className="text-lg xs:text-xl font-semibold mb-3 text-foreground leading-tight">{f.title}</h3>
+              <p className="text-foreground/90 text-sm xs:text-base leading-relaxed flex-grow">{f.desc}</p>
             </div>
           ))}
         </div>
@@ -409,7 +433,7 @@ function PricingSection() {
           <div className="mt-6 inline-flex rounded-full bg-muted p-1" role="tablist" aria-label="Billing frequency">
             <button
               onClick={() => setInterval("monthly")}
-              className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "monthly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg`}
+              className={`px-3 py-2 xs:px-4 xs:py-2.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "monthly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg min-h-10 xs:min-h-11 min-w-20 xs:min-w-24 flex items-center justify-center`}
               aria-pressed={interval === "monthly"}
               role="tab"
               aria-selected={interval === "monthly"}
@@ -419,7 +443,7 @@ function PricingSection() {
             </button>
             <button
               onClick={() => setInterval("yearly")}
-              className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "yearly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg`}
+              className={`px-3 py-2 xs:px-4 xs:py-2.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "yearly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg min-h-10 xs:min-h-11 min-w-20 xs:min-w-24 flex items-center justify-center`}
               aria-pressed={interval === "yearly"}
               role="tab"
               aria-selected={interval === "yearly"}
@@ -430,35 +454,35 @@ function PricingSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 md:gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-7 lg:gap-8">
           {plans.map((p) => (
             <div
               key={p.name}
-              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 text-foreground ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}>
+              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-5 xs:p-6 sm:p-7 md:p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 text-foreground ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}>
               {"popular" in p && p.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
                   Most Popular
                 </div>
               )}
               <div className="space-y-2 mb-4">
-                <h3 className="text-xl font-bold text-foreground leading-tight">{p.name}</h3>
+                <h3 className="text-lg xs:text-xl sm:text-2xl font-bold text-foreground leading-tight">{p.name}</h3>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-extrabold">${p.price}</span>
-                  <span className="text-muted-foreground">{periodLabel}</span>
+                  <span className="text-3xl xs:text-4xl sm:text-5xl font-extrabold">${p.price}</span>
+                  <span className="text-muted-foreground text-sm xs:text-base">{periodLabel}</span>
                 </div>
-                <p className="text-foreground/90 leading-relaxed">{p.desc}</p>
+                <p className="text-foreground/90 text-sm xs:text-base leading-relaxed">{p.desc}</p>
               </div>
-              <ul className="space-y-2 mb-6">
+              <ul className="space-y-2 mb-5 xs:mb-6">
                 {p.feats.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm text-foreground/90">
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+                  <li key={f} className="flex items-center gap-2 text-sm xs:text-base text-foreground/90">
+                    <CheckCircle2 className="h-4 w-4 xs:h-5 xs:w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
                     <span>{f}</span>
                   </li>
                 ))}
               </ul>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12"
+                className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12"
                 aria-label={`Get started with ${p.name} plan`}
               >
                 Get Started
@@ -977,7 +1001,7 @@ export default function Home() {
       {/* Skip to main content link for accessibility */}
       <a 
         href="#main-content" 
-        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 xs:focus:top-4 focus:left-3 xs:focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-3 xs:focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
       >
         Skip to main content
       </a>

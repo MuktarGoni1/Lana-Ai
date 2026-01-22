@@ -291,14 +291,14 @@ export default function DiagnosticQuizPage() {
                   max="18"
                   value={childAge || ''}
                   onChange={(e) => setChildAge(parseInt(e.target.value) || undefined)}
-                  className="w-full max-w-xs px-4 py-3 bg-white/[0.05] border border-white/20 rounded-lg text-white text-center text-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full max-w-xs px-4 py-3 bg-white/[0.05] border border-white/20 rounded-lg text-white text-center text-xl focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent"
                   placeholder="Age"
                   autoFocus
                 />
                 <button
                   onClick={handleAgeSubmit}
                   disabled={childAge === undefined || childAge <= 0 || childAge >= 100}
-                  className="mt-6 px-8 py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="mt-6 px-8 py-3 bg-gradient-to-r from-gray-500 to-black-600 text-white font-bold rounded-lg hover:from-gray-600 hover:to-black-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Begin Quiz
                 </button>
@@ -312,7 +312,7 @@ export default function DiagnosticQuizPage() {
               {questions.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-white/70 mb-4">Generating questions based on age...</p>
-                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-blue-500"></div>
+                  <div className="inline-block animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-gray-500"></div>
                 </div>
               ) : (
                 <>
@@ -324,7 +324,7 @@ export default function DiagnosticQuizPage() {
                     </div>
                     <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                       <div 
-                        className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                        className="h-full bg-gradient-to-r from-gray-500 to-black-500"
                         style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
                       />
                     </div>
@@ -396,7 +396,7 @@ export default function DiagnosticQuizPage() {
               
               <h2 className="text-2xl font-bold">Quiz Complete!</h2>
               <p className="text-white/70 mb-6">
-                Here's how your child performed on the diagnostic quiz
+                Your child performed well, but there's always room for improvement.
               </p>
               
               <div className="bg-white/[0.05] rounded-xl p-6 mb-6">
@@ -417,7 +417,7 @@ export default function DiagnosticQuizPage() {
               
               <button
                 onClick={finishQuiz}
-                className="w-full py-3 bg-gradient-to-r from-blue-500 to-purple-600 text-white font-bold rounded-lg hover:from-blue-600 hover:to-purple-700 transition-all duration-300"
+                className="w-full py-3 bg-gradient-to-r from-gray-500 to-black-600 text-white font-bold rounded-lg hover:from-gray-600 hover:to-black-700 transition-all duration-300"
               >
                 Continue to Registration
               </button>
