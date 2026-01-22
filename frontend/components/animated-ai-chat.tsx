@@ -1425,10 +1425,11 @@ interface AnimatedAIChatProps {
             if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') { // Use response.mode instead of selectedMode
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
-              setStreamingText(replyText);
-              setStoredLong(replyText);
-              // Set the lessonJson to the chat response so it can be displayed in the UI
+              // For chat/quick modes, use lessonJson to store the response to avoid duplication
               setLessonJson(chatResponse);
+              // Clear streaming text to prevent duplication
+              setStreamingText("");
+              setStoredLong("");
               saveSelectedMode(chatResponse.mode);
                                 
               // Update conversation history with both user message and AI response
@@ -1492,11 +1493,7 @@ interface AnimatedAIChatProps {
           if (quickApiResponse.error) {
             setError(quickApiResponse.error);
           } else {
-            // For quick mode, display the lesson response
-            const replyText = quickApiResponse.introduction || quickApiResponse.sections?.[0]?.content || 'Quick lesson response received.';
-            setStreamingText(replyText);
-            setStoredLong(replyText);
-            // Convert quick mode response to compatible format for lessonJson
+            // For quick mode, convert the response to a proper lesson format
             const convertedLesson: Lesson = {
               introduction: quickApiResponse.introduction || '',
               classifications: quickApiResponse.classifications || [],
@@ -1508,11 +1505,15 @@ interface AnimatedAIChatProps {
                 answer: item.answer || ''
               })) : []
             };
-            // Set the lessonJson to the converted quick response so it can be displayed in the UI
+            // Set only the lessonJson to avoid duplicate responses
             setLessonJson(convertedLesson);
+            // Clear any previous streaming text to avoid duplication
+            setStreamingText("");
+            setStoredLong("");
             saveSelectedMode('quick');
                       
             // Update conversation history with both user message and AI response
+            const replyText = quickApiResponse.introduction || quickApiResponse.sections?.[0]?.content || 'Quick lesson response received.';
             setConversationHistory(prev => [
               ...prev,
               { role: 'user', content: apiMessage },
@@ -2131,7 +2132,7 @@ interface AnimatedAIChatProps {
             {lessonJson && (
               <div className="px-4 pb-4">
                 {/* Check if the response is a structured lesson */}
-                {lessonJson && isLessonResponse(lessonJson) && selectedMode !== 'quick' ? (
+                {lessonJson && isLessonResponse(lessonJson) && selectedMode !== 'quick' && selectedMode !== 'chat' ? (
                   <StructuredLessonCard 
                     lesson={lessonJson} 
                     isStreamingComplete={!isTyping} 
@@ -2142,12 +2143,8 @@ interface AnimatedAIChatProps {
                     data={lessonJson as MathSolutionUI} 
                   />
                 ) : (
-                  /* For chat responses in lessonJson, show in main content area if in chat/quick mode and there's no conversation history,
-                     OR show in main content area if not in chat/quick mode */
-                  (!['chat', 'quick'].includes(selectedMode) || 
-                   (['chat', 'quick'].includes(selectedMode) && 
-                    (!conversationHistory || conversationHistory.length === 0 || 
-                     !lessonJson || !isChatResponse(lessonJson)))) && (
+                  /* For chat/quick responses in lessonJson, show in main content area */
+                  (selectedMode === 'chat' || selectedMode === 'quick') && isChatResponse(lessonJson) ? (
                     <div className="lesson-card border rounded-2xl p-6 space-y-6 bg-white/5 border-white/10">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -2160,15 +2157,19 @@ interface AnimatedAIChatProps {
                       <div className="space-y-4 text-sm">
                         <div className="space-y-2">
                           <p className="text-white/70 leading-relaxed">
-                            {isChatResponse(lessonJson) 
-                              ? (typeof (lessonJson as ChatResponse).reply === 'string' 
-                                ? (lessonJson as ChatResponse).reply 
-                                : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
-                              : JSON.stringify(lessonJson)}
+                            {typeof (lessonJson as ChatResponse).reply === 'string' 
+                              ? (lessonJson as ChatResponse).reply 
+                              : JSON.stringify((lessonJson as ChatResponse).reply || 'No response')}
                           </p>
                         </div>
                       </div>
                     </div>
+                  ) : (
+                    /* For other cases, show as structured lesson */
+                    <StructuredLessonCard 
+                      lesson={lessonJson} 
+                      isStreamingComplete={!isTyping} 
+                    />
                   )
                 )}
               </div>
