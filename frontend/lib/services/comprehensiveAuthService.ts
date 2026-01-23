@@ -711,6 +711,21 @@ export class ComprehensiveAuthService {
 
       // Cookie setting removed - only server-side verification is trusted
 
+      // Update the auth state directly to reflect the onboarding completion
+      // This ensures the UI gets updated immediately without waiting for refresh
+      this.updateAuthState({
+        user: {
+          ...this.authState.user,
+          user_metadata: {
+            ...this.authState.user.user_metadata,
+            onboarding_complete: true
+          }
+        },
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      });
+      
       // Refresh user data
       await this.refreshSession();
       

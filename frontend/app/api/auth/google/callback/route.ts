@@ -42,6 +42,20 @@ export async function GET(request: NextRequest) {
       if (updateError) {
         console.error('Error updating user metadata:', updateError);
       }
+    } else {
+      // If user already has a role, make sure onboarding_complete is set appropriately
+      if (!user.user_metadata?.onboarding_complete) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { 
+            ...user.user_metadata,
+            onboarding_complete: false
+          }
+        });
+        
+        if (updateError) {
+          console.error('Error updating onboarding status:', updateError);
+        }
+      }
     }
 
     // Set a temporary flag in cookies to indicate this is a Google signup
@@ -58,8 +72,25 @@ export async function GET(request: NextRequest) {
 
     // Redirect to onboarding for all new users, or to the intended destination
     const redirectUrl = isNewUser ? '/onboarding' : next;
-    
-    return Response.redirect(new URL(redirectUrl, request.url));
+        
+    // Ensure the redirect URL is valid before redirecting
+    let finalRedirectUrl;
+    try {
+      // Make sure we're constructing a proper absolute URL
+      const baseUrl = request.url.split('/api/auth/google/callback')[0];
+      finalRedirectUrl = new URL(redirectUrl, baseUrl);
+            
+      // Ensure we add the onboardingComplete param if needed for existing users
+      if (redirectUrl !== '/onboarding' && !isNewUser) {
+        finalRedirectUrl.searchParams.set('onboardingComplete', '1');
+      }
+    } catch (error) {
+      console.error('Invalid redirect URL:', redirectUrl, 'Error:', error);
+      // Fallback to onboarding if the URL is invalid
+      finalRedirectUrl = new URL('/onboarding', `${request.url.split('/api/auth/google/callback')[0]}/onboarding`);
+    }
+        
+    return Response.redirect(finalRedirectUrl);
   } catch (error) {
     console.error('Unexpected Google OAuth error:', error);
     return new Response('Internal server error', { status: 500 });

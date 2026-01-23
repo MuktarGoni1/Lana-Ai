@@ -257,12 +257,20 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dest)
     }
     
-    if (sessionExists && !onboardingComplete && !isOnboardingRoute) {
+    if (sessionExists && !onboardingComplete && !isOnboardingRoute && pathname !== '/term-plan') {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
       await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
       const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
+    }
+    
+    // If onboarding is complete and user is on onboarding page, redirect to term-plan or homepage
+    if (sessionExists && onboardingComplete && pathname === '/onboarding') {
+      console.log('[Middleware] Onboarding complete but user is on onboarding page, redirecting to term-plan')
+      await authLogger.logRedirect(pathname, '/term-plan', 'onboarding_complete_redirect', user?.id, user?.email);
+      const dest = new URL('/term-plan', req.url);
+      return NextResponse.redirect(dest);
     }
     
     // If onboarding was just completed, redirect to homepage regardless of role
@@ -271,6 +279,23 @@ export async function middleware(req: NextRequest) {
       await authLogger.logRedirect(pathname, '/homepage', 'onboarding_completed', user?.id, user?.email);
       const dest = new URL('/homepage', req.url)
       return NextResponse.redirect(dest)
+    }
+    
+    // Additional check: if user is authenticated and on term-plan but onboarding is complete, redirect to homepage
+    if (sessionExists && pathname === '/term-plan' && onboardingComplete) {
+      console.log('[Middleware] User has completed onboarding, redirecting term-plan to homepage')
+      await authLogger.logRedirect(pathname, '/homepage', 'completed_onboarding_term_plan_redirect', user?.id, user?.email);
+      const dest = new URL('/homepage', req.url);
+      return NextResponse.redirect(dest);
+    }
+    
+    // Additional check for onboarding complete state based on cookies as fallback
+    const isOnboardingCompleteCookie = req.cookies.get('lana_onboarding_complete');
+    if (sessionExists && pathname === '/onboarding' && isOnboardingCompleteCookie && isOnboardingCompleteCookie.value === '1') {
+      console.log('[Middleware] User has onboarding complete cookie, redirecting to homepage')
+      await authLogger.logRedirect(pathname, '/homepage', 'onboarding_complete_cookie_redirect', user?.id, user?.email);
+      const dest = new URL('/homepage', req.url);
+      return NextResponse.redirect(dest);
     }
     
     // If user is a new Google user, ensure they go through onboarding
@@ -297,6 +322,14 @@ export async function middleware(req: NextRequest) {
                            lastVisitedCookie !== '/landing-page' ? 
                            lastVisitedCookie : '/homepage';
       
+      // Prevent redirect loops by checking if we're already redirecting to the same place
+      if (redirectPath === '/landing-page') {
+        console.log('[Middleware] Preventing redirect loop, sending to homepage');
+        await authLogger.logRedirect(pathname, '/homepage', 'prevent_redirect_loop', user?.id, user?.email);
+        const dest = new URL('/homepage', req.url);
+        return NextResponse.redirect(dest);
+      }
+      
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_landing_page_access', user?.id, user?.email);
       const dest = new URL(redirectPath, req.url)
       return NextResponse.redirect(dest)
@@ -316,6 +349,14 @@ export async function middleware(req: NextRequest) {
                            !lastVisitedCookie.startsWith('/auth') && 
                            lastVisitedCookie !== '/landing-page' ? 
                            lastVisitedCookie : '/homepage';
+      
+      // Prevent redirect loops by checking if we're already redirecting to the same place
+      if (redirectPath === '/' || redirectPath === '/landing-page') {
+        console.log('[Middleware] Preventing redirect loop, sending to homepage');
+        await authLogger.logRedirect(pathname, '/homepage', 'prevent_redirect_loop', user?.id, user?.email);
+        const dest = new URL('/homepage', req.url);
+        return NextResponse.redirect(dest);
+      }
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_root_access', user?.id, user?.email);
       const dest = new URL(redirectPath, req.url)

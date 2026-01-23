@@ -222,7 +222,10 @@ function TermPlanPageContent() {
 
       // Redirect to homepage after onboarding completion
       console.log('[term-plan] redirecting to homepage after onboarding completion');
-      router.push('/homepage');
+      // Add a small delay to ensure state updates are processed
+      setTimeout(() => {
+        router.push('/homepage');
+      }, 500);
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);

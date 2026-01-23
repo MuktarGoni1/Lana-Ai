@@ -34,21 +34,20 @@ export default function OnboardingPage() {
   const [linkedChildrenNames, setLinkedChildrenNames] = useState<string[]>([])
   
   // Complete onboarding and redirect function
+  const { completeOnboarding } = useComprehensiveAuth();
+  
   const completeOnboardingAndRedirect = async () => {
     try {
       console.log('[Onboarding] Starting onboarding completion process');
       
-      // Create authService instance
-      const authService = new AuthService();
-      
-      // Complete onboarding via AuthService
-      const result = await authService.completeOnboarding();
+      // Complete onboarding via ComprehensiveAuthContext
+      const result = await completeOnboarding();
       
       if (!result.success) {
-        console.error('[Onboarding] Failed to complete onboarding:', result.message);
+        console.error('[Onboarding] Failed to complete onboarding:', result.error);
         toast({
           title: "Onboarding Completion Failed",
-          description: result.message,
+          description: result.error || "Failed to complete onboarding",
           variant: "destructive",
         });
         return;
