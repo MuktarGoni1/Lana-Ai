@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 
 export default function ChildrenLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading } = useComprehensiveAuth();
   const router = useRouter();
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
 

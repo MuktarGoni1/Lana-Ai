@@ -8,25 +8,25 @@ import { useToast } from "@/hooks/use-toast";
 // Ensure this page is not statically generated
 export const dynamic = 'force-dynamic';
 
-// Create a safe version of useRobustAuth that doesn't throw during SSR
-function useSafeRobustAuth() {
+// Create a safe version of useComprehensiveAuth that doesn't throw during SSR
+function useSafeComprehensiveAuth() {
   const [authState, setAuthState] = useState<{
     checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
   } | null>(null);
 
   useEffect(() => {
-    // Dynamically import the useRobustAuth hook only on the client side
+    // Dynamically import the useComprehensiveAuth hook only on the client side
     const loadAuth = async () => {
       try {
-        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
+        const { useComprehensiveAuth } = await import("@/contexts/ComprehensiveAuthContext");
         // Try to use the hook, but catch any errors
         try {
-          const auth = useRobustAuth();
+          const auth = useComprehensiveAuth();
           setAuthState({
             checkAuthStatus: auth.checkAuthStatus,
           });
         } catch (error) {
-          // If useRobustAuth throws (e.g., outside provider), set to null state
+          // If useComprehensiveAuth throws (e.g., outside provider), set to null state
           setAuthState(null);
         }
       } catch (error) {
@@ -44,7 +44,7 @@ function useSafeRobustAuth() {
 export default function AutoLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useSafeRobustAuth();
+  const auth = useSafeComprehensiveAuth();
   const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
 
   useEffect(() => {

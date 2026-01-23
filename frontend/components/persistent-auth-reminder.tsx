@@ -6,27 +6,27 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ToastAction } from "@/components/ui/toast";
 
-// Create a safe version of useEnhancedAuth that doesn't throw during SSR
-function useSafeEnhancedAuth() {
+// Create a safe version of useComprehensiveAuth that doesn't throw during SSR
+function useSafeComprehensiveAuth() {
   const [authState, setAuthState] = useState<{
     isAuthenticated: boolean;
     isLoading: boolean;
   }>({ isAuthenticated: false, isLoading: true });
 
   useEffect(() => {
-    // Dynamically import the useEnhancedAuth hook only on the client side
+    // Dynamically import the useComprehensiveAuth hook only on the client side
     const loadAuth = async () => {
       try {
-        const { useEnhancedAuth } = await import("@/hooks/useEnhancedAuth");
+        const { useComprehensiveAuth } = await import("@/contexts/ComprehensiveAuthContext");
         // Try to use the hook, but catch any errors
         try {
-          const auth = useEnhancedAuth();
+          const auth = useComprehensiveAuth();
           setAuthState({
             isAuthenticated: auth.isAuthenticated,
             isLoading: auth.isLoading,
           });
         } catch (error) {
-          // If useEnhancedAuth throws (e.g., outside provider), set to default state
+          // If useComprehensiveAuth throws (e.g., outside provider), set to default state
           setAuthState({
             isAuthenticated: false,
             isLoading: false,
@@ -48,7 +48,7 @@ function useSafeEnhancedAuth() {
 }
 
 export function PersistentAuthReminder() {
-  const auth = useSafeEnhancedAuth();
+  const auth = useSafeComprehensiveAuth();
   const { toast } = useToast();
   const router = useRouter();
   

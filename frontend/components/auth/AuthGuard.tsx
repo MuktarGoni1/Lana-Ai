@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { useRobustAuth } from '@/contexts/RobustAuthContext';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { useRouter } from 'next/navigation';
 
 interface AuthGuardProps {
@@ -10,7 +10,7 @@ interface AuthGuardProps {
 }
 
 export function AuthGuard({ children, requireAuth = true }: AuthGuardProps) {
-  const { isAuthenticated, isLoading, checkAuthStatus } = useRobustAuth();
+  const { isAuthenticated, isLoading, checkAuthStatus } = useComprehensiveAuth();
   const router = useRouter();
   const [isChecking, setIsChecking] = useState(true);
 

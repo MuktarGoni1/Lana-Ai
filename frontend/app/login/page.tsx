@@ -2,7 +2,7 @@
 
 import React, { useState, Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
@@ -140,7 +140,7 @@ const FormHeader = ({
 // --- Parent Registration Flow ---
 function ParentFlow() {
   const [email, setEmail] = useState("");
-  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = useComprehensiveAuth();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -262,7 +262,7 @@ function ParentFlow() {
 function ChildFlow() {
   const router = useRouter();
   const { toast } = useToast();
-  const { loginWithEmail, loginWithGoogle, isLoading } = useUnifiedAuth();
+  const { loginWithEmail, loginWithGoogle, isLoading } = useComprehensiveAuth();
   const [email, setEmail] = useState("");
 
   const handleChildSubmit = async (e: React.FormEvent) => {
@@ -386,7 +386,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
-  const { isAuthenticated, isLoading } = useUnifiedAuth();
+  const { isAuthenticated, isLoading } = useComprehensiveAuth();
   const { toast } = useToast();
 
   // Redirect authenticated users

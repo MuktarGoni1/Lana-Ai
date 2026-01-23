@@ -35,7 +35,7 @@ import { useRouter } from "next/navigation";
 import Logo from '@/components/logo';
 import { saveSearch } from '@/lib/search'
 import { supabase } from '@/lib/db';
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { useToast } from '@/hooks/use-toast';
 
 // Centralized API base for both components in this file
@@ -70,7 +70,7 @@ import ChatWithSidebar from '@/components/chat-with-sidebar';
 // Main Homepage Component for Lana AI
 // This component serves as the primary interface for users to interact with the AI tutor
 export default function HomePage() {
-  const { user, isAuthenticated, isLoading, refreshSession } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading, refreshUser } = useComprehensiveAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [question, setQuestion] = useState("");

@@ -1092,12 +1092,12 @@ interface AnimatedAIChatProps {
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Explaner",
+      label: "Explainer",
       description: "Comprehensive Ai explanations",
-      action: () =>
-        onNavigateToVideoLearning?.(
-          value.trim() || "What would you like to learn?"
-        ),
+      action: () => {
+        const question = value.trim() || "What would you like to learn?";
+        router.push(`/personalised-ai-tutor?q=${encodeURIComponent(question)}`);
+      },
     },
     {
       icon: <Plus className="w-4 h-4" />, 

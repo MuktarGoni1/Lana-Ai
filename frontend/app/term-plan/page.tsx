@@ -3,7 +3,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
@@ -36,7 +36,7 @@ function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useComprehensiveAuth();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");

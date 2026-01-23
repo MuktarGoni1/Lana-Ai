@@ -2,14 +2,14 @@
 
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default function ClientDemoPage() {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { user } = useUnifiedAuth();
+  const { user } = useComprehensiveAuth();
 
   useEffect(() => { 
     setMounted(true); 

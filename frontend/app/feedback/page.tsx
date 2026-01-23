@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "@/components/ui/use-toast";
 
 export default function FeedbackPage() {
-  const { user } = useUnifiedAuth();
+  const { user } = useComprehensiveAuth();
   const [formData, setFormData] = useState({
     name: user?.user_metadata?.full_name || "",
     email: user?.email || "",

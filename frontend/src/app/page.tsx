@@ -9,14 +9,14 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { ChatInterface } from "@/components/home/chat-interface";
 import { StructuredLessonCard } from "@/components/home/lesson-card";
 import { useLessonStream } from "@/hooks/use-lesson-stream";
 import { ActionGrid } from "@/components/home/action-grid";
 
 export default function HomePage() {
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useComprehensiveAuth();
   const router = useRouter();
   const [question, setQuestion] = useState("");
   const [value, setValue] = useState("");

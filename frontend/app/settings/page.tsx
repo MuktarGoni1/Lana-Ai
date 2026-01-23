@@ -8,18 +8,18 @@ import { Moon, LogOut, Bell } from "lucide-react"
 import { UserIcon } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { User as SupabaseUser } from "@supabase/supabase-js"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import { useComprehensiveAuth } from "@/contexts/ComprehensiveAuthContext"
 import PremiumFeatureGuard from "@/components/PremiumFeatureGuard"
 
-// Use the unified auth context directly since it's available through the provider
+// Use the comprehensive auth context directly since it's available through the provider
 function useSettingsAuth() {
-  const unifiedAuth = useUnifiedAuth();
+  const comprehensiveAuth = useComprehensiveAuth();
   
   // Return the auth state in the same format as before for compatibility
   return {
-    user: unifiedAuth.user,
-    isAuthenticated: unifiedAuth.isAuthenticated,
-    isLoading: unifiedAuth.isLoading,
+    user: comprehensiveAuth.user,
+    isAuthenticated: comprehensiveAuth.isAuthenticated,
+    isLoading: comprehensiveAuth.isLoading,
   };
 }
 

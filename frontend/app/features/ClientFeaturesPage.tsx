@@ -4,13 +4,13 @@ import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
 import { GraduationCap, Lightbulb, BarChart3, Bot, Zap, MoreHorizontal, BookOpen, Calculator, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import Link from "next/link";
 
 export default function ClientFeaturesPage() {
   const { setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const { user } = useUnifiedAuth();
+  const { user } = useComprehensiveAuth();
 
   useEffect(() => { 
     setMounted(true); 

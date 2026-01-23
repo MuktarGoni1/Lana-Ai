@@ -3,11 +3,12 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { useToast } from "@/hooks/use-toast";
 import { BookOpen, ChevronDown, ChevronUp, Plus, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
+import { AuthService } from '@/lib/services/authService';
 
 interface Topic {
   id: string;
@@ -27,7 +28,7 @@ export default function EnhancedOnboarding() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading, completeOnboarding } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading, refreshUser } = useComprehensiveAuth();
   const returnTo = searchParams.get("returnTo");
   
   const [subjects, setSubjects] = useState<Subject[]>(() => {
@@ -184,10 +185,13 @@ export default function EnhancedOnboarding() {
       // Save study plan first
       await saveStudyPlan();
       
-      // Complete onboarding
-      const result = await completeOnboarding();
+      // Create authService instance and complete onboarding
+      const authService = new AuthService();
+      const result = await authService.completeOnboarding();
       
       if (result.success) {
+        // Refresh the user data to reflect the updated onboarding status
+        await refreshUser();
         toast({ 
           title: 'Onboarding Complete', 
           description: 'Your plan has been saved. Redirecting to dashboard...' 
@@ -198,7 +202,7 @@ export default function EnhancedOnboarding() {
       } else {
         toast({ 
           title: 'Onboarding Error', 
-          description: result.error || 'Failed to complete onboarding.',
+          description: result.message || 'Failed to complete onboarding.',
           variant: "destructive"
         });
       }

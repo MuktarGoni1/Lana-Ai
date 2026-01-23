@@ -6,7 +6,7 @@ import { ClientProviders } from './providers'
 import { ThemeProvider } from 'next-themes'
 import { LocalChildrenManager } from '@/components/local-children-manager'
 import { ComprehensiveAuthProvider } from '@/contexts/ComprehensiveAuthContext'
-import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
+
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
 import StructuredData from './structured-data'
@@ -80,8 +80,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body>
         <StructuredData />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <UnifiedAuthProvider>
-            <ComprehensiveAuthProvider>
+          <ComprehensiveAuthProvider>
               <ClientProviders>
                 {children}
                 <LocalChildrenManager />
@@ -89,7 +88,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 <SessionMonitor />
               </ClientProviders>
             </ComprehensiveAuthProvider>
-          </UnifiedAuthProvider>
         </ThemeProvider>
       </body>
     </html>

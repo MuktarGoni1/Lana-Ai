@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { LogOut } from "lucide-react";
-import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 
 export function AuthIndicator() {
-  const { user, isAuthenticated, isLoading, logout } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading, logout } = useComprehensiveAuth();
   const [isVisible, setIsVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

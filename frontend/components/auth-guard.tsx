@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useEffect } from "react";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 import { useRouter } from "next/navigation";
 
 interface AuthGuardProps {
@@ -11,7 +11,7 @@ interface AuthGuardProps {
 }
 
 export default function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+  const { isAuthenticated, isLoading } = useComprehensiveAuth();
   const router = useRouter();
 
   useEffect(() => {

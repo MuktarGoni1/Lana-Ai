@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Lock, Sparkles, Star, Crown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext';
 
 interface PremiumFeatureGuardProps {
   children: React.ReactNode;
@@ -21,7 +21,7 @@ const PremiumFeatureGuard: React.FC<PremiumFeatureGuardProps> = ({
   redirectToUpgrade = false,
   className = ''
 }) => {
-  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading } = useComprehensiveAuth();
   const [isPro, setIsPro] = useState<boolean>(false);
   const [checkingPro, setCheckingPro] = useState<boolean>(true);
 
