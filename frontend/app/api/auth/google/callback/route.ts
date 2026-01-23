@@ -25,6 +25,25 @@ export async function GET(request: NextRequest) {
     // Check if this is a new user (first time signing in with Google)
     const isNewUser = !user.user_metadata?.onboarding_complete;
 
+    // Update user metadata to set role if not already set
+    if (!user.user_metadata?.role) {
+      // Determine role based on email pattern - Google users are typically parents
+      const role = user.email?.includes('@child.lana') ? 'child' : 'guardian';
+      
+      // Update user metadata to include role
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { 
+          ...user.user_metadata,
+          role,
+          onboarding_complete: false // Mark as incomplete to force onboarding
+        }
+      });
+      
+      if (updateError) {
+        console.error('Error updating user metadata:', updateError);
+      }
+    }
+
     // Set a temporary flag in cookies to indicate this is a Google signup
     // This will be used by the frontend to know to show the onboarding flow
     const cookieStore = await cookies();

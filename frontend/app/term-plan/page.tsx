@@ -36,7 +36,7 @@ function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useComprehensiveAuth();
+  const { user, isAuthenticated, isLoading, completeOnboarding } = useComprehensiveAuth();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
@@ -184,33 +184,21 @@ function TermPlanPageContent() {
     try {
       console.log('[term-plan] Starting onboarding completion process');
       
-      // Update user metadata to mark onboarding as complete
-      if (user) {
-        console.log('[term-plan] Updating user metadata with onboarding_complete flag');
-        console.log('[term-plan] User ID:', user.id);
-        
-        const { error } = await supabase.auth.updateUser({
-          data: { onboarding_complete: true },
-        });
-        
-        if (error) {
-          console.warn('[term-plan] failed to set onboarding_complete in metadata:', error.message);
-          console.warn('[term-plan] metadata update error details:', error);
-          toast({
-            title: "Notice",
-            description: "Unable to save onboarding status, but continuing anyway.",
-            variant: "default",
-          });
-        } else {
-          console.log('[term-plan] successfully updated user metadata with onboarding_complete flag');
-        }
-      } else {
-        console.warn('[term-plan] no user found when trying to update user metadata');
+      // Use the comprehensive auth service to complete onboarding
+      // This ensures proper state management and metadata updates
+      // Use the comprehensive auth service to complete onboarding
+      
+      const result = await completeOnboarding();
+      
+      if (!result.success) {
+        console.warn('[term-plan] failed to complete onboarding via service:', result.error);
         toast({
           title: "Notice",
           description: "Unable to save onboarding status, but continuing anyway.",
           variant: "default",
         });
+      } else {
+        console.log('[term-plan] successfully completed onboarding via service');
       }
 
       // Cookie fallback to handle network failures and ensure middleware bypass

@@ -192,8 +192,14 @@ function ParentFlow() {
           description: result.error || "Failed to initiate Google login. Please try again.", 
           variant: "destructive" 
         });
+      } else {
+        // For Google login, the redirect happens automatically
+        // Show a temporary message to inform the user
+        toast({
+          title: "Redirecting",
+          description: "Redirecting to Google for authentication...",
+        });
       }
-      // For Google login, the redirect happens automatically
     } catch (error: unknown) {
       toast({ 
         title: "Error", 
@@ -315,8 +321,14 @@ function ChildFlow() {
           description: result.error || "Failed to initiate Google login. Please try again.", 
           variant: "destructive" 
         });
+      } else {
+        // For Google login, the redirect happens automatically
+        // Show a temporary message to inform the user
+        toast({
+          title: "Redirecting",
+          description: "Redirecting to Google for authentication...",
+        });
       }
-      // For Google login, the redirect happens automatically
     } catch (error: unknown) {
       toast({ 
         title: "Error", 

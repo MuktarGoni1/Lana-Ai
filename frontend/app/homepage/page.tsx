@@ -103,6 +103,26 @@ export default function HomePage() {
     // Clean up interval on unmount
     return () => clearInterval(sessionCheckInterval);
   }, [isAuthenticated, router, toast]);
+  
+  // Check if user just completed onboarding and landed on homepage
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      // Check if user has just completed onboarding
+      const urlParams = new URLSearchParams(window.location.search);
+      const onboardingCompleted = urlParams.get('onboardingComplete') === '1';
+      
+      if (onboardingCompleted && user.user_metadata?.onboarding_complete) {
+        // Show success toast
+        toast({
+          title: "Welcome!",
+          description: "Your onboarding is complete. Enjoy your personalized learning experience!",
+        });
+        
+        // Clean up URL parameter without triggering a full page reload
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [isAuthenticated, user, toast]);
 
   // Show loading state while checking authentication
   if (isLoading) {

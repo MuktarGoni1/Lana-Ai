@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { z } from "zod"
 import { AuthService } from "@/lib/services/authService"
 import { motion, AnimatePresence } from "framer-motion"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext'
 
 // Ensure this page is not statically generated
 export const dynamic = 'force-dynamic';
@@ -139,7 +139,7 @@ function ParentFlow() {
   const [errors, setErrors] = useState<{ email?: string }>({})
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const { loginWithGoogle } = useEnhancedAuth()
+  const { loginWithGoogle } = useComprehensiveAuth()
 
   const validateForm = (): boolean => {
     const newErrors: { email?: string } = {}
@@ -210,6 +210,13 @@ function ParentFlow() {
           description: result.error || "Failed to initiate Google registration. Please try again.",
           variant: "destructive",
         })
+      } else {
+        // For Google registration, the redirect happens automatically
+        // Show a temporary message to inform the user
+        toast({
+          title: "Redirecting",
+          description: "Redirecting to Google for authentication...",
+        });
       }
       // Note: For OAuth, the redirect happens automatically
     } catch (error) {

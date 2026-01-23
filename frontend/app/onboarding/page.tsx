@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button"
 import type { InsertGuardian } from "@/types/supabase"
 import { skipToHomepage, navigateToNextStep } from "@/lib/navigation"
 import { AuthService } from "@/lib/services/authService"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useComprehensiveAuth } from '@/contexts/ComprehensiveAuthContext'
 import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
 import EnhancedDiagnosticQuiz from '@/components/enhanced-diagnostic-quiz'
 import AccountLinkSuccessNotification from '@/components/account-link-success-notification'
 export default function OnboardingPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, registerChild } = useEnhancedAuth()
+  const { user } = useComprehensiveAuth()
   const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})
@@ -83,6 +83,9 @@ export default function OnboardingPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user?.email) {
+          // Check if this is a Google signup by checking the cookie
+          const isGoogleSignup = document.cookie.includes('lana_google_signup=true');
+          
           // Create authService instance here to avoid timing issues
           const authService = new AuthService();
           
@@ -121,6 +124,14 @@ export default function OnboardingPage() {
           // This handles the case where any authenticated user arrives at onboarding after successful account linking
           console.log('[Onboarding] Authenticated user detected, showing diagnostic quiz for both parent and child users');
           console.log('[Onboarding] User type:', isChildUser ? 'Child' : 'Parent');
+          console.log('[Onboarding] Is Google signup:', isGoogleSignup);
+          
+          // For Google signups, we want to make sure they go through the full onboarding flow
+          if (isGoogleSignup) {
+            // Clear the Google signup cookie to prevent re-processing
+            document.cookie = 'lana_google_signup=; Max-Age=0; path=/;';
+          }
+          
           setShowDiagnosticQuiz(true);
         }
       } catch (error) {
@@ -267,7 +278,8 @@ export default function OnboardingPage() {
         if (children.length === 1) {
           // Single child registration
           const child = children[0]
-          result = await registerChild(
+          const authService = new AuthService();
+          result = await authService.registerChild(
             child.nickname,
             Number(child.age),
             child.grade,

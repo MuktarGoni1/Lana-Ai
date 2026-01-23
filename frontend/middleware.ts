@@ -233,6 +233,9 @@ export async function middleware(req: NextRequest) {
     // Check if this is a redirect from onboarding completion
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
+    // Check if user just came from Google OAuth (by checking if they're newly registered via Google)
+    const isNewGoogleUser = user && user.app_metadata?.provider === 'google' && !onboardingComplete;
+    
     // Enhanced security: Check if user has given explicit consent before allowing access to most routes
     const consentRequiredRoutes = [
       '/dashboard',
@@ -267,6 +270,15 @@ export async function middleware(req: NextRequest) {
       console.log('[Middleware] Onboarding just completed, redirecting to homepage')
       await authLogger.logRedirect(pathname, '/homepage', 'onboarding_completed', user?.id, user?.email);
       const dest = new URL('/homepage', req.url)
+      return NextResponse.redirect(dest)
+    }
+    
+    // If user is a new Google user, ensure they go through onboarding
+    if (sessionExists && isNewGoogleUser && pathname !== '/onboarding') {
+      console.log('[Middleware] New Google user detected, redirecting to onboarding')
+      await authLogger.logRedirect(pathname, '/onboarding', 'new_google_user_redirect', user?.id, user?.email);
+      const returnTo = `${pathname}${url.search}`
+      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}&newGoogleUser=1`, req.url)
       return NextResponse.redirect(dest)
     }
 

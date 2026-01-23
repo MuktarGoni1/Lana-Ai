@@ -438,6 +438,7 @@ export class ComprehensiveAuthService {
         return { success: false, error: errorMessage };
       }
       
+      // For Supabase Auth, the signInWithOAuth method is available directly on supabase.auth
       // Check if supabase.auth.signInWithOAuth exists
       if (typeof supabase.auth.signInWithOAuth !== 'function') {
         const errorMessage = 'signInWithOAuth is not available. This method may not be supported in the current Supabase client configuration.';
@@ -453,11 +454,16 @@ export class ComprehensiveAuthService {
       // Call signInWithOAuth with the correct parameters
       // Redirect to our dedicated Google callback handler to ensure proper onboarding enforcement
       console.log('[ComprehensiveAuthService] Calling signInWithOAuth with provider: google');
+      
+      // Use the new Supabase Auth URL-based OAuth flow
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/api/auth/google/callback`,
-          scopes: 'openid email profile',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -472,8 +478,8 @@ export class ComprehensiveAuthService {
 
       console.log('[ComprehensiveAuthService] Google login initiated successfully', data);
       
-      // For OAuth, the redirect happens automatically
-      this.updateAuthState({ isLoading: false });
+      // For OAuth, the redirect happens automatically, so we don't update state here
+      // The user will be redirected to the callback URL
       return { success: true };
     } catch (error) {
       console.error('[ComprehensiveAuthService] Unexpected Google login error:', error);
@@ -690,8 +696,12 @@ export class ComprehensiveAuthService {
         return { success: false, error: 'No authenticated user' };
       }
 
+      // Update user metadata to mark onboarding as complete
       const { error } = await supabase.auth.updateUser({
-        data: { onboarding_complete: true },
+        data: { 
+          ...this.authState.user.user_metadata,
+          onboarding_complete: true 
+        },
       });
 
       if (error) {

@@ -16,13 +16,23 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
       const isComplete = Boolean(meta.onboarding_complete) || cookieComplete;
       const role = meta.role as 'child' | 'guardian' | undefined;
 
+      // Check if this is a Google signup by checking the cookie
+      const isGoogleSignup = document.cookie.includes('lana_google_signup=true');
+      
+      // If this is a Google signup, ensure onboarding is marked as incomplete
+      if (isGoogleSignup && !meta.onboarding_complete) {
+        // Clear the Google signup cookie
+        document.cookie = 'lana_google_signup=; Max-Age=0; path=/;';
+      }
+      
       // Avoid reroute if already on term-plan onboarding
       const isOnboardingRoute = window.location.pathname.startsWith('/term-plan') && new URLSearchParams(window.location.search).get('onboarding') === '1';
       
-      // If onboarding not complete and not a child → go to term plan
+      // If onboarding not complete and not a child → go to onboarding (not term-plan)
       if (!isComplete && role !== 'child' && !isOnboardingRoute) {
         const returnTo = encodeURIComponent(currentPath || "/homepage");
-        router.replace(`/term-plan?onboarding=1&returnTo=${returnTo}`);
+        // Redirect to onboarding first, then term-plan will handle the rest
+        router.replace(`/onboarding?returnTo=${returnTo}`);
         return true;
       }
 

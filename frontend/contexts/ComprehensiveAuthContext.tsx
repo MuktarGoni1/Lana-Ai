@@ -26,6 +26,7 @@ interface ComprehensiveAuthContextType {
   isOnboardingComplete: () => boolean;
   requestUserConsent: (consentData: any) => Promise<{ success: boolean; error?: string }>;
   hasGivenConsent: () => boolean;
+  completeOnboarding: () => Promise<{ success: boolean; error?: string }>;
 }
 
 const ComprehensiveAuthContext = createContext<ComprehensiveAuthContextType | undefined>(undefined);
@@ -235,6 +236,10 @@ export function ComprehensiveAuthProvider({ children }: { children: React.ReactN
     return authService.hasGivenConsent();
   }, [authService]);
 
+  const completeOnboarding = useCallback(async () => {
+    return await authService.completeOnboarding();
+  }, [authService]);
+
   const value = {
     user,
     isLoading,
@@ -254,7 +259,8 @@ export function ComprehensiveAuthProvider({ children }: { children: React.ReactN
     getUserRole,
     isOnboardingComplete,
     requestUserConsent,
-    hasGivenConsent
+    hasGivenConsent,
+    completeOnboarding
   };
 
   return (
