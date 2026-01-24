@@ -277,6 +277,108 @@ export async function GET(request: NextRequest) {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
+        console.warn('No active session found in cookies, attempting to extract session from URL fragment');
+        
+        // If there's no session in cookies, try to extract session information from the URL fragment
+        // This handles cases where the OAuth flow completed but cookies weren't set properly
+        if (url.hash) {
+          console.log('Found URL fragment, attempting to parse session data');
+          
+          // Since we can't directly use the fragment tokens in the server-side callback,
+          // we'll log the situation and try to re-validate the session
+          // The tokens in the fragment indicate that OAuth was successful
+          // but the session might not have been properly established in cookies
+          
+          // Attempt to get session state
+          const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (session && !sessionError) {
+            console.log('Valid session found in Supabase client');
+            // Use the session user
+            const user = session.user;
+            if (user) {
+              console.log('Active session found, proceeding with user setup');
+              
+              // User is already authenticated, proceed with profile setup
+              const { data: existingProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+              if (existingProfile) {
+                // Update existing profile with latest Google info if available
+                const { error: updateError } = await supabase
+                  .from('profiles')
+                  .update({
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', user.id);
+                  
+                if (updateError) {
+                  console.error('Error updating existing profile:', updateError);
+                }
+              } else {
+                // Create new user profile with guardian role by default
+                // Get user metadata to extract Google info
+                const fullName = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+                
+                const { error: insertError } = await supabase
+                  .from('profiles')
+                  .insert({
+                    id: user.id,
+                    email: user.email,
+                    full_name: fullName,
+                    avatar_url: user.user_metadata?.avatar_url,
+                    google_id: user.user_metadata?.sub, // Google's user ID
+                    role: 'guardian', // Default to guardian role for Google signups
+                    parent_id: null, // Parents have no parent_id
+                    onboarding_complete: false,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                  });
+                  
+                if (insertError) {
+                  console.error('Error creating profile:', insertError);
+                }
+              }
+              
+              // Create/update guardian record to link the parent account
+              const { error: guardianUpdateError } = await supabase
+                .from('guardians')
+                .upsert({
+                  email: user.email,
+                  weekly_report: true,
+                  monthly_report: false,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                }, { onConflict: 'email' });
+
+              if (guardianUpdateError) {
+                console.warn('Warning: Failed to update guardian record:', guardianUpdateError);
+              }
+              
+              // Check if user has completed onboarding
+              const { data: profileData } = await supabase
+                .from('profiles')
+                .select('onboarding_complete')
+                .eq('id', user.id)
+                .single();
+
+              // Redirect to onboarding if not completed, otherwise to homepage or next URL
+              let redirectUrl;
+              if (!profileData?.onboarding_complete) {
+                redirectUrl = new URL(`${redirectOrigin}/onboarding?oauth=google`);
+              } else {
+                redirectUrl = new URL(`${redirectOrigin}/homepage`);
+              }
+              
+              return NextResponse.redirect(redirectUrl);
+            }
+          }
+        }
+        
+        // If we still couldn't get a user, redirect to login
         console.warn('No active session found, redirecting to login');
         const redirectUrl = new URL(`${redirectOrigin}/login`);
         redirectUrl.searchParams.set('error', 'No authorization code received and no active session');
@@ -284,7 +386,6 @@ export async function GET(request: NextRequest) {
       }
       
       console.log('Active session found, proceeding with user setup');
-      
       // User is already authenticated, proceed with profile setup
       const { data: existingProfile, error: profileError } = await supabase
         .from('profiles')
