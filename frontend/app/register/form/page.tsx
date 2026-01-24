@@ -182,7 +182,18 @@ function ParentFlow() {
 
       // Delay navigation to ensure form submission completes
       setTimeout(() => {
-        router.push(`/register/magic-link-sent?email=${encodeURIComponent(email)}`)
+        // Validate redirect URL before navigating
+        try {
+          const redirectPath = `/register/magic-link-sent?email=${encodeURIComponent(email)}`;
+          const url = new URL(redirectPath, typeof window !== 'undefined' ? window.location.origin : '');
+          router.push(url.pathname + url.search);
+        } catch (e) {
+          console.error('[RegisterForm] Invalid magic link sent redirect URL:', e);
+          // Fallback to window.location
+          if (typeof window !== 'undefined') {
+            window.location.href = `/register/magic-link-sent?email=${encodeURIComponent(email)}`;
+          }
+        }
       }, 100)
     } catch (error) {
       console.error("Parent registration error:", error)
@@ -287,7 +298,19 @@ function ParentFlow() {
             </p>
           </div>
           
-          <BackButton onClick={() => router.push("/register")} />
+          <BackButton onClick={() => {
+            // Validate redirect URL before navigating
+            try {
+              const url = new URL('/register', typeof window !== 'undefined' ? window.location.origin : '');
+              router.push(url.pathname);
+            } catch (e) {
+              console.error('[RegisterForm] Invalid register redirect URL:', e);
+              // Fallback to window.location
+              if (typeof window !== 'undefined') {
+                window.location.href = '/register';
+              }
+            }
+          }} />
         </form>
       </FormCard>
     </FormWrapper>

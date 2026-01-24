@@ -72,7 +72,9 @@ export class PendingChildRegistrationService {
   }
 
   /**
-   * Approve a pending child registration, creating the actual child account
+   * Approve a pending child registration, linking the child to the parent account
+   * In the new architecture, we don't create separate child accounts
+   * Instead, we store child data linked to the parent account
    */
   async approvePendingRegistration(pendingId: string, approverId: string): Promise<{ success: boolean; error?: string; childId?: string }> {
     try {
@@ -98,49 +100,47 @@ export class PendingChildRegistrationService {
         return { success: false, error: 'Registration is not in pending state' };
       }
 
-      // Create the actual child user account
-      const { data: childAuthData, error: signUpError } = await adminClient.auth.admin.createUser({
-        email: `${crypto.randomUUID()}@child.lana`,
-        password: crypto.randomUUID(),
-        user_metadata: { 
-          role: "child", 
-          nickname: pendingRegistration.nickname, 
-          age: pendingRegistration.age, 
-          grade: pendingRegistration.grade, 
-          guardian_email: pendingRegistration.guardianEmail,
-          created_from_pending_registration: pendingId
-        },
-      });
+      // Generate a unique ID for the child record
+      const childId = `child_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+      
+      // Create child record linked to the parent/guardian
+      const { data: childRecord, error: childCreationError } = await adminClient
+        .from('children')
+        .insert({
+          id: childId,
+          nickname: pendingRegistration.nickname,
+          age: pendingRegistration.age,
+          grade: pendingRegistration.grade,
+          guardian_id: pendingRegistration.parentId, // The parent account serves as the central hub
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .select()
+        .single();
 
-      if (signUpError) {
-        console.error('[PendingChildRegistrationService] Error creating child user:', signUpError);
-        return { success: false, error: signUpError.message };
+      if (childCreationError) {
+        console.error('[PendingChildRegistrationService] Error creating child record:', childCreationError);
+        return { success: false, error: childCreationError.message };
       }
 
-      const childUserId = childAuthData.user?.id;
+      // Create child profile record linked to guardian
+      const { error: profileError } = await adminClient
+        .from('profiles')
+        .insert({
+          id: childId, // Use the same ID as the child record
+          email: `${pendingRegistration.nickname.toLowerCase().replace(/\s+/g, '')}_${pendingRegistration.parentId}@child.lana`, // Still create a child email for reference
+          full_name: pendingRegistration.nickname,
+          age: pendingRegistration.age,
+          grade: pendingRegistration.grade,
+          role: 'child',
+          parent_id: pendingRegistration.parentId,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
-      if (!childUserId) {
-        return { success: false, error: 'Failed to create child user account' };
-      }
-
-      // Create the profile record linking child to parent
-      const { error: profileError } = await adminClient.from('profiles').insert({
-        id: childUserId,
-        full_name: pendingRegistration.nickname,
-        role: 'child',
-        parent_id: pendingRegistration.parentId,
-        diagnostic_completed: false,
-        is_active: true,
-        created_at: new Date().toISOString()
-      });
-
-      if (profileError) {
-        console.error('[PendingChildRegistrationService] Failed to create profile:', profileError);
-        
-        // Rollback: Delete the created user since profile creation failed
-        await adminClient.auth.admin.deleteUser(childUserId);
-        
-        return { success: false, error: profileError.message };
+      if (profileError && profileError.message && !profileError.message.includes('duplicate key value')) {
+        console.error('[PendingChildRegistrationService] Error creating child profile:', profileError);
+        return { success: false, error: profileError.message || 'Failed to create child profile' };
       }
 
       // Update the pending registration status to approved
@@ -155,7 +155,7 @@ export class PendingChildRegistrationService {
 
       if (updateError) {
         console.error('[PendingChildRegistrationService] Error updating registration status:', updateError);
-        // Note: The child account was created but we couldn't update the status
+        // Note: The child data was created but we couldn't update the status
         // This should ideally be handled in a transaction
       }
 
@@ -163,13 +163,13 @@ export class PendingChildRegistrationService {
       await authLogger.logChildRegistrationApproved(
         pendingRegistration.parentId,
         pendingRegistration.guardianEmail,
-        childUserId,
+        childId,
         pendingRegistration.nickname
       );
       
       console.log('[PendingChildRegistrationService] Successfully approved child registration');
       
-      return { success: true, childId: childUserId };
+      return { success: true, childId: childId };
     } catch (error) {
       console.error('[PendingChildRegistrationService] Unexpected error approving registration:', error);
       return { 

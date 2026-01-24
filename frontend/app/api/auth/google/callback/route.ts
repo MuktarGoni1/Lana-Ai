@@ -78,7 +78,15 @@ export async function GET(request: NextRequest) {
     try {
       // Make sure we're constructing a proper absolute URL
       const baseUrl = request.url.split('/api/auth/google/callback')[0];
-      finalRedirectUrl = new URL(redirectUrl, baseUrl);
+      
+      // Validate the redirect URL
+      if (!redirectUrl || redirectUrl === 'null' || redirectUrl === 'undefined') {
+        console.error('Invalid redirect URL detected:', redirectUrl);
+        // Fallback to onboarding if the URL is invalid
+        finalRedirectUrl = new URL('/onboarding', baseUrl);
+      } else {
+        finalRedirectUrl = new URL(redirectUrl, baseUrl);
+      }
             
       // Ensure we add the onboardingComplete param if needed for existing users
       if (redirectUrl !== '/onboarding' && !isNewUser) {
@@ -87,7 +95,8 @@ export async function GET(request: NextRequest) {
     } catch (error) {
       console.error('Invalid redirect URL:', redirectUrl, 'Error:', error);
       // Fallback to onboarding if the URL is invalid
-      finalRedirectUrl = new URL('/onboarding', `${request.url.split('/api/auth/google/callback')[0]}/onboarding`);
+      const baseUrl = request.url.split('/api/auth/google/callback')[0];
+      finalRedirectUrl = new URL('/onboarding', baseUrl);
     }
         
     return Response.redirect(finalRedirectUrl);

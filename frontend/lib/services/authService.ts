@@ -255,8 +255,8 @@ export class AuthService {
         throw new Error(result.message || 'Failed to register child');
       }
       
-      // Note: We no longer store lana_sid in localStorage as per the new architecture
-      // The unified auth system manages session and role detection
+      // Note: We no longer create separate child accounts as per the new architecture
+      // The parent account now serves as the central hub for managing all child-related functionality
       
       return result;
     } catch (error: unknown) {

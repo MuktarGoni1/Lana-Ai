@@ -37,14 +37,25 @@ export function navigateToHomepage(user: User | null, router: any) {
     // Navigate all authenticated users to homepage
     console.log('[Navigation] Redirecting authenticated user to homepage');
     const targetPath = '/homepage';
-
-    // Navigate to target path
-    if (router && typeof router.replace === 'function') {
-      router.replace(targetPath);
-    } else {
-      // Fallback: use window.location
+        
+    // Validate the path before redirecting
+    try {
+      const url = new URL(targetPath, typeof window !== 'undefined' ? window.location.origin : '');
+          
+      // Navigate to target path
+      if (router && typeof router.replace === 'function') {
+        router.replace(url.pathname);
+      } else {
+        // Fallback: use window.location
+        if (typeof window !== 'undefined') {
+          window.location.assign(url.pathname);
+        }
+      }
+    } catch (e) {
+      console.error('[Navigation] Invalid path for homepage redirect:', e);
+      // Last resort fallback
       if (typeof window !== 'undefined') {
-        window.location.assign(targetPath);
+        window.location.href = targetPath;
       }
     }
   } catch (error) {
@@ -67,13 +78,20 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     switch (currentStep) {
       case 'onboarding':
         // From onboarding, go to term-plan
-        if (router && typeof router.push === 'function') {
-          router.push('/term-plan?onboarding=1');
-        } else {
-          // Fallback: use window.location
-          if (typeof window !== 'undefined') {
-            window.location.assign('/term-plan?onboarding=1');
+        try {
+          const url = new URL('/term-plan?onboarding=1', typeof window !== 'undefined' ? window.location.origin : '');
+          if (router && typeof router.push === 'function') {
+            router.push(url.pathname + url.search);
+          } else {
+            // Fallback: use window.location
+            if (typeof window !== 'undefined') {
+              window.location.assign(url.pathname + url.search);
+            }
           }
+        } catch (e) {
+          console.error('[Navigation] Invalid path for onboarding to term-plan redirect:', e);
+          // Fallback to homepage
+          navigateToHomepage(user, router);
         }
         break;
         

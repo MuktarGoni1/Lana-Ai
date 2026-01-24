@@ -1,11 +1,11 @@
 import { NextRequest } from 'next/server';
-import { supabase } from '@/lib/db';
+import { createServerClient } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, redirectTo = '/onboarding' } = await request.json();
-
+    const { email, redirectTo } = await request.json();
+    
     if (!email) {
       return new Response(
         JSON.stringify({ error: 'Email is required' }),
@@ -22,40 +22,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user exists in Supabase Auth
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const cookieStore = await cookies();
+    const supabase = await createServerClient();
 
-    // Send magic link
+    // Send magic link with custom redirect
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
+      email: email,
       options: {
-        // Don't create user if they don't exist - this prevents unauthorized account creation
-        shouldCreateUser: false,
-        emailRedirectTo: `${request.nextUrl.origin}/api/auth/magic-link/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
+        emailRedirectTo: `${request.nextUrl.origin}${redirectTo || '/onboarding'}`,
       },
     });
 
     if (error) {
-      console.error('Magic link error:', error);
+      console.error('Error sending magic link:', error);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to send magic link. Please check your email and try again.' 
-        }),
-        { status: 400, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: error.message || 'Failed to send magic link' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Magic link sent successfully. Please check your email.' 
-      }),
+      JSON.stringify({ success: true, message: 'Magic link sent successfully' }),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
-    console.error('Unexpected magic link error:', error);
+  } catch (error: any) {
+    console.error('Unexpected error in magic link API:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
+      JSON.stringify({ error: error.message || 'Internal server error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

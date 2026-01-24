@@ -77,7 +77,17 @@ export default function AutoLoginPage() {
           
           toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
           setTimeout(() => {
-            router.push("/onboarding");
+            // Validate redirect URL before navigating
+            try {
+              const url = new URL('/onboarding', typeof window !== 'undefined' ? window.location.origin : '');
+              router.push(url.pathname);
+            } catch (e) {
+              console.error('[AutoLogin] Invalid onboarding redirect URL:', e);
+              // Fallback to window.location
+              if (typeof window !== 'undefined') {
+                window.location.href = '/onboarding';
+              }
+            }
           }, 1000);
           return;
         }
@@ -116,7 +126,24 @@ export default function AutoLoginPage() {
                              lastVisited : '/homepage';
 
         setTimeout(() => {
-          router.push(redirectPath);
+          // Validate redirect URL before navigating
+          try {
+            const url = new URL(redirectPath, typeof window !== 'undefined' ? window.location.origin : '');
+            router.push(url.pathname);
+          } catch (e) {
+            console.error('[AutoLogin] Invalid redirect URL:', redirectPath, e);
+            // Fallback to homepage
+            try {
+              const url = new URL('/homepage', typeof window !== 'undefined' ? window.location.origin : '');
+              router.push(url.pathname);
+            } catch (fallbackError) {
+              console.error('[AutoLogin] Invalid homepage redirect URL:', fallbackError);
+              // Last resort fallback
+              if (typeof window !== 'undefined') {
+                window.location.href = '/homepage';
+              }
+            }
+          }
         }, 1000);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);
@@ -138,7 +165,19 @@ export default function AutoLoginPage() {
           console.error('[auto-login] failed to log error details:', logError);
         }
         // Fallback: send user to landing page to avoid login loops
-        setTimeout(() => router.replace("/landing-page"), 2500);
+        setTimeout(() => {
+          // Validate redirect URL before navigating
+          try {
+            const url = new URL('/landing-page', typeof window !== 'undefined' ? window.location.origin : '');
+            router.replace(url.pathname);
+          } catch (e) {
+            console.error('[AutoLogin] Invalid landing page redirect URL:', e);
+            // Fallback to window.location
+            if (typeof window !== 'undefined') {
+              window.location.href = '/landing-page';
+            }
+          }
+        }, 2500);
       }
     };
 
@@ -153,7 +192,19 @@ export default function AutoLoginPage() {
         description: "Authentication system not available.",
         variant: "destructive",
       });
-      setTimeout(() => router.replace("/landing-page"), 2500);
+      setTimeout(() => {
+        // Validate redirect URL before navigating
+        try {
+          const url = new URL('/landing-page', typeof window !== 'undefined' ? window.location.origin : '');
+          router.replace(url.pathname);
+        } catch (e) {
+          console.error('[AutoLogin] Invalid landing page redirect URL (null auth):', e);
+          // Fallback to window.location
+          if (typeof window !== 'undefined') {
+            window.location.href = '/landing-page';
+          }
+        }
+      }, 2500);
     }
   }, [router, toast, auth]);
 
@@ -174,7 +225,19 @@ export default function AutoLoginPage() {
         {status === "error" && (
           <div className="pt-4">
             <button
-              onClick={() => router.replace("/login")}
+              onClick={() => {
+                // Validate redirect URL before navigating
+                try {
+                  const url = new URL('/login', typeof window !== 'undefined' ? window.location.origin : '');
+                  router.replace(url.pathname);
+                } catch (e) {
+                  console.error('[AutoLogin] Invalid login redirect URL:', e);
+                  // Fallback to window.location
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/login';
+                  }
+                }
+              }}
               className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
             >
               Return to Login

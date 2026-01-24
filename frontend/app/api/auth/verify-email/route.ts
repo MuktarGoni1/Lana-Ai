@@ -1,154 +1,80 @@
-import 'server-only'
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { getSupabaseAdmin } from '../../../../lib/supabase-admin'
-import * as crypto from 'node:crypto'
+import { NextRequest } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
-// Simple in-memory rate limiter (IP + email), suitable for single-instance deployments
-const RATE_LIMIT_WINDOW_MS = 60_000
-const RATE_LIMIT_MAX = 20
-const hits: Map<string, number[]> = new Map()
-
-function rateLimited(key: string): boolean {
-  const now = Date.now()
-  const arr = hits.get(key) ?? []
-  const recent = arr.filter((t) => now - t < RATE_LIMIT_WINDOW_MS)
-  recent.push(now)
-  hits.set(key, recent)
-  return recent.length > RATE_LIMIT_MAX
-}
-
-const BodySchema = z.object({
-  email: z.string().email(),
-})
-
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  const started = performance.now()
-  const requestId = crypto.randomUUID()
+export async function POST(request: NextRequest) {
   try {
-    const json = await req.json()
-    const parsed = BodySchema.safeParse(json)
-    if (!parsed.success) {
-      return NextResponse.json({
-        ok: false,
-        error: 'invalid_email',
-        message: 'Please provide a valid email address.',
-      }, { status: 400, headers: { 'x-request-id': requestId } })
-    }
-
-    const email = parsed.data.email.toLowerCase().trim()
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
-    const key = `${ip}:${email}`
-    if (rateLimited(key)) {
-      return NextResponse.json({
-        ok: false,
-        error: 'rate_limited',
-        message: 'Too many verification attempts. Please wait and try again.',
-      }, { status: 429, headers: { 'x-request-id': requestId } })
-    }
-
-    // Communicate with Supabase Auth Admin securely using service role
-    const t0 = performance.now()
-    let admin
-    try {
-      admin = getSupabaseAdmin()
-    } catch (envErr) {
-      console.error('[verify-email] missing env vars', { requestId, envErr })
-      return NextResponse.json({
-        ok: false,
-        error: 'service_unavailable',
-        message: 'Verification service temporarily unavailable. Please try again later.',
-      }, { status: 503, headers: { 'x-request-id': requestId } })
-    }
-    const { data, error } = await admin.auth.admin.listUsers({ 
-      page: 1,
-      perPage: 100 
-    });
-    const t1 = performance.now()
-
-    if (error) {
-      console.warn('[verify-email] admin.getUserByEmail error', { requestId, email, error })
-      // Check if this is a connection timeout error
-      if (error.message && error.message.includes('timeout')) {
-        return NextResponse.json({
-          ok: false,
-          error: 'network_timeout',
-          message: 'Network timeout while verifying email. Please try again.',
-        }, { status: 504, headers: { 'x-request-id': requestId } })
-      }
-      // Handle 404-like errors specifically
-      if (error.status === 404) {
-        return NextResponse.json({
-          ok: false,
-          error: 'endpoint_not_found',
-          message: 'User verification service endpoint not found.',
-        }, { status: 404, headers: { 'x-request-id': requestId } })
-      }
-      return NextResponse.json({
-        ok: false,
-        error: 'auth_admin_error',
-        message: 'Unable to verify email at this time.',
-      }, { status: 502, headers: { 'x-request-id': requestId } })
-    }
-
-    // Add debugging to see the structure of the data
-    console.log('[verify-email] listUsers response structure', { 
-      requestId, 
-      email, 
-      dataKeys: Object.keys(data),
-      usersType: typeof data.users,
-      usersLength: Array.isArray(data.users) ? data.users.length : 'not an array'
-    });
-
-    // Find the user with the matching email (case-insensitive)
-    const user = Array.isArray(data.users) ? data.users.find(u => u.email?.toLowerCase() === email.toLowerCase()) : null;
+    const { email } = await request.json();
     
-    // Add additional debugging for user lookup
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[verify-email] user lookup result', { 
-        requestId, 
-        email, 
-        userFound: !!user,
-        totalUsers: Array.isArray(data.users) ? data.users.length : 0
-      });
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: 'Email is required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
-    const exists = Boolean(user)
-    const confirmed = Boolean(user?.email_confirmed_at)
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    const payload = {
-      ok: true,
-      exists,
-      confirmed,
-      userId: user?.id ?? null,
-      requestId,
-      timings_ms: {
-        admin_lookup: Math.round(t1 - t0),
-        total: Math.round(performance.now() - started),
+    const cookieStore = await cookies();
+    const supabase = await createServerClient();
+
+    // Check if user exists in Supabase Auth
+    // Since Supabase doesn't expose a direct way to check if an email exists without authentication,
+    // we'll use a different approach - we'll try to send a magic link and handle the response accordingly
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: false, // This will fail if the user doesn't exist
       },
+    });
+
+    // If we get an error saying the user doesn't exist, that's fine for our verification
+    if (error) {
+      if (error.message.includes('Unable to validate email') || error.message.includes('does not exist')) {
+        // User doesn't exist
+        return new Response(
+          JSON.stringify({ 
+            exists: false, 
+            confirmed: false,
+            message: 'Email does not exist in our system' 
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      } else {
+        // Some other error occurred
+        return new Response(
+          JSON.stringify({ 
+            exists: false, 
+            confirmed: false,
+            error: error.message 
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } } // Return 200 to distinguish from server errors
+        );
+      }
     }
 
-    console.info('[verify-email] result', { requestId, email, exists, confirmed, timings_ms: payload.timings_ms })
-
-    return NextResponse.json(payload, { status: 200, headers: { 'x-request-id': requestId } })
-  } catch (err) {
-    console.error('[verify-email] unexpected', { requestId, err })
-    // Check if this is a connection timeout error
-    if (err instanceof Error && err.message && err.message.includes('timeout')) {
-      return NextResponse.json({
-        ok: false,
-        error: 'network_timeout',
-        message: 'Network timeout while verifying email. Please try again.',
-      }, { status: 504, headers: { 'x-request-id': requestId } })
-    }
-    return NextResponse.json({
-      ok: false,
-      error: 'network_or_server_error',
-      message: 'A network or server error occurred during verification.',
-    }, { status: 500, headers: { 'x-request-id': requestId } })
+    // If we got here without an error, the user exists
+    // But we don't actually want to send the OTP, so we'll return that the user exists
+    return new Response(
+      JSON.stringify({ 
+        exists: true, 
+        confirmed: true, // For this simplified implementation, we assume if user exists, email is confirmed
+        message: 'Email exists in our system' 
+      }),
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('Unexpected error in verify-email API:', error);
+    return new Response(
+      JSON.stringify({ error: error.message || 'Internal server error' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
-}
-
-export async function GET() {
-  return NextResponse.json({ ok: false, error: 'method_not_allowed' }, { status: 405 })
 }

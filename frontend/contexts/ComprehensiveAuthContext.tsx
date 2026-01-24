@@ -200,7 +200,18 @@ export function ComprehensiveAuthProvider({ children }: { children: React.ReactN
       
       setUser(null);
       setIsAuthenticated(false);
-      router.push('/login');
+      
+      // Validate redirect URL before navigating
+      try {
+        const url = new URL('/login', typeof window !== 'undefined' ? window.location.origin : '');
+        router.push(url.pathname);
+      } catch (e) {
+        console.error('[ComprehensiveAuthContext] Invalid logout redirect URL:', e);
+        // Fallback to window.location
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+      }
     } catch (error) {
       console.error('[ComprehensiveAuthContext] Logout error:', error);
       throw error;

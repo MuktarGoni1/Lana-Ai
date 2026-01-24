@@ -257,7 +257,19 @@ function ParentFlow() {
             </p>
           </div>
           
-          <BackButton onClick={() => router.push("/register")} />
+          <BackButton onClick={() => {
+            // Validate redirect URL before navigating
+            try {
+              const url = new URL('/register', typeof window !== 'undefined' ? window.location.origin : '');
+              router.push(url.pathname);
+            } catch (e) {
+              console.error('[Login] Invalid register redirect URL:', e);
+              // Fallback to window.location
+              if (typeof window !== 'undefined') {
+                window.location.href = '/register';
+              }
+            }
+          }} />
         </form>
       </FormCard>
     </FormWrapper>
@@ -386,7 +398,19 @@ function ChildFlow() {
             </p>
           </div>
           
-          <BackButton onClick={() => router.push("/register")} />
+          <BackButton onClick={() => {
+            // Validate redirect URL before navigating
+            try {
+              const url = new URL('/register', typeof window !== 'undefined' ? window.location.origin : '');
+              router.push(url.pathname);
+            } catch (e) {
+              console.error('[Login] Invalid register redirect URL:', e);
+              // Fallback to window.location
+              if (typeof window !== 'undefined') {
+                window.location.href = '/register';
+              }
+            }
+          }} />
         </form>
       </FormCard>
     </FormWrapper>
@@ -421,7 +445,24 @@ function LoginContent() {
                            lastVisited !== '/landing-page' ? 
                            lastVisited : '/homepage';
       
-      router.push(redirectPath);
+      // Validate redirect URL before navigating
+      try {
+        const url = new URL(redirectPath, typeof window !== 'undefined' ? window.location.origin : '');
+        router.push(url.pathname);
+      } catch (e) {
+        console.error('[LoginContent] Invalid redirect URL:', redirectPath, e);
+        // Fallback to homepage
+        try {
+          const url = new URL('/homepage', typeof window !== 'undefined' ? window.location.origin : '');
+          router.push(url.pathname);
+        } catch (fallbackError) {
+          console.error('[LoginContent] Invalid homepage redirect URL:', fallbackError);
+          // Last resort fallback
+          if (typeof window !== 'undefined') {
+            window.location.href = '/homepage';
+          }
+        }
+      }
     }
   }, [isAuthenticated, isLoading, router]);
 

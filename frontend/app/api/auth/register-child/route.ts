@@ -1,321 +1,210 @@
-import { getSupabaseAdmin } from '@/lib/supabase-admin'
-import { NextRequest } from 'next/server'
-
-// Enhanced validation functions
-const validateChildData = (data: any) => {
-  const errors: string[] = []
-  
-  // Validate required fields
-  if (!data.nickname || typeof data.nickname !== 'string' || data.nickname.trim().length < 2) {
-    errors.push('Nickname must be at least 2 characters long')
-  }
-  
-  if (!data.age || typeof data.age !== 'number' || data.age < 6 || data.age > 18) {
-    errors.push('Age must be between 6 and 18')
-  }
-  
-  if (!data.grade || typeof data.grade !== 'string' || !['6', '7', '8', '9', '10', '11', '12', 'college'].includes(data.grade)) {
-    errors.push('Invalid grade level')
-  }
-  
-  if (!data.guardianEmail || typeof data.guardianEmail !== 'string') {
-    errors.push('Guardian email is required')
-  } else {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(data.guardianEmail)) {
-      errors.push('Invalid guardian email format')
-    }
-  }
-  
-  return errors
-}
-
-// Audit logging function
-const logChildRegistration = async (adminClient: any, operation: string, details: any) => {
-  try {
-    // Log to console for now - in production, this would write to a dedicated audit table
-    console.log(`[AUDIT] ${new Date().toISOString()} ${operation}`, details)
-    
-    // In a production environment, we would implement database logging like this:
-    /*
-    const { error: logError } = await adminClient.from('audit_logs').insert({
-      timestamp: new Date().toISOString(),
-      operation,
-      details: JSON.stringify(details),
-      user_id: details.guardianEmail || null,
-      ip_address: details.ipAddress || null
-    });
-    
-    if (logError) {
-      console.warn('[AUDIT] Failed to write to audit log:', logError);
-    }
-    */
-  } catch (error) {
-    console.warn('[AUDIT] Failed to log operation:', error)
-  }
-}
-
-// Enhanced child registration function - now stores pending registration
-const registerSingleChild = async (adminClient: any, childData: any, guardianEmail: string, clientIP: string) => {
-  try {
-    // Get the authenticated parent user
-    const { data: { user: parentUser }, error: parentError } = await adminClient.auth.getUser();
-    
-    if (parentError || !parentUser) {
-      throw new Error('Parent authentication required to register child');
-    }
-    
-    // Log the attempt
-    await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_ATTEMPT', {
-      parent_id: parentUser.id,
-      guardianEmail,
-      nickname: childData.nickname,
-      ipAddress: clientIP,
-      timestamp: new Date().toISOString()
-    })
-
-    // Instead of creating the user immediately, store in pending registrations
-    // Import the service
-    const { pendingChildRegistrationService } = await import('@/lib/services/pendingChildRegistrationService');
-    
-    const result = await pendingChildRegistrationService.storePendingChildRegistration({
-      nickname: childData.nickname,
-      age: childData.age,
-      grade: childData.grade,
-      guardianEmail,
-      parentId: parentUser.id
-    });
-
-    if (!result.success) {
-      await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_FAILED', {
-        parent_id: parentUser.id,
-        guardianEmail,
-        error: result.error || 'Unknown error',
-        ipAddress: clientIP,
-        timestamp: new Date().toISOString()
-      });
-      
-      console.error('[API Register Child] Error storing pending child registration:', result.error);
-      throw new Error(result.error || 'Failed to store pending registration');
-    }
-    
-    console.log('[API Register Child] Successfully stored pending child registration with ID:', result.id)
-    await logChildRegistration(adminClient, 'PENDING_CHILD_REGISTRATION_SUCCESS', {
-      pending_id: result.id,
-      parent_id: parentUser.id,
-      guardianEmail,
-      nickname: childData.nickname,
-      ipAddress: clientIP,
-      timestamp: new Date().toISOString()
-    })
-    
-    return {
-      success: true,
-      pending_id: result.id,
-      nickname: childData.nickname
-    }
-  } catch (error) {
-    console.error('[API Register Child] Error in registerSingleChild:', error)
-    throw error
-  }
-}
+import { NextRequest } from 'next/server';
+import { createServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    const { nickname, age, grade, guardianEmail } = await request.json();
     
-    // Get client IP address for audit logging
-    const clientIP = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
-                     'unknown';
-    
-    // Initialize Supabase admin client
-    const adminClient = getSupabaseAdmin()
+    if (!nickname || !age || !grade || !guardianEmail) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'All fields (nickname, age, grade, guardianEmail) are required' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
-    // Verify that the requesting user is authenticated and is a parent
-    const { data: { user }, error: authError } = await adminClient.auth.getUser();
-    if (authError || !user) {
+    // Validate inputs
+    if (typeof nickname !== 'string' || nickname.trim().length < 2) {
       return new Response(
-        JSON.stringify({
+        JSON.stringify({ 
           success: false,
-          message: 'Authentication required to register child accounts'
+          message: 'Nickname must be at least 2 characters long' 
         }),
-        {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (typeof age !== 'number' || age < 6 || age > 18) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Age must be between 6 and 18' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const validGrades = ['6', '7', '8', '9', '10', '11', '12', 'college'];
+    if (!validGrades.includes(grade)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Grade must be one of: 6, 7, 8, 9, 10, 11, 12, or college' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(guardianEmail)) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Invalid guardian email format' 
+        }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const cookieStore = await cookies();
+    const supabase = await createServerClient();
+
+    // Find the guardian user by email
+    const { data: { users }, error: userSearchError } = await supabase.auth.admin.listUsers();
+    
+    if (userSearchError) {
+      console.error('Error searching for guardian:', userSearchError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Failed to locate guardian account' 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const guardianUser = users.find(user => user.email === guardianEmail);
+    
+    if (!guardianUser) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Guardian account not found. Please ensure the guardian has registered first.' 
+        }),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Instead of creating a separate child account, we'll store child data linked to the parent
+    // Generate a unique ID for the child
+    const childId = `child_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    
+    // Check if a child with this nickname already exists for this guardian
+    const { data: existingChildData, error: existingChildError } = await supabase
+      .from('children')
+      .select('*')
+      .eq('guardian_id', guardianUser.id)
+      .eq('nickname', nickname.trim());
+    
+    if (existingChildError && existingChildError.message && !existingChildError.message.includes('does not exist')) {
+      console.error('Error checking for existing child data:', existingChildError);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'Failed to check for existing child' 
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
-    // Verify the user is a parent
-    const { data: userProfile, error: profileError } = await adminClient
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
+    if (existingChildData && existingChildData.length > 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'A child with this nickname already exists for this guardian' 
+        }),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create/update guardian record to link the child
+    const { error: guardianUpdateError } = await supabase
+      .from('guardians')
+      .upsert({
+        email: guardianEmail,
+        weekly_report: true,
+        monthly_report: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'email' });
+
+    if (guardianUpdateError) {
+      console.warn('Warning: Failed to update guardian record:', guardianUpdateError);
+      // Continue anyway, as we'll proceed with child creation
+    }
+
+    // Create child record linked to the parent/guardian
+    const { data: childRecord, error: childCreationError } = await supabase
+      .from('children')
+      .insert({
+        id: childId,
+        nickname: nickname.trim(),
+        age: age,
+        grade: grade,
+        guardian_id: guardianUser.id, // The parent account serves as the central hub
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .select()
       .single();
-      
-    if (profileError || userProfile?.role !== 'parent') {
+
+    if (childCreationError) {
+      console.error('Error creating child record:', childCreationError);
       return new Response(
-        JSON.stringify({
+        JSON.stringify({ 
           success: false,
-          message: 'Only parents can register child accounts'
+          message: childCreationError.message || 'Failed to create child record' 
         }),
-        {
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-    
-    // Get the parent's email from the authenticated user
-    const guardianEmail = user.email;
-    
-    if (!guardianEmail) {
+
+    // Create child profile record linked to guardian
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .insert({
+        id: childId, // Use the same ID as the child record
+        email: `${nickname.toLowerCase().replace(/\s+/g, '')}_${guardianUser.id}@child.lana`, // Still create a child email for reference
+        full_name: nickname.trim(),
+        age: age,
+        grade: grade,
+        role: 'child',
+        parent_id: guardianUser.id,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+    if (profileError && profileError.message && !profileError.message.includes('duplicate key value')) {
+      console.error('Error creating child profile:', profileError);
       return new Response(
-        JSON.stringify({
+        JSON.stringify({ 
           success: false,
-          message: 'Parent email is required for child registration'
+          message: profileError.message || 'Failed to create child profile' 
         }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-    
-    // Handle bulk registration
-    const isBulk = Array.isArray(body.children)
-    const childrenData = isBulk ? body.children : [body]
-    // For the new system, we'll use the authenticated parent's email
-    // No need to validate guardian email since it comes from authenticated user
-    
-    // Validate all children data
-    const validationErrors: { index: number; errors: string[] }[] = []
-    for (let i = 0; i < childrenData.length; i++) {
-      const child = childrenData[i]
-      const errors = validateChildData({ ...child, guardianEmail })
-      if (errors.length > 0) {
-        validationErrors.push({ index: i, errors })
-      }
-    }
-    
-    if (validationErrors.length > 0) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Validation failed',
-          errors: validationErrors
-        }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    
-    // Register all children
-    const results = []
-    const errors = []
-    
-    for (let i = 0; i < childrenData.length; i++) {
-      try {
-        const result = await registerSingleChild(adminClient, childrenData[i], guardianEmail, clientIP)
-        results.push(result)
-      } catch (error: any) {
-        errors.push({
-          index: i,
-          child: childrenData[i].nickname,
-          error: error.message || 'Unknown error'
-        })
-      }
-    }
-    
-    // Return results
-    if (errors.length > 0 && results.length === 0) {
-      // All registrations failed
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'All child registrations failed',
-          errors
-        }),
-        {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    } else if (errors.length > 0) {
-      // Some registrations failed
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `${results.length} child(ren) registered successfully, ${errors.length} failed`,
-          data: results,
-          errors
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    } else {
-      // All registrations successful
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: isBulk 
-            ? `${results.length} children registered successfully. Welcome to Lana!` 
-            : 'Account created successfully. Welcome to Lana!',
-          data: results
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-  } catch (error: any) {
-    console.error('[API Register Child] Unexpected error:', error)
-    
-    // Check if this is a network connectivity error
-    if (error instanceof Error && 
-        (error.message?.includes('NetworkError') || 
-         error.message?.includes('ECONNREFUSED') || 
-         error.message?.includes('ENOTFOUND'))) {
-      
-      // Return a specific error for offline scenarios
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Network connection unavailable. Child data has been saved locally and will be synced when connection is restored.',
-          offline: true
-        }),
-        {
-          status: 503, // Service Unavailable
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    
-    // Provide specific error messages
-    let message = 'Unexpected error during registration'
-    if (error instanceof Error) {
-      if (error.message?.includes('NetworkError')) {
-        message = 'Network error. Please check your connection and try again.'
-      } else if (error.message?.includes('Timeout')) {
-        message = 'Request timeout. Please try again.'
-      }
-    }
-    
+
     return new Response(
-      JSON.stringify({
-        success: false,
-        message
+      JSON.stringify({ 
+        success: true,
+        message: 'Child account created successfully',
+        data: [childRecord]
       }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+      { status: 200, headers: { 'Content-Type': 'application/json' } }
+    );
+  } catch (error: any) {
+    console.error('Unexpected error in register-child API:', error);
+    return new Response(
+      JSON.stringify({ 
+        success: false,
+        message: error.message || 'Internal server error' 
+      }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }

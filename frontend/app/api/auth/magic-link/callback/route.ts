@@ -40,7 +40,28 @@ export async function GET(request: NextRequest) {
     // Redirect to onboarding for all new users, or to the intended destination
     const redirectUrl = isNewUser ? '/onboarding' : redirectTo;
     
-    return Response.redirect(new URL(redirectUrl, request.url));
+    // Validate and construct redirect URL safely
+    let finalRedirectUrl;
+    try {
+      // Extract base URL from request
+      const baseUrl = request.url.split('/api/auth/magic-link/callback')[0];
+      
+      // Validate the redirect URL
+      if (!redirectUrl || redirectUrl === 'null' || redirectUrl === 'undefined') {
+        console.error('[MagicLink Callback] Invalid redirect URL detected:', redirectUrl);
+        // Fallback to onboarding if the URL is invalid
+        finalRedirectUrl = new URL('/onboarding', baseUrl);
+      } else {
+        finalRedirectUrl = new URL(redirectUrl, baseUrl);
+      }
+    } catch (error) {
+      console.error('[MagicLink Callback] Invalid redirect URL:', redirectUrl, 'Error:', error);
+      // Fallback to onboarding if the URL is invalid
+      const baseUrl = request.url.split('/api/auth/magic-link/callback')[0];
+      finalRedirectUrl = new URL('/onboarding', baseUrl);
+    }
+    
+    return Response.redirect(finalRedirectUrl);
   } catch (error) {
     console.error('Unexpected magic link authentication error:', error);
     return new Response('Internal server error', { status: 500 });

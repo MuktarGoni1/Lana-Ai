@@ -71,7 +71,17 @@ export default function ChildLoginPage() {
       })
       
       // Redirect to a confirmation page
-      router.push(`/login?magic-link-sent=true&email=${encodeURIComponent(email.trim())}`)
+      try {
+        const redirectPath = `/login?magic-link-sent=true&email=${encodeURIComponent(email.trim())}`;
+        const url = new URL(redirectPath, typeof window !== 'undefined' ? window.location.origin : '');
+        router.push(url.pathname + url.search);
+      } catch (e) {
+        console.error('[ChildLogin] Invalid redirect URL:', e);
+        // Fallback to window.location
+        if (typeof window !== 'undefined') {
+          window.location.href = `/login?magic-link-sent=true&email=${encodeURIComponent(email.trim())}`;
+        }
+      }
     } catch (error: any) {
       console.error("[Child Login] Error:", error)
       toast({
@@ -147,7 +157,19 @@ export default function ChildLoginPage() {
         
         <div className="pt-6 border-t border-white/[0.05] text-center">
           <button 
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              // Validate redirect URL before navigating
+              try {
+                const url = new URL('/login', typeof window !== 'undefined' ? window.location.origin : '');
+                router.push(url.pathname);
+              } catch (e) {
+                console.error('[ChildLogin] Invalid login redirect URL:', e);
+                // Fallback to window.location
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/login';
+                }
+              }
+            }}
             className="text-sm text-white/30 hover:text-white/50 transition-colors duration-200"
           >
             Parent login

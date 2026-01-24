@@ -139,7 +139,16 @@ function TermPlanPageContent() {
       try {
         // Delay the redirect slightly to show the error message
         const timer = setTimeout(() => {
-          router.push("/login");
+          try {
+            const url = new URL('/login', typeof window !== 'undefined' ? window.location.origin : '');
+            router.push(url.pathname);
+          } catch (e) {
+            console.error('[term-plan] Invalid path for auth redirect:', e);
+            // Fallback to window.location
+            if (typeof window !== 'undefined') {
+              window.location.href = '/login';
+            }
+          }
         }, 3000);
         
         return () => clearTimeout(timer);
@@ -224,7 +233,16 @@ function TermPlanPageContent() {
       console.log('[term-plan] redirecting to homepage after onboarding completion');
       // Add a small delay to ensure state updates are processed
       setTimeout(() => {
-        router.push('/homepage');
+        try {
+          const url = new URL('/homepage', typeof window !== 'undefined' ? window.location.origin : '');
+          router.push(url.pathname);
+        } catch (e) {
+          console.error('[term-plan] Invalid path for homepage redirect:', e);
+          // Fallback to window.location
+          if (typeof window !== 'undefined') {
+            window.location.href = '/homepage';
+          }
+        }
       }, 500);
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
@@ -322,7 +340,16 @@ function TermPlanPageContent() {
     try {
       // Redirect to homepage when skipping
       console.log('[term-plan] skipping to homepage');
-      router.push('/homepage');
+      try {
+        const url = new URL('/homepage', typeof window !== 'undefined' ? window.location.origin : '');
+        router.push(url.pathname);
+      } catch (e) {
+        console.error('[term-plan] Invalid path for skip redirect:', e);
+        // Fallback to window.location
+        if (typeof window !== 'undefined') {
+          window.location.href = '/homepage';
+        }
+      }
     } catch (err: any) {
       console.error('[term-plan] skip error:', err.message);
       console.error('[term-plan] skip error details:', err);

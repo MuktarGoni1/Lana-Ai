@@ -22,6 +22,39 @@ function setGuestCookie(req: NextRequest, res: NextResponse) {
   }
 }
 
+// Safe redirect helper that validates URLs - defined outside main function for scope
+const createSafeRedirect = (req: NextRequest) => {
+  // Validate redirect URLs to prevent invalid path errors
+  const validateRedirectUrl = (url: string): boolean => {
+    // Check if URL is valid
+    try {
+      new URL(url, req.url);
+      return true;
+    } catch (e) {
+      console.error('[Middleware] Invalid redirect URL:', url, e);
+      return false;
+    }
+  };
+
+  return (destination: string, sourcePath: string, reason: string) => {
+    try {
+      const dest = new URL(destination, req.url);
+      if (validateRedirectUrl(dest.toString())) {
+        console.log(`[Middleware] Redirecting from ${sourcePath} to ${dest.pathname} (${reason})`);
+        return NextResponse.redirect(dest);
+      } else {
+        console.error(`[Middleware] Invalid redirect URL for ${reason}, falling back to landing page`);
+        const fallbackDest = new URL('/landing-page', req.url);
+        return NextResponse.redirect(fallbackDest);
+      }
+    } catch (e) {
+      console.error(`[Middleware] Error creating redirect URL for ${reason}:`, e);
+      const fallbackDest = new URL('/landing-page', req.url);
+      return NextResponse.redirect(fallbackDest);
+    }
+  };
+};
+
 // Centralized auth gating and role-based redirects
 export async function middleware(req: NextRequest) {
   try {
@@ -34,6 +67,14 @@ export async function middleware(req: NextRequest) {
       method: req.method,
       userAgent: req.headers.get('user-agent')
     })
+    
+    // Validate pathname to prevent invalid path errors
+    if (!pathname || pathname === 'null' || pathname === 'undefined') {
+      console.error('[Middleware] Invalid pathname detected:', pathname);
+      // Redirect to landing page for invalid paths
+      const dest = new URL('/landing-page', req.url);
+      return NextResponse.redirect(dest);
+    }
     
     // Log authentication check start
     await authLogger.logAuthCheckStart(pathname, req.headers.get('user-agent') || undefined);
@@ -149,7 +190,10 @@ export async function middleware(req: NextRequest) {
       '/personalised-ai-tutor',
       '/children'
     ]
-
+    
+    // Create safe redirect helper for this request
+    const safeRedirect = createSafeRedirect(req);
+    
     const isProtectedRoute = protectedPaths.some(path => 
       pathname.startsWith(path)
     )
@@ -173,8 +217,7 @@ export async function middleware(req: NextRequest) {
     // Prevent infinite redirect loops by checking if we're already on the landing page
     if (error && !isPublic && pathname !== '/landing-page') {
       console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
-      const dest = new URL('/landing-page', req.url);
-      return NextResponse.redirect(dest);
+      return safeRedirect('/landing-page', pathname, 'auth_error');
     }
     
     // If there's an authentication error and we're already on the landing page, allow access to prevent loop
@@ -190,7 +233,15 @@ export async function middleware(req: NextRequest) {
       const dest = new URL('/login', req.url)
       dest.searchParams.set('redirectedFrom', pathname)
       await authLogger.logRedirect(pathname, '/login', 'unauthenticated_protected_route_access');
-      return NextResponse.redirect(dest)
+      // Validate redirect URL before redirecting
+      try {
+        new URL('/login', req.url);
+        return NextResponse.redirect(dest)
+      } catch (e) {
+        // Fallback to landing page if redirect URL is invalid
+        const fallbackDest = new URL('/landing-page', req.url);
+        return NextResponse.redirect(fallbackDest);
+      }
     }
 
     // If the user is authenticated and trying to access login/register pages, redirect to appropriate dashboard
@@ -205,7 +256,15 @@ export async function middleware(req: NextRequest) {
       // Redirect all authenticated users to homepage
       const dest = new URL('/homepage', req.url)
       await authLogger.logRedirect(pathname, '/homepage', 'authenticated_user_on_auth_page', user?.id, user?.email);
-      return NextResponse.redirect(dest)
+      // Validate redirect URL before redirecting
+      try {
+        new URL('/homepage', req.url);
+        return NextResponse.redirect(dest)
+      } catch (e) {
+        // Fallback to landing page if redirect URL is invalid
+        const fallbackDest = new URL('/landing-page', req.url);
+        return NextResponse.redirect(fallbackDest);
+      }
     }
 
     // Store the last visited page for authenticated users (excluding auth paths)
@@ -253,40 +312,35 @@ export async function middleware(req: NextRequest) {
       console.log('[Middleware] Authenticated user without explicit consent, redirecting to consent form')
       await authLogger.logRedirect(pathname, '/consent', 'missing_explicit_consent', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/consent?returnTo=${encodeURIComponent(returnTo)}`, req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect(`/consent?returnTo=${encodeURIComponent(returnTo)}`, pathname, 'missing_consent');
     }
     
     if (sessionExists && !onboardingComplete && !isOnboardingRoute && pathname !== '/term-plan') {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
       await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, pathname, 'incomplete_onboarding');
     }
     
     // If onboarding is complete and user is on onboarding page, redirect to term-plan or homepage
     if (sessionExists && onboardingComplete && pathname === '/onboarding') {
       console.log('[Middleware] Onboarding complete but user is on onboarding page, redirecting to term-plan')
       await authLogger.logRedirect(pathname, '/term-plan', 'onboarding_complete_redirect', user?.id, user?.email);
-      const dest = new URL('/term-plan', req.url);
-      return NextResponse.redirect(dest);
+      return safeRedirect('/term-plan', pathname, 'onboarding_complete');
     }
     
     // If onboarding was just completed, redirect to homepage regardless of role
     if (isOnboardingCompletion) {
       console.log('[Middleware] Onboarding just completed, redirecting to homepage')
       await authLogger.logRedirect(pathname, '/homepage', 'onboarding_completed', user?.id, user?.email);
-      const dest = new URL('/homepage', req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect('/homepage', pathname, 'onboarding_completion');
     }
     
     // Additional check: if user is authenticated and on term-plan but onboarding is complete, redirect to homepage
     if (sessionExists && pathname === '/term-plan' && onboardingComplete) {
       console.log('[Middleware] User has completed onboarding, redirecting term-plan to homepage')
       await authLogger.logRedirect(pathname, '/homepage', 'completed_onboarding_term_plan_redirect', user?.id, user?.email);
-      const dest = new URL('/homepage', req.url);
-      return NextResponse.redirect(dest);
+      return safeRedirect('/homepage', pathname, 'completed_onboarding');
     }
     
     // Additional check for onboarding complete state based on cookies as fallback
@@ -294,8 +348,7 @@ export async function middleware(req: NextRequest) {
     if (sessionExists && pathname === '/onboarding' && isOnboardingCompleteCookie && isOnboardingCompleteCookie.value === '1') {
       console.log('[Middleware] User has onboarding complete cookie, redirecting to homepage')
       await authLogger.logRedirect(pathname, '/homepage', 'onboarding_complete_cookie_redirect', user?.id, user?.email);
-      const dest = new URL('/homepage', req.url);
-      return NextResponse.redirect(dest);
+      return safeRedirect('/homepage', pathname, 'onboarding_complete_cookie');
     }
     
     // If user is a new Google user, ensure they go through onboarding
@@ -303,8 +356,27 @@ export async function middleware(req: NextRequest) {
       console.log('[Middleware] New Google user detected, redirecting to onboarding')
       await authLogger.logRedirect(pathname, '/onboarding', 'new_google_user_redirect', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}&newGoogleUser=1`, req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect(`/onboarding?returnTo=${encodeURIComponent(returnTo)}&newGoogleUser=1`, pathname, 'new_google_user');
+    }
+    
+    // Updated role-based access: Parents now serve as central hub for child management
+    const isParent = user?.user_metadata?.role === 'parent' || user?.user_metadata?.role === 'guardian';
+    const isChildRoute = pathname.startsWith('/children') || pathname.includes('child');
+    
+    // Allow parents/guardians to access child-related routes
+    if (sessionExists && isChildRoute && isParent) {
+      console.log('[Middleware] Parent accessing child management route, allowing access');
+      // Continue with normal flow
+    }
+    
+    // For child users, we now manage everything through the parent account
+    // So we redirect child users to a child dashboard managed by parent
+    const isChildUser = user?.user_metadata?.role === 'child';
+    if (sessionExists && isChildUser && isProtectedRoute && pathname !== '/homepage' && pathname !== '/personalised-ai-tutor') {
+      console.log('[Middleware] Child user accessing protected route, redirecting to appropriate child interface');
+      // Child users access their content through parent-managed interfaces
+      await authLogger.logRedirect(pathname, '/homepage', 'child_user_protected_route', user?.id, user?.email);
+      return safeRedirect('/homepage', pathname, 'child_user_access');
     }
 
     // If authenticated and trying to access the landing page, send to last visited page or homepage
@@ -326,13 +398,11 @@ export async function middleware(req: NextRequest) {
       if (redirectPath === '/landing-page') {
         console.log('[Middleware] Preventing redirect loop, sending to homepage');
         await authLogger.logRedirect(pathname, '/homepage', 'prevent_redirect_loop', user?.id, user?.email);
-        const dest = new URL('/homepage', req.url);
-        return NextResponse.redirect(dest);
+        return safeRedirect('/homepage', pathname, 'prevent_landing_page_loop');
       }
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_landing_page_access', user?.id, user?.email);
-      const dest = new URL(redirectPath, req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect(redirectPath, pathname, 'authenticated_landing_page');
     }
 
     // If authenticated and hitting root, redirect to last visited page or homepage
@@ -354,21 +424,18 @@ export async function middleware(req: NextRequest) {
       if (redirectPath === '/' || redirectPath === '/landing-page') {
         console.log('[Middleware] Preventing redirect loop, sending to homepage');
         await authLogger.logRedirect(pathname, '/homepage', 'prevent_redirect_loop', user?.id, user?.email);
-        const dest = new URL('/homepage', req.url);
-        return NextResponse.redirect(dest);
+        return safeRedirect('/homepage', pathname, 'prevent_root_loop');
       }
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_root_access', user?.id, user?.email);
-      const dest = new URL(redirectPath, req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect(redirectPath, pathname, 'authenticated_root');
     }
 
     // Role-based normalization
     if ((pathname.startsWith('/guardian') || pathname.startsWith('/children')) && role !== 'guardian') {
       console.log('[Middleware] Non-guardian user accessing guardian/children path, redirecting to landing page')
       await authLogger.logRedirect(pathname, '/landing-page', 'role_mismatch_guardian_path', user?.id, user?.email);
-      const dest = new URL('/landing-page', req.url)
-      return NextResponse.redirect(dest)
+      return safeRedirect('/landing-page', pathname, 'role_mismatch');
     }
 
     // Log successful middleware pass-through
@@ -410,7 +477,9 @@ export async function middleware(req: NextRequest) {
     }
     
     try {
-      return NextResponse.redirect(new URL('/landing-page', req.url))
+      // Create safe redirect helper in the catch block as well
+      const safeRedirect = createSafeRedirect(req);
+      return safeRedirect('/landing-page', currentPath, 'middleware_error_fallback');
     } catch (redirectError) {
       console.error('[middleware] failed to redirect to landing page:', redirectError);
       // If redirect fails, return the original response

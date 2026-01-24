@@ -451,15 +451,23 @@ export class ComprehensiveAuthService {
         return { success: false, error: errorMessage };
       }
       
-      // Call signInWithOAuth with the correct parameters
-      // Redirect to our dedicated Google callback handler to ensure proper onboarding enforcement
-      console.log('[ComprehensiveAuthService] Calling signInWithOAuth with provider: google');
+      // For Next.js App Router with server-side callback handling, we need to ensure
+      // the OAuth flow properly redirects to our registered callback URL
+      console.log('[ComprehensiveAuthService] Initiating Google login via redirect');
       
-      // Use the new Supabase Auth URL-based OAuth flow
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Always use the production site URL for OAuth redirects to ensure consistency
+      // This prevents issues where window.location.origin differs between environments
+      const redirectBaseUrl = 'https://www.lanamind.com';
+      const callbackUrl = `${redirectBaseUrl}/api/auth/callback/google`;
+      
+      console.log('[ComprehensiveAuthService] Using callback URL:', callbackUrl);
+      
+      // Initiate the OAuth flow with the correct redirect URL
+      // Ensure the redirectTo matches exactly what's registered in Supabase dashboard
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/api/auth/google/callback`,
+          redirectTo: callbackUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -476,10 +484,8 @@ export class ComprehensiveAuthService {
         return { success: false, error: error.message };
       }
 
-      console.log('[ComprehensiveAuthService] Google login initiated successfully', data);
-      
-      // For OAuth, the redirect happens automatically, so we don't update state here
-      // The user will be redirected to the callback URL
+      // The redirect happens automatically via signInWithOAuth, so we don't need to do anything else
+      // The user will be redirected to Google for authentication, then back to our callback URL
       return { success: true };
     } catch (error) {
       console.error('[ComprehensiveAuthService] Unexpected Google login error:', error);
@@ -569,8 +575,8 @@ export class ComprehensiveAuthService {
         return { success: false, error: errorMessage };
       }
 
-      // Note: We no longer store lana_sid in localStorage as per the new architecture
-      // The unified auth system manages session and role detection
+      // Note: We no longer create separate child accounts as per the new architecture
+      // The parent account now serves as the central hub for managing all child-related functionality
       // Store session ID for anonymous users
       if (result.data && result.data.length > 0) {
         const childData = result.data[0];
