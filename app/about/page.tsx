@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
+import { Users, GraduationCap, Lightbulb, Bot, BarChart3, Globe, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -195,62 +195,137 @@ function Header() {
 /* ---------- ABOUT CONTENT ---------- */
 function AboutContent() {
   return (
-    <section className="py-16 md:py-24 bg-transparent">
+    <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">About Lana AI</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Empowering the next generation through personalized learning</p>
+        <div className="text-center mb-12 md:mb-16">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">About Lana AI</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">
+            Revolutionizing education through artificial intelligence. We're on a mission to make personalized learning accessible to every child and family worldwide.
+          </p>
         </div>
         
-        <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Mission</h2>
-          <p className="text-muted-foreground">
-            At Lana AI, we believe that every child deserves a personalized learning experience that adapts to their unique needs, pace, and learning style. Our mission is to bridge the gap between traditional education and innovative technology, creating an environment where learning is both effective and enjoyable.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Story</h2>
-          <p className="text-muted-foreground">
-            Founded by educators and technologists who recognized the need for more personalized approaches to learning, Lana AI was created to address the challenges faced by both students and parents in the educational journey. Our team brings together expertise in artificial intelligence, pedagogy, and user experience design to create solutions that truly make a difference.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Approach</h2>
-          <p className="text-muted-foreground">
-            We combine adaptive learning algorithms with proven educational methodologies to create a learning experience that's tailored to each student. Our AI-powered tutor understands how each child learns best and adjusts the content, pace, and teaching style accordingly.
-          </p>
-          <p className="text-muted-foreground mt-3">
-            Our platform focuses on building foundational skills while fostering curiosity and critical thinking. We believe that learning should be a collaborative journey where parents are kept informed and connected to their child's progress.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Values</h2>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li><strong>Personalization:</strong> Every child is unique, and their learning experience should reflect that.</li>
-            <li><strong>Accessibility:</strong> Quality education should be available to all, regardless of background or circumstance.</li>
-            <li><strong>Transparency:</strong> Parents should always be informed and connected to their child's learning journey.</li>
-            <li><strong>Innovation:</strong> We embrace technology to enhance learning while maintaining the human element that's essential for growth.</li>
-            <li><strong>Trust:</strong> We prioritize data security and privacy to ensure families can engage confidently with our platform.</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Impact</h2>
-          <p className="text-muted-foreground">
-            Since our launch, we've helped thousands of students improve their academic performance and develop a love for learning. Our platform has supported parents in staying connected to their child's education while providing teachers with valuable insights into student progress and areas needing attention.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Our Team</h2>
-          <p className="text-muted-foreground">
-            Our diverse team includes experienced educators, AI researchers, child psychologists, and software engineers who are passionate about transforming education. We're committed to continuous improvement and staying at the forefront of educational technology.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Looking Forward</h2>
-          <p className="text-muted-foreground">
-            We're constantly evolving and expanding our offerings to better serve students, parents, and educators. Our roadmap includes enhanced multilingual support, expanded subject coverage, and more sophisticated adaptive learning algorithms that will further personalize the educational experience.
-          </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+          <div className="space-y-4">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Our Story
+            </h2>
+            <p className="text-muted-foreground leading-relaxed">
+              Founded in 2023, Lana AI began with a simple vision: to bridge the gap between traditional education and the digital age. We recognized that every child learns differently and at their own pace, yet traditional classroom settings often struggle to accommodate these individual differences.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Our team of educators, technologists, and parents came together to create an AI-powered learning companion that adapts to each child's unique learning style, keeping parents connected to their child's educational journey every step of the way.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              Today, thousands of families trust Lana AI to help their children learn, grow, and succeed in an increasingly complex world.
+            </p>
+          </div>
+          <div className="bg-card rounded-lg p-6 shadow-sm border">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-4 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Our Mission
+            </h2>
+            <p className="text-muted-foreground mb-5 leading-relaxed">
+              To empower every child with personalized AI tutoring that adapts to their unique learning style, while keeping parents connected to their child's progress and educational journey.
+            </p>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <GraduationCap className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Personalized Learning</h3>
+                  <p className="text-muted-foreground text-sm">Tailored education for each child's unique needs</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <Globe className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Global Access</h3>
+                  <p className="text-muted-foreground text-sm">Making quality education accessible worldwide</p>
+                </div>
+              </div>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0 mt-1">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Family Connection</h3>
+                  <p className="text-muted-foreground text-sm">Keeping parents engaged in their child's learning</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold text-foreground text-center mb-8 md:mb-12 flex items-center justify-center gap-2">
+            <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+            How We Transform Learning
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <Bot className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">AI-Powered Tutoring</h3>
+              <p className="text-muted-foreground text-sm">
+                Advanced AI that explains concepts in ways that make sense to each individual child
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Progress Tracking</h3>
+              <p className="text-muted-foreground text-sm">
+                Detailed insights that help parents and educators monitor growth and identify areas for improvement
+              </p>
+            </div>
+            <div className="bg-card rounded-lg p-5 shadow-sm text-center border">
+              <div className="bg-primary/10 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-4">
+                <Lightbulb className="h-6 w-6 text-primary" />
+              </div>
+              <h3 className="font-semibold text-foreground mb-2">Adaptive Learning</h3>
+              <p className="text-muted-foreground text-sm">
+                Content that adjusts to each child's pace and learning style for optimal comprehension
+              </p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 md:p-8">
+          <div className="text-center max-w-2xl mx-auto">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-3 flex items-center justify-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Join Our Community
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              Become part of a growing community of families who are transforming education through technology. Together, we're shaping the future of learning.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Link 
+                href="/register" 
+                className="inline-flex items-center justify-center rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-10"
+              >
+                Get Started
+              </Link>
+              <Link 
+                href="/contact" 
+                className="inline-flex items-center justify-center rounded-lg border border-input bg-background px-5 py-2.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-10"
+              >
+                Contact Us
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -258,6 +333,7 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
+/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">

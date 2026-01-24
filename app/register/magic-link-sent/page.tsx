@@ -9,15 +9,13 @@ function MagicLinkSentContent() {
   const email = params.get("email") || "your email";
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+    <div className="min-h-screen bg-black flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Icon */}
-        <div className="flex justify-center mb-8">
-          <div className="relative">
-            <div className="absolute inset-0 bg-white/20 rounded-full blur-2xl animate-pulse" />
-            <div className="relative w-20 h-20 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-full flex items-center justify-center">
+        <div className="bg-white/[0.02] backdrop-blur-sm rounded-2xl border border-white/[0.05] p-8 space-y-6">
+          <div className="text-center space-y-3">
+            <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
               <svg
-                className="w-10 h-10 text-white/80"
+                className="w-7 h-7 text-white/70"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -30,53 +28,58 @@ function MagicLinkSentContent() {
                 />
               </svg>
             </div>
+            <div className="space-y-1">
+              <h1 className="text-2xl font-semibold text-white">Check your inbox!</h1>
+              <p className="text-white/40 text-sm">We've sent a magic link to</p>
+            </div>
           </div>
-        </div>
-
-        {/* Content */}
-        <div className="text-center space-y-4 mb-10">
-          <h1 className="text-3xl font-light tracking-tight">
-            Check your inbox
-          </h1>
           
-          <div className="space-y-1">
-            <p className="text-white/50 text-sm">
-              We&apos;ve sent a magic link to
-            </p>
-            <p className="text-white/90 font-light text-lg">
+          <div className="text-center space-y-4">
+            <p className="text-lg font-medium text-white/70">
               {email}
             </p>
+            
+            <p className="text-white/50 text-sm">
+              Click the link in the email to continue
+            </p>
           </div>
-
-          <p className="text-white/40 text-xs pt-2">
-            Click the link in the email to continue
-          </p>
-        </div>
-
-        {/* Actions */}
-        <div className="space-y-3">
-          <Link
-            href="/register/form?role=parent"
-            prefetch={false}
-            className="block w-full px-5 py-3.5 rounded-lg bg-white text-black font-medium text-sm hover:bg-white/95 transition-all duration-200 text-center"
-          >
-            Use a different email
-          </Link>
-
-          <Link
-            href="/register"
-            prefetch={false}
-            className="block w-full px-5 py-3.5 rounded-lg text-white/70 font-medium text-sm hover:text-white hover:bg-white/[0.03] transition-all duration-200 text-center"
-          >
-            Back to options
-          </Link>
-        </div>
-
-        {/* Helper text */}
-        <div className="mt-12 text-center">
-          <p className="text-white/30 text-xs">
-            Didn&apos;t receive the email? Check your spam folder
-          </p>
+          
+          <div className="space-y-4">
+            <Link
+              href="/register/form?role=parent"
+              prefetch={false}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              Use a different email
+            </Link>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10"></div>
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-black px-2 text-white/30">OR</span>
+              </div>
+            </div>
+            
+            <Link
+              href="/register"
+              prefetch={false}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200"
+            >
+              Back to options
+            </Link>
+          </div>
+          
+          <div className="text-center pt-4">
+            <p className="text-xs text-white/30">
+              Didn't receive the email? Check your spam folder
+            </p>
+          </div>
         </div>
       </div>
     </div>

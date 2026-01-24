@@ -70,8 +70,9 @@ const config: Config = {
         },
       },
       fontFamily: {
-        sans: ["Geist", "system-ui", "sans-serif"],
-        heading: ["Geist", "system-ui", "sans-serif"],
+        sans: ["Geist", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        heading: ["Geist", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
+        display: ["Geist", "Inter", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica Neue", "Arial", "sans-serif"],
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",

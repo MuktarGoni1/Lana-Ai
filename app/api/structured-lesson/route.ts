@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import rateLimiter from '@/lib/rate-limiter';
+import serverRateLimiter from '@/lib/server-rate-limiter';
 
 export async function POST(req: Request) {
   try {
-    // Check rate limiting
+    // Check client-side rate limiting (still useful for UX)
     const endpoint = '/api/structured-lesson';
     if (!rateLimiter.isAllowed(endpoint)) {
       const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
@@ -17,6 +18,24 @@ export async function POST(req: Request) {
           retryAfter: secondsUntilReset
         }, 
         { status: 429 }
+      );
+    }
+    
+    // Check server-side rate limiting (primary defense)
+    const serverRateLimitCheck = await serverRateLimiter.isAllowedSimple(endpoint, req.headers.get('x-forwarded-for') || 'unknown');
+    if (!serverRateLimitCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          message: `Too many requests. Please try again in ${serverRateLimitCheck.retryAfter} seconds.`,
+          retryAfter: serverRateLimitCheck.retryAfter
+        }, 
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': serverRateLimitCheck.retryAfter?.toString() || '60'
+          }
+        }
       );
     }
 

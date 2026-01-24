@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
 import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -195,173 +195,129 @@ function Header() {
 /* ---------- TERMS OF SERVICE CONTENT ---------- */
 function TermsOfServiceContent() {
   return (
-    <section className="py-16 md:py-24 bg-transparent">
+    <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Terms of Service</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Last updated: {new Date().toLocaleDateString()}</p>
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Terms of Service</h1>
+          <p className="text-muted-foreground text-sm md:text-base">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
         
-        <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
-          <p className="text-muted-foreground">
-            These Terms of Service ("Terms", "Terms of Service") govern your relationship with Lana AI website and mobile application (the "Service") operated by Lana AI.
+        <div className="bg-card rounded-xl p-6 md:p-8 shadow-sm border border-border/50">
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            Please read these terms of service ("Terms", "Terms of Service") carefully before using the Lana AI mobile application and website operated by Lana AI ("us", "we", or "our").
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Interpretation and Definitions</h2>
-          
-          <h3 className="text-xl font-semibold mt-6 mb-3 text-foreground">Interpretation</h3>
-          <p className="text-muted-foreground">
-            The words of which the initial letter is capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Agreement to Terms
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            By accessing or using the Service, you agree to be bound by these Terms. If you disagree with any part of the terms, then you may not access the Service.
           </p>
 
-          <h3 className="text-xl font-semibold mt-6 mb-3 text-foreground">Definitions</h3>
-          <p className="text-muted-foreground">
-            For the purposes of these Terms of Service:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Age Requirements
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            Our Service is intended for use by children aged 13 and older. If you are under 13 years of age, you are not permitted to use our Service. If you are between 13 and 18 years of age, you must have parental consent to use our Service.
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li><strong>Affiliate</strong> means an entity that controls, is controlled by or is under common control with a party, where "control" means ownership of 50% or more of the shares, equity interest or other securities entitled to vote for election of directors or other managing authority.</li>
-            <li><strong>Country</strong> refers to: Nigeria</li>
-            <li><strong>Company</strong> (referred to as either "the Company", "We", "Us" or "Our" in this Agreement) refers to Lana AI.</li>
-            <li><strong>Device</strong> means any device that can access the Service such as a computer, a cellphone or a digital tablet.</li>
-            <li><strong>Service</strong> refers to the Website and/or Mobile Application.</li>
-            <li><strong>Terms of Service</strong> (also referred as "Terms") mean these Terms of Service that form the entire agreement between You and the Company regarding the use of the Service.</li>
-            <li><strong>Third-party Social Media Service</strong> means any services or content (including data, information, products or services) provided by a third-party that may be displayed, included or made available by the Service.</li>
-            <li><strong>Website</strong> refers to Lana AI, accessible from https://www.lanamind.com</li>
-            <li><strong>You</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</li>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Accounts
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            When you create an account with us, you must provide accurate and complete information. You are responsible for maintaining the security of your account and for all activities that occur under your account.
+          </p>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            Parents or guardians creating accounts for children under 18 are responsible for all activities that occur under the child's account.
+          </p>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Intellectual Property
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            The Service and its original content, features, and functionality are owned by Lana AI and are protected by international copyright, trademark, patent, trade secret, and other intellectual property or proprietary rights laws.
+          </p>
+
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Prohibited Uses
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            You may use the Service only for lawful purposes and in accordance with these Terms. You agree not to use the Service:
+          </p>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>In any way that violates any applicable national or international law or regulation</li>
+            <li>To transmit, or procure the sending of, any advertising or promotional material</li>
+            <li>To impersonate or attempt to impersonate the Company or any employee</li>
+            <li>In any way that is unlawful, harmful, or objectionable</li>
+            <li>To engage in any other conduct that restricts or inhibits anyone's use of the Service</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Acknowledgment</h2>
-          <p className="text-muted-foreground">
-            These are the Terms of Service governing the use of this Service and the agreement that operates between You and the Company. These Terms of Service set out the rights and obligations of all users regarding the use of the Service.
-          </p>
-          <p className="text-muted-foreground">
-            Your access to and use of the Service is conditioned on Your acceptance of and compliance with these Terms of Service. These Terms of Service apply to all visitors, users and others who access or use the Service.
-          </p>
-          <p className="text-muted-foreground">
-            By accessing or using the Service You agree to be bound by these Terms of Service. If You disagree with any part of these Terms of Service then You may not access the Service.
-          </p>
-          <p className="text-muted-foreground">
-            You represent that you are over the age of 18. The Company does not permit those under 18 to use the Service.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            AI Content and Accuracy
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            While we strive to provide accurate and helpful educational content through our AI, you acknowledge that the information provided by our AI is for educational purposes only and should not be relied upon as professional advice. Always consult with qualified professionals for specific guidance.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Account Creation and Responsibility</h2>
-          <p className="text-muted-foreground">
-            When You create an account with Us, You must provide Us with information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of Your account on Our Service.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Termination
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
           </p>
-          <p className="text-muted-foreground">
-            You are responsible for safeguarding the password that You use to access the Service and for any activities or actions under Your password, whether Your password is with Our Service or a Third-Party Social Media Service.
-          </p>
-          <p className="text-muted-foreground">
-            You agree not to disclose Your password to any third party. You must notify Us immediately upon becoming aware of any breach of security or unauthorized use of Your account.
-          </p>
-          <p className="text-muted-foreground">
-            You may not use as a username the name of another person or entity or that is not lawfully available for use, a name or trademark that is subject to any rights of another person or entity other than You without appropriate authorization, or a name that is otherwise offensive, vulgar or obscene.
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            Upon termination, your right to use the Service will cease immediately.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Intellectual Property</h2>
-          <p className="text-muted-foreground">
-            The Service and its original content (excluding Content provided by You or other users), features and functionality are and will remain the exclusive property of the Company and its licensors.
-          </p>
-          <p className="text-muted-foreground">
-            The Service is protected by copyright, trademark, and other laws of both the Country and foreign countries.
-          </p>
-          <p className="text-muted-foreground">
-            Our trademarks and trade dress may not be used in connection with any product or service without the prior written consent of the Company.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Limitation of Liability
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            In no event shall Lana AI, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Links to Other Websites</h2>
-          <p className="text-muted-foreground">
-            Our Service may contain links to third-party websites or services that are not owned or controlled by the Company.
-          </p>
-          <p className="text-muted-foreground">
-            The Company has no control over, and assumes no responsibility for, the content, privacy policies, or practices of any third-party websites or services. You further acknowledge and agree that the Company shall not be responsible or liable, directly or indirectly, for any damage or loss caused or alleged to be caused by or in connection with the use of or reliance on any such content, goods or services available on or through any such websites or services.
-          </p>
-          <p className="text-muted-foreground">
-            We strongly advise You to read the terms and conditions and privacy policies of any third-party websites or services that You visit.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Disclaimer
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            Your use of the Service is at your sole risk. The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Service is provided without warranties of any kind, express or implied.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Termination</h2>
-          <p className="text-muted-foreground">
-            We may terminate or suspend Your Account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if You breach these Terms of Service.
-          </p>
-          <p className="text-muted-foreground">
-            Upon termination, Your right to use the Service will cease immediately. If You wish to terminate Your Account, You may simply discontinue using the Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Limitation of Liability</h2>
-          <p className="text-muted-foreground">
-            Notwithstanding any damages that You might incur, the entire liability of the Company and any of its suppliers under any provision of this Terms and Your exclusive remedy for all of the foregoing shall be limited to the amount actually paid by You through the Service or 100 USD if You haven't purchased anything through the Service.
-          </p>
-          <p className="text-muted-foreground">
-            To the maximum extent permitted by applicable law, in no event shall the Company or its suppliers be liable for any special, incidental, indirect, or consequential damages whatsoever (including, but not limited to, damages for loss of profits, loss of data or other information, for business interruption, for personal injury, loss of privacy arising out of or in any way related to the use of or inability to use the Service, third-party software and/or third-party hardware used with the Service, or otherwise in connection with any provision of this Terms), even if the Company or any supplier has been advised of the possibility of such damages and even if the remedy fails of its essential purpose.
-          </p>
-          <p className="text-muted-foreground">
-            Some states do not allow the exclusion of implied warranties or limitation of liability for incidental or consequential damages, which means that some of the above limitations may not apply. In these states, each party's liability will be limited to the greatest extent permitted by law.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Governing Law
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            These Terms shall be governed and construed in accordance with the laws of the State of California, United States, without regard to its conflict of law provisions.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">"AS IS" and "AS AVAILABLE" Disclaimer</h2>
-          <p className="text-muted-foreground">
-            The Service is provided to You "AS IS" and "AS AVAILABLE" and with all faults and defects without warranty of any kind. To the maximum extent permitted under applicable law, the Company, on its own behalf and on behalf of its Affiliates and its and their respective licensors and service providers, expressly disclaims all warranties, whether express, implied, statutory or otherwise, with respect to the Service, including all implied warranties of merchantability, fitness for a particular purpose, title and non-infringement, and warranties that may arise out of course of dealing, course of performance, usage or trade practice.
-          </p>
-          <p className="text-muted-foreground">
-            Without limitation to the foregoing, the Company provides no warranty or undertaking, and makes no representation of any kind that the Service will meet Your requirements, achieve any intended results, be compatible or work with any other software, applications, systems or services, operate without interruption, meet any performance or reliability standards or be error free or that any errors or defects can or will be corrected.
-          </p>
-          <p className="text-muted-foreground">
-            Without limiting the foregoing, neither the Company nor any of the company's provider makes any representation or warranty of any kind, express or implied: (i) as to the operation or availability of the Service, or the information, content, and materials or products included thereon; (ii) that the Service will be uninterrupted or error-free; (iii) as to the accuracy, reliability, or currency of any information or content provided through the Service; or (iv) that the Service, its servers, the content, or e-mails sent from or on behalf of the Company are free of viruses, scripts, trojan horses, worms, malware, timebombs or other harmful components.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Changes to Terms
+          </h2>
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Governing Law</h2>
-          <p className="text-muted-foreground">
-            The laws of the Country, excluding its conflicts of law provisions, shall govern this Terms and Your use of the Service. Your use of the Application may also be subject to other local, state, national, or international laws.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Disputes Resolution</h2>
-          <p className="text-muted-foreground">
-            If You have any concern or dispute about the Service, You agree to first try to resolve the dispute informally by contacting the Company.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">For European Union (EU) Users</h2>
-          <p className="text-muted-foreground">
-            If You are a European Union consumer, you will benefit from any mandatory provisions of the law of the country in which you are resident in.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">United States Legal Compliance</h2>
-          <p className="text-muted-foreground">
-            You represent and warrant that (i) You are not located in a country that is subject to the United States government embargo, or that has been designated by the United States government as a "terrorist supporting" country, and (ii) You are not listed on any United States government list of prohibited or restricted parties.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Severability and Waiver</h2>
-          
-          <h3 className="text-xl font-semibold mt-6 mb-3 text-foreground">Severability</h3>
-          <p className="text-muted-foreground">
-            If any provision of these Terms is held to be unenforceable or invalid, such provision will be changed and interpreted to accomplish the objectives of such provision to the greatest extent possible under applicable law and the remaining provisions will continue in full force and effect.
-          </p>
-
-          <h3 className="text-xl font-semibold mt-6 mb-3 text-foreground">Waiver</h3>
-          <p className="text-muted-foreground">
-            Except as provided herein, the failure to exercise a right or to require performance of an obligation under these Terms shall not effect a party's ability to exercise such right or require such performance at any time thereafter nor shall the waiver of a breach constitute a waiver of any subsequent breach.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Translation Interpretation</h2>
-          <p className="text-muted-foreground">
-            These Terms of Service may have been translated if We have made them available to You on our Service. You agree that the original English text shall prevail in the case of a dispute.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Changes to These Terms of Service</h2>
-          <p className="text-muted-foreground">
-            We reserve the right, at Our sole discretion, to modify or replace these Terms at any time. If a revision is material We will make reasonable efforts to provide at least 30 days' notice prior to any new terms taking effect. What constitutes a material change will be determined at Our sole discretion.
-          </p>
-          <p className="text-muted-foreground">
-            By continuing to access or use Our Service after those revisions become effective, You agree to be bound by the revised terms. If You do not agree to the new terms, in whole or in part, please stop using the website and the Service.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Contact Us</h2>
-          <p className="text-muted-foreground">
-            If you have any questions about these Terms of Service, You can contact us:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Contact Us
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            If you have any questions about these Terms, please contact us at:
           </p>
           <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>By email: terms@lana.ai</li>
-            <li>By visiting this page on our website: https://www.lanamind.com/contact</li>
+            <li>By email: <a href="mailto:contact@lanamind.com" className="text-primary hover:underline">contact@lanamind.com</a></li>
+            <li>By visiting this page on our website: <a href="/contact" className="text-primary hover:underline">Contact Us</a></li>
           </ul>
         </div>
       </div>

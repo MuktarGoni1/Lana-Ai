@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
 import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Briefcase, MapPin, Clock, Users, Award, Globe } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -195,24 +195,27 @@ function Header() {
 /* ---------- CAREERS CONTENT ---------- */
 function CareersContent() {
   return (
-    <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Join Our Team</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">Be part of revolutionizing education through innovative technology and personalized learning experiences.</p>
+    <section className="py-12 md:py-16 bg-transparent">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Join Our Team</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">Be part of revolutionizing education through innovative technology and personalized learning experiences.</p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <div className="bg-card rounded-xl border p-6 shadow-sm">
-              <h2 className="text-2xl font-bold mb-4 text-foreground">Why Work With Us?</h2>
-              <p className="text-muted-foreground mb-6">
+            <div className="bg-card rounded-lg border p-5 shadow-sm">
+              <h2 className="text-xl md:text-2xl font-bold mb-4 text-foreground flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+                Why Work With Us?
+              </h2>
+              <p className="text-muted-foreground mb-5">
                 At Lana AI, we're building the future of education. We bring together passionate educators, 
                 innovative technologists, and creative designers to create transformative learning experiences 
                 for children worldwide. Join us in our mission to make personalized education accessible to all.
               </p>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 <div className="flex items-start gap-3">
                   <div className="bg-primary/10 p-2 rounded-lg">
                     <Users className="h-5 w-5 text-primary dark:text-blue-400" />
@@ -254,19 +257,22 @@ function CareersContent() {
                 </div>
               </div>
               
-              <h3 className="text-xl font-bold mb-4 text-foreground">Current Openings</h3>
+              <h3 className="text-lg md:text-xl font-bold mb-3 text-foreground flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+                Current Openings
+              </h3>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Job Opening 1 */}
-                <div className="border rounded-lg p-5 hover:border-primary/50 transition-colors">
+                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-lg text-foreground">Senior AI Engineer</h4>
+                      <h4 className="font-semibold text-base md:text-lg text-foreground">Senior AI Engineer</h4>
                       <p className="text-muted-foreground text-sm mt-1">Develop and implement advanced machine learning algorithms for personalized learning.</p>
                     </div>
                     <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
                   </div>
-                  <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
                       <span>Remote</span>
@@ -276,19 +282,19 @@ function CareersContent() {
                       <span>3+ Years Experience</span>
                     </div>
                   </div>
-                  <button className="mt-4 text-primary hover:underline text-sm font-medium">View Details</button>
+                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
                 </div>
                 
                 {/* Job Opening 2 */}
-                <div className="border rounded-lg p-5 hover:border-primary/50 transition-colors">
+                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-lg text-foreground">Educational Content Designer</h4>
+                      <h4 className="font-semibold text-base md:text-lg text-foreground">Educational Content Designer</h4>
                       <p className="text-muted-foreground text-sm mt-1">Create engaging, age-appropriate educational content for our platform.</p>
                     </div>
                     <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
                   </div>
-                  <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
                       <span>Lagos, Nigeria</span>
@@ -298,19 +304,19 @@ function CareersContent() {
                       <span>2+ Years Experience</span>
                     </div>
                   </div>
-                  <button className="mt-4 text-primary hover:underline text-sm font-medium">View Details</button>
+                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
                 </div>
                 
                 {/* Job Opening 3 */}
-                <div className="border rounded-lg p-5 hover:border-primary/50 transition-colors">
+                <div className="border rounded-lg p-4 hover:border-primary/50 transition-colors">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h4 className="font-semibold text-lg text-foreground">UX/UI Designer</h4>
+                      <h4 className="font-semibold text-base md:text-lg text-foreground">UX/UI Designer</h4>
                       <p className="text-muted-foreground text-sm mt-1">Design intuitive interfaces for both children and adult users.</p>
                     </div>
                     <span className="bg-primary/10 text-primary text-xs font-medium px-2 py-1 rounded">Full-time</span>
                   </div>
-                  <div className="flex flex-wrap gap-4 mt-3 text-sm text-muted-foreground">
+                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted-foreground">
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
                       <span>Remote</span>
@@ -320,16 +326,19 @@ function CareersContent() {
                       <span>4+ Years Experience</span>
                     </div>
                   </div>
-                  <button className="mt-4 text-primary hover:underline text-sm font-medium">View Details</button>
+                  <button className="mt-3 text-primary hover:underline text-sm font-medium">View Details</button>
                 </div>
               </div>
             </div>
           </div>
           
           <div>
-            <div className="bg-card rounded-xl border p-6 shadow-sm sticky top-24">
-              <h3 className="font-bold text-lg text-foreground mb-4">Benefits & Perks</h3>
-              <ul className="space-y-3">
+            <div className="bg-card rounded-lg border p-5 shadow-sm sticky top-24">
+              <h3 className="font-bold text-base md:text-lg text-foreground mb-3 flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+                Benefits & Perks
+              </h3>
+              <ul className="space-y-2">
                 <li className="flex items-start gap-2">
                   <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -374,7 +383,7 @@ function CareersContent() {
                 </li>
               </ul>
               
-              <div className="mt-6 pt-6 border-t border-border">
+              <div className="mt-4 pt-4 border-t border-border">
                 <h4 className="font-medium text-foreground mb-2">Culture & Values</h4>
                 <p className="text-muted-foreground text-sm">
                   We foster an environment of continuous learning, collaboration, and innovation. 

@@ -100,13 +100,15 @@ function ChatWithSidebarContent() {
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
     const initSessionId = async () => {
-      // For guest users, generate a standard session ID
-      // For authenticated users, we'll namespace it with their user ID
-      let id = localStorage.getItem("lana_sid");
+      // Check authentication state first to avoid race conditions
+      let id;
       
-      if (!id) {
-        id = uuid();
-        localStorage.setItem("lana_sid", id);
+      // If user is authenticated, use their user ID as the session ID
+      if (user && user.id) {
+        id = user.id;
+      } else {
+        // For guest users, generate a standard session ID
+        id = `guest_${uuid()}`;
       }
       
       setSid(id);
@@ -122,12 +124,12 @@ function ChatWithSidebarContent() {
     };
     
     initSessionId();
-  }, [])
+  }, [user])
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async (forceRefresh = false) => {
+  const fetchHistory = useCallback(async (forceRefresh = false) => {
     if (!sid) return;
     setLoadingHistory(true);
     setHistoryError(null);
@@ -180,7 +182,7 @@ function ChatWithSidebarContent() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [sid, accessToken, api, isAuthenticated]);
 
   // Fetch user session - simplified with useEnhancedAuth
   useEffect(() => {
@@ -195,22 +197,13 @@ function ChatWithSidebarContent() {
       }
       getAccessToken()
       
-      // Ensure session id is namespaced by user id to satisfy backend auth checks
+      // Update session ID to use authenticated user ID
       try {
-        const currentSid = localStorage.getItem("lana_sid");
-        const uidPrefix = `${user.id}:`;
-        if (currentSid && !currentSid.startsWith(uidPrefix)) {
-          const newSid = `${user.id}:${currentSid}`;
-          localStorage.setItem("lana_sid", newSid);
-          setSid(newSid);
-        } else if (!currentSid) {
-          // If no SID exists, create a new one with user ID prefix
-          const newSid = `${user.id}:${uuid()}`;
-          localStorage.setItem("lana_sid", newSid);
-          setSid(newSid);
+        if (user?.id) {
+          setSid(user.id);
         }
       } catch (error) {
-        console.error('Error namespacing session ID:', error);
+        console.error('Error updating session ID:', error);
       }
       
       if (sid) {
@@ -236,12 +229,11 @@ function ChatWithSidebarContent() {
       // Generate a fresh session id locally instead of calling a non-existent /reset
       let newSid = uuid();
       
-      // For authenticated users, namespace the session ID with their user ID
+      // For authenticated users, use their user ID
       if (user?.id) {
-        newSid = `${user.id}:${newSid}`;
+        newSid = user.id;
       }
       
-      localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
       await debouncedFetchHistory() // use debounced version
       setView("chat")
@@ -479,6 +471,7 @@ function ChatWithSidebarContent() {
                 <AnimatedAIChat
                   onNavigateToVideoLearning={handleSelect}
                   onSend={debouncedFetchHistory}
+                  user={user}
                 />
               </Suspense>
             ) : (

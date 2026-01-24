@@ -1,7 +1,7 @@
 {
-  "name": "LANA AI - Personalized AI Tutor for Students",
-  "short_name": "LANA AI",
-  "description": "Personalized AI tutoring to help students learn more effectively",
+  "name": "LanaMind - AI Tutor for Clear, Structured Learning",
+  "short_name": "LanaMind",
+  "description": "Personalized AI tutoring that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#000000",

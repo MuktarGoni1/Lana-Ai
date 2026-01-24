@@ -1,4 +1,13 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /_next/
 
-Sitemap: https://www.lanamind.com/sitemap.xml
+Sitemap: https://lanamind.com/sitemap.xml
+
+# Crawl delay to prevent overwhelming the server
+Crawl-delay: 5
+
+# Host directive
+Host: https://lanamind.com

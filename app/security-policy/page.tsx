@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
+import { Shield, Lock, Eye, FileText, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -195,151 +195,115 @@ function Header() {
 /* ---------- SECURITY POLICY CONTENT ---------- */
 function SecurityPolicyContent() {
   return (
-    <section className="py-16 md:py-24 bg-transparent">
+    <section className="py-12 md:py-16 bg-transparent">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Security Policy</h1>
-          <p className="text-muted-foreground text-base md:text-lg">Last updated: {new Date().toLocaleDateString()}</p>
+        <div className="text-center mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Security Policy</h1>
+          <p className="text-muted-foreground text-sm md:text-base">Last updated: {new Date().toLocaleDateString()}</p>
         </div>
         
-        <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-xl p-6 md:p-8 shadow-sm">
-          <p className="text-muted-foreground">
-            At Lana AI, we take the security of your personal information and data seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our platform.
+        <div className="bg-card rounded-xl p-6 md:p-8 shadow-sm border border-border/50">
+          <p className="text-muted-foreground mb-6 leading-relaxed">
+            At Lana AI, we take the security of your personal information seriously. This Security Policy outlines the measures we implement to protect your data and maintain the integrity of our services.
           </p>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Protection & Encryption</h2>
-          <p className="text-muted-foreground">
-            We employ industry-standard encryption protocols to protect your data both in transit and at rest. All sensitive information, including personal details and login credentials, is encrypted using advanced cryptographic methods such as AES-256 encryption and TLS 1.3 for data transmission.
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Data Protection
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We employ industry-standard security measures to protect your personal information from unauthorized access, alteration, disclosure, or destruction. These measures include:
           </p>
-          <p className="text-muted-foreground">
-            Our databases are secured with multiple layers of protection, including access controls, firewalls, and intrusion detection systems. Access to sensitive data is restricted to authorized personnel only, with strict authentication protocols in place.
-          </p>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Authentication & Access Control</h2>
-          <p className="text-muted-foreground">
-            We implement robust authentication mechanisms to ensure that only authorized users can access their accounts. This includes:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Multi-factor authentication (MFA) options for enhanced account security</li>
-            <li>Secure password policies requiring strong, unique passwords</li>
-            <li>Regular session management and automatic logout for inactive sessions</li>
-            <li>Role-based access controls limiting data access based on user roles</li>
-            <li>IP whitelisting for administrative access to sensitive systems</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li><span className="font-semibold text-foreground">Encryption:</span> All data transmitted between your device and our servers is encrypted using TLS (Transport Layer Security).</li>
+            <li><span className="font-semibold text-foreground">Secure Storage:</span> Personal information is stored on secure servers with restricted physical and digital access.</li>
+            <li><span className="font-semibold text-foreground">Regular Audits:</span> We conduct regular security audits to identify and address potential vulnerabilities.</li>
+            <li><span className="font-semibold text-foreground">Access Controls:</span> Strict access controls ensure that only authorized personnel can access sensitive data.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Infrastructure Security</h2>
-          <p className="text-muted-foreground">
-            Our infrastructure is hosted on secure cloud platforms with enterprise-grade security measures. We utilize:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Account Security
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We implement multiple layers of security to protect your account:
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Redundant servers distributed across multiple geographic locations</li>
-            <li>DDoS protection and mitigation services</li>
-            <li>Regular vulnerability assessments and penetration testing</li>
-            <li>Network segmentation to isolate sensitive data</li>
-            <li>24/7 monitoring and alerting systems</li>
-            <li>Automated backup and disaster recovery procedures</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li><span className="font-semibold text-foreground">Password Protection:</span> All passwords are hashed using bcrypt encryption.</li>
+            <li><span className="font-semibold text-foreground">Two-Factor Authentication:</span> We support two-factor authentication for additional account security.</li>
+            <li><span className="font-semibold text-foreground">Session Management:</span> Secure session tokens with automatic expiration help prevent unauthorized access.</li>
+            <li><span className="font-semibold text-foreground">Activity Monitoring:</span> We monitor account activity for suspicious behavior and alert users when necessary.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Application Security</h2>
-          <p className="text-muted-foreground">
-            Our application development follows secure coding practices and industry standards:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Data Access & Control
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We believe in transparency and user control over personal data:
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular security audits and code reviews</li>
-            <li>Input validation and sanitization to prevent injection attacks</li>
-            <li>Protection against cross-site scripting (XSS) and cross-site request forgery (CSRF)</li>
-            <li>Secure API endpoints with rate limiting and authentication</li>
-            <li>Regular updates and patching of software dependencies</li>
-            <li>Principle of least privilege for all system components</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>You have the right to access, update, or delete your personal information at any time through your account settings.</li>
+            <li>We provide clear information about what data we collect and how it's used.</li>
+            <li>You can opt out of certain data collection practices where legally permissible.</li>
+            <li>We comply with applicable data protection regulations including GDPR and CCPA.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Data Handling & Privacy</h2>
-          <p className="text-muted-foreground">
-            We follow strict data handling procedures aligned with privacy regulations such as GDPR and applicable local laws:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Incident Response
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            In the unlikely event of a security incident:
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data minimization: collecting only necessary information</li>
-            <li>Pseudonymization and anonymization techniques where appropriate</li>
-            <li>Regular data retention reviews and secure deletion procedures</li>
-            <li>Transparent data processing with clear consent mechanisms</li>
-            <li>Breach notification procedures compliant with regulatory requirements</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>We have established incident response procedures to quickly address and contain security breaches.</li>
+            <li>Users will be notified of any security incidents that may affect their personal information within 72 hours of detection.</li>
+            <li>We conduct post-incident reviews to improve our security measures.</li>
+            <li>We maintain insurance coverage for cybersecurity incidents.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Employee Security Training</h2>
-          <p className="text-muted-foreground">
-            All employees undergo comprehensive security training covering:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Employee Training & Security Culture
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            Security is everyone's responsibility at Lana AI:
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Data protection best practices</li>
-            <li>Phishing and social engineering awareness</li>
-            <li>Incident response procedures</li>
-            <li>Access control responsibilities</li>
-            <li>Confidentiality and non-disclosure requirements</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>All employees undergo comprehensive security training during onboarding and annually thereafter.</li>
+            <li>We maintain strict confidentiality agreements with all staff members.</li>
+            <li>Access to sensitive data is granted on a need-to-know basis only.</li>
+            <li>We regularly update our security policies and procedures based on emerging threats and best practices.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Compliance & Certifications</h2>
-          <p className="text-muted-foreground">
-            We maintain compliance with relevant security standards and regulations:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Third-Party Security
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            We carefully vet all third-party vendors and service providers:
           </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Regular third-party security audits</li>
-            <li>Compliance with SOC 2 Type II standards</li>
-            <li>GDPR and CCPA compliance measures</li>
-            <li>ISO 27001 information security management standards</li>
-            <li>Regular security certifications for our team members</li>
+          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground mb-6">
+            <li>All third-party services must meet our security standards and sign data protection agreements.</li>
+            <li>We regularly assess vendor security practices and compliance.</li>
+            <li>We limit data sharing with third parties to what is necessary for service provision.</li>
+            <li>We maintain contracts that hold third parties accountable for data protection.</li>
           </ul>
 
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Incident Response</h2>
-          <p className="text-muted-foreground">
-            We maintain a comprehensive incident response plan that includes:
+          <h2 className="text-xl md:text-2xl font-bold mt-8 mb-4 text-foreground flex items-center gap-2">
+            <div className="w-2 h-2 bg-primary rounded-full"></div>
+            Contact Security Team
+          </h2>
+          <p className="text-muted-foreground mb-4 leading-relaxed">
+            If you have security concerns or wish to report a vulnerability, please contact our security team:
           </p>
           <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>24/7 security monitoring and alerting</li>
-            <li>Immediate containment and investigation procedures</li>
-            <li>Communication protocols for affected users</li>
-            <li>Regulatory reporting as required by law</li>
-            <li>Post-incident analysis and preventive measures</li>
+            <li>By email: <a href="mailto:contact@lanamind.com" className="text-primary hover:underline">contact@lanamind.com</a></li>
+            <li>By encrypted message: security@lana.ai (PGP key available upon request)</li>
+            <li>Please include detailed information about the security concern or vulnerability</li>
+            <li>We commit to responding to security reports within 48 hours</li>
           </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">User Responsibilities</h2>
-          <p className="text-muted-foreground">
-            While we implement extensive security measures, users also play a critical role in maintaining security:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Using strong, unique passwords for their accounts</li>
-            <li>Enabling multi-factor authentication when available</li>
-            <li>Keeping their login credentials confidential</li>
-            <li>Reporting suspicious activities immediately</li>
-            <li>Logging out of shared devices</li>
-            <li>Keeping their devices and software updated</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Regular Security Audits</h2>
-          <p className="text-muted-foreground">
-            We conduct regular security assessments including:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Quarterly penetration testing by certified security professionals</li>
-            <li>Monthly vulnerability scans of our systems</li>
-            <li>Annual comprehensive security audits</li>
-            <li>Continuous monitoring for emerging threats</li>
-            <li>Regular updates to our security policies and procedures</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Contact Information</h2>
-          <p className="text-muted-foreground">
-            If you have any security concerns or believe you have identified a vulnerability in our system, please contact our security team immediately:
-          </p>
-          <ul className="list-disc pl-6 mt-3 space-y-2 text-muted-foreground">
-            <li>Security email: security@lana.ai</li>
-            <li>Security hotline: Available 24/7 for urgent matters</li>
-            <li>Report vulnerabilities through our responsible disclosure program</li>
-          </ul>
-
-          <h2 className="text-2xl font-bold mt-8 mb-4 text-foreground">Policy Updates</h2>
-          <p className="text-muted-foreground">
-            This Security Policy is reviewed and updated regularly to address emerging threats and incorporate best practices. Significant changes will be communicated to users through our official channels. The "Last Updated" date at the top of this page indicates the most recent revision.
-          </p>
         </div>
       </div>
     </section>

@@ -76,6 +76,7 @@ export default function AnimatedChatWithVideo() {
     <AnimatedAIChat
       onNavigateToVideoLearning={handleNavigate}
       onSend={() => {}}
+      user={undefined} // Will be passed from parent component
     />
   );
 }
@@ -927,14 +928,17 @@ function isMathResponse(response: any): response is MathSolutionUI {
 }
 
 function isChatResponse(response: any): response is ChatResponse {
-  // Check if it has reply and mode properties, and is not a math or lesson response
+  // Check if it has reply and mode properties
   // Prioritize chat responses that have a reply property with actual content
+  // NOTE: We check for reply and mode presence first, regardless of other properties
+  // This ensures chat responses are always prioritized over lesson responses
   return response && 
          'reply' in response && 
          'mode' in response && 
          (typeof response.reply === 'string' || typeof response.reply === 'object') &&
-         !isMathResponse(response) && 
-         !isLessonResponse(response);
+         !isMathResponse(response);
+  // Note: We don't check !isLessonResponse here to avoid conflicts
+  // If a response has both chat and lesson properties, prioritize chat
 }
 
 // Helper function to summarize lesson responses for quick mode
@@ -975,9 +979,10 @@ interface AnimatedAIChatProps {
   onNavigateToVideoLearning: (title: string) => void
   sessionId?: string        
   onSend?: () => void
+  user?: any // Supabase user object
 }
 
-  export function AnimatedAIChat({ onNavigateToVideoLearning }: AnimatedAIChatProps) {
+  export function AnimatedAIChat({ onNavigateToVideoLearning, user }: AnimatedAIChatProps) {
   /* --- state ------------------------------------------------------- */
   const [value, setValue] = useState("");
   
@@ -1327,7 +1332,8 @@ interface AnimatedAIChatProps {
     if (SUPPORTED_MODES.includes(mode)) {
       try {
         // Get session ID for user identification
-        const sid = localStorage.getItem("lana_sid") || `guest_${Date.now()}`;
+        const { data: { user } } = await supabase.auth.getUser();
+        const sid = user?.id || `guest_${Date.now()}`;
             
         // Use the user age from state
         const userAgeForPayload = userAge;
@@ -1422,10 +1428,13 @@ interface AnimatedAIChatProps {
             if (chatResponse.mode === 'chat' || chatResponse.mode === 'quick') { // Use response.mode instead of selectedMode
               // Safely handle the reply field in case it's not a string
               const replyText = typeof chatResponse.reply === 'string' ? chatResponse.reply : JSON.stringify(chatResponse.reply || 'No response');
-              setStreamingText(replyText);
-              setStoredLong(replyText);
-              // Set the lessonJson to the chat response so it can be displayed in the UI
-              setLessonJson(chatResponse);
+              // For chat/quick modes, DO NOT set lessonJson to avoid duplicate rendering
+              // Chat responses are handled in conversation history only
+              // Clear streaming text to prevent duplication
+              setStreamingText("");
+              setStoredLong("");
+              // Clear lessonJson to ensure no duplicate rendering
+              setLessonJson(null);
               saveSelectedMode(chatResponse.mode);
                                 
               // Update conversation history with both user message and AI response
@@ -1461,7 +1470,7 @@ interface AnimatedAIChatProps {
             topic: apiMessage,
             age: userAgeForPayload
           };
-          const quickEndpoint = '/api/quick-mode/generate';
+          const quickEndpoint = '/api/quick/generate';
                       
           if (!rateLimiter.isAllowed(quickEndpoint)) { // Use the actual endpoint for rate limiting
             const waitTime = rateLimiter.getTimeUntilNextRequest(quickEndpoint);
@@ -1489,11 +1498,7 @@ interface AnimatedAIChatProps {
           if (quickApiResponse.error) {
             setError(quickApiResponse.error);
           } else {
-            // For quick mode, display the lesson response
-            const replyText = quickApiResponse.introduction || quickApiResponse.sections?.[0]?.content || 'Quick lesson response received.';
-            setStreamingText(replyText);
-            setStoredLong(replyText);
-            // Convert quick mode response to compatible format for lessonJson
+            // For quick mode, convert the response to a proper lesson format
             const convertedLesson: Lesson = {
               introduction: quickApiResponse.introduction || '',
               classifications: quickApiResponse.classifications || [],
@@ -1505,16 +1510,15 @@ interface AnimatedAIChatProps {
                 answer: item.answer || ''
               })) : []
             };
-            // Set the lessonJson to the converted quick response so it can be displayed in the UI
+            // Set lessonJson for quick mode to display structured lesson card
             setLessonJson(convertedLesson);
+            // Clear any previous streaming text
+            setStreamingText("");
+            setStoredLong("");
             saveSelectedMode('quick');
                       
-            // Update conversation history with both user message and AI response
-            setConversationHistory(prev => [
-              ...prev,
-              { role: 'user', content: apiMessage },
-              { role: 'assistant', content: replyText }
-            ]);
+            // DO NOT update conversation history for quick mode
+            // Quick mode responses should appear as structured lesson cards, not in chat history
           }
         } else { // lesson mode
           // For lesson mode, use the structured lesson endpoint
@@ -1588,7 +1592,8 @@ interface AnimatedAIChatProps {
     // So we default to lesson mode for backward compatibility
     try {
       // Build payload for lesson mode as fallback
-      const sid = localStorage.getItem('lana_sid') || `guest_${Date.now()}`;
+      const { data: { user } } = await supabase.auth.getUser();
+      const sid = user?.id || `guest_${Date.now()}`;
       const payload: any = {
         message: sanitizedInput,
         userId: sid,
@@ -1722,11 +1727,165 @@ interface AnimatedAIChatProps {
     }
   };
 
-  const handleAttachFile = () =>
-    setAttachments((prev) => [...prev, `file-${Math.random().toString(36).slice(2)}.pdf`]);
+  // Add hidden file input element ref
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAttachFile = () => {
+    // Trigger the hidden file input
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
   const removeAttachment = (idx: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
+
+  // Handle file selection
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    
+    // Validate file type
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png', 
+      'image/gif',
+      'image/webp',
+      'application/pdf',
+      'text/plain',
+      'text/markdown'
+    ];
+    
+    if (!allowedTypes.includes(file.type)) {
+      setError('Unsupported file type. Please upload an image (JPEG, PNG, GIF, WebP), PDF, or text file.');
+      return;
+    }
+    
+    // Validate file size (max 10MB)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError('File size too large. Maximum size is 10MB.');
+      return;
+    }
+    
+    // Add file to attachments
+    setAttachments((prev) => [...prev, file.name]);
+    
+    // Process the file to extract text or send to backend
+    try {
+      await processFile(file);
+    } catch (err) {
+      console.error('Error processing file:', err);
+      setError('Error processing file. Please try again.');
+    }
+  };
+
+  // Process the uploaded file
+  const processFile = async (file: File) => {
+    // For image files, we need to convert to base64 and send to backend
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const base64String = event.target?.result as string;
+        
+        // For now, inform user that image processing is simulated
+        // In a real implementation, this would send to a backend service for OCR/NLP processing
+        setError('Image uploaded successfully! Processing images is coming soon. The system can currently process text content from images. Adding this file as an attachment.');
+        
+        // Simulate processing delay
+        setTimeout(() => {
+          setError(null);
+          
+          // Inform user about image processing capability
+          setSaveMessage('Image uploaded. Our AI can analyze images in upcoming updates!');
+          setShowSaveMessage(true);
+          setTimeout(() => {
+            setShowSaveMessage(false);
+            setTimeout(() => setSaveMessage(null), 300);
+          }, 3000);
+        }, 2000);
+      };
+      
+      reader.onerror = () => {
+        setError('Error reading image file.');
+      };
+      
+      reader.readAsDataURL(file);
+    } else if (file.type === 'application/pdf') {
+      // For PDF files, we'd typically use a PDF extraction library
+      // For now, we'll just send the file for processing
+      setError('PDF processing coming soon. For now, please take a screenshot of the content and upload the image.');
+    } else {
+      // For text files, read the content
+      const reader = new FileReader();
+      
+      reader.onload = async (event) => {
+        const textContent = event.target?.result as string;
+        
+        // Process the text content
+        try {
+          // Use the currently selected mode from component state
+          const currentMode = selectedMode || 'lesson';
+          
+          // Prepare payload for text processing
+          const payload = {
+            message: textContent,
+            userId: user?.id || `guest_${Date.now()}`,
+            age: userAge,
+            mode: currentMode
+          };
+          
+          // Send to appropriate endpoint
+          const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+          });
+          
+          if (!response.ok) {
+            throw new Error(`API request failed: ${response.status}`);
+          }
+          
+          const result = await response.json();
+          
+          // Update UI based on response type
+          if (result.error) {
+            setError(result.error);
+          } else {
+            // Handle the response based on mode
+            if (currentMode === 'maths') {
+              // For math mode, expect a math solution
+              const mathData: MathSolutionUI = {
+                problem: result.problem || textContent,
+                solution: result.solution || result.result || '',
+                steps: result.steps || result.working || undefined,
+                error: null,
+              };
+              setMathSolution(mathData);
+              setLessonJson(mathData as any);
+            } else {
+              // For other modes, treat as a lesson response
+              setLessonJson(result as Lesson);
+            }
+          }
+        } catch (err) {
+          console.error('Error processing text file:', err);
+          setError('Error processing text file. Please try again.');
+        }
+      };
+      
+      reader.onerror = () => {
+        setError('Error reading text file.');
+      };
+      
+      reader.readAsText(file);
+    }
+  };
 
   /* ------------------------------------------------------------------ */
   /* render                                                             */
@@ -1972,45 +2131,25 @@ interface AnimatedAIChatProps {
 
             {lessonJson && (
               <div className="px-4 pb-4">
-                {/* Check if the response is a structured lesson */}
-                {lessonJson && isLessonResponse(lessonJson) && selectedMode !== 'quick' ? (
-                  <StructuredLessonCard 
-                    lesson={lessonJson} 
-                    isStreamingComplete={!isTyping} 
-                  />
-                ) : isMathResponse(lessonJson) ? (
-                  /* Check if the response is a math solution */
-                  <MathSolutionCard 
-                    data={lessonJson as MathSolutionUI} 
-                  />
+                {/* Strictly prioritize isChatResponse() guard before any other checks */}
+                {isChatResponse(lessonJson) ? (
+                  /* If it's a chat response, return null to prevent duplicate rendering */
+                  /* Chat responses are handled in conversation history only */
+                  null
                 ) : (
-                  /* For chat responses in lessonJson, show in main content area if in chat/quick mode and there's no conversation history,
-                     OR show in main content area if not in chat/quick mode */
-                  (!['chat', 'quick'].includes(selectedMode) || 
-                   (['chat', 'quick'].includes(selectedMode) && 
-                    (!conversationHistory || conversationHistory.length === 0 || 
-                     !lessonJson || !isChatResponse(lessonJson)))) && (
-                    <div className="lesson-card border rounded-2xl p-6 space-y-6 bg-white/5 border-white/10">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-xl bg-white/10">
-                            <Sparkles className="w-5 h-5 text-white" />
-                          </div>
-                          <h2 className="text-xl font-semibold">Response</h2>
-                        </div>
-                      </div>
-                      <div className="space-y-4 text-sm">
-                        <div className="space-y-2">
-                          <p className="text-white/70 leading-relaxed">
-                            {isChatResponse(lessonJson) 
-                              ? (typeof (lessonJson as ChatResponse).reply === 'string' 
-                                ? (lessonJson as ChatResponse).reply 
-                                : JSON.stringify((lessonJson as ChatResponse).reply || 'No response'))
-                              : JSON.stringify(lessonJson)}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+                  /* For all non-chat responses, check the mode and render appropriately */
+                  /* Quick mode should show lesson cards (like lesson mode), but not in conversation history */
+                  selectedMode !== 'chat' && (
+                    isMathResponse(lessonJson) ? (
+                      <MathSolutionCard 
+                        data={lessonJson as MathSolutionUI} 
+                      />
+                    ) : (
+                      <StructuredLessonCard 
+                        lesson={lessonJson as Lesson} 
+                        isStreamingComplete={!isTyping} 
+                      />
+                    )
                   )
                 )}
               </div>
@@ -2059,6 +2198,15 @@ interface AnimatedAIChatProps {
                 >
                   <Paperclip className="w-4 h-4" />
                 </motion.button>
+                {/* Hidden file input for image uploads */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  accept="image/*,application/pdf,text/plain,text/markdown"
+                  className="hidden"
+                  multiple={false}
+                />
                 <motion.button
                   onClick={() => setShowCommandPalette((p) => !p)}
                   whileTap={{ scale: 0.94 }}
@@ -2089,7 +2237,7 @@ interface AnimatedAIChatProps {
               </motion.button>
             </div>
 
-            {/* "Create video lesson" button */}
+            {/* "Get more explanatiom" button */}
             {showVideoButton && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}

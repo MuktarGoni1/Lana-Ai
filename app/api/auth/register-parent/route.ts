@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await adminClient.auth.signInWithOtp({
         email: email.trim(),
         options: {
-          data: { role: "guardian" },
+          data: { role: "parent" }, // Changed from "guardian" to "parent"
           emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
         },
       })
@@ -93,6 +93,25 @@ export async function POST(request: NextRequest) {
             }
           }
         )
+      }
+
+      // After successful sign-up, create a profile record in the new profiles table
+      if (data && (data as any).user?.id) {
+        const userData = (data as any).user;
+        const profileInsert = await adminClient.from('profiles').upsert({
+          id: userData.id,
+          full_name: userData.email?.split('@')[0] || '', // Use email prefix as full_name
+          role: 'parent',
+          parent_id: null, // Parents have no parent_id
+          diagnostic_completed: false, // Parents don't need diagnostics
+          is_active: true
+        }, { onConflict: 'id' });
+        
+        if (profileInsert.error) {
+          console.error('[API Register Parent] Failed to create profile record:', profileInsert.error);
+        } else {
+          console.log('[API Register Parent] Successfully created profile record for parent');
+        }
       }
 
       return new Response(

@@ -539,12 +539,12 @@ export class ConsolidatedAuthService {
         return { success: false, error: errorMessage };
       }
 
+      // Note: We no longer store lana_sid in localStorage as per the new architecture
+      // The unified auth system manages session and role detection
       // Store session ID for anonymous users
       if (result.data && result.data.length > 0) {
         const childData = result.data[0];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem("lana_sid", childData.child_uid);
-        }
+        // Session management is now handled by the unified auth system
       }
 
       this.updateAuthState({ isLoading: false });
@@ -577,7 +577,7 @@ export class ConsolidatedAuthService {
 
       // Clear local storage items related to auth
       if (typeof window !== 'undefined') {
-        localStorage.removeItem("lana_sid");
+        // Note: We no longer store lana_sid in localStorage as per the new architecture
         localStorage.removeItem("lana_onboarding_complete");
         localStorage.removeItem("lana_local_children");
         localStorage.removeItem("lana_study_plan");

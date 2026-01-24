@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, Sparkles, Calendar, Clock, Check } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -38,20 +38,10 @@ function TermPlanPageContent() {
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
   
-  // Component definitions moved to top to avoid hoisting issues
-  const AnimatedBackground = () => (
-    <div className="absolute inset-0 w-full h-full overflow-hidden pointer-events-none">
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/5 rounded-full blur-[128px] animate-pulse" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-[128px] animate-pulse delay-700" />
-      <div className="absolute top-1/4 right-1/3 w-64 h-64 bg-pink-500/3 rounded-full blur-[96px] animate-pulse delay-1000" />
-    </div>
-  );
-  
-  
   // Authentication state is now handled by useEnhancedAuth hook
   
   // Check if this is a child user (no email) to adjust the flow
-  // (isChildUser state already declared in the component definitions above)
+  const [isChildUser, setIsChildUser] = useState(false);
 
   // Persist onboarding completion flag and redirect appropriately
   const [saving, setSaving] = useState(false);
@@ -70,7 +60,6 @@ function TermPlanPageContent() {
   });
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
-  const [isChildUser, setIsChildUser] = useState(false);
 
   // Save subjects to localStorage whenever they change
   useEffect(() => {
@@ -80,13 +69,66 @@ function TermPlanPageContent() {
     if (typeof window !== 'undefined') {
       localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
     }
-  }, [subjects]);  // Check if user is a child user
+  }, [subjects]);
+  
+  // Check if user is a child user
   useEffect(() => {
     if (user) {
       const isChild = user.email?.endsWith('@child.lana') || false;
       setIsChildUser(isChild);
     }
   }, [user]);
+  
+  // Check for pending sync data on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const pendingData = localStorage.getItem('lana_study_plan_pending');
+      if (pendingData) {
+        try {
+          const pendingObj = JSON.parse(pendingData);
+          // Attempt to sync pending data if online
+          if (navigator.onLine && user?.email) {
+            syncPendingData(pendingObj, user.email);
+          }
+        } catch (e) {
+          console.error('Error parsing pending data:', e);
+        }
+      }
+    }
+  }, [user]);
+  
+  const syncPendingData = async (pendingObj: any, userEmail: string) => {
+    try {
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          subjects: pendingObj.subjects
+        }),
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Clear pending data on success
+        localStorage.removeItem('lana_study_plan_pending');
+        toast({
+          title: 'Sync Complete',
+          description: 'Your study plan has been synced successfully.',
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing pending data:', error);
+      toast({
+        title: 'Sync Failed',
+        description: 'Could not sync your study plan. Will retry when connection is restored.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -212,15 +254,7 @@ function TermPlanPageContent() {
         throw new Error('No authenticated user found');
       }
       
-      // Save to localStorage as backup before attempting backend save
-      try {
-        localStorage.setItem('lana_study_plan_backup', JSON.stringify(subjects));
-        console.log('[term-plan] Backup saved to localStorage');
-      } catch (storageErr) {
-        console.warn('[term-plan] Failed to save backup to localStorage:', storageErr);
-      }
-      
-      // Save to backend API
+      // Save to backend API immediately (optimistic approach)
       const response = await fetch('/api/study-plan', {
         method: 'POST',
         headers: {
@@ -254,7 +288,7 @@ function TermPlanPageContent() {
       console.error('[term-plan] Error saving plan:', err.message);
       console.error('[term-plan] Save error details:', err);
       
-      // Try to save locally as fallback
+      // Save to localStorage as fallback
       try {
         localStorage.setItem('lana_study_plan_pending', JSON.stringify({
           subjects,
@@ -303,7 +337,7 @@ function TermPlanPageContent() {
     }
   };
 
-  const addSubject = () => {
+  const addSubject = async () => {
     if (!subjectInput.trim()) return;
     
     const newSubject: Subject = {
@@ -318,12 +352,47 @@ function TermPlanPageContent() {
       isExpanded: true
     };
     
+    // Optimistically update UI
     const updatedSubjects = [...subjects, newSubject];
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save subject to backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Subject Added', 
+        description: `"${subjectInput.trim()}" has been saved successfully.` 
+      });
+    } catch (error) {
+      console.error('Error saving subject to backend:', error);
+      
+      toast({ 
+        title: 'Saved Locally', 
+        description: `"${subjectInput.trim()}" saved locally. Will sync when connection is restored.` 
+      });
+    }
+    
     setSubjectInput("");
   };
 
-  const addTopic = (subjectId: string) => {
+  const addTopic = async (subjectId: string) => {
     const topicInput = topicInputs[subjectId];
     if (!topicInput?.trim()) return;
 
@@ -343,7 +412,42 @@ function TermPlanPageContent() {
         : subject
     );
     
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to save topic to backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Topic Added', 
+        description: `"${topicInput.trim()}" has been saved successfully.` 
+      });
+    } catch (error) {
+      console.error('Error saving topic to backend:', error);
+      
+      toast({ 
+        title: 'Saved Locally', 
+        description: `"${topicInput.trim()}" saved locally. Will sync when connection is restored.` 
+      });
+    }
+    
     setTopicInputs({ ...topicInputs, [subjectId]: "" });
   };
 
@@ -357,33 +461,102 @@ function TermPlanPageContent() {
     setSubjects(updatedSubjects);
   };
 
-  const deleteSubject = (subjectId: string) => {
+  const deleteSubject = async (subjectId: string) => {
+    const subjectToDelete = subjects.find(s => s.id === subjectId)?.name || '';
     const updatedSubjects = subjects.filter(subject => subject.id !== subjectId);
+    
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete subject from backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Subject Deleted', 
+        description: `"${subjectToDelete}" has been deleted successfully.` 
+      });
+    } catch (error) {
+      console.error('Error deleting subject from backend:', error);
+      
+      toast({ 
+        title: 'Deletion Pending', 
+        description: `"${subjectToDelete}" deletion will sync when connection is restored.` 
+      });
+    }
   };
 
-  const deleteTopic = (subjectId: string, topicId: string) => {
+  const deleteTopic = async (subjectId: string, topicId: string) => {
+    const topicToDelete = subjects
+      .find(s => s.id === subjectId)
+      ?.topics.find(t => t.id === topicId)?.name || '';
+
     const updatedSubjects = subjects.map(subject =>
       subject.id === subjectId
         ? { ...subject, topics: subject.topics.filter(topic => topic.id !== topicId) }
         : subject
     );
     
+    // Optimistically update UI
     setSubjects(updatedSubjects);
+    
+    try {
+      // Send to backend immediately
+      const response = await fetch('/api/study-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: user?.email,
+          subjects: updatedSubjects
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to delete topic from backend');
+      }
+
+      // Success - no need for additional action
+      toast({ 
+        title: 'Topic Deleted', 
+        description: `"${topicToDelete}" has been deleted successfully.` 
+      });
+    } catch (error) {
+      console.error('Error deleting topic from backend:', error);
+      
+      toast({ 
+        title: 'Deletion Pending', 
+        description: `"${topicToDelete}" deletion will sync when connection is restored.` 
+      });
+    }
   };
 
   // Show loading state while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden">
-        <AnimatedBackground />
-        <div className="relative z-10 text-center space-y-4">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full mx-auto"
-          />
-          <p className="text-white/80">Loading your term planner...</p>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin mx-auto" />
+          <p className="text-white/30 text-sm">Loading...</p>
         </div>
       </div>
     );
@@ -392,9 +565,8 @@ function TermPlanPageContent() {
   // Show error and redirect if not authenticated
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center relative overflow-hidden">
-        <AnimatedBackground />
-        <div className="relative z-10 text-center space-y-4 max-w-md p-6">
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center space-y-4 max-w-md p-6">
           <X className="w-12 h-12 mx-auto text-red-500" />
           <h2 className="text-2xl font-semibold">Access Denied</h2>
           <p className="text-white/70">
@@ -409,79 +581,59 @@ function TermPlanPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white relative overflow-hidden">
-      <AnimatedBackground />
+    <div className="min-h-screen bg-black text-white">
       {/* header with logo */}
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between relative z-10">
+      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Logo className="w-10 h-10 md:w-12 md:h-12" />
-          <h1 className="text-xl font-semibold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">Term Planner</h1>
+          <h1 className="text-xl font-semibold">Term Planner</h1>
         </div>
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
+        <button
           onClick={() => router.push("/homepage")}
-          className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors backdrop-blur-sm border border-white/20"
+          className="p-2 rounded-lg hover:bg-white/10 transition-colors"
         >
           <X className="w-5 h-5" />
-        </motion.button>
+        </button>
       </header>
 
       {/* body */}
-      <main className="max-w-4xl mx-auto px-6 py-8 relative z-10">
+      <main className="max-w-4xl mx-auto p-6 space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="space-y-8"
+          className="space-y-6"
         >
-          <div className="text-center mb-8">
-            <motion.h2 
-              className="text-3xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent mb-3"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
+          <div className="space-y-2">
+            <h2 className="text-2xl font-semibold">
               {isChildUser ? "Welcome! Let's set up your learning plan" : "Build Your Study Plan"}
-            </motion.h2>
-            <motion.p 
-              className="text-white/70 max-w-2xl mx-auto"
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            </h2>
+            <p className="text-white/70">
               {isChildUser 
                 ? "Create your personalized study plan to get started with your learning journey" 
                 : "Organize your subjects and topics for the term"}
-            </motion.p>
+            </p>
           </div>
 
           {/* Add Subject Input */}
-          <motion.div 
-            className="flex gap-3"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
+          <div className="flex gap-2">
             <input
               value={subjectInput}
               onChange={(e) => setSubjectInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addSubject()}
               placeholder="Enter subject name (e.g., Mathematics, Physics)"
-              className="flex-1 px-5 py-4 rounded-xl bg-white/5 backdrop-blur-sm border border-white/20 
-                       focus:outline-none focus:ring-2 focus:ring-blue-500/30 
-                       placeholder:text-white/40 transition-all shadow-inner"
+              className="flex-1 px-4 py-3 rounded-lg bg-white/5 border border-white/10 
+                       focus:outline-none focus:ring-2 focus:ring-white/20 
+                       placeholder:text-white/40 transition-all"
             />
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={addSubject}
-              className="px-6 py-4 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 text-white font-medium 
-                       flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/25 transition-all"
+              className="px-6 py-3 bg-white text-black rounded-lg font-medium 
+                       flex items-center gap-2 hover:bg-white/90 transition-all"
             >
               <Plus className="w-4 h-4" />
               Add Subject
-            </motion.button>
-          </motion.div>
+            </button>
+          </div>
 
           {/* Subjects List */}
           <AnimatePresence>
@@ -492,48 +644,35 @@ function TermPlanPageContent() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  className="border border-white/10 rounded-2xl overflow-hidden backdrop-blur-sm bg-white/5 shadow-lg shadow-white/5"
+                  className="border border-white/10 rounded-lg overflow-hidden"
                 >
                   {/* Subject Header */}
-                  <div className="p-5 bg-white/5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 flex-1">
-                      <motion.button
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
+                  <div className="p-4 bg-white/5 flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1">
+                      <button
                         onClick={() => toggleSubject(subject.id)}
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors backdrop-blur-sm border border-white/10"
+                        className="p-1 hover:bg-white/10 rounded transition-colors"
                       >
                         {subject.isExpanded ? (
                           <ChevronDown className="w-5 h-5" />
                         ) : (
                           <ChevronUp className="w-5 h-5" />
                         )}
-                      </motion.button>
-                      <div className="p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-white/10">
-                        <BookOpen className="w-5 h-5 text-blue-400" />
-                      </div>
+                      </button>
+                      <BookOpen className="w-5 h-5 text-white/60" />
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg">{subject.name}</h3>
-                        <div className="flex items-center gap-3 mt-1">
-                          <div className="flex items-center gap-1 text-xs text-white/50">
-                            <Calendar className="w-3 h-3" />
-                            <span>{subject.dateAdded}</span>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-white/50">
-                            <Sparkles className="w-3 h-3" />
-                            <span>{subject.topics.length} topics</span>
-                          </div>
-                        </div>
+                        <p className="text-sm text-white/50">
+                          Added on {subject.dateAdded} • {subject.topics.length} topics
+                        </p>
                       </div>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                    <button
                       onClick={() => deleteSubject(subject.id)}
-                      className="p-2 hover:bg-red-500/10 rounded-full transition-colors backdrop-blur-sm border border-white/10"
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-white/50 hover:text-red-400" />
-                    </motion.button>
+                      <Trash2 className="w-4 h-4 text-white/50 hover:text-white/80" />
+                    </button>
                   </div>
 
                   {/* Topics Section */}
@@ -545,9 +684,9 @@ function TermPlanPageContent() {
                         exit={{ height: 0 }}
                         className="overflow-hidden"
                       >
-                        <div className="p-5 space-y-4 bg-white/5">
+                        <div className="p-4 space-y-3 bg-black/20">
                           {/* Add Topic Input */}
-                          <div className="flex gap-3">
+                          <div className="flex gap-2">
                             <input
                               value={topicInputs[subject.id] || ""}
                               onChange={(e) => setTopicInputs({
@@ -556,70 +695,50 @@ function TermPlanPageContent() {
                               })}
                               onKeyDown={(e) => e.key === "Enter" && addTopic(subject.id)}
                               placeholder="Add a topic (e.g., Limits & Continuity)"
-                              className="flex-1 px-4 py-3 rounded-xl bg-white/5 backdrop-blur-sm border border-white/10 
-                                       focus:outline-none focus:ring-2 focus:ring-blue-500/30 
-                                       placeholder:text-white/40 text-sm transition-all shadow-inner"
+                              className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 
+                                       focus:outline-none focus:ring-2 focus:ring-white/20 
+                                       placeholder:text-white/40 text-sm transition-all"
                             />
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
+                            <button
                               onClick={() => addTopic(subject.id)}
-                              className="px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500/30 to-purple-500/30 text-white 
-                                       flex items-center gap-2 hover:bg-gradient-to-r hover:from-blue-500/40 hover:to-purple-500/40 transition-all text-sm backdrop-blur-sm border border-white/10"
+                              className="px-4 py-2 bg-white/10 text-white rounded-lg 
+                                       flex items-center gap-2 hover:bg-white/20 transition-all text-sm"
                             >
                               <Plus className="w-3 h-3" />
                               Add
-                            </motion.button>
+                            </button>
                           </div>
 
                           {/* Topics List */}
-                          <div className="space-y-3">
-                            {subject.topics.map((topic, index) => (
+                          <div className="space-y-2">
+                            {subject.topics.map((topic) => (
                               <motion.div
                                 key={topic.id}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
-                                transition={{ delay: 0.05 * index }}
-                                className="flex items-center justify-between p-4 rounded-xl 
-                                         bg-white/5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-all backdrop-blur-sm shadow-sm"
+                                className="flex items-center justify-between p-3 rounded-lg 
+                                         bg-white/5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-all"
                                 onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
                               >
-                                <div className="flex items-center gap-3 flex-1">
-                                  <div className="p-1.5 rounded-lg bg-gradient-to-r from-blue-500/20 to-purple-500/20">
-                                    <div className="w-2 h-2 rounded-full bg-blue-400" />
-                                  </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-white/40" />
                                   <span className="text-sm">{topic.name}</span>
                                 </div>
-                                <div className="flex items-center gap-4">
-                                  <div className="flex items-center gap-1 text-xs text-white/50">
-                                    <Clock className="w-3 h-3" />
-                                    <span>{topic.dateAdded}</span>
-                                  </div>
-                                  <motion.button
-                                    whileHover={{ scale: 1.2 }}
-                                    whileTap={{ scale: 0.9 }}
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs text-white/40">
+                                    {topic.dateAdded}
+                                  </span>
+                                  <button
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       deleteTopic(subject.id, topic.id);
                                     }}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 
-                                             hover:bg-red-500/10 rounded-full transition-all backdrop-blur-sm border border-white/10"
+                                    className="opacity-0 group-hover:opacity-100 p-1 
+                                             hover:bg-white/10 rounded transition-all"
                                   >
                                     <X className="w-3 h-3" />
-                                  </motion.button>
-                                  <motion.button
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.95 }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 p-1.5 
-                                             hover:bg-blue-500/10 rounded-full transition-all backdrop-blur-sm border border-white/10"
-                                  >
-                                    <ArrowRight className="w-3 h-3" />
-                                  </motion.button>
+                                  </button>
                                 </div>
                               </motion.div>
                             ))}
@@ -640,70 +759,50 @@ function TermPlanPageContent() {
           </AnimatePresence>
 
           {subjects.length === 0 && (
-            <motion.div 
-              className="text-center py-16 text-white/30 border-2 border-dashed border-white/10 rounded-2xl p-8 backdrop-blur-sm bg-white/2"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.4 }}
-            >
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 2, repeat: Infinity }}
-                className="mx-auto mb-4"
-              >
-                <BookOpen className="w-16 h-16 mx-auto opacity-30" />
-              </motion.div>
-              <h3 className="text-xl font-medium text-white/60 mb-2">No subjects added yet</h3>
-              <p className="text-white/50 max-w-md mx-auto">Start by adding your first subject using the form above to begin organizing your study plan.</p>
-            </motion.div>
+            <div className="text-center py-12 text-white/30">
+              <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No subjects added yet</p>
+              <p className="text-sm mt-1">Start by adding your first subject above</p>
+            </div>
           )}
         </motion.div>
       </main>
 
       {/* footer actions (only during onboarding) */}
       {isOnboarding && (
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent border-t border-white/10 p-4 backdrop-blur-xl"
-        >
+        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-4">
           <div className="max-w-4xl mx-auto flex items-center justify-end gap-3">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
               onClick={handleSkipToHomepage}
               disabled={saving}
-              className="px-5 py-3 rounded-xl border border-white/10 hover:bg-white/10 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 backdrop-blur-sm"
+              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
                   Skipping...
                 </>
               ) : (
-                "Skip for now"
+                "Skip to homepage"
               )}
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </button>
+            <button
               onClick={saveAndCompleteOnboarding}
               disabled={saving}
-              className="px-5 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-medium hover:shadow-lg hover:shadow-green-500/25 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
             >
               {saving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Saving...
                 </>
               ) : (
-                <>
-                  <Check className="h-4 w-4" /> Save Plan & Continue
-                </>
+                "Save plan and continue"
               )}
-            </motion.button>
+            </button>
           </div>
-        </motion.div>
+        </div>
       )}
     </div>
   );

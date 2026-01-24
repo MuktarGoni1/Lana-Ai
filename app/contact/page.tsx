@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useTheme } from "next-themes"
-import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin, Mail, Phone, MapPin, MessageCircle, Send, User, AtSign, FileText } from "lucide-react"
+import { useEnhancedAuth } from '@/hooks/useEnhancedAuth'
+import { Mail, Phone, MapPin, Clock, Moon, Sun, Menu, X, Twitter, Facebook, Instagram, Linkedin } from "lucide-react"
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -37,7 +37,7 @@ function ThemeToggle() {
 /* ---------- HEADER ---------- */
 function Header() {
   const [open, setOpen] = useState(false)
-  const { user } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading } = useEnhancedAuth()
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-blue-50/80 to-cyan-50/80 backdrop-blur">
@@ -194,213 +194,128 @@ function Header() {
 
 /* ---------- CONTACT CONTENT ---------- */
 function ContactContent() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    subject: '',
-    message: ''
-  });
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // In a real app, you would handle form submission here
-    console.log('Form submitted:', formData);
-    alert('Thank you for your message! We will get back to you soon.');
-    setFormData({ name: '', email: '', subject: '', message: '' });
-  };
-
   return (
-    <section className="py-16 md:py-24 bg-transparent">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
-          <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground mb-4">Get in Touch</h1>
-          <p className="text-muted-foreground text-base md:text-lg max-w-2xl mx-auto">Have questions about Lana AI? We'd love to hear from you. Reach out to us using the information below or fill out the contact form.</p>
+    <section className="py-12 md:py-16 bg-transparent">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-8 md:mb-12">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">Get in Touch</h1>
+          <p className="text-muted-foreground text-base md:text-lg max-w-xl mx-auto">
+            Have questions about Lana AI? We'd love to hear from you. Reach out to our team for support, partnerships, or general inquiries.
+          </p>
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Contact Information */}
           <div>
-            <div className="bg-card rounded-xl border p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-6 text-foreground">Contact Information</h2>
-              
-              <div className="space-y-6">
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Mail className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Email</h3>
-                    <p className="text-muted-foreground">support@lanaai.com</p>
-                    <p className="text-muted-foreground">info@lanaai.com</p>
-                  </div>
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-5 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Contact Information
+            </h2>
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Mail className="h-5 w-5 text-primary" />
                 </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <Phone className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Phone</h3>
-                    <p className="text-muted-foreground">+1 (555) 123-4567</p>
-                    <p className="text-muted-foreground">+1 (555) 987-6543</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <MapPin className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Office</h3>
-                    <p className="text-muted-foreground">123 Education Street</p>
-                    <p className="text-muted-foreground">Lagos, Nigeria</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4">
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <MessageCircle className="h-5 w-5 text-primary dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">Support Hours</h3>
-                    <p className="text-muted-foreground">Monday - Friday: 9:00 AM - 6:00 PM</p>
-                    <p className="text-muted-foreground">Saturday: 10:00 AM - 2:00 PM</p>
-                    <p className="text-muted-foreground">Sunday: Closed</p>
-                  </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">General Inquiries</h3>
+                  <p className="text-muted-foreground text-sm">contact@lanamind.com</p>
                 </div>
               </div>
               
-              <div className="mt-8">
-                <h3 className="font-bold text-lg text-foreground mb-4">Frequently Asked Questions</h3>
-                <ul className="space-y-2">
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How does Lana AI work?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">What subjects does Lana AI cover?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How much does Lana AI cost?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">Is Lana AI safe for children?</li>
-                  <li className="text-muted-foreground hover:text-foreground hover:underline cursor-pointer">How can I track my child's progress?</li>
-                </ul>
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Phone className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Phone</h3>
+                  <p className="text-muted-foreground text-sm">+1 (555) 123-4567</p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <MapPin className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Office</h3>
+                  <p className="text-muted-foreground text-sm">
+                    123 Education Street<br />
+                    San Francisco, CA 94107<br />
+                    United States
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 p-2 rounded-lg flex-shrink-0">
+                  <Clock className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground mb-0.5">Business Hours</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Monday - Friday: 9:00 AM - 6:00 PM<br />
+                    Saturday: 10:00 AM - 2:00 PM<br />
+                    Sunday: Closed
+                  </p>
+                </div>
               </div>
             </div>
           </div>
           
-          <div>
-            <div className="bg-card rounded-xl border p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-6 text-foreground">Send Us a Message</h2>
-              <form onSubmit={handleSubmit} className="space-y-5">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1">Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <User className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      id="name"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="Your name"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">Email</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <AtSign className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="email"
-                      id="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="your.email@example.com"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-1">Subject</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground">
-                      <FileText className="h-4 w-4" />
-                    </div>
-                    <input
-                      type="text"
-                      id="subject"
-                      name="subject"
-                      value={formData.subject}
-                      onChange={handleChange}
-                      required
-                      className="w-full pl-10 pr-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                      placeholder="How can we help you?"
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1">Message</label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formData.message}
-                    onChange={handleChange}
-                    required
-                    rows={5}
-                    className="w-full px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-foreground"
-                    placeholder="Your message here..."
-                  ></textarea>
-                </div>
-                
-                <button
-                  type="submit"
-                  className="w-full inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96]"
-                >
-                  Send Message
-                  <Send className="ml-2 h-4 w-4" />
-                </button>
-              </form>
-            </div>
-            
-            <div className="bg-card rounded-xl border p-6 shadow-sm mt-6">
-              <h3 className="font-bold text-lg text-foreground mb-3">Why Contact Us?</h3>
-              <ul className="space-y-2 text-muted-foreground">
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Get personalized support for your learning journey</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Request a demo of our platform</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Learn about our educational approach</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <div className="bg-primary/10 text-primary rounded-full p-1 mt-0.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  </div>
-                  <span>Partner with us for educational initiatives</span>
-                </li>
-              </ul>
-            </div>
+          {/* Contact Form */}
+          <div className="bg-card rounded-lg p-5 md:p-6 shadow-sm border">
+            <h2 className="text-xl md:text-2xl font-bold text-foreground mb-5 flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
+              Send us a Message
+            </h2>
+            <form className="space-y-3">
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-foreground mb-1.5">Name</label>
+                <input
+                  type="text"
+                  id="name"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="Your name"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                <input
+                  type="email"
+                  id="email"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="your.email@example.com"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-1.5">Subject</label>
+                <input
+                  type="text"
+                  id="subject"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                  placeholder="How can we help you?"
+                />
+              </div>
+              
+              <div>
+                <label htmlFor="message" className="block text-sm font-medium text-foreground mb-1.5">Message</label>
+                <textarea
+                  id="message"
+                  rows={5}
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+                  placeholder="Your message here..."
+                ></textarea>
+              </div>
+              
+              <button
+                type="submit"
+                className="w-full inline-flex items-center justify-center rounded-lg bg-primary px-3 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-10"
+              >
+                Send Message
+              </button>
+            </form>
           </div>
         </div>
       </div>
@@ -408,7 +323,6 @@ function ContactContent() {
   )
 }
 
-/* ---------- FOOTER ---------- */
 const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
@@ -416,6 +330,7 @@ const footerLinks = {
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
+/* ---------- FOOTER ---------- */
 function Footer() {
   return (
     <footer className="border-t border-border py-8 md:py-16 bg-transparent">

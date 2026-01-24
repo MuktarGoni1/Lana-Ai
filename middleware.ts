@@ -51,13 +51,23 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed/child',
       '/auth/auto-login',
       '/quiz',
+      '/diagnostic-quiz',
       '/term-plan',
       '/settings',
+      '/children',
       '/feedback',
       '/demo',
       '/api',
       '/features',
-      '/pricing'
+      '/pricing',
+      '/about',
+      '/blog',
+      '/careers',
+      '/contact',
+      '/privacy-policy',
+      '/terms-of-service',
+      '/security-policy',
+      '/cookie-policy'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -136,7 +146,8 @@ export async function middleware(req: NextRequest) {
     const protectedPaths = [
       '/dashboard',
       '/guardian',
-      '/personalised-ai-tutor'
+      '/personalised-ai-tutor',
+      '/children'
     ]
 
     const isProtectedRoute = protectedPaths.some(path => 
@@ -159,10 +170,17 @@ export async function middleware(req: NextRequest) {
     }
     
     // If there's an authentication error and we're not accessing a public path, redirect to landing page
-    if (error && !isPublic) {
+    // Prevent infinite redirect loops by checking if we're already on the landing page
+    if (error && !isPublic && pathname !== '/landing-page') {
       console.log('[Middleware] Authentication error and not public path, redirecting to landing page');
       const dest = new URL('/landing-page', req.url);
       return NextResponse.redirect(dest);
+    }
+    
+    // If there's an authentication error and we're already on the landing page, allow access to prevent loop
+    if (error && !isPublic && pathname === '/landing-page') {
+      console.log('[Middleware] Authentication error but on landing page, allowing access to prevent redirect loop');
+      return res;
     }
 
     // If the user is not authenticated and trying to access a protected route, redirect to login
@@ -215,10 +233,10 @@ export async function middleware(req: NextRequest) {
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
-      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to term-plan')
-      await authLogger.logRedirect(pathname, '/term-plan?onboarding=1', 'incomplete_onboarding', user?.id, user?.email);
+      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
+      await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/term-plan?onboarding=1&returnTo=${encodeURIComponent(returnTo)}`, req.url)
+      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
     
@@ -271,8 +289,8 @@ export async function middleware(req: NextRequest) {
     }
 
     // Role-based normalization
-    if (pathname.startsWith('/guardian') && role !== 'guardian') {
-      console.log('[Middleware] Non-guardian user accessing guardian path, redirecting to landing page')
+    if ((pathname.startsWith('/guardian') || pathname.startsWith('/children')) && role !== 'guardian') {
+      console.log('[Middleware] Non-guardian user accessing guardian/children path, redirecting to landing page')
       await authLogger.logRedirect(pathname, '/landing-page', 'role_mismatch_guardian_path', user?.id, user?.email);
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
@@ -285,6 +303,7 @@ export async function middleware(req: NextRequest) {
     return res
   } catch (error) {
     // On any middleware error, redirect to landing page
+    // Prevent infinite redirect loops by checking if we're already on the landing page
     console.error('[middleware] error:', error)
     // Add error tracking
     try {
@@ -308,7 +327,13 @@ export async function middleware(req: NextRequest) {
       console.error('[middleware] failed to log error details:', logError);
     }
     
-    // Redirect to landing page as fallback
+    // Redirect to landing page as fallback, but prevent infinite loops
+    const currentPath = req.nextUrl.pathname;
+    if (currentPath === '/landing-page') {
+      console.log('[Middleware] Already on landing page, returning next to prevent redirect loop');
+      return NextResponse.next();
+    }
+    
     try {
       return NextResponse.redirect(new URL('/landing-page', req.url))
     } catch (redirectError) {
