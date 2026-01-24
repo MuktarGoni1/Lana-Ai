@@ -8,9 +8,18 @@ export async function GET(request: NextRequest) {
   // Parse the URL to extract both search params and handle potential fragment-style params
   const url = new URL(request.url);
   
+  // Handle development environment where origin might be 0.0.0.0
+  let redirectOrigin = url.origin;
+  if (url.hostname === '0.0.0.0' || url.hostname === 'localhost') {
+    // Use the production domain or localhost with proper port in development
+    redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lanamind.com';
+    console.log('[Google OAuth Callback] Using production origin for redirect:', redirectOrigin);
+  }
+  
   // Log the incoming URL structure for debugging
   console.log('[Google OAuth Callback] URL breakdown:', {
     origin: url.origin,
+    redirectOrigin: redirectOrigin,
     pathname: url.pathname,
     search: url.search,
     hash: url.hash,
@@ -53,7 +62,7 @@ export async function GET(request: NextRequest) {
   if (error) {
     console.error('Google OAuth error:', error);
     // Redirect to login with error message
-    const errorRedirect = new URL(`${url.origin}/login`);
+    const errorRedirect = new URL(`${redirectOrigin}/login`);
     errorRedirect.searchParams.set('error', 'Google authentication failed');
     return NextResponse.redirect(errorRedirect);
   }
@@ -74,7 +83,7 @@ export async function GET(request: NextRequest) {
         
         if (directUserError || !directUser) {
           console.error('Error getting user after failed code exchange:', directUserError?.message || 'No user returned');
-          const errorRedirect = new URL(`${url.origin}/login`);
+          const errorRedirect = new URL(`${redirectOrigin}/login`);
           errorRedirect.searchParams.set('error', 'Failed to authenticate user');
           return NextResponse.redirect(errorRedirect);
         }
@@ -151,11 +160,11 @@ export async function GET(request: NextRequest) {
         // Redirect to onboarding if not completed, otherwise to homepage or next URL
         let redirectUrl;
         if (!profileData?.onboarding_complete) {
-          redirectUrl = new URL(`${url.origin}/onboarding?oauth=google`);
+          redirectUrl = new URL(`${redirectOrigin}/onboarding?oauth=google`);
         } else if (next) {
-          redirectUrl = new URL(next, url.origin);
+          redirectUrl = new URL(next, redirectOrigin);
         } else {
-          redirectUrl = new URL(`${url.origin}/homepage`);
+          redirectUrl = new URL(`${redirectOrigin}/homepage`);
         }
         
         return NextResponse.redirect(redirectUrl);
@@ -166,7 +175,7 @@ export async function GET(request: NextRequest) {
       
       if (userError || !user) {
         console.error('Error getting user after successful code exchange:', userError?.message || 'No user returned');
-        const errorRedirect = new URL(`${url.origin}/login`);
+        const errorRedirect = new URL(`${redirectOrigin}/login`);
         errorRedirect.searchParams.set('error', 'Authentication successful but could not retrieve user');
         return NextResponse.redirect(errorRedirect);
       }
@@ -240,23 +249,26 @@ export async function GET(request: NextRequest) {
       // Redirect to onboarding if not completed, otherwise to homepage or next URL
       let redirectUrl;
       if (!profileData?.onboarding_complete) {
-        redirectUrl = new URL(`${url.origin}/onboarding?oauth=google`);
+        redirectUrl = new URL(`${redirectOrigin}/onboarding?oauth=google`);
       } else if (next) {
-        redirectUrl = new URL(next, url.origin);
+        redirectUrl = new URL(next, redirectOrigin);
       } else {
-        redirectUrl = new URL(`${url.origin}/homepage`);
+        redirectUrl = new URL(`${redirectOrigin}/homepage`);
       }
       
       return NextResponse.redirect(redirectUrl);
     } catch (err) {
       console.error('Google OAuth callback error:', err);
-      const errorRedirect = new URL(`${url.origin}/login`);
+      const errorRedirect = new URL(`${redirectOrigin}/login`);
       errorRedirect.searchParams.set('error', 'An error occurred during authentication');
       return NextResponse.redirect(errorRedirect);
     }
   } else {
     // If no code is present, try to handle the case where tokens are in the fragment
     console.warn('No authorization code found in query params, checking if session is already established');
+    
+    // Use redirectOrigin for consistency
+    const redirectOrigin = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.lanamind.com';
     
     try {
       const supabase = await createServerClient();
@@ -266,7 +278,7 @@ export async function GET(request: NextRequest) {
       
       if (userError || !user) {
         console.warn('No active session found, redirecting to login');
-        const redirectUrl = new URL(`${url.origin}/login`);
+        const redirectUrl = new URL(`${redirectOrigin}/login`);
         redirectUrl.searchParams.set('error', 'No authorization code received and no active session');
         return NextResponse.redirect(redirectUrl);
       }
@@ -342,15 +354,15 @@ export async function GET(request: NextRequest) {
       // Redirect to onboarding if not completed, otherwise to homepage or next URL
       let redirectUrl;
       if (!profileData?.onboarding_complete) {
-        redirectUrl = new URL(`${url.origin}/onboarding?oauth=google`);
+        redirectUrl = new URL(`${redirectOrigin}/onboarding?oauth=google`);
       } else {
-        redirectUrl = new URL(`${url.origin}/homepage`);
+        redirectUrl = new URL(`${redirectOrigin}/homepage`);
       }
       
       return NextResponse.redirect(redirectUrl);
     } catch (err) {
       console.error('Error handling callback without code:', err);
-      const errorRedirect = new URL(`${url.origin}/login`);
+      const errorRedirect = new URL(`${redirectOrigin}/login`);
       errorRedirect.searchParams.set('error', 'Error processing authentication callback');
       return NextResponse.redirect(errorRedirect);
     }
