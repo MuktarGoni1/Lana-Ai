@@ -1,0 +1,448 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import Link from "next/link";
+import { CreditCard, Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { processDirectPayment } from "@/services/paymentService";
+
+export default function CheckoutPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const { user, isLoading } = useUnifiedAuth();
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [billingInfo, setBillingInfo] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    address: "",
+    city: "",
+    country: "Nigeria", // Default to Nigeria as per contact info
+    postalCode: "",
+    cardNumber: "",
+    expiryDate: "",
+    cvv: ""
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+
+  const planName = searchParams.get("plan");
+  const interval = searchParams.get("interval");
+
+  // Mock pricing data - in real implementation this would come from your backend
+  const PLANS = {
+    monthly: [
+      { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
+      { name: "Family", price: 19, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
+      { name: "Family Plus", price: 29, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
+    ],
+    yearly: [
+      { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
+      { name: "Family", price: 17, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
+      { name: "Family Plus", price: 25, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
+    ],
+  };
+
+  useEffect(() => {
+    if (!planName || !interval) {
+      router.push("/landing-page");
+      return;
+    }
+
+    const plans = PLANS[interval as "monthly" | "yearly"];
+    const plan = plans.find(p => p.name === planName);
+    
+    if (plan) {
+      setSelectedPlan(plan);
+    } else {
+      router.push("/landing-page");
+    }
+  }, [planName, interval, router]);
+
+  useEffect(() => {
+    if (user && billingInfo.email === "") {
+      setBillingInfo(prev => ({
+        ...prev,
+        email: user.email || "",
+        firstName: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || "",
+        lastName: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || ""
+      }));
+    }
+  }, [user]);
+
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!billingInfo.firstName.trim()) newErrors.firstName = "First name is required";
+    if (!billingInfo.lastName.trim()) newErrors.lastName = "Last name is required";
+    if (!billingInfo.email.trim()) newErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(billingInfo.email)) newErrors.email = "Email is invalid";
+    if (!billingInfo.address.trim()) newErrors.address = "Address is required";
+    if (!billingInfo.city.trim()) newErrors.city = "City is required";
+    if (!billingInfo.postalCode.trim()) newErrors.postalCode = "Postal code is required";
+    if (!billingInfo.cardNumber.replace(/\s/g, '').match(/^[0-9]{16}$/)) newErrors.cardNumber = "Valid card number is required";
+    if (!billingInfo.expiryDate.match(/^(0[1-9]|1[0-2])\/?([0-9]{2})$/)) newErrors.expiryDate = "Valid expiry date (MM/YY) is required";
+    if (!billingInfo.cvv.match(/^[0-9]{3,4}$/)) newErrors.cvv = "Valid CVV is required";
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!validateForm()) return;
+
+    setIsProcessing(true);
+
+    try {
+      // Prepare payment data
+      const paymentData = {
+        planName: selectedPlan.name,
+        interval: interval as 'monthly' | 'yearly',
+        billingInfo
+      };
+      
+      // Process payment
+      const result = await processDirectPayment(paymentData);
+      
+      if (result.success) {
+        // Payment successful
+        setPaymentSuccess(true);
+        
+        // Redirect after delay
+        setTimeout(() => {
+          router.push("/dashboard");
+        }, 3000);
+      } else {
+        alert(result.error || "There was an error processing your payment. Please try again.");
+      }
+    } catch (error) {
+      console.error("Payment error:", error);
+      alert("There was an error processing your payment. Please try again.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  if (!selectedPlan) {
+    return <div>Loading...</div>;
+  }
+
+  if (paymentSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-8 h-8 text-green-500" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h2>
+          <p className="text-gray-600 mb-6">
+            Thank you for subscribing to the {selectedPlan.name} plan! Your payment has been processed successfully.
+          </p>
+          <p className="text-gray-500 text-sm">
+            Redirecting to your dashboard...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Please Sign In</h2>
+          <p className="text-gray-600 mb-6">
+            You need to be signed in to complete your purchase.
+          </p>
+          <Link 
+            href="/login" 
+            className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+          >
+            Sign In
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            Complete Your Subscription
+          </h1>
+          <p className="text-gray-600">
+            Securely process your payment for the {selectedPlan.name} plan
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Order Summary */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-3xl shadow-lg p-6 sticky top-8">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Order Summary</h2>
+              
+              <div className="border-b border-gray-100 pb-4 mb-4">
+                <div className="flex justify-between mb-2">
+                  <span className="font-medium">{selectedPlan.name} Plan</span>
+                  <span className="font-bold text-blue-600">
+                    ${selectedPlan.price}/{interval}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-500">
+                  {interval === 'yearly' ? 'Billed annually' : 'Billed monthly'}
+                </p>
+              </div>
+              
+              <div className="space-y-2 mb-6">
+                <div className="flex justify-between">
+                  <span>Subtotal</span>
+                  <span>${selectedPlan.price}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax</span>
+                  <span>$0.00</span>
+                </div>
+                <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                  <span>Total</span>
+                  <span>${selectedPlan.price}</span>
+                </div>
+              </div>
+              
+              <div className="flex items-center text-sm text-gray-500">
+                <Lock className="w-4 h-4 mr-2" />
+                Secure payment powered by Stripe
+              </div>
+            </div>
+          </div>
+
+          {/* Payment Form */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-3xl shadow-lg p-6 md:p-8">
+              <div className="flex items-center mb-6">
+                <button 
+                  onClick={() => router.back()}
+                  className="flex items-center text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Back to plans
+                </button>
+              </div>
+              
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Payment Information</h2>
+              
+              <form onSubmit={handleSubmit}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.firstName}
+                      onChange={(e) => setBillingInfo({...billingInfo, firstName: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="John"
+                    />
+                    {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.lastName}
+                      onChange={(e) => setBillingInfo({...billingInfo, lastName: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="Doe"
+                    />
+                    {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      value={billingInfo.email}
+                      onChange={(e) => setBillingInfo({...billingInfo, email: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="john@example.com"
+                    />
+                    {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Address *
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.address}
+                      onChange={(e) => setBillingInfo({...billingInfo, address: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.address ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="123 Main Street"
+                    />
+                    {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      City *
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.city}
+                      onChange={(e) => setBillingInfo({...billingInfo, city: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.city ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="Lagos"
+                    />
+                    {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Postal Code *
+                    </label>
+                    <input
+                      type="text"
+                      value={billingInfo.postalCode}
+                      onChange={(e) => setBillingInfo({...billingInfo, postalCode: e.target.value})}
+                      className={`w-full px-4 py-3 rounded-xl border ${errors.postalCode ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                      placeholder="100001"
+                    />
+                    {errors.postalCode && <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>}
+                  </div>
+                  
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Country
+                    </label>
+                    <select
+                      value={billingInfo.country}
+                      onChange={(e) => setBillingInfo({...billingInfo, country: e.target.value})}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="Nigeria">Nigeria</option>
+                      <option value="United States">United States</option>
+                      <option value="Canada">Canada</option>
+                      <option value="United Kingdom">United Kingdom</option>
+                      <option value="Australia">Australia</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div className="border-t border-gray-200 pt-6">
+                  <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
+                    <CreditCard className="w-5 h-5 mr-2 text-blue-600" />
+                    Payment Method
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Card Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={billingInfo.cardNumber}
+                        onChange={(e) => setBillingInfo({...billingInfo, cardNumber: e.target.value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim()})}
+                        className={`w-full px-4 py-3 rounded-xl border ${errors.cardNumber ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono`}
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                      />
+                      {errors.cardNumber && <p className="text-red-500 text-sm mt-1">{errors.cardNumber}</p>}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Expiry Date *
+                      </label>
+                      <input
+                        type="text"
+                        value={billingInfo.expiryDate}
+                        onChange={(e) => {
+                          let val = e.target.value.replace(/\D/g, '');
+                          if (val.length >= 2) {
+                            val = val.substring(0, 2) + '/' + val.substring(2, 4);
+                          }
+                          setBillingInfo({...billingInfo, expiryDate: val});
+                        }}
+                        className={`w-full px-4 py-3 rounded-xl border ${errors.expiryDate ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                        placeholder="MM/YY"
+                        maxLength={5}
+                      />
+                      {errors.expiryDate && <p className="text-red-500 text-sm mt-1">{errors.expiryDate}</p>}
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        CVV *
+                      </label>
+                      <input
+                        type="text"
+                        value={billingInfo.cvv}
+                        onChange={(e) => setBillingInfo({...billingInfo, cvv: e.target.value.replace(/\D/g, '')})}
+                        className={`w-full px-4 py-3 rounded-xl border ${errors.cvv ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                        placeholder="123"
+                        maxLength={4}
+                      />
+                      {errors.cvv && <p className="text-red-500 text-sm mt-1">{errors.cvv}</p>}
+                    </div>
+                    
+                    <div className="flex items-end">
+                      <div className="bg-gray-100 rounded-lg p-3 text-sm text-gray-600">
+                        <div className="flex space-x-2">
+                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
+                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
+                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-8 pt-6 border-t border-gray-200">
+                  <button
+                    type="submit"
+                    disabled={isProcessing}
+                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-4 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    {isProcessing ? (
+                      <span className="flex items-center justify-center">
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing Payment...
+                      </span>
+                    ) : (
+                      `Pay $${selectedPlan.price} ${interval === 'yearly' ? 'annually' : 'monthly'}`
+                    )}
+                  </button>
+                  
+                  <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
+                    <Lock className="w-4 h-4 mr-1" />
+                    Your payment is secured with 256-bit SSL encryption
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

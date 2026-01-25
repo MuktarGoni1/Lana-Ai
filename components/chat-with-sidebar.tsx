@@ -253,15 +253,32 @@ function ChatWithSidebarContent() {
     setView("video-learning")
   }
 
-  const handleNavigateToVideoLearning = (title: string, fromMode?: string) => {
+  // Centralized navigation handlers for consistency
+  const handleNavigateToVideoLearning = useCallback((title: string, fromMode?: string) => {
     setQuestion(title);
     setView("video-learning");
-  }
+  }, []);
 
-  const handleNavigateToChat = () => {
+  const handleNavigateToChat = useCallback(() => {
     setView("chat");
     debouncedFetchHistory();
-  }
+  }, [debouncedFetchHistory]);
+
+  const handleNavigateToHomepage = useCallback(() => {
+    router.push('/homepage');
+  }, [router]);
+
+  const handleNavigateToLogin = useCallback(() => {
+    router.push('/login');
+  }, [router]);
+
+  const handleNavigateToSettings = useCallback(() => {
+    router.push('/settings');
+  }, [router]);
+
+  const handleNavigateToFeedback = useCallback(() => {
+    router.push('/feedback');
+  }, [router]);
 
   const handleBack = () => {
     setView("chat")
@@ -348,7 +365,7 @@ function ChatWithSidebarContent() {
                             Login to save history and unlock full features
                           </p>
                           <SidebarMenuButton
-                            onClick={() => router.push("/login")}
+                            onClick={handleNavigateToLogin}
                             className="w-full justify-center bg-white/10 hover:bg-white/20 text-white border border-white/20"
                           >
                             <LogIn className="w-4 h-4" />
@@ -417,7 +434,7 @@ function ChatWithSidebarContent() {
               {/* Feedback */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={() => router.push("/feedback")}
+                  onClick={handleNavigateToFeedback}
                   className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
                 >
                   <MessageSquare className="size-4" />
@@ -428,7 +445,7 @@ function ChatWithSidebarContent() {
               {/* Settings */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => router.push("/settings")}
+                  onClick={handleNavigateToSettings}
                   className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
                 >
                   <Settings className="size-4" />
@@ -440,7 +457,7 @@ function ChatWithSidebarContent() {
               {role === "guardian" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => router.push("/homepage")}
+                    onClick={handleNavigateToHomepage}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <Mail className="w-4 h-4" />
@@ -464,7 +481,7 @@ function ChatWithSidebarContent() {
                   </SidebarMenuButton>
                 ) : (
                   <SidebarMenuButton
-                    onClick={() => router.push("/login")}
+                    onClick={handleNavigateToLogin}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <LogIn className="w-4 h-4" />

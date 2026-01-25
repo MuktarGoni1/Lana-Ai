@@ -5,6 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
+import { createCheckoutSession } from "@/services/paymentService"
 import {
 CheckCircle2,
 ArrowRight,
@@ -64,8 +65,8 @@ monthly: [
 ],
 yearly: [
 { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-{ name: "Family", price: 15, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-{ name: "Family Plus", price: 23, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
+{ name: "Family", price: 17, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
+{ name: "Family Plus", price: 25, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
 ],
 } as const
 
@@ -107,9 +108,7 @@ function Header() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-8 w-8 text-yellow-300" />
-            <span className="text-xl xs:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-white">LanaMind</span>
-            <Sparkles className="h-8 w-8 text-yellow-300" />
+            <span className="text-xl xs:text-2xl font-bold text-black">LanaMind</span>
           </div>
 
           {/* desktop */}
@@ -285,17 +284,17 @@ function HeroSection() {
               <Star className="h-6 w-6 text-yellow-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
             </div>
             <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
-              {user ? `Welcome back, ${user.email?.split('@')[0] || user.user_metadata?.full_name || 'learner'}!` : "Your superhuman afterclass tutor!"}
+              {user ? `Welcome back, ${user.email?.split('@')[0] || user.user_metadata?.full_name || 'learner'}!` : "Your AI-powered afterclass tutor!"}
             </h1>
             <p className="text-sm xs:text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
               {user 
-                ? "Continue your amazing learning adventure with personalized tutoring that adapts just for YOU!"
-                : "Learn with our friendly AI tutor that explains everything in a way that's perfect for you and your children!"
+                ? "Continue your personalized learning journey with adaptive AI tutoring."
+                : "Learn with our AI tutor that provides clear, age-appropriate explanations for every concept."
               }
             </p>
             {!user && (
               <p className="text-xs xs:text-sm sm:text-base text-gray-600 leading-relaxed italic bg-blue-50 p-4 rounded-2xl">
-                <Heart className="h-5 w-5 text-red-400 inline mr-1" /> Revolutionizing learning with clear explanations using AI technology! Lana helps break down school topics into easy, understandable lessons just for kids!
+                <Heart className="h-5 w-5 text-red-400 inline mr-1" /> Transforming education through AI-powered clarity. Lana breaks down complex school topics into clear, digestible lessons tailored for young learners.
               </p>
             )}
             <div className="flex flex-col xs:flex-row gap-3 w-full">
@@ -314,25 +313,25 @@ function HeroSection() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-14 flex-1"
                   >
                     <Star className="h-5 w-5" />
-                    Start Free Trial
+                    Start Learning
                   </Link>
                   <Link 
                     href="/login" 
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-14 flex-1"
                   >
                     <Sparkles className="h-5 w-5" />
-                    Login
+                    Sign In
                   </Link>
                 </>
               )}
             </div>
             {!user && (
               <p className="text-sm xs:text-base text-gray-600 leading-relaxed">
-                Already have an account? <Link href="/login" className="text-blue-600 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning adventure!
+                Already have an account? <Link href="/login" className="text-blue-600 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
               </p>
             )}
             <div className="pt-4 space-y-3">
-              <h3 className="font-bold text-lg text-blue-700 flex items-center gap-2"><Sparkles className="h-5 w-5 text-yellow-500" /> Amazing Features:</h3>
+              <h3 className="font-bold text-lg text-blue-700 flex items-center gap-2"><Sparkles className="h-5 w-5 text-yellow-500" /> Key Features:</h3>
               <ul className="space-y-3">
                 {FEATURES.map((f, index) => (
                   <li key={f} className="flex items-start gap-3 text-sm xs:text-base text-gray-700 p-3 bg-white/70 rounded-xl shadow-sm">
@@ -380,11 +379,11 @@ function HeroSection() {
 /* ---------- FEATURES ---------- */
 function FeaturesSection() {
   const features = [
-    { title: "Learn with term plans", desc: "Plan your learning journey step by step with fun, organized lessons.", icon: Calendar },
-    { title: "Super lessons", desc: "Easy-to-follow learning paths that make tough topics simple and fun!", icon: BookOpen },
-    { title: "Math helper", desc: "Get help with math problems with friendly explanations and cool visuals.", icon: Calculator },
-    { title: "Quick answers", desc: "Got a question? Get instant answers that make sense right away!", icon: Zap },
-    { title: "And more!", desc: "Fun learning tools designed just for kids like you!", icon: Sparkles },
+    { title: "Structured learning paths", desc: "Organized lesson sequences that build knowledge progressively.", icon: Calendar },
+    { title: "Clear explanations", desc: "Step-by-step guidance that makes complex topics accessible.", icon: BookOpen },
+    { title: "Math assistance", desc: "Interactive support for mathematical concepts with visual aids.", icon: Calculator },
+    { title: "Instant clarification", desc: "Immediate answers to questions with detailed explanations.", icon: Zap },
+    { title: "Additional tools", desc: "Supplementary learning resources for enhanced understanding.", icon: Sparkles },
   ]
   return (
     <section id="features" className="py-12 xs:py-16 sm:py-20 md:py-24 lg:py-32 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
@@ -394,6 +393,12 @@ function FeaturesSection() {
           <Link 
             href="/diagnostic-quiz"
             className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-5 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 mb-6 xs:mb-7 sm:mb-8 max-w-2xl mx-auto w-full min-h-16"
+            onClick={(e) => {
+              if (typeof window !== 'undefined') {
+                e.preventDefault();
+                window.location.href = "/diagnostic-quiz";
+              }
+            }}
           >
             <Trophy className="h-6 w-6" />
             Take a fun quiz to see how smart you are! See your progress in 30 days!
@@ -404,11 +409,11 @@ function FeaturesSection() {
         {/* Core Features Heading and Content */}
         <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
           <div className="inline-block rounded-full bg-gradient-to-r from-blue-400 to-purple-500 px-6 py-2 mb-4">
-            <span className="text-white font-bold text-lg">Amazing Features</span>
+            <span className="text-white font-bold text-lg">Core Features</span>
           </div>
-          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Everything You Need to Be a Super Learner!</h2>
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Everything You Need for Effective Learning</h2>
           <p className="text-gray-600 mt-3 xs:mt-4 max-w-2xl mx-auto text-sm xs:text-base md:text-lg leading-relaxed">
-            Lana AI combines super cool technology with fun learning methods to create an experience that's effective for you and your child!
+            Lana AI combines advanced AI technology with proven educational methods to create clear, effective learning experiences for children.
           </p>
         </div>
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-6 xs:gap-6 sm:gap-8 md:gap-8 lg:gap-8">
@@ -441,11 +446,11 @@ function StructuredLessonsSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
           <div className="inline-block rounded-full bg-gradient-to-r from-green-400 to-blue-500 px-6 py-2 mb-4">
-            <span className="text-white font-bold text-lg">Structured Learning!</span>
+            <span className="text-white font-bold text-lg">Structured Learning</span>
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Fun Lessons That Help You Learn Better!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Organized Lessons for Better Understanding</h2>
           <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Our clear lesson path helps break big topics into small, easy pieces that make learning super enjoyable!
+            Our systematic approach breaks complex topics into manageable segments for clearer comprehension.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -453,22 +458,22 @@ function StructuredLessonsSection() {
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
               <BookOpen className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Easy Steps</h3>
-            <p className="text-gray-700 leading-relaxed">Lessons go step-by-step so you understand everything easily!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Progressive Learning</h3>
+            <p className="text-gray-700 leading-relaxed">Structured progression ensures solid understanding at each stage.</p>
           </div>
           <div className="text-center p-6 rounded-3xl border-2 bg-gradient-to-br from-pink-50 to-purple-50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 border-pink-200">
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center mx-auto mb-4">
               <GraduationCap className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Level Up</h3>
-            <p className="text-gray-700 leading-relaxed">Each lesson builds on what you already know - like leveling up in a game!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Building Foundations</h3>
+            <p className="text-gray-700 leading-relaxed">Each concept reinforces prior knowledge for stronger retention.</p>
           </div>
           <div className="text-center p-6 rounded-3xl border-2 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 border-blue-200">
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 flex items-center justify-center mx-auto mb-4">
               <Lightbulb className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Fun Activities</h3>
-            <p className="text-gray-700 leading-relaxed">Quizzes to make learning super engaging at every step!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Interactive Reinforcement</h3>
+            <p className="text-gray-700 leading-relaxed">Engaging exercises that strengthen learning at every stage.</p>
           </div>
         </div>
       </div>
@@ -481,6 +486,54 @@ function PricingSection() {
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly")
   const plans = PLANS[interval]
   const periodLabel = interval === "yearly" ? "/mo (billed yearly)" : "/mo"
+  
+  const handlePlanSelection = async (planName: string) => {
+    // Redirect to registration/login if not authenticated
+    if (!user) {
+      window.location.href = "/register";
+      return;
+    }
+    
+    // Prepare payment data
+    const selectedPlan = plans.find(p => p.name === planName);
+    if (!selectedPlan) return;
+    
+    try {
+      // Create checkout session using payment service
+      const paymentData = {
+        planName,
+        interval,
+        billingInfo: {
+          firstName: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '',
+          lastName: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || '',
+          email: user.email || '',
+          address: '',
+          city: '',
+          country: 'Nigeria',
+          postalCode: '',
+          cardNumber: '',
+          expiryDate: '',
+          cvv: ''
+        }
+      };
+      
+      const session = await createCheckoutSession(paymentData);
+      
+      // Redirect to checkout session URL
+      if (session.url) {
+        window.location.href = session.url;
+      } else {
+        // Fallback to checkout page
+        window.location.href = `/checkout?plan=${planName}&interval=${interval}`;
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      alert('There was an error processing your payment. Please try again.');
+    }
+  };
+  
+  const { user } = useUnifiedAuth()
+  
   return (
     <section id="pricing" className={`${getChildFriendlyClasses.section}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -488,8 +541,8 @@ function PricingSection() {
           <div className="flex justify-center mb-4">
             <Sparkles className="h-12 w-12 text-yellow-400 animate-spin" style={{ animationDuration: '3s' }} />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 bg-clip-text text-transparent leading-tight">Fun Learning Plans!</h2>
-          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">Pick the perfect adventure for your learning journey!</p>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 bg-clip-text text-transparent leading-tight">Clear Learning Plans</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">Choose the right plan for your educational goals.</p>
 
           <div className="mt-6 inline-flex rounded-full bg-gradient-to-r from-blue-100 to-purple-100 p-1" role="tablist" aria-label="Billing frequency">
             <button
@@ -523,7 +576,7 @@ function PricingSection() {
             >
               {"popular" in p && p.popular && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs px-4 py-1 rounded-full font-bold shadow-lg">
-                  🌟 Kids' Favorite!
+                  🌟 Most Popular
                 </div>
               )}
               <div className="space-y-3 mb-5">
@@ -548,11 +601,15 @@ function PricingSection() {
                 ))}
               </ul>
               <Link
-                href="/register"
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handlePlanSelection(p.name);
+                }}
                 className={`${getChildFriendlyClasses.buttonSmall} w-full justify-center`}
                 aria-label={`Get started with ${p.name} plan`}
               >
-                Start Learning!
+                Get Started
               </Link>
             </div>
           ))}
@@ -575,14 +632,14 @@ function CtaSection() {
         </div>
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
           {user 
-            ? "Keep Learning, Super Star!" 
-            : "Start Your Amazing Learning Adventure Today!"
+            ? "Continue Your Learning Journey" 
+            : "Start Your Clear Learning Path Today"
           }
         </h2>
         <p className="text-blue-100 mt-4 max-w-2xl mx-auto text-lg leading-relaxed mb-8 font-medium">
           {user
-            ? "You're doing great! Keep making progress with your personal AI tutor."
-            : "Join thousands of kids who love learning with Lana AI. Start your free trial and become a learning superhero!"
+            ? "Keep progressing with your personalized AI tutor."
+            : "Join students who are achieving better understanding through AI-powered learning. Begin your educational journey with clear explanations."
           }
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -600,17 +657,29 @@ function CtaSection() {
               <Link 
                 href="/register" 
                 className={`${getChildFriendlyClasses.button} inline-flex items-center justify-center gap-2 min-w-64`}
+                onClick={(e) => {
+                  if (typeof window !== 'undefined') {
+                    e.preventDefault();
+                    window.location.href = "/register";
+                  }
+                }}
               >
                 <Star className="h-5 w-5" />
-                Start Free Trial
+                Begin Learning
                 <Sparkles className="h-5 w-5" />
               </Link>
               <Link 
                 href="/login" 
                 className={`${getChildFriendlyClasses.buttonSecondary} inline-flex items-center justify-center gap-2 min-w-64`}
+                onClick={(e) => {
+                  if (typeof window !== 'undefined') {
+                    e.preventDefault();
+                    window.location.href = "/login";
+                  }
+                }}
               >
                 <BookOpen className="h-5 w-5" />
-                Login
+                Sign In
               </Link>
             </>
           )}
@@ -645,22 +714,22 @@ function LanaSection() {
               <Bot className="h-5 w-5 text-white" />
               <span className="text-white font-bold">AI Learning Friend</span>
             </div>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6 leading-tight">Meet Lana, Your Super Cool AI Tutor!</h2>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6 leading-tight">Meet Lana, Your AI Learning Assistant</h2>
             <p className="text-gray-700 text-base md:text-lg mb-6 max-w-2xl leading-relaxed font-medium">
-              Lana is your awesome AI learning buddy who explains tricky stuff in super fun ways! She's super patient, always ready to help, and makes learning feel like playtime.
+              Lana is your dedicated AI tutor that transforms complex concepts into clear, understandable explanations. Patient and always available, she provides personalized guidance for effective learning.
             </p>
             <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
               <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
                 <Star className="h-5 w-5 text-yellow-500" />
-                <span className="text-gray-700 font-medium">Patient & Friendly</span>
+                <span className="text-gray-700 font-medium">Patient Guidance</span>
               </div>
               <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
                 <Lightbulb className="h-5 w-5 text-blue-500" />
-                <span className="text-gray-700 font-medium">Super Smart</span>
+                <span className="text-gray-700 font-medium">Intelligent Support</span>
               </div>
               <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
                 <Heart className="h-5 w-5 text-red-500" />
-                <span className="text-gray-700 font-medium">Always Helpful</span>
+                <span className="text-gray-700 font-medium">Reliable Assistance</span>
               </div>
             </div>
           </div>
@@ -679,9 +748,9 @@ function EducationalApproachSection() {
           <div className="flex justify-center mb-4">
             <BookOpen className="h-12 w-12 text-blue-500" />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">How We Help Kids Learn Better!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">How We Enhance Children's Learning</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            Our clear learning methods are designed to make education clear and effective!
+            Our AI-powered approach delivers clear explanations and structured learning for better educational outcomes.
           </p>
         </div>
         <div className="flex flex-col lg:flex-row items-center gap-8 max-w-6xl mx-auto">
@@ -692,8 +761,8 @@ function EducationalApproachSection() {
                   <Bot className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Smart AI Learning</h3>
-                  <p className="text-gray-700 leading-relaxed font-medium">Our AI friend learns how you like to learn and makes everything super easy to understand!</p>
+                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Adaptive AI Learning</h3>
+                  <p className="text-gray-700 leading-relaxed font-medium">Our AI system adapts to individual learning styles and simplifies complex concepts for better comprehension.</p>
                 </div>
               </div>
             </div>
@@ -703,8 +772,8 @@ function EducationalApproachSection() {
                   <BarChart3 className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">See Your Progress</h3>
-                  <p className="text-gray-700 leading-relaxed font-medium">Watch yourself get smarter with cool charts that show how awesome you're doing!</p>
+                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Track Your Growth</h3>
+                  <p className="text-gray-700 leading-relaxed font-medium">Monitor learning progress through detailed analytics and measurable improvement indicators.</p>
                 </div>
               </div>
             </div>
@@ -737,9 +806,9 @@ function TermPlansSection() {
           <div className="flex justify-center mb-4">
             <Calendar className="h-12 w-12 text-green-500" />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent leading-tight">Awesome Learning Adventures!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent leading-tight">Comprehensive Learning Programs</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            Our fun learning plans help you master subjects step by step - like going on exciting quests!
+            Our structured programs help students master subjects through progressive, step-by-step learning approaches.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -747,22 +816,22 @@ function TermPlansSection() {
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center mx-auto mb-4">
               <Calendar className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Big Learning Journeys</h3>
-            <p className="text-gray-700 leading-relaxed font-medium">Complete learning adventures that take weeks to finish - like epic quests!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Extended Learning Paths</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Comprehensive programs designed for sustained learning over extended periods.</p>
           </div>
           <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-2`}>
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
               <Trophy className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Achievement Points</h3>
-            <p className="text-gray-700 leading-relaxed font-medium">Earn badges and rewards as you complete learning milestones - like a real game!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Progress Recognition</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Celebrate learning achievements through milestone tracking and recognition systems.</p>
           </div>
           <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-2`}>
             <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-400 to-pink-500 flex items-center justify-center mx-auto mb-4">
               <Zap className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Level Up System</h3>
-            <p className="text-gray-700 leading-relaxed font-medium">Change your learning path anytime - just like upgrading your character!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Flexible Progression</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Adjust learning pathways dynamically based on individual progress and needs.</p>
           </div>
         </div>
       </div>
@@ -779,9 +848,9 @@ function MathTutorSection() {
           <div className="flex justify-center mb-4">
             <Calculator className="h-12 w-12 text-purple-500" />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Super Math Helper!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Math Learning Support</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            Stuck on math? Our friendly tutor shows you step-by-step how to solve any problem!
+            Struggling with math? Our AI tutor provides detailed, step-by-step guidance for problem-solving.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
@@ -791,8 +860,8 @@ function MathTutorSection() {
                 <Calculator className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Step-by-Step Magic</h3>
-                <p className="text-gray-700 leading-relaxed font-medium">Learn how to solve problems with easy explanations for every single step!</p>
+                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Detailed Problem Solving</h3>
+                <p className="text-gray-700 leading-relaxed font-medium">Master mathematical concepts through comprehensive explanations of each solution step.</p>
               </div>
             </div>
           </div>
@@ -802,8 +871,8 @@ function MathTutorSection() {
                 <Zap className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Cool Math Pictures</h3>
-                <p className="text-gray-700 leading-relaxed font-medium">See fun diagrams and pictures that make tricky math ideas crystal clear!</p>
+                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Visual Mathematics</h3>
+                <p className="text-gray-700 leading-relaxed font-medium">Understand complex mathematical concepts through clear diagrams and visual representations.</p>
               </div>
             </div>
           </div>
@@ -822,16 +891,16 @@ function QuickExplainerSection() {
           <div className="flex justify-center mb-4">
             <Lightbulb className="h-12 w-12 text-yellow-500 animate-pulse" />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent leading-tight">Lightbulb Moments!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent leading-tight">Moments of Clarity</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            Get instant "aha!" moments when tough concepts suddenly make perfect sense!
+            Experience breakthrough understanding when complex concepts become instantly clear through AI-powered explanations.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-2`}>
             <Lightbulb className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
-            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Easy Peasy Explanations</h3>
-            <p className="text-gray-700 leading-relaxed font-medium">Hard stuff made super simple with fun examples you'll totally get!</p>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Simplified Explanations</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Complex topics broken down into clear, accessible explanations with practical examples.</p>
           </div>
           <div className="col-span-2 flex justify-center items-center p-0 rounded-xl bg-transparent shadow-none border-0 transition-all duration-300 text-foreground">
             <div className="w-full max-w-lg p-0 relative">
@@ -938,9 +1007,9 @@ function MoreFeaturesSection() {
           <div className="flex justify-center mb-4">
             <Sparkles className="h-12 w-12 text-purple-500" />
           </div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Even More Awesome Stuff!</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Additional Learning Features</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            We've packed tons of cool features to make your learning super clear and effective!
+            Comprehensive tools designed to enhance clarity and effectiveness in learning outcomes.
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -949,28 +1018,28 @@ function MoreFeaturesSection() {
               <GraduationCap className="h-8 w-8 text-white" />
             </div>
             <h3 className="font-bold text-blue-700 leading-tight">Progress Reports</h3>
-            <p className="text-gray-700 text-sm mt-2 font-medium">See how awesome you're doing!</p>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Monitor your learning advancement and achievements.</p>
           </div>
           <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-1`}>
             <div className="bg-gradient-to-r from-green-400 to-blue-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <BarChart3 className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-bold text-blue-700 leading-tight">Cool Charts</h3>
-            <p className="text-gray-700 text-sm mt-2 font-medium">Fun graphs showing your growth!</p>
+            <h3 className="font-bold text-blue-700 leading-tight">Performance Analytics</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Visual data representing your learning progress.</p>
           </div>
           <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-1`}>
             <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <Bot className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-bold text-blue-700 leading-tight">AI Buddy</h3>
-            <p className="text-gray-700 text-sm mt-2 font-medium">Your smart learning friend!</p>
+            <h3 className="font-bold text-blue-700 leading-tight">AI Assistant</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Your intelligent educational support system.</p>
           </div>
           <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-1`}>
             <div className="bg-gradient-to-r from-purple-400 to-pink-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
               <MoreHorizontal className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-bold text-blue-700 leading-tight">More Fun!</h3>
-            <p className="text-gray-700 text-sm mt-2 font-medium">Even more cool surprises!</p>
+            <h3 className="font-bold text-blue-700 leading-tight">Enhanced Features</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Additional tools for comprehensive learning support.</p>
           </div>
         </div>
       </div>
@@ -986,9 +1055,9 @@ function ContactSection() {
         <div className="flex justify-center mb-4">
           <MessageCircle className="h-12 w-12 text-blue-500" />
         </div>
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">Talk to Our Team!</h2>
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">Contact Our Team</h2>
         <p className="text-gray-700 mt-4 max-w-2xl mx-auto font-medium leading-relaxed">
-          Have questions? Want to learn more? We'd love to hear from you!
+          Have questions about our learning platform? We're here to help you get started.
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <a 
@@ -1005,7 +1074,7 @@ function ContactSection() {
             className={`${getChildFriendlyClasses.buttonSecondary} inline-flex items-center justify-center gap-2 min-w-44`}
           >
             <Calendar className="h-5 w-5" />
-            Book a Chat
+            Schedule Consultation
           </a>
         </div>
       </div>
@@ -1028,7 +1097,7 @@ function Footer() {
           <div className="lg:col-span-2">
             <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Lana AI</Link>
             <p className="text-gray-700 text-sm mt-3 max-w-md leading-relaxed font-medium">
-              Making learning super clear and effective for kids everywhere!
+              Delivering clear, AI-powered learning experiences for children worldwide.
             </p>
             <div className="flex gap-3 sm:gap-4 mt-5">
               <Link 
@@ -1095,7 +1164,7 @@ function Footer() {
           ))}
         </div>
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-gray-600 font-medium">
-          © {new Date().getFullYear()} Lana AI. All rights reserved. Made with ❤️ for kids everywhere!
+          © {new Date().getFullYear()} Lana AI. All rights reserved. Committed to clear learning for all children.
         </div>
       </div>
     </footer>

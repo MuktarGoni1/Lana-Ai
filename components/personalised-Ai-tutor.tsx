@@ -29,6 +29,46 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
   const [supportsBackdrop, setSupportsBackdrop] = useState<boolean>(false);
   const [conversationHistory, setConversationHistory] = useState<Array<{role: 'user' | 'ai', content: string}>>([]);
 
+  // Navigation tracking for analytics
+  const trackNavigation = useCallback((action: string, destination: string) => {
+    // In a real implementation, this would send to your analytics service
+    console.log(`Navigation: ${action} -> ${destination}`);
+    
+    // Example: Send to Google Analytics or custom analytics service
+    // if (typeof window !== 'undefined' && (window as any).gtag) {
+    //   (window as any).gtag('event', 'navigation', {
+    //     action,
+    //     destination,
+    //     timestamp: new Date().toISOString()
+    //   });
+    // }
+  }, []);
+
+  // Enhanced navigation functions with tracking
+  const navigateToHomepage = useCallback(() => {
+    trackNavigation('navigate_to_homepage', '/homepage');
+    if (onBack) {
+      onBack();
+    } else {
+      router.push('/homepage');
+    }
+  }, [onBack, router, trackNavigation]);
+
+  const navigateToUpgrade = useCallback(() => {
+    trackNavigation('navigate_to_upgrade', '/upgrade');
+    router.push('/upgrade');
+  }, [router, trackNavigation]);
+
+  const navigateToPricing = useCallback(() => {
+    trackNavigation('navigate_to_pricing', '/pricing');
+    router.push('/pricing');
+  }, [router, trackNavigation]);
+
+  const navigateToLogin = useCallback(() => {
+    trackNavigation('navigate_to_login', '/login');
+    router.push('/login');
+  }, [router, trackNavigation]);
+
   // Live streaming state
   const [streamId, setStreamId] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -49,7 +89,25 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
     }
   }, []);
 
-  // Stabilize viewport height across devices (fix 100vh issues on mobile)
+  // Keyboard navigation support
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Escape key to go back/home
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        navigateToHomepage();
+      }
+      
+      // Ctrl/Cmd + Home to go to homepage
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Home') {
+        e.preventDefault();
+        navigateToHomepage();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [navigateToHomepage]);
   useEffect(() => {
     const setVh = () => {
       const height = (window.visualViewport?.height ?? window.innerHeight);
@@ -105,19 +163,6 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
       router.push('/homepage');
     }
   }, [checkingPro, isPro, showGatingOverlay, router]);
-
-  // Navigation functions
-  const navigateToHomepage = useCallback(() => {
-    if (onBack) {
-      onBack();
-    } else {
-      router.push('/homepage');
-    }
-  }, [onBack, router]);
-
-  const navigateToUpgrade = useCallback(() => {
-    router.push('/upgrade');
-  }, [router]);
 
   // Initialize D-ID WebRTC stream
   async function initAvatarStream() {
@@ -315,20 +360,24 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
     }
   }
 
-  function handleGoHome() {
-    // Navigate to homepage
-    router.push('/homepage');
-  }
-
-  function handleGoToChat() {
-    // Navigate to chat with sidebar
-    router.push('/homepage');
-  }
-
-  function handleGoToDashboard() {
-    // Navigate to user dashboard
-    router.push('/homepage');
-  }
+  // Consolidated navigation handler - replaces multiple similar functions
+  const handleNavigation = useCallback((destination: 'homepage' | 'chat' | 'dashboard' | 'login') => {
+    switch (destination) {
+      case 'homepage':
+      case 'dashboard':
+        navigateToHomepage();
+        break;
+      case 'chat':
+        // Navigate to main chat interface
+        router.push('/');
+        break;
+      case 'login':
+        navigateToLogin();
+        break;
+      default:
+        navigateToHomepage();
+    }
+  }, [navigateToHomepage, navigateToLogin, router]);
 
   function handleClearConversation() {
     setConversationHistory([]);
@@ -359,7 +408,7 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-gray-300/[0.03] rounded-full mix-blend-normal filter blur-[128px] animate-pulse delay-700" />
       </div>
       
-      {/* Header */}
+      {/* Header with Breadcrumbs */}
       <header className="relative z-10 flex items-center justify-between p-4 sm:p-6 border-b border-white/10 bg-black/20 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center gap-3 sm:gap-4">
           <Button
@@ -373,7 +422,16 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
             <span className="sm:hidden">Back</span>
           </Button>
           <div className="h-6 w-px bg-white/20" />
-          <span className="font-bold text-lg sm:text-xl bg-gradient-to-r from-white to-white/70 bg-clip-text text-transparent whitespace-nowrap">LANA AI</span>
+          <nav className="flex items-center gap-2 text-sm">
+            <button 
+              onClick={navigateToHomepage}
+              className="text-white/50 hover:text-white/80 transition-colors"
+            >
+              Home
+            </button>
+            <span className="text-white/30">/</span>
+            <span className="text-white font-medium">Personalised AI Tutor</span>
+          </nav>
         </div>
         <div className="flex items-center gap-3 sm:gap-4">
           {checkingPro ? (
@@ -384,11 +442,11 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
             </div>
           ) : !isPro ? (
             <Button
-              onClick={navigateToUpgrade}
+              onClick={navigateToPricing}
               className="px-3 py-2 sm:px-4 sm:py-2 bg-gradient-to-r from-white to-gray-100 text-black font-semibold rounded-xl hover:from-gray-100 hover:to-white transition-all transform hover:scale-105 shadow-lg text-xs sm:text-sm"
             >
-              <span className="hidden sm:inline">Upgrade to Pro</span>
-              <span className="sm:hidden">Pro</span>
+              <span className="hidden sm:inline">View Plans</span>
+              <span className="sm:hidden">Plans</span>
             </Button>
           ) : (
             <div className="flex items-center gap-2 text-green-400 bg-green-500/10 px-2 py-1 sm:px-3 sm:py-1 rounded-full">
@@ -399,16 +457,18 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleGoHome}
+            onClick={() => handleNavigation('homepage')}
             className="text-white/60 hover:text-white hover:bg-white/10 transition-all"
+            title="Go to Homepage"
           >
             <Home className="w-4 h-4" />
           </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleGoToChat}
+            onClick={() => handleNavigation('chat')}
             className="text-white/60 hover:text-white hover:bg-white/10 transition-all hidden sm:flex"
+            title="Go to Chat"
           >
             <MessageSquare className="w-4 h-4" />
           </Button>
@@ -473,10 +533,10 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
             
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
-                onClick={navigateToUpgrade}
+                onClick={navigateToPricing}
                 className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-white to-gray-100 text-black font-bold rounded-xl sm:rounded-2xl hover:from-gray-100 hover:to-white transition-all transform hover:scale-105 shadow-xl text-sm sm:text-base"
               >
-                <span className="text-sm sm:text-base">Upgrade to Pro</span>
+                <span className="text-sm sm:text-base">View Plans & Pricing</span>
               </Button>
               <Button
                 variant="ghost"
