@@ -441,7 +441,7 @@ function StructuredLessonsSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
           <div className="inline-block rounded-full bg-gradient-to-r from-green-400 to-blue-500 px-6 py-2 mb-4">
-            <span className="text-white font-bold text-lg">Super Learning!</span>
+            <span className="text-white font-bold text-lg">Structured Learning!</span>
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Fun Lessons That Help You Learn Better!</h2>
           <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
@@ -468,7 +468,7 @@ function StructuredLessonsSection() {
               <Lightbulb className="h-8 w-8 text-white" />
             </div>
             <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Fun Activities</h3>
-            <p className="text-gray-700 leading-relaxed">Cool games and quizzes make learning super fun at every step!</p>
+            <p className="text-gray-700 leading-relaxed">Gamifications and quizzes to make learning super engaging at every step!</p>
           </div>
         </div>
       </div>

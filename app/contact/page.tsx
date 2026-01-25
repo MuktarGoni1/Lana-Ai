@@ -228,7 +228,7 @@ function ContactContent() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-foreground mb-0.5">Phone</h3>
-                  <p className="text-muted-foreground text-sm">+1 (555) 123-4567</p>
+                  <p className="text-muted-foreground text-sm">+2347034983424</p>
                 </div>
               </div>
               
@@ -237,11 +237,10 @@ function ContactContent() {
                   <MapPin className="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground mb-0.5">Office</h3>
+                  <h3 className="font-semibold text-foreground mb-0.5">Address</h3>
                   <p className="text-muted-foreground text-sm">
-                    123 Education Street<br />
-                    San Francisco, CA 94107<br />
-                    United States
+                    Don Ethebet<br />
+                    Yobe state, Nigeria.
                   </p>
                 </div>
               </div>
