@@ -7,23 +7,10 @@ import Link from "next/link";
 import { CreditCard, Lock, CheckCircle, ArrowLeft } from "lucide-react";
 import { processDirectPayment } from "@/services/paymentService";
 
-// This is a placeholder checkout page to avoid build errors
-// The actual checkout functionality would be implemented separately
-export default function CheckoutPage() {
+export default function CheckoutPageWrapper() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Checkout Page</h2>
-        <p className="text-gray-600 mb-6">
-          This is a placeholder for the checkout page.
-        </p>
-        <a 
-          href="/landing-page" 
-          className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-        >
-          Back to Home
-        </a>
-      </div>
+    <div>
+      <CheckoutPageContent />
     </div>
   );
 }

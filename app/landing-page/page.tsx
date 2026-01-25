@@ -164,7 +164,6 @@ function Header() {
                   href="/register" 
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-5 py-2.5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-12 min-w-32"
                 >
-                  <Star className="h-4 w-4" />
                   Get Started
                 </Link>
               </>
@@ -251,7 +250,6 @@ function Header() {
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-4 py-3 text-base shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 w-full min-h-12 mt-3"
                     onClick={() => setOpen(false)}
                   >
-                    <Star className="h-4 w-4" />
                     Get Started
                   </Link>
                 </>
