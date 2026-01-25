@@ -5,6 +5,7 @@ import React from "react"
 import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -247,9 +248,19 @@ function ChatWithSidebarContent() {
     }
   }
 
-  const handleSelect = (title: string) => {
+  const handleSelect = (title: string, fromMode?: string) => {
     setQuestion(title)
     setView("video-learning")
+  }
+
+  const handleNavigateToVideoLearning = (title: string, fromMode?: string) => {
+    setQuestion(title);
+    setView("video-learning");
+  }
+
+  const handleNavigateToChat = () => {
+    setView("chat");
+    debouncedFetchHistory();
   }
 
   const handleBack = () => {
@@ -260,10 +271,21 @@ function ChatWithSidebarContent() {
   /* 4️⃣ Routing */
   if (view === "video-learning") {
     return (
-      <PersonalisedAiTutor
-        question={question}
-        onBack={handleBack}
-      />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="standalone-video-learning-view"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+          className="w-full h-full"
+        >
+          <PersonalisedAiTutor
+            question={question}
+            onBack={handleNavigateToChat}
+          />
+        </motion.div>
+      </AnimatePresence>
     )
   }
 
@@ -463,28 +485,50 @@ function ChatWithSidebarContent() {
           </header>
           <div className="flex-1">
             {view === "chat" ? (
-              <Suspense fallback={
-                <div className="flex-1 flex items-center justify-center bg-black">
-                  <div className="text-white animate-pulse">Loading Chat...</div>
-                </div>
-              }>
-                <AnimatedAIChat
-                  onNavigateToVideoLearning={handleSelect}
-                  onSend={debouncedFetchHistory}
-                  user={user}
-                />
-              </Suspense>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="chat-view"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full"
+                >
+                  <Suspense fallback={
+                    <div className="flex-1 flex items-center justify-center bg-black">
+                      <div className="text-white animate-pulse">Loading Chat...</div>
+                    </div>
+                  }>
+                    <AnimatedAIChat
+                      onNavigateToVideoLearning={handleNavigateToVideoLearning}
+                      onSend={debouncedFetchHistory}
+                      user={user}
+                    />
+                  </Suspense>
+                </motion.div>
+              </AnimatePresence>
             ) : (
-              <Suspense fallback={
-                <div className="flex-1 flex items-center justify-center bg-black">
-                  <div className="text-white animate-pulse">Loading Video Learning...</div>
-                </div>
-              }>
-                <PersonalisedAiTutor
-                  question={question}
-                  onBack={() => setView("chat")}
-                />
-              </Suspense>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="video-learning-view"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full"
+                >
+                  <Suspense fallback={
+                    <div className="flex-1 flex items-center justify-center bg-black">
+                      <div className="text-white animate-pulse">Loading Video Learning...</div>
+                    </div>
+                  }>
+                    <PersonalisedAiTutor
+                      question={question}
+                      onBack={handleNavigateToChat}
+                    />
+                  </Suspense>
+                </motion.div>
+              </AnimatePresence>
             )}
           </div>
         </SidebarInset>

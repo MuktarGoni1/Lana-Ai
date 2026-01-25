@@ -1095,7 +1095,7 @@ interface AnimatedAIChatProps {
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Explaner",
+      label: "Explainer",
       description: "Comprehensive Ai explanations",
       action: () =>
         onNavigateToVideoLearning?.(
@@ -2257,31 +2257,33 @@ interface AnimatedAIChatProps {
             )}
           </motion.div>
 
-          {/* mode buttons */}
-          <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-            {modeSuggestions.map((mode, idx) => (
-              <motion.button
-                key={mode.label}
-                onClick={mode.action}
-                className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: idx * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="text-white/70 group-hover:text-white transition-colors">
-                  {mode.icon}
-                </div>
-                <div className="flex flex-col items-start">
-                  <span className="font-medium">{mode.label}</span>
-                  <span className="text-xs text-white/50 group-hover:text-white/80 transition-colors">
-                    {mode.description}
-                  </span>
-                </div>
-              </motion.button>
-            ))}
-          </div>
+          {/* mode buttons - only show when no lesson content and input not focused */}
+          {!lessonJson && !inputFocused && (
+            <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
+              {modeSuggestions.map((mode, idx) => (
+                <motion.button
+                  key={mode.label}
+                  onClick={mode.action}
+                  className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="text-white/70 group-hover:text-white transition-colors">
+                    {mode.icon}
+                  </div>
+                  <div className="flex flex-col items-start">
+                    <span className="font-medium">{mode.label}</span>
+                    <span className="text-xs text-white/50 group-hover:text-white/80 transition-colors">
+                      {mode.description}
+                    </span>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          )}
         </motion.div>
       </div>
 

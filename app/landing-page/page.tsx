@@ -25,9 +25,29 @@ Calendar,
 BookOpen,
 Calculator,
 MoreHorizontal,
+Star,
+Sparkles,
+Trophy,
+Heart,
+Mail,
+MessageCircle,
 } from "lucide-react"
 
 /* ---------- CONFIG ---------- */
+
+/* ---------- STYLING UTILS ---------- */
+const getChildFriendlyClasses = {
+  card: "rounded-3xl border-2 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1",
+  button: "rounded-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95",
+  buttonSecondary: "rounded-full bg-white text-blue-600 font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 border-2 border-blue-200",
+  buttonSmall: "rounded-full bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold py-3 px-6 shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-105 active:scale-95",
+  input: "rounded-2xl border-2 border-blue-200 bg-white p-4 text-lg shadow-inner focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent",
+  header: "bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-white",
+  section: "py-12 bg-gradient-to-b from-blue-50 via-purple-50 to-pink-50",
+  hero: "py-12 bg-gradient-to-br from-blue-100 via-purple-100 to-pink-100",
+};
+
+const getRandomBounce = () => Math.floor(Math.random() * 40) - 20;
 const FEATURES = [
 "Personalised and Adaptive lessons tailored to your age and learning pace",
 "Real-time progress reports for parents",
@@ -57,21 +77,21 @@ function ThemeToggle() {
   // Show placeholder to prevent layout shift before mount
   if (!mounted) {
     return (
-      <div className="inline-flex items-center justify-center rounded-md w-9 h-9" />
+      <div className="inline-flex items-center justify-center rounded-full w-12 h-12" />
     )
   }
 
   return (
     <button
       onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      className="inline-flex items-center justify-center rounded-xl w-10 h-10 xs:w-11 xs:h-11 hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl min-h-10 min-w-10 xs:min-h-11 xs:min-w-11"
+      className="inline-flex items-center justify-center rounded-full w-12 h-12 bg-gradient-to-r from-yellow-300 to-orange-400 hover:from-yellow-200 hover:to-orange-300 shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background transform hover:scale-110 min-h-12 min-w-12"
       aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
       aria-pressed={resolvedTheme === "dark"}
     >
       {resolvedTheme === "dark" ? (
-        <Moon className="h-5 w-5 xs:h-6 xs:w-6 text-blue-400 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <Moon className="h-6 w-6 text-blue-800" aria-hidden="true" />
       ) : (
-        <Sun className="h-5 w-5 xs:h-6 xs:w-6 text-yellow-500 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+        <Sun className="h-6 w-6 text-yellow-600" aria-hidden="true" />
       )}
     </button>
   )
@@ -83,10 +103,14 @@ function Header() {
   const { user } = useUnifiedAuth()
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-gradient-to-b from-gray-100/90 to-stone-200/90 backdrop-blur">
+    <header className="sticky top-0 z-50 w-full bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 text-white shadow-lg">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-14 xs:h-16 items-center justify-between">
-          <span className="text-lg xs:text-xl font-bold text-foreground">LanaMind</span>
+        <div className="flex h-16 items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-8 w-8 text-yellow-300" />
+            <span className="text-xl xs:text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-yellow-200 to-white">LanaMind</span>
+            <Sparkles className="h-8 w-8 text-yellow-300" />
+          </div>
 
           {/* desktop */}
           <nav className="hidden md:flex items-center gap-4 lg:gap-6">
@@ -97,26 +121,26 @@ function Header() {
                   l === 'Features' ? '/features' :
                   l === 'Pricing' ? '/pricing' :
                   '#contact'} // Keep contact as anchor since it's on same page
-                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
+                className="text-sm font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-3 py-2 hover:bg-white/20 transform hover:scale-105"
               >
                 {l}
               </Link>
             ))}
             <Link 
               href="/term-plan" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
+              className="text-sm font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-3 py-2 hover:bg-white/20 transform hover:scale-105"
             >
               Term Plan
             </Link>
             <Link 
               href="/feedback" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
+              className="text-sm font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-3 py-2 hover:bg-white/20 transform hover:scale-105"
             >
               Feedback
             </Link>
             <Link 
               href="/settings" 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
+              className="text-sm font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-3 py-2 hover:bg-white/20 transform hover:scale-105"
             >
               Settings
             </Link>
@@ -124,22 +148,24 @@ function Header() {
             {user ? (
               <Link 
                 href="/homepage" 
-                className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 xs:px-4 xs:py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-24 xs:min-w-32"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-5 py-2.5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-12 min-w-32"
               >
-                Dashboard
+                <Trophy className="h-4 w-4" />
+                My Dashboard
               </Link>
             ) : (
               <>
                 <Link 
                   href="/login" 
-                  className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background min-h-11 flex items-center px-2 py-1"
+                  className="text-sm font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-3 py-2 hover:bg-white/20 transform hover:scale-105"
                 >
                   Login
                 </Link>
                 <Link 
                   href="/register" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-3 py-2 xs:px-4 xs:py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-28 xs:min-w-32"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-5 py-2.5 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-12 min-w-32"
                 >
+                  <Star className="h-4 w-4" />
                   Get Started
                 </Link>
               </>
@@ -149,19 +175,19 @@ function Header() {
           {/* mobile burger */}
           <button
             onClick={() => setOpen((o) => !o)}
-            className="md:hidden p-2 rounded-xl hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/50 dark:hover:shadow-xl min-h-11 min-w-11 flex items-center justify-center"
+            className="md:hidden p-2 rounded-full bg-white/20 hover:bg-white/30 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300 min-h-12 min-w-12 flex items-center justify-center"
             aria-expanded={open}
             aria-controls="mobile-nav"
             aria-label="Toggle navigation menu"
           >
-            {open ? <X className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" /> : <Menu className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />}
+            {open ? <X className="h-6 w-6 text-white" /> : <Menu className="h-6 w-6 text-white" />}
           </button>
         </div>
 
         {/* mobile panel */}
         <div
           id="mobile-nav"
-          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${open ? "max-h-96 opacity-100" : "max-h-0 opacity-0"}`}
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${open ? "max-h-96 opacity-100 bg-gradient-to-b from-blue-500 to-purple-500 rounded-xl p-4" : "max-h-0 opacity-0"}`}
         >
           <nav className="flex flex-col gap-2 py-3 xs:py-4">
             {['Features', 'Pricing', 'Contact'].map((l) => (
@@ -172,7 +198,7 @@ function Header() {
                   l === 'Pricing' ? '/pricing' :
                   '#contact'} // Keep contact as anchor since it's on same page
                 onClick={() => setOpen(false)} 
-                className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
+                className="text-base font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-4 py-3 hover:bg-white/20 transform hover:scale-105"
               >
                 {l}
               </Link>
@@ -180,51 +206,53 @@ function Header() {
             <Link 
               href="/term-plan" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
+              className="text-base font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-4 py-3 hover:bg-white/20 transform hover:scale-105"
             >
               Term Plan
             </Link>
             <Link 
               href="/feedback" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
+              className="text-base font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-4 py-3 hover:bg-white/20 transform hover:scale-105"
             >
               Feedback
             </Link>
             <Link 
               href="/settings" 
               onClick={() => setOpen(false)} 
-              className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center"
+              className="text-base font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-4 py-3 hover:bg-white/20 transform hover:scale-105"
             >
               Settings
             </Link>
-            <div className="mt-2 pt-3 border-t border-border">
-              <div className="flex items-center gap-3 pb-3 px-3">
+            <div className="mt-4 pt-4 border-t border-white/30">
+              <div className="flex items-center justify-center gap-3 pb-3 px-3">
                 <ThemeToggle />
-                <span className="text-sm text-muted-foreground">Theme</span>
+                <span className="text-sm text-white">Theme</span>
               </div>
               {user ? (
                 <Link 
                   href="/homepage" 
-                  className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-md transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98] w-full min-h-12"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-4 py-3 text-base shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 w-full min-h-12"
                   onClick={() => setOpen(false)}
                 >
-                  Dashboard
+                  <Trophy className="h-4 w-4" />
+                  My Dashboard
                 </Link>
               ) : (
                 <>
                   <Link 
                     href="/login" 
-                    className="text-sm font-medium text-muted-foreground hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background py-3 px-3 min-h-12 flex items-center justify-center"
+                    className="text-base font-bold text-white hover:text-yellow-200 transition-all duration-300 ease-in-out rounded-lg px-4 py-3 hover:bg-white/20 transform hover:scale-105 w-full text-center"
                     onClick={() => setOpen(false)}
                   >
                     Login
                   </Link>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center rounded-xl bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-lg hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] w-full min-h-12 mt-2"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-300 to-orange-400 text-gray-800 font-bold px-4 py-3 text-base shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 w-full min-h-12 mt-3"
                     onClick={() => setOpen(false)}
                   >
+                    <Star className="h-4 w-4" />
                     Get Started
                   </Link>
                 </>
@@ -247,67 +275,79 @@ function HeroSection() {
   }
 
   return (
-    <section id="hero" className="py-8 sm:py-12 md:py-20 lg:py-32 bg-transparent">
+    <section id="hero" className="py-8 sm:py-12 md:py-20 lg:py-32 bg-gradient-to-br from-blue-100 via-purple-50 to-pink-100">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 lg:gap-12 items-center">
           <div className="flex flex-col gap-5 sm:gap-6">
-            <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight">
-              {user ? `Welcome back, ${user.email}` : "The World's first Superhuman afterclass tutor."}
+            <div className="flex items-center gap-2 mb-2">
+              <Star className="h-6 w-6 text-yellow-500 animate-bounce" />
+              <span className="text-lg font-bold text-blue-600">Learning Made Fun!</span>
+              <Star className="h-6 w-6 text-yellow-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
+            </div>
+            <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
+              {user ? `Welcome back, ${user.email?.split('@')[0] || user.user_metadata?.full_name || 'learner'}!` : "The World's most fun AI tutor for kids!"}
             </h1>
-            <p className="text-sm xs:text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed">
+            <p className="text-sm xs:text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
               {user 
-                ? "Continue your learning journey with personalized tutoring that adapts to your unique style."
-                : "Personalized tutoring that adapts to your child's unique learning style, while keeping you connected to their progress."
+                ? "Continue your amazing learning adventure with personalized tutoring that adapts just for YOU!"
+                : "Learn with our friendly AI tutor that explains everything in a way that's perfect for kids!"
               }
             </p>
             {!user && (
-              <p className="text-xs xs:text-sm sm:text-base text-foreground leading-relaxed italic">
-                Revolutionizing the future of learning by using cutting edge Ai technology.
-                Lana is not aiming towards replacing regular tutors and classes, we are an after-class tutoring system that lets users input all their school topics/syllabi and we help them break it down in an easy and understandable way using Ai.
+              <p className="text-xs xs:text-sm sm:text-base text-gray-600 leading-relaxed italic bg-blue-50 p-4 rounded-2xl">
+                <Heart className="h-5 w-5 text-red-400 inline mr-1" /> Revolutionizing learning with fun AI technology! Lana helps break down school topics into easy, understandable lessons just for kids!
               </p>
             )}
             <div className="flex flex-col xs:flex-row gap-3 w-full">
               {user ? (
                 <Link 
                   href="/homepage" 
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-36 xs:min-w-40"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-blue-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-14 flex-1"
                 >
+                  <Trophy className="h-5 w-5" />
                   Continue Learning
-                  <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
                 </Link>
               ) : (
                 <>
                   <Link 
                     href="/register" 
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12 min-w-36 xs:min-w-40 flex-1"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-14 flex-1"
                   >
+                    <Star className="h-5 w-5" />
                     Start Free Trial
-                    <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
                   </Link>
                   <Link 
                     href="/login" 
-                    className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-11 xs:min-h-12 min-w-36 xs:min-w-40 flex-1"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 text-white font-bold py-4 px-8 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 min-h-14 flex-1"
                   >
+                    <Sparkles className="h-5 w-5" />
                     Login
                   </Link>
                 </>
               )}
             </div>
             {!user && (
-              <p className="text-sm xs:text-base text-muted-foreground leading-relaxed">
-                Already have an account? <Link href="/login" className="text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning journey.
+              <p className="text-sm xs:text-base text-gray-600 leading-relaxed">
+                Already have an account? <Link href="/login" className="text-blue-600 font-bold hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded">Sign in</Link> to continue your learning adventure!
               </p>
             )}
-            <ul className="space-y-2 pt-4">
-              {FEATURES.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-sm xs:text-base text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 xs:h-5 xs:w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" />
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="pt-4 space-y-3">
+              <h3 className="font-bold text-lg text-blue-700 flex items-center gap-2"><Sparkles className="h-5 w-5 text-yellow-500" /> Amazing Features:</h3>
+              <ul className="space-y-3">
+                {FEATURES.map((f, index) => (
+                  <li key={f} className="flex items-start gap-3 text-sm xs:text-base text-gray-700 p-3 bg-white/70 rounded-xl shadow-sm">
+                    <div className="mt-1 flex-shrink-0">
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">{index + 1}</span>
+                      </div>
+                    </div>
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
-          <div className="relative h-64 xs:h-72 sm:h-80 md:h-96 lg:h-full rounded-2xl overflow-hidden shadow-xl cursor-pointer" onClick={toggleAudio}>
+          <div className="relative h-64 xs:h-72 sm:h-80 md:h-96 lg:h-full rounded-3xl overflow-hidden shadow-2xl border-4 border-white transform hover:scale-105 transition-transform duration-500">
             <video 
               src="/landing.mp4" 
               autoPlay
@@ -317,18 +357,19 @@ function HeroSection() {
               className="object-cover w-full h-full"
             />
             {/* Audio indicator */}
-            <div className="absolute top-3 xs:top-4 right-3 xs:right-4 bg-gradient-to-br from-blue-600/90 to-purple-600/90 backdrop-blur-md rounded-full p-2 xs:p-3 shadow-lg border-2 border-white/20 transition-all duration-300 hover:scale-110 hover:from-blue-500/95 hover:to-purple-500/95">
+            <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-300 to-orange-400 backdrop-blur-sm rounded-full p-3 shadow-lg border-2 border-white/50 transition-all duration-300 hover:scale-110 cursor-pointer" onClick={toggleAudio}>
               {isMuted ? (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 xs:h-6 xs:w-6 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white drop-shadow-md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
                 </svg>
               ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 xs:h-6 xs:w-6 text-white drop-shadow-md animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white drop-shadow-md animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M12 6a9 9 0 010 12" />
                 </svg>
               )}
             </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent pointer-events-none"></div>
           </div>
         </div>
       </div>
@@ -339,42 +380,52 @@ function HeroSection() {
 /* ---------- FEATURES ---------- */
 function FeaturesSection() {
   const features = [
-    { title: "Learn with term plans", desc: "Structured curriculum planning to guide your child's learning journey systematically.", icon: Calendar },
-    { title: "Structured lessons", desc: "Organized, step-by-step learning paths that break down complex topics into digestible parts.", icon: BookOpen },
-    { title: "Math tutor", desc: "Expert assistance with step-by-step math problem solving and visual aids.", icon: Calculator },
-    { title: "Quick explainer", desc: "Instant clarifications for complex topics that need immediate understanding.", icon: Zap },
-    { title: "And more", desc: "Additional educational tools designed for modern learning experiences.", icon: MoreHorizontal },
+    { title: "Learn with term plans", desc: "Plan your learning journey step by step with fun, organized lessons.", icon: Calendar },
+    { title: "Super lessons", desc: "Easy-to-follow learning paths that make tough topics simple and fun!", icon: BookOpen },
+    { title: "Math helper", desc: "Get help with math problems with friendly explanations and cool visuals.", icon: Calculator },
+    { title: "Quick answers", desc: "Got a question? Get instant answers that make sense right away!", icon: Zap },
+    { title: "And more!", desc: "Fun learning tools designed just for kids like you!", icon: Sparkles },
   ]
   return (
-    <section id="features" className="py-12 xs:py-16 sm:py-20 md:py-24 lg:py-32 bg-gradient-to-br from-gray-100 to-gray-300 dark:from-gray-800/30 dark:to-gray-900/30">
+    <section id="features" className="py-12 xs:py-16 sm:py-20 md:py-24 lg:py-32 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <div className="mx-auto max-w-7xl px-4 xs:px-6 sm:px-8 lg:px-8">
         {/* Diagnostic Quiz Button at the top */}
         <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
           <Link 
             href="/diagnostic-quiz"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base sm:text-lg font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] mb-6 xs:mb-7 sm:mb-8 max-w-2xl mx-auto w-full min-h-12 xs:min-h-14"
+            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 text-white font-bold py-5 px-8 text-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 active:scale-95 mb-6 xs:mb-7 sm:mb-8 max-w-2xl mx-auto w-full min-h-16"
           >
-            Take a free diagnostic quiz today to test your child's performance level - see the difference after 30 days
-            <ArrowRight className="h-4 w-4 xs:h-5 xs:w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+            <Trophy className="h-6 w-6" />
+            Take a fun quiz to see how smart you are! See your progress in 30 days!
+            <Star className="h-6 w-6" />
           </Link>
         </div>
         
         {/* Core Features Heading and Content */}
         <div className="text-center mb-8 xs:mb-10 sm:mb-12 md:mb-14 lg:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-xs xs:text-sm font-medium text-primary">Core Features</span>
-          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Everything You Need to Succeed in Learning</h2>
-          <p className="text-muted-foreground mt-3 xs:mt-4 max-w-2xl mx-auto text-sm xs:text-base md:text-lg leading-relaxed">
-            Lana AI combines cutting-edge technology with proven educational methods to create a learning experience that's both effective and engaging.
+          <div className="inline-block rounded-full bg-gradient-to-r from-blue-400 to-purple-500 px-6 py-2 mb-4">
+            <span className="text-white font-bold text-lg">Amazing Features</span>
+          </div>
+          <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Everything You Need to Be a Super Learner!</h2>
+          <p className="text-gray-600 mt-3 xs:mt-4 max-w-2xl mx-auto text-sm xs:text-base md:text-lg leading-relaxed">
+            Lana AI combines super cool technology with fun learning methods to create an experience that's both effective AND fun!
           </p>
         </div>
-        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-7 lg:gap-8">
+        <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-6 xs:gap-6 sm:gap-8 md:gap-8 lg:gap-8">
           {features.map((f, index) => (
             <div 
               key={f.title} 
-              className="rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-5 xs:p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground min-h-64 flex flex-col">
-              <f.icon className="text-primary h-6 w-6 xs:h-7 xs:w-7 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
-              <h3 className="text-lg xs:text-xl font-semibold mb-3 text-foreground leading-tight">{f.title}</h3>
-              <p className="text-foreground/90 text-sm xs:text-base leading-relaxed flex-grow">{f.desc}</p>
+              className="rounded-3xl border-2 bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 p-6 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 min-h-72 flex flex-col border-pink-200"
+              style={{ transform: `rotate(${(index % 2 === 0 ? '' : '-')}${getRandomBounce()}deg)` }}
+            >
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center mb-4 self-center">
+                <f.icon className="text-white h-7 w-7" />
+              </div>
+              <h3 className="text-xl font-bold mb-3 text-center text-blue-700 leading-tight">{f.title}</h3>
+              <p className="text-gray-700 text-base leading-relaxed flex-grow text-center">{f.desc}</p>
+              <div className="mt-4 flex justify-center">
+                <div className="w-12 h-1 bg-gradient-to-r from-blue-300 to-purple-300 rounded-full"></div>
+              </div>
             </div>
           ))}
         </div>
@@ -386,30 +437,38 @@ function FeaturesSection() {
 /* ---------- STRUCTURED LESSONS ---------- */
 function StructuredLessonsSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className="py-16 md:py-24 lg:py-32 bg-gradient-to-b from-blue-50 to-purple-50">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Structured Learning</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Organized Lessons for Better Learning</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Our structured lessons break down complex topics into digestible parts, making learning more effective and engaging.
+          <div className="inline-block rounded-full bg-gradient-to-r from-green-400 to-blue-500 px-6 py-2 mb-4">
+            <span className="text-white font-bold text-lg">Super Learning!</span>
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Fun Lessons That Help You Learn Better!</h2>
+          <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
+            Our fun lessons break big topics into small, easy pieces that make learning super enjoyable!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <BookOpen className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Approach</h3>
-            <p className="text-foreground/90 leading-relaxed">Lessons are carefully structured to build upon each other, ensuring solid understanding.</p>
+          <div className="text-center p-6 rounded-3xl border-2 bg-gradient-to-br from-yellow-50 to-orange-50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 border-yellow-200">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
+              <BookOpen className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Easy Steps</h3>
+            <p className="text-gray-700 leading-relaxed">Lessons go step-by-step so you understand everything easily!</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <GraduationCap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progressive Learning</h3>
-            <p className="text-foreground/90 leading-relaxed">Each lesson builds on previous knowledge, creating a solid foundation for advanced topics.</p>
+          <div className="text-center p-6 rounded-3xl border-2 bg-gradient-to-br from-pink-50 to-purple-50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 border-pink-200">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-pink-400 to-purple-500 flex items-center justify-center mx-auto mb-4">
+              <GraduationCap className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Level Up</h3>
+            <p className="text-gray-700 leading-relaxed">Each lesson builds on what you already know - like leveling up in a game!</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Interactive Content</h3>
-            <p className="text-foreground/90 leading-relaxed">Engaging activities and quizzes reinforce learning at each step of the way.</p>
+          <div className="text-center p-6 rounded-3xl border-2 bg-gradient-to-br from-blue-50 to-cyan-50 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 text-gray-800 border-blue-200">
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 flex items-center justify-center mx-auto mb-4">
+              <Lightbulb className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Fun Activities</h3>
+            <p className="text-gray-700 leading-relaxed">Cool games and quizzes make learning super fun at every step!</p>
           </div>
         </div>
       </div>
@@ -423,17 +482,19 @@ function PricingSection() {
   const plans = PLANS[interval]
   const periodLabel = interval === "yearly" ? "/mo (billed yearly)" : "/mo"
   return (
-    <section id="pricing" className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section id="pricing" className={`${getChildFriendlyClasses.section}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Pricing</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Simple, Transparent Pricing</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">Choose the plan that's right for you. All plans include a 14-day free trial.</p>
+          <div className="flex justify-center mb-4">
+            <Sparkles className="h-12 w-12 text-yellow-400 animate-spin" style={{ animationDuration: '3s' }} />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 bg-clip-text text-transparent leading-tight">Fun Learning Plans!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">Pick the perfect adventure for your learning journey!</p>
 
-          <div className="mt-6 inline-flex rounded-full bg-muted p-1" role="tablist" aria-label="Billing frequency">
+          <div className="mt-6 inline-flex rounded-full bg-gradient-to-r from-blue-100 to-purple-100 p-1" role="tablist" aria-label="Billing frequency">
             <button
               onClick={() => setInterval("monthly")}
-              className={`px-3 py-2 xs:px-4 xs:py-2.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "monthly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg min-h-10 xs:min-h-11 min-w-20 xs:min-w-24 flex items-center justify-center`}
+              className={`px-4 py-3 text-sm rounded-full transition-all duration-300 font-bold ${interval === "monthly" ? "bg-white shadow-lg text-purple-600" : "text-gray-600"} hover:bg-white hover:shadow-lg hover:scale-105 active:scale-95 min-h-12 min-w-28 flex items-center justify-center border-2 ${interval === "monthly" ? "border-purple-300" : "border-transparent"}`}
               aria-pressed={interval === "monthly"}
               role="tab"
               aria-selected={interval === "monthly"}
@@ -443,7 +504,7 @@ function PricingSection() {
             </button>
             <button
               onClick={() => setInterval("yearly")}
-              className={`px-3 py-2 xs:px-4 xs:py-2.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "yearly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg min-h-10 xs:min-h-11 min-w-20 xs:min-w-24 flex items-center justify-center`}
+              className={`px-4 py-3 text-sm rounded-full transition-all duration-300 font-bold ${interval === "yearly" ? "bg-white shadow-lg text-purple-600" : "text-gray-600"} hover:bg-white hover:shadow-lg hover:scale-105 active:scale-95 min-h-12 min-w-28 flex items-center justify-center border-2 ${interval === "yearly" ? "border-purple-300" : "border-transparent"}`}
               aria-pressed={interval === "yearly"}
               role="tab"
               aria-selected={interval === "yearly"}
@@ -454,38 +515,44 @@ function PricingSection() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 xs:gap-5 sm:gap-6 md:gap-7 lg:gap-8">
-          {plans.map((p) => (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {plans.map((p, index) => (
             <div
               key={p.name}
-              className={`relative rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-5 xs:p-6 sm:p-7 md:p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 text-foreground ${"popular" in p && p.popular ? "border-primary shadow-lg" : ""}`}>
+              className={`${getChildFriendlyClasses.card} ${"popular" in p && p.popular ? "border-4 border-yellow-400 relative transform scale-105 bg-gradient-to-br from-yellow-50 via-orange-50 to-red-50" : ""} hover:rotate-1`}
+            >
               {"popular" in p && p.popular && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
-                  Most Popular
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs px-4 py-1 rounded-full font-bold shadow-lg">
+                  🌟 Kids' Favorite!
                 </div>
               )}
-              <div className="space-y-2 mb-4">
-                <h3 className="text-lg xs:text-xl sm:text-2xl font-bold text-foreground leading-tight">{p.name}</h3>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-3xl xs:text-4xl sm:text-5xl font-extrabold">${p.price}</span>
-                  <span className="text-muted-foreground text-sm xs:text-base">{periodLabel}</span>
+              <div className="space-y-3 mb-5">
+                <div className="flex justify-center mb-2">
+                  {index === 0 && <Star className="h-8 w-8 text-yellow-400" />}
+                  {index === 1 && <Trophy className="h-8 w-8 text-yellow-500" />}
+                  {index === 2 && <Heart className="h-8 w-8 text-red-400" />}
                 </div>
-                <p className="text-foreground/90 text-sm xs:text-base leading-relaxed">{p.desc}</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-purple-700 leading-tight text-center">{p.name}</h3>
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-3xl sm:text-4xl font-extrabold text-green-600">${p.price}</span>
+                  <span className="text-gray-600 text-sm">{periodLabel}</span>
+                </div>
+                <p className="text-gray-700 text-sm leading-relaxed text-center font-medium">{p.desc}</p>
               </div>
-              <ul className="space-y-2 mb-5 xs:mb-6">
+              <ul className="space-y-2 mb-6">
                 {p.feats.map((f) => (
-                  <li key={f} className="flex items-center gap-2 text-sm xs:text-base text-foreground/90">
-                    <CheckCircle2 className="h-4 w-4 xs:h-5 xs:w-5 text-primary flex-shrink-0 dark:text-blue-400 dark:hover:text-blue-300" aria-hidden="true" />
+                  <li key={f} className="flex items-center gap-2 text-sm text-gray-700 font-medium">
+                    <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
                     <span>{f}</span>
                   </li>
                 ))}
               </ul>
               <Link
                 href="/register"
-                className="inline-flex items-center justify-center w-full rounded-xl bg-primary px-4 py-3 xs:px-5 xs:py-3.5 sm:px-6 sm:py-4 text-sm xs:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-11 xs:min-h-12"
+                className={`${getChildFriendlyClasses.buttonSmall} w-full justify-center`}
                 aria-label={`Get started with ${p.name} plan`}
               >
-                Get Started
+                Start Learning!
               </Link>
             </div>
           ))}
@@ -500,49 +567,50 @@ function CtaSection() {
   const { user } = useUnifiedAuth()
 
   return (
-    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-gray-700 to-stone-800 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl">
-      <div className="mx-auto max-w-4xl px-4 text-center">
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight">
+    <section id="get-started" className="py-20 md:py-32 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-3xl mx-4 my-16 p-8 md:p-12 shadow-xl relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-r from-blue-500/80 to-purple-600/80"></div>
+      <div className="relative z-10 mx-auto max-w-4xl px-4 text-center">
+        <div className="flex justify-center mb-6">
+          <Sparkles className="h-16 w-16 text-yellow-300 animate-bounce" />
+        </div>
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white leading-tight mb-6">
           {user 
-            ? "Continue Your Learning Journey" 
-            : "Give Your Child the Gift of Personalized Learning — While You Stay Connected"
+            ? "Keep Learning, Super Star!" 
+            : "Start Your Amazing Learning Adventure Today!"
           }
         </h2>
-        <p className="text-muted-foreground mt-4 max-w-2xl mx-auto leading-relaxed">
+        <p className="text-blue-100 mt-4 max-w-2xl mx-auto text-lg leading-relaxed mb-8 font-medium">
           {user
-            ? "Keep making progress with personalized AI tutoring and stay connected to your learning journey."
-            : "Join thousands of families who trust Lana AI to help their children learn, grow, and succeed. Start your free trial today."
+            ? "You're doing great! Keep making progress with your personal AI tutor."
+            : "Join thousands of kids who love learning with Lana AI. Start your free trial and become a learning superhero!"
           }
         </p>
-        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
           {user ? (
             <Link 
               href="/homepage" 
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44"
+              className={`${getChildFriendlyClasses.button} inline-flex items-center justify-center gap-2 min-w-64`}
             >
+              <Trophy className="h-5 w-5" />
               Continue Learning
-              <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+              <Star className="h-5 w-5" />
             </Link>
           ) : (
             <>
               <Link 
                 href="/register" 
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-5 py-3 text-sm sm:text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44 flex-1 sm:flex-none"
+                className={`${getChildFriendlyClasses.button} inline-flex items-center justify-center gap-2 min-w-64`}
               >
+                <Star className="h-5 w-5" />
                 Start Free Trial
-                <ArrowRight className="h-5 w-5 dark:text-blue-400 dark:hover:text-blue-300" />
+                <Sparkles className="h-5 w-5" />
               </Link>
               <Link 
                 href="/login" 
-                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-sm sm:text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
+                className={`${getChildFriendlyClasses.buttonSecondary} inline-flex items-center justify-center gap-2 min-w-64`}
               >
-                Login to Your Account
-              </Link>
-              <Link 
-                href="#contact" 
-                className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
-              >
-                Contact Sales
+                <BookOpen className="h-5 w-5" />
+                Login
               </Link>
             </>
           )}
@@ -555,26 +623,46 @@ function CtaSection() {
 /* ---------- LANA SECTION ---------- */
 function LanaSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.hero}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-2xl overflow-hidden shadow-2xl border-4 border-primary/30 bg-gradient-to-br from-gray-200 to-stone-200 dark:from-gray-800/50 dark:to-stone-800/50">
+            <div className="relative w-64 h-64 sm:w-72 sm:h-72 lg:w-80 lg:h-80 xl:w-96 xl:h-96 rounded-3xl overflow-hidden shadow-2xl border-4 border-yellow-300 bg-gradient-to-br from-yellow-100 to-orange-100 transform hover:scale-105 transition-transform duration-500">
               <Image 
                 src="/Updated Avatar.png" 
                 alt="Lana AI - Your Personalized Learning Companion" 
                 fill
-                className="object-cover object-center p-2 rounded-2xl"
+                className="object-cover object-center p-4 rounded-2xl"
                 priority
               />
+              <div className="absolute -top-2 -right-2 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full p-3 shadow-lg border-2 border-white">
+                <Sparkles className="h-6 w-6 text-white" />
+              </div>
             </div>
           </div>
           <div className="lg:w-1/2 text-center lg:text-left">
-            <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-4 inline-block">AI-Powered Learning</span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground mb-6 leading-tight">Meet Lana, Your Personalized AI Tutor</h2>
-            <p className="text-muted-foreground text-base md:text-lg mb-6 max-w-2xl leading-relaxed">
-              Lana is your child's dedicated AI learning companion, designed to explain complex concepts in ways that make sense to them. With personalized explanations and patient guidance, Lana adapts to your child's unique learning style.
+            <div className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 px-4 py-2 mb-4">
+              <Bot className="h-5 w-5 text-white" />
+              <span className="text-white font-bold">AI Learning Friend</span>
+            </div>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6 leading-tight">Meet Lana, Your Super Cool AI Tutor!</h2>
+            <p className="text-gray-700 text-base md:text-lg mb-6 max-w-2xl leading-relaxed font-medium">
+              Lana is your awesome AI learning buddy who explains tricky stuff in super fun ways! She's super patient, always ready to help, and makes learning feel like playtime.
             </p>
+            <div className="flex flex-wrap gap-3 justify-center lg:justify-start">
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
+                <Star className="h-5 w-5 text-yellow-500" />
+                <span className="text-gray-700 font-medium">Patient & Friendly</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
+                <Lightbulb className="h-5 w-5 text-blue-500" />
+                <span className="text-gray-700 font-medium">Super Smart</span>
+              </div>
+              <div className="flex items-center gap-2 bg-white/80 backdrop-blur-sm rounded-full px-4 py-2 shadow-md">
+                <Heart className="h-5 w-5 text-red-500" />
+                <span className="text-gray-700 font-medium">Always Helpful</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -585,42 +673,44 @@ function LanaSection() {
 /* ---------- EDUCATIONAL APPROACH ---------- */
 function EducationalApproachSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.section}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Our Approach</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Proven Educational Methodology</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Our approach combines adaptive learning techniques with personalized instruction to maximize educational outcomes.
+          <div className="flex justify-center mb-4">
+            <BookOpen className="h-12 w-12 text-blue-500" />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">How We Help Kids Learn Better!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
+            Our super cool learning methods are designed to make education fun and effective!
           </p>
         </div>
         <div className="flex flex-col lg:flex-row items-center gap-8 max-w-6xl mx-auto">
           <div className="lg:w-1/2">
-            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
+            <div className={`${getChildFriendlyClasses.card} hover:rotate-1`}>
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg">
-                  <Bot className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-gradient-to-r from-blue-400 to-purple-500 p-3 rounded-2xl">
+                  <Bot className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">AI-Powered Adaptation</h3>
-                  <p className="text-foreground/90 leading-relaxed">The system adapts to each learner's pace and style, providing personalized content and challenges.</p>
+                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Smart AI Learning</h3>
+                  <p className="text-gray-700 leading-relaxed font-medium">Our AI friend learns how you like to learn and makes everything super easy to understand!</p>
                 </div>
               </div>
             </div>
-            <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl mt-6">
+            <div className={`${getChildFriendlyClasses.card} hover:-rotate-1 mt-6`}>
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg">
-                  <BarChart3 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-gradient-to-r from-green-400 to-blue-500 p-3 rounded-2xl">
+                  <BarChart3 className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Progress Tracking</h3>
-                  <p className="text-foreground/90 leading-relaxed">Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.</p>
+                  <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">See Your Progress</h3>
+                  <p className="text-gray-700 leading-relaxed font-medium">Watch yourself get smarter with cool charts that show how awesome you're doing!</p>
                 </div>
               </div>
             </div>
           </div>
           <div className="lg:w-1/2 flex justify-center">
-            <div className="relative w-full max-w-lg rounded-2xl overflow-hidden shadow-xl">
+            <div className="relative w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl border-4 border-pink-300 bg-gradient-to-br from-pink-100 to-purple-100">
               <Image 
                 src="/Happy child.jpg" 
                 alt="Happy child engaged in learning with Lana AI" 
@@ -629,6 +719,7 @@ function EducationalApproachSection() {
                 className="object-cover object-center"
                 priority
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-pink-500/20 to-transparent"></div>
             </div>
           </div>
         </div>
@@ -640,30 +731,38 @@ function EducationalApproachSection() {
 /* ---------- TERM PLANS ---------- */
 function TermPlansSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.hero}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Curriculum Planning</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Structured Curriculum for Long-term Success</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Our term plans provide a systematic approach to learning, ensuring comprehensive coverage of essential topics.
+          <div className="flex justify-center mb-4">
+            <Calendar className="h-12 w-12 text-green-500" />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-green-600 to-blue-600 bg-clip-text text-transparent leading-tight">Awesome Learning Adventures!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
+            Our fun learning plans help you master subjects step by step - like going on exciting quests!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <Calendar className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Long-term Planning</h3>
-            <p className="text-foreground/90 leading-relaxed">Comprehensive curriculum plans spanning weeks and months to ensure steady progress.</p>
+          <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-2`}>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-green-400 to-blue-500 flex items-center justify-center mx-auto mb-4">
+              <Calendar className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Big Learning Journeys</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Complete learning adventures that take weeks to finish - like epic quests!</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <Zap className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Milestone Tracking</h3>
-            <p className="text-foreground/90 leading-relaxed">Clear checkpoints to measure achievement and adjust learning paths as needed.</p>
+          <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-2`}>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center mx-auto mb-4">
+              <Trophy className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Achievement Points</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Earn badges and rewards as you complete learning milestones - like a real game!</p>
           </div>
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Flexible Adjustments</h3>
-            <p className="text-foreground/90 leading-relaxed">Adapt curriculum plans based on individual learning pace and evolving needs.</p>
+          <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-2`}>
+            <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-400 to-pink-500 flex items-center justify-center mx-auto mb-4">
+              <Zap className="h-8 w-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Level Up System</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Change your learning path anytime - just like upgrading your character!</p>
           </div>
         </div>
       </div>
@@ -674,35 +773,37 @@ function TermPlansSection() {
 /* ---------- MATH TUTOR ---------- */
 function MathTutorSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.section}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Math Assistance</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Expert Math Tutoring at Your Fingertips</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Get step-by-step math help with visual aids and clear explanations for every problem.
+          <div className="flex justify-center mb-4">
+            <Calculator className="h-12 w-12 text-purple-500" />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Super Math Helper!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
+            Stuck on math? Our friendly tutor shows you step-by-step how to solve any problem!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
+          <div className={`${getChildFriendlyClasses.card} hover:rotate-1`}>
             <div className="flex items-start gap-4">
-              <div className="bg-primary/10 p-3 rounded-lg">
-                <Calculator className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+              <div className="bg-gradient-to-r from-purple-400 to-pink-500 p-3 rounded-2xl">
+                <Calculator className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Step-by-Step Solutions</h3>
-                <p className="text-foreground/90 leading-relaxed">Understand how to solve problems with detailed explanations for each step.</p>
+                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Step-by-Step Magic</h3>
+                <p className="text-gray-700 leading-relaxed font-medium">Learn how to solve problems with easy explanations for every single step!</p>
               </div>
             </div>
           </div>
-          <div className="bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 p-6 rounded-xl border shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
+          <div className={`${getChildFriendlyClasses.card} hover:-rotate-1`}>
             <div className="flex items-start gap-4">
-              <div className="bg-primary/10 p-3 rounded-lg">
-                <Zap className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+              <div className="bg-gradient-to-r from-blue-400 to-cyan-500 p-3 rounded-2xl">
+                <Zap className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Visual Problem Solving</h3>
-                <p className="text-foreground/90 leading-relaxed">See diagrams and visual aids that clarify complex mathematical concepts.</p>
+                <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Cool Math Pictures</h3>
+                <p className="text-gray-700 leading-relaxed font-medium">See fun diagrams and pictures that make tricky math ideas crystal clear!</p>
               </div>
             </div>
           </div>
@@ -715,24 +816,26 @@ function MathTutorSection() {
 /* ---------- QUICK EXPLAINER ---------- */
 function QuickExplainerSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.hero}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Instant Clarification</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Quick Answers to Complex Topics</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Get instant explanations for difficult concepts with simple, easy-to-understand examples.
+          <div className="flex justify-center mb-4">
+            <Lightbulb className="h-12 w-12 text-yellow-500 animate-pulse" />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent leading-tight">Lightbulb Moments!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
+            Get instant "aha!" moments when tough concepts suddenly make perfect sense!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <Lightbulb className="h-12 w-12 text-primary mx-auto mb-4 dark:text-blue-400 dark:hover:text-blue-300" />
-            <h3 className="text-xl font-semibold mb-2 text-foreground leading-tight">Concept Simplification</h3>
-            <p className="text-foreground/90 leading-relaxed">Complex topics broken down into simple, digestible explanations.</p>
+          <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-2`}>
+            <Lightbulb className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+            <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Easy Peasy Explanations</h3>
+            <p className="text-gray-700 leading-relaxed font-medium">Hard stuff made super simple with fun examples you'll totally get!</p>
           </div>
           <div className="col-span-2 flex justify-center items-center p-0 rounded-xl bg-transparent shadow-none border-0 transition-all duration-300 text-foreground">
             <div className="w-full max-w-lg p-0 relative">
-              <div className="relative rounded-lg overflow-hidden border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-[inset_0_0_20px_rgba(0,0,0,0.1)]">
+              <div className="relative rounded-3xl overflow-hidden border-4 border-yellow-300 bg-gradient-to-br from-yellow-100 to-orange-100 shadow-2xl">
                 <video 
                   src="/lana intro landing.mp4" 
                   controls={false}
@@ -798,8 +901,8 @@ function QuickExplainerSection() {
                   loop
                   playsInline
                 />
-                <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-r from-stone-900/10 via-transparent to-stone-900/10"></div>
-                <div className="pointer-events-none absolute inset-0 rounded-lg bg-gradient-to-b from-stone-900/10 via-transparent to-stone-900/10"></div>
+                <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-r from-yellow-900/10 via-transparent to-yellow-900/10"></div>
+                <div className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-b from-yellow-900/10 via-transparent to-yellow-900/10"></div>
 
                 <div className="absolute top-3 right-3 flex items-center gap-2">
                   <div className="bg-black/50 backdrop-blur-sm rounded-full p-2">
@@ -829,39 +932,45 @@ function QuickExplainerSection() {
 /* ---------- MORE FEATURES ---------- */
 function MoreFeaturesSection() {
   return (
-    <section className="py-16 md:py-24 lg:py-32 bg-transparent">
+    <section className={`${getChildFriendlyClasses.section}`}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12 md:mb-16">
-          <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Plus More</span>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Additional Learning Tools</h2>
-          <p className="text-muted-foreground mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Explore additional features designed to enhance the learning experience.
+          <div className="flex justify-center mb-4">
+            <Sparkles className="h-12 w-12 text-purple-500" />
+          </div>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Even More Awesome Stuff!</h2>
+          <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
+            We've packed tons of cool features to make your learning super fun and effective!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <GraduationCap className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+          <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-1`}>
+            <div className="bg-gradient-to-r from-blue-400 to-cyan-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <GraduationCap className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-semibold text-foreground leading-tight">Progress Reports</h3>
+            <h3 className="font-bold text-blue-700 leading-tight">Progress Reports</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">See how awesome you're doing!</p>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <BarChart3 className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+          <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-1`}>
+            <div className="bg-gradient-to-r from-green-400 to-blue-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <BarChart3 className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-semibold text-foreground leading-tight">Performance Analytics</h3>
+            <h3 className="font-bold text-blue-700 leading-tight">Cool Charts</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Fun graphs showing your growth!</p>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <Bot className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+          <div className={`${getChildFriendlyClasses.card} text-center hover:rotate-1`}>
+            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <Bot className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-semibold text-foreground leading-tight">AI Guidance</h3>
+            <h3 className="font-bold text-blue-700 leading-tight">AI Buddy</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Your smart learning friend!</p>
           </div>
-          <div className="text-center p-4 rounded-xl border bg-card bg-gradient-to-br from-gray-100 to-stone-200 dark:from-gray-800/40 dark:to-stone-800/40 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 group dark:hover:shadow-blue-500/30 dark:hover:shadow-xl text-foreground">
-            <div className="bg-primary/10 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <MoreHorizontal className="h-8 w-8 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+          <div className={`${getChildFriendlyClasses.card} text-center hover:-rotate-1`}>
+            <div className="bg-gradient-to-r from-purple-400 to-pink-500 p-3 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+              <MoreHorizontal className="h-8 w-8 text-white" />
             </div>
-            <h3 className="font-semibold text-foreground leading-tight">And More</h3>
+            <h3 className="font-bold text-blue-700 leading-tight">More Fun!</h3>
+            <p className="text-gray-700 text-sm mt-2 font-medium">Even more cool surprises!</p>
           </div>
         </div>
       </div>
@@ -872,27 +981,31 @@ function MoreFeaturesSection() {
 /* ---------- CONTACT ---------- */
 function ContactSection() {
   return (
-    <section id="contact" className="py-20 md:py-32 bg-transparent">
+    <section id="contact" className={`${getChildFriendlyClasses.hero}`}>
       <div className="mx-auto max-w-4xl px-4 text-center">
-        <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary">Contact</span>
-        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-foreground leading-tight">Talk to our team</h2>
-        <p className="text-muted-foreground mt-4 max-w-2xl mx-auto leading-relaxed">
-          Reach out for demos, pricing questions, or partnership opportunities.
+        <div className="flex justify-center mb-4">
+          <MessageCircle className="h-12 w-12 text-blue-500" />
+        </div>
+        <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">Talk to Our Team!</h2>
+        <p className="text-gray-700 mt-4 max-w-2xl mx-auto font-medium leading-relaxed">
+          Have questions? Want to learn more? We'd love to hear from you!
         </p>
-        <div className="mt-6 sm:mt-8 grid gap-3 sm:gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <a 
             href="mailto:sales@lana.ai" 
-            className="inline-flex items-center justify-center rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 hover:shadow-xl hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] min-h-12 min-w-44 flex-1 sm:flex-none"
+            className={`${getChildFriendlyClasses.button} inline-flex items-center justify-center gap-2 min-w-44`}
           >
-            Email Sales
+            <Mail className="h-5 w-5" />
+            Email Us
           </a>
           <a 
             href="mailto:contact@lanamind.com" 
             target="_blank" 
             rel="noopener noreferrer" 
-            className="inline-flex items-center justify-center rounded-xl border border-input bg-background px-5 py-3 text-base font-medium hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.96] text-foreground min-h-12 min-w-44 flex-1 sm:flex-none"
+            className={`${getChildFriendlyClasses.buttonSecondary} inline-flex items-center justify-center gap-2 min-w-44`}
           >
-            Book a Demo
+            <Calendar className="h-5 w-5" />
+            Book a Chat
           </a>
         </div>
       </div>
@@ -909,49 +1022,49 @@ function Footer() {
     Support: ["Term Plan", "Feedback", "Settings"]
   }
   return (
-    <footer className="border-t border-border py-8 md:py-16 bg-transparent">
+    <footer className="border-t border-border py-8 md:py-16 bg-gradient-to-r from-blue-50 to-purple-50">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-5 md:gap-12">
           <div className="lg:col-span-2">
-            <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
-            <p className="text-muted-foreground text-sm mt-3 max-w-md leading-relaxed">
-              Empowering you and your child through personalized AI tutoring while keeping you connected to the learning journey.
+            <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Lana AI</Link>
+            <p className="text-gray-700 text-sm mt-3 max-w-md leading-relaxed font-medium">
+              Making learning super fun and effective for kids everywhere!
             </p>
             <div className="flex gap-3 sm:gap-4 mt-5">
               <Link 
                 href="#" 
                 aria-label="Twitter" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-white hover:shadow-md hover:scale-110 transition-all duration-300 ease-in-out bg-white/80 backdrop-blur-sm shadow-md"
               >
-                <Twitter className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <Twitter className="h-5 w-5 text-blue-500" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="Facebook" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-white hover:shadow-md hover:scale-110 transition-all duration-300 ease-in-out bg-white/80 backdrop-blur-sm shadow-md"
               >
-                <Facebook className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <Facebook className="h-5 w-5 text-blue-500" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="Instagram" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-white hover:shadow-md hover:scale-110 transition-all duration-300 ease-in-out bg-white/80 backdrop-blur-sm shadow-md"
               >
-                <Instagram className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <Instagram className="h-5 w-5 text-pink-500" />
               </Link>
               <Link 
                 href="#" 
                 aria-label="LinkedIn" 
-                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-muted hover:shadow-md hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/50 dark:hover:shadow-xl"
+                className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background p-3 sm:p-2 rounded-full hover:bg-white hover:shadow-md hover:scale-110 transition-all duration-300 ease-in-out bg-white/80 backdrop-blur-sm shadow-md"
               >
-                <Linkedin className="h-5 w-5 text-muted-foreground hover:text-foreground dark:text-blue-400 dark:hover:text-blue-300" />
+                <Linkedin className="h-5 w-5 text-blue-600" />
               </Link>
             </div>
           </div>
           {Object.entries(footerLinks).map(([cat, links]) => (
             <div key={cat}>
-              <h4 className="text-sm font-semibold uppercase tracking-wide text-foreground mb-4 leading-tight">{cat}</h4>
-              <ul className="space-y-3 text-sm text-muted-foreground">
+              <h4 className="text-sm font-bold uppercase tracking-wide text-blue-700 mb-4 leading-tight">{cat}</h4>
+              <ul className="space-y-3 text-sm text-gray-700 font-medium">
                 {links.map((l) => (
                   <li key={l}>
                     <Link 
@@ -971,7 +1084,7 @@ function Footer() {
                         l === "API" ? "/api" :
                         "#"
                       }
-                      className="hover:text-foreground hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out dark:hover:shadow-blue-500/30 dark:hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
+                      className="hover:text-purple-600 hover:shadow-sm hover:scale-105 transition-all duration-300 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded"
                     >
                       {l}
                     </Link>
@@ -981,8 +1094,8 @@ function Footer() {
             </div>
           ))}
         </div>
-        <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Lana AI. All rights reserved.
+        <div className="mt-12 pt-8 border-t border-border text-center text-sm text-gray-600 font-medium">
+          © {new Date().getFullYear()} Lana AI. All rights reserved. Made with ❤️ for kids everywhere!
         </div>
       </div>
     </footer>
