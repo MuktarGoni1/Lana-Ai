@@ -281,21 +281,21 @@ function HeroSection() {
           <div className="flex flex-col gap-5 sm:gap-6">
             <div className="flex items-center gap-2 mb-2">
               <Star className="h-6 w-6 text-yellow-500 animate-bounce" />
-              <span className="text-lg font-bold text-blue-600">Learning Made Fun!</span>
+              <span className="text-lg font-bold text-blue-600">Learning Made clear!</span>
               <Star className="h-6 w-6 text-yellow-500 animate-bounce" style={{ animationDelay: '0.2s' }} />
             </div>
             <h1 className="text-2xl xs:text-3xl sm:text-4xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold leading-tight tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
-              {user ? `Welcome back, ${user.email?.split('@')[0] || user.user_metadata?.full_name || 'learner'}!` : "The World's most fun AI tutor for kids!"}
+              {user ? `Welcome back, ${user.email?.split('@')[0] || user.user_metadata?.full_name || 'learner'}!` : "Your superhuman afterclass tutor!"}
             </h1>
             <p className="text-sm xs:text-base sm:text-lg md:text-xl text-gray-700 leading-relaxed">
               {user 
                 ? "Continue your amazing learning adventure with personalized tutoring that adapts just for YOU!"
-                : "Learn with our friendly AI tutor that explains everything in a way that's perfect for kids!"
+                : "Learn with our friendly AI tutor that explains everything in a way that's perfect for you and your children!"
               }
             </p>
             {!user && (
               <p className="text-xs xs:text-sm sm:text-base text-gray-600 leading-relaxed italic bg-blue-50 p-4 rounded-2xl">
-                <Heart className="h-5 w-5 text-red-400 inline mr-1" /> Revolutionizing learning with fun AI technology! Lana helps break down school topics into easy, understandable lessons just for kids!
+                <Heart className="h-5 w-5 text-red-400 inline mr-1" /> Revolutionizing learning with clear explanations using AI technology! Lana helps break down school topics into easy, understandable lessons just for kids!
               </p>
             )}
             <div className="flex flex-col xs:flex-row gap-3 w-full">
@@ -408,7 +408,7 @@ function FeaturesSection() {
           </div>
           <h2 className="text-2xl xs:text-3xl sm:text-4xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Everything You Need to Be a Super Learner!</h2>
           <p className="text-gray-600 mt-3 xs:mt-4 max-w-2xl mx-auto text-sm xs:text-base md:text-lg leading-relaxed">
-            Lana AI combines super cool technology with fun learning methods to create an experience that's both effective AND fun!
+            Lana AI combines super cool technology with fun learning methods to create an experience that's effective for you and your child!
           </p>
         </div>
         <div className="grid grid-cols-1 xs:grid-cols-2 lg:grid-cols-3 gap-6 xs:gap-6 sm:gap-8 md:gap-8 lg:gap-8">
@@ -445,7 +445,7 @@ function StructuredLessonsSection() {
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mt-3 text-gray-800 leading-tight">Fun Lessons That Help You Learn Better!</h2>
           <p className="text-gray-600 mt-4 max-w-2xl mx-auto text-base md:text-lg leading-relaxed">
-            Our fun lessons break big topics into small, easy pieces that make learning super enjoyable!
+            Our clear lesson path helps break big topics into small, easy pieces that make learning super enjoyable!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -468,7 +468,7 @@ function StructuredLessonsSection() {
               <Lightbulb className="h-8 w-8 text-white" />
             </div>
             <h3 className="text-xl font-bold mb-2 text-blue-700 leading-tight">Fun Activities</h3>
-            <p className="text-gray-700 leading-relaxed">Gamifications and quizzes to make learning super engaging at every step!</p>
+            <p className="text-gray-700 leading-relaxed">Quizzes to make learning super engaging at every step!</p>
           </div>
         </div>
       </div>
@@ -681,7 +681,7 @@ function EducationalApproachSection() {
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent leading-tight">How We Help Kids Learn Better!</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            Our super cool learning methods are designed to make education fun and effective!
+            Our clear learning methods are designed to make education clear and effective!
           </p>
         </div>
         <div className="flex flex-col lg:flex-row items-center gap-8 max-w-6xl mx-auto">
@@ -940,7 +940,7 @@ function MoreFeaturesSection() {
           </div>
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">Even More Awesome Stuff!</h2>
           <p className="text-gray-700 mt-4 max-w-2xl mx-auto text-base md:text-lg font-medium leading-relaxed">
-            We've packed tons of cool features to make your learning super fun and effective!
+            We've packed tons of cool features to make your learning super clear and effective!
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -1028,7 +1028,7 @@ function Footer() {
           <div className="lg:col-span-2">
             <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">Lana AI</Link>
             <p className="text-gray-700 text-sm mt-3 max-w-md leading-relaxed font-medium">
-              Making learning super fun and effective for kids everywhere!
+              Making learning super clear and effective for kids everywhere!
             </p>
             <div className="flex gap-3 sm:gap-4 mt-5">
               <Link 
@@ -1110,11 +1110,11 @@ export default function Home() {
   if (!mounted) { return null }
 
   return (
-    <div className="flex min-h-screen flex-col bg-gradient-to-br from-gray-100 via-stone-200 to-gray-300 dark:from-gray-800/30 dark:via-stone-800/30 dark:to-gray-800/30 text-foreground font-sans">
+    <div className="flex min-h-screen flex-col bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 text-foreground font-sans">
       {/* Skip to main content link for accessibility */}
       <a 
         href="#main-content" 
-        className="sr-only focus:not-sr-only focus:absolute focus:top-3 xs:focus:top-4 focus:left-3 xs:focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-3 xs:focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 xs:focus:top-4 focus:left-3 xs:focus:left-4 focus:z-50 focus:bg-white focus:text-gray-800 focus:px-3 xs:focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-blue-400"
       >
         Skip to main content
       </a>
