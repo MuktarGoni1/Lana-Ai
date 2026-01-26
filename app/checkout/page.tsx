@@ -1,30 +1,17 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
-import { CreditCard, Lock, CheckCircle, ArrowLeft } from "lucide-react";
+import { CreditCard, Lock, CheckCircle, ArrowLeft, AlertTriangle } from "lucide-react";
 import { processDirectPayment } from "@/services/paymentService";
 
-// This is a placeholder checkout page to avoid build errors
-// The actual checkout functionality would be implemented separately
 export default function CheckoutPage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">Checkout Page</h2>
-        <p className="text-gray-600 mb-6">
-          This is a placeholder for the checkout page.
-        </p>
-        <a 
-          href="/landing-page" 
-          className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-        >
-          Back to Home
-        </a>
-      </div>
-    </div>
+    <Suspense fallback={<div>Loading checkout...</div>}>
+      <CheckoutPageContent />
+    </Suspense>
   );
 }
 
@@ -46,6 +33,7 @@ function CheckoutPageContent() {
     cvv: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
@@ -67,18 +55,36 @@ function CheckoutPageContent() {
   };
 
   useEffect(() => {
+    // Enhanced security validation with better error handling
     if (!planName || !interval) {
-      router.push("/landing-page");
+      setGeneralError('Invalid plan selection. Please select a plan from the pricing page.');
       return;
     }
-
-    const plans = PLANS[interval as "monthly" | "yearly"];
-    const plan = plans.find(p => p.name === planName);
+    
+    // Sanitize and validate inputs
+    const sanitizedPlanName = decodeURIComponent(planName);
+    const sanitizedInterval = decodeURIComponent(interval);
+    
+    // Validate interval is either 'monthly' or 'yearly'
+    if (sanitizedInterval !== 'monthly' && sanitizedInterval !== 'yearly') {
+      setGeneralError('Invalid billing interval selected.');
+      return;
+    }
+    
+    // Validate plan name against allowed values
+    const allowedPlans = ['Free', 'Family', 'Family Plus'];
+    if (!allowedPlans.includes(sanitizedPlanName)) {
+      setGeneralError('Invalid plan selected. Please select a valid plan from the pricing page.');
+      return;
+    }
+    
+    const plans = PLANS[sanitizedInterval as "monthly" | "yearly"];
+    const plan = plans.find(p => p.name === sanitizedPlanName);
     
     if (plan) {
       setSelectedPlan(plan);
     } else {
-      router.push("/landing-page");
+      setGeneralError('Selected plan not found. Please select a plan from the pricing page.');
     }
   }, [planName, interval, router]);
 
@@ -135,18 +141,46 @@ function CheckoutPageContent() {
         
         // Redirect after delay
         setTimeout(() => {
-          router.push("/dashboard");
+          router.push("/homepage");
         }, 3000);
       } else {
-        alert(result.error || "There was an error processing your payment. Please try again.");
+        setGeneralError(result.error || "There was an error processing your payment. Please try again.");
       }
     } catch (error) {
       console.error("Payment error:", error);
-      alert("There was an error processing your payment. Please try again.");
+      setGeneralError("There was an error processing your payment. Please try again.");
     } finally {
       setIsProcessing(false);
     }
   };
+
+  if (generalError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Error</h2>
+          <p className="text-gray-600 mb-6">{generalError}</p>
+          <div className="flex flex-col gap-4">
+            <Link 
+              href="/pricing" 
+              className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              Go to Pricing
+            </Link>
+            <button 
+              onClick={() => window.history.back()}
+              className="inline-block bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full shadow hover:shadow-lg transition-all duration-300"
+            >
+              Go Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!selectedPlan) {
     return <div>Loading...</div>;
@@ -172,23 +206,41 @@ function CheckoutPageContent() {
   }
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Verifying your account...</p>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 flex items-center justify-center">
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Please Sign In</h2>
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Authentication Required</h2>
           <p className="text-gray-600 mb-6">
             You need to be signed in to complete your purchase.
           </p>
-          <Link 
-            href="/login" 
-            className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-          >
-            Sign In
-          </Link>
+          <div className="flex flex-col gap-4">
+            <Link 
+              href="/login" 
+              className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+            >
+              Sign In
+            </Link>
+            <Link 
+              href="/register" 
+              className="inline-block bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full shadow hover:shadow-lg transition-all duration-300"
+            >
+              Create Account
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -197,6 +249,18 @@ function CheckoutPageContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4">
       <div className="max-w-4xl mx-auto">
+        {generalError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex">
+              <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
+              <div>
+                <h3 className="text-red-800 font-medium">Error</h3>
+                <p className="text-red-600 text-sm">{generalError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Complete Your Subscription

@@ -40,12 +40,6 @@ export default function ClientPricingPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-foreground">
       <div className="container mx-auto px-4 py-8">
-        <header className="mb-12">
-          <Link href="/" className="inline-block text-xl font-bold text-primary">
-            Lana AI
-          </Link>
-        </header>
-
         <main>
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
@@ -112,8 +106,19 @@ export default function ClientPricingPage() {
                   className="w-full"
                   asChild
                 >
-                  <Link href={user ? "/homepage" : "/register"}>
-                    {user ? "Manage Subscription" : "Get Started"}
+                  <Link href={user ? (plan.name !== "Free" ? `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}` : "/homepage") : "/register"}
+                    onClick={(e) => {
+                      if (user && plan.name !== "Free") {
+                        // Add validation to ensure plan is valid before redirecting
+                        const allowedPlans = ['Family', 'Family Plus'];
+                        if (allowedPlans.includes(plan.name)) {
+                          e.preventDefault();
+                          window.location.href = `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}`;
+                        }
+                      }
+                    }}
+                    >
+                    {user ? (plan.name !== "Free" ? "Upgrade Now" : "Manage Subscription") : "Get Started"}
                   </Link>
                 </Button>
               </div>

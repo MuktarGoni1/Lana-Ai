@@ -383,30 +383,37 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const flow = searchParams.get("flow");
-  const { isAuthenticated, isLoading } = useUnifiedAuth();
+  const { isAuthenticated, isLoading, user } = useUnifiedAuth();
   const { toast } = useToast();
 
-  // Redirect authenticated users
+  // Check if user has completed onboarding
+  const [showContinue, setShowContinue] = useState(false);
+  
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
       // Check onboarding status
-      // For now, we'll redirect to the last visited page or homepage
-      let lastVisited = null;
-      
-      // Try to get from localStorage
-      if (typeof window !== 'undefined') {
-        lastVisited = localStorage.getItem('lana_last_visited');
+      const onboardingComplete = user?.user_metadata?.onboarding_complete;
+      if (!onboardingComplete) {
+        setShowContinue(true);
+      } else {
+        // Redirect to last visited page or homepage
+        let lastVisited = null;
+        
+        // Try to get from localStorage
+        if (typeof window !== 'undefined') {
+          lastVisited = localStorage.getItem('lana_last_visited');
+        }
+        
+        // Redirect to last visited page if available and not an auth page, otherwise homepage
+        const redirectPath = lastVisited && 
+                             !lastVisited.startsWith('/login') && 
+                             !lastVisited.startsWith('/register') && 
+                             !lastVisited.startsWith('/auth') && 
+                             lastVisited !== '/landing-page' ? 
+                             lastVisited : '/homepage';
+        
+        router.push(redirectPath);
       }
-      
-      // Redirect to last visited page if available and not an auth page, otherwise homepage
-      const redirectPath = lastVisited && 
-                           !lastVisited.startsWith('/login') && 
-                           !lastVisited.startsWith('/register') && 
-                           !lastVisited.startsWith('/auth') && 
-                           lastVisited !== '/landing-page' ? 
-                           lastVisited : '/homepage';
-      
-      router.push(redirectPath);
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -427,6 +434,37 @@ function LoginContent() {
   
   if (flow === "child") {
     return <ChildFlow />;
+  }
+
+  // If authenticated but onboarding not complete, show Continue button
+  if (showContinue) {
+    return (
+      <FormWrapper>
+        <FormCard>
+          <div className="space-y-6">
+            <div className="text-center space-y-3">
+              <div className="w-14 h-14 rounded-xl bg-white/[0.05] flex items-center justify-center mx-auto">
+                <Mail className="w-7 h-7 text-white/70" />
+              </div>
+              <div className="space-y-1">
+                <h1 className="text-2xl font-semibold text-white">Welcome Back!</h1>
+                <p className="text-white/40 text-sm">You're signed in. Let's continue setting up your account.</p>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => router.push("/child-info")}
+              className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
+                       hover:bg-white/90 transition-all duration-200
+                       flex items-center justify-center gap-2"
+            >
+              <span>Continue Setup</span>
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </FormCard>
+      </FormWrapper>
+    );
   }
 
   return (

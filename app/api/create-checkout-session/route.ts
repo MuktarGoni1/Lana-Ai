@@ -5,10 +5,55 @@ export async function POST(request: NextRequest) {
   try {
     const { planName, interval, billingInfo } = await request.json();
 
-    // Validate input
-    if (!planName || !interval || !billingInfo) {
+    // Sanitize and validate inputs
+    const sanitizedPlanName = typeof planName === 'string' ? planName.trim() : '';
+    const sanitizedInterval = typeof interval === 'string' ? interval.trim() : '';
+    
+    // Validate required fields exist and are of correct type
+    if (!sanitizedPlanName || !sanitizedInterval || !billingInfo || typeof billingInfo !== 'object') {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate plan name is in allowed list
+    const allowedPlans = ['Free', 'Family', 'Family Plus'];
+    if (!allowedPlans.includes(sanitizedPlanName)) {
+      return NextResponse.json(
+        { error: 'Invalid plan selected' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate interval
+    if (!['monthly', 'yearly'].includes(sanitizedInterval)) {
+      return NextResponse.json(
+        { error: 'Invalid billing interval' },
+        { status: 400 }
+      );
+    }
+    
+    // Validate billing info with basic checks
+    const { firstName, lastName, email } = billingInfo;
+    
+    if (!firstName || typeof firstName !== 'string' || firstName.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'First name is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!lastName || typeof lastName !== 'string' || lastName.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Last name is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!email || typeof email !== 'string' || !/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(.\w{2,3})+$/.test(email)) {
+      return NextResponse.json(
+        { error: 'Valid email is required' },
         { status: 400 }
       );
     }

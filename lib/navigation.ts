@@ -65,12 +65,45 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     console.log('[Navigation] Navigating to next step from:', currentStep);
     
     switch (currentStep) {
-      case 'onboarding':
-        // From onboarding, go to term-plan
+      case 'auth':
+        // From authentication, go to child info
+        if (router && typeof router.push === 'function') {
+          router.push('/child-info');
+        } else {
+          // Fallback: use window.location
+          if (typeof window !== 'undefined') {
+            window.location.assign('/child-info');
+          }
+        }
+        break;
+        
+      case 'child-info':
+        // From child info, go to learning preference
+        if (router && typeof router.push === 'function') {
+          router.push('/learning-preference');
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.assign('/learning-preference');
+          }
+        }
+        break;
+        
+      case 'learning-preference':
+        // From learning preference, go to schedule
+        if (router && typeof router.push === 'function') {
+          router.push('/schedule');
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.assign('/schedule');
+          }
+        }
+        break;
+        
+      case 'schedule':
+        // From schedule, go to term-plan
         if (router && typeof router.push === 'function') {
           router.push('/term-plan?onboarding=1');
         } else {
-          // Fallback: use window.location
           if (typeof window !== 'undefined') {
             window.location.assign('/term-plan?onboarding=1');
           }

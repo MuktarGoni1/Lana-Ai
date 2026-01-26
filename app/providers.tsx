@@ -3,7 +3,6 @@
 import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { validateEnv } from "@/lib/env";
-import AuthWrapper from "./auth-wrapper";
 import { AuthIndicator } from "@/components/auth-indicator";
 import { OfflineStatusIndicator } from "@/components/offline-status-indicator";
 
@@ -22,7 +21,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AuthWrapper>{children}</AuthWrapper>
+      {children}
       <AuthIndicator />
       <OfflineStatusIndicator />
       <Toaster />

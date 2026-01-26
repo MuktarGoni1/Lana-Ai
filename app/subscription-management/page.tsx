@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import { getUserSubscription, cancelSubscription, updateSubscription } from "@/services/paymentService";
-import { CreditCard, Calendar, Package, AlertTriangle, CheckCircle } from "lucide-react";
+import { getUserSubscription, cancelSubscription, updateSubscription, processRefund } from "@/services/paymentService";
+import { CreditCard, Calendar, Package, AlertTriangle, CheckCircle, RotateCcw } from "lucide-react";
 import Link from "next/link";
 
 export default function SubscriptionManagement() {
@@ -12,6 +12,10 @@ export default function SubscriptionManagement() {
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refunding, setRefunding] = useState(false);
+  const [refundSuccess, setRefundSuccess] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -62,6 +66,39 @@ export default function SubscriptionManagement() {
       alert("Failed to cancel subscription. Please try again.");
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleRefundRequest = async () => {
+    if (!subscription || !refundReason.trim()) return;
+    
+    setRefunding(true);
+    
+    try {
+      // In a real implementation, you would pass the actual transaction ID
+      const transactionId = `txn_${subscription.id}`;
+      const result = await processRefund(transactionId, refundReason, subscription.amount);
+      
+      if (result.success) {
+        setRefundSuccess(true);
+        // Reset subscription status or remove subscription
+        setSubscription((prev: any) => ({
+          ...prev,
+          status: 'refunded'
+        }));
+        setTimeout(() => {
+          setShowRefundModal(false);
+          setRefundReason('');
+          setRefundSuccess(false);
+        }, 3000);
+      } else {
+        alert(result.error || "Failed to process refund. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error processing refund:", error);
+      alert("Failed to process refund. Please try again.");
+    } finally {
+      setRefunding(false);
     }
   };
 
@@ -201,6 +238,13 @@ export default function SubscriptionManagement() {
                     >
                       Cancel Subscription
                     </button>
+                    <button
+                      onClick={() => setShowRefundModal(true)}
+                      className="flex-1 bg-orange-50 text-orange-600 font-bold py-3 px-6 rounded-full border border-orange-200 hover:bg-orange-100 transition-all duration-300 flex items-center justify-center gap-2"
+                    >
+                      <RotateCcw className="w-4 h-4" />
+                      Request Refund
+                    </button>
                     <Link 
                       href="/pricing" 
                       className="flex-1 bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
@@ -260,6 +304,96 @@ export default function SubscriptionManagement() {
             </div>
           </div>
         </div>
+        
+        {/* Refund Modal */}
+        {showRefundModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl p-6 max-w-md w-full">
+              {refundSuccess ? (
+                <div className="text-center">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Refund Processed!</h3>
+                  <p className="text-gray-600 mb-6">
+                    Your refund request has been submitted successfully. You will receive a confirmation email shortly.
+                  </p>
+                  <p className="text-sm text-gray-500">Closing automatically...</p>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-bold text-gray-800">Request Refund</h3>
+                    <button 
+                      onClick={() => {
+                        setShowRefundModal(false);
+                        setRefundReason('');
+                      }}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  
+                  <div className="mb-4 p-3 bg-blue-50 rounded-xl">
+                    <p className="text-sm text-blue-800">
+                      <strong>Refund Details:</strong><br/>
+                      Amount: ${subscription.amount}<br/>
+                      Transaction ID: {`txn_${subscription.id}`}
+                    </p>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Reason for refund *
+                    </label>
+                    <textarea
+                      value={refundReason}
+                      onChange={(e) => setRefundReason(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      rows={3}
+                      placeholder="Please explain why you're requesting a refund..."
+                      disabled={refunding}
+                    />
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setShowRefundModal(false);
+                        setRefundReason('');
+                      }}
+                      disabled={refunding}
+                      className="flex-1 bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full hover:bg-gray-200 transition-all duration-300 disabled:opacity-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleRefundRequest}
+                      disabled={refunding || !refundReason.trim()}
+                      className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 px-6 rounded-full hover:shadow-lg transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {refunding ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <RotateCcw className="w-4 h-4" />
+                          Request Refund
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         
         {/* Cancel Confirmation Modal */}
         {showCancelConfirm && (

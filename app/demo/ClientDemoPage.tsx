@@ -23,12 +23,6 @@ export default function ClientDemoPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-foreground">
       <div className="container mx-auto px-4 py-8">
-        <header className="mb-12">
-          <Link href="/" className="inline-block text-xl font-bold text-primary">
-            Lana AI
-          </Link>
-        </header>
-
         <main className="max-w-3xl mx-auto text-center">
           <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
             Experience Lana AI Live

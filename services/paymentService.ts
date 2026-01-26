@@ -47,7 +47,8 @@ export async function createCheckoutSession(paymentData: PaymentData): Promise<C
     });
 
     if (!response.ok) {
-      throw new Error(`Payment processing failed: ${response.statusText}`);
+      const errorResult = await response.json();
+      throw new Error(errorResult.error || `Payment processing failed: ${response.statusText}`);
     }
 
     const result = await response.json();
@@ -77,9 +78,14 @@ export async function processDirectPayment(paymentData: PaymentData): Promise<{s
       body: JSON.stringify(paymentData),
     });
 
+    if (!response.ok) {
+      const errorResult = await response.json();
+      return { success: false, error: errorResult.error || 'Payment processing failed' };
+    }
+    
     const result = await response.json();
 
-    if (response.ok) {
+    if (result.success) {
       return { success: true, transactionId: result.transactionId };
     } else {
       return { success: false, error: result.error || 'Payment processing failed' };
@@ -183,5 +189,42 @@ export async function updateSubscription(userId: string, newPlan: string, interv
   } catch (error) {
     console.error('Error updating subscription:', error);
     return false;
+  }
+}
+
+/**
+ * Processes a payment refund
+ */
+export async function processRefund(transactionId: string, reason: string, amount: number): Promise<{success: boolean, refundId?: string, error?: string}> {
+  try {
+    // Validate refund data
+    if (!transactionId || !reason || amount <= 0) {
+      return { success: false, error: 'Invalid refund data' };
+    }
+
+    // Simulate API call to backend for refund processing
+    const response = await fetch('/api/process-refund', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ transactionId, reason, amount }),
+    });
+
+    if (!response.ok) {
+      const errorResult = await response.json();
+      return { success: false, error: errorResult.error || 'Refund processing failed' };
+    }
+    
+    const result = await response.json();
+
+    if (result.success) {
+      return { success: true, refundId: result.refundId };
+    } else {
+      return { success: false, error: result.error || 'Refund processing failed' };
+    }
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    return { success: false, error: 'Network error occurred' };
   }
 }

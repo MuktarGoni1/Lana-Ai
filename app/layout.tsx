@@ -8,7 +8,7 @@ import { LocalChildrenManager } from '@/components/local-children-manager'
 import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
-import StructuredData from './structured-data'
+
 
 export const metadata: Metadata = {
   title: 'LanaMind – AI Tutor for Clear, Structured Learning',
@@ -75,7 +75,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         />
       </head>
       <body>
-        <StructuredData />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <UnifiedAuthProvider>
             <ClientProviders>

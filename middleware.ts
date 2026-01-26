@@ -50,6 +50,9 @@ export async function middleware(req: NextRequest) {
       '/auth/confirmed/guardian',
       '/auth/confirmed/child',
       '/auth/auto-login',
+      '/child-info',
+      '/learning-preference',
+      '/schedule',
       '/quiz',
       '/diagnostic-quiz',
       '/term-plan',
@@ -226,17 +229,20 @@ export async function middleware(req: NextRequest) {
     // First-time onboarding enforcement
     const onboardingComplete = Boolean(user?.user_metadata?.onboarding_complete)
     const cookieComplete = req.cookies.get('lana_onboarding_complete')?.value === '1'
-    const isOnboardingRoute = pathname === '/onboarding' || pathname === '/term-plan'
+    const isOnboardingRoute = pathname === '/child-info' || 
+                             pathname === '/learning-preference' || 
+                             pathname === '/schedule' || 
+                             pathname === '/term-plan'
     const role = user?.user_metadata?.role as 'child' | 'guardian' | undefined
     
     // Check if this is a redirect from onboarding completion
     const isOnboardingCompletion = req.nextUrl.searchParams.get('onboardingComplete') === '1'
     
     if (sessionExists && !onboardingComplete && !cookieComplete && !isOnboardingRoute) {
-      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to onboarding')
-      await authLogger.logRedirect(pathname, '/onboarding', 'incomplete_onboarding', user?.id, user?.email);
+      console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to child info')
+      await authLogger.logRedirect(pathname, '/child-info', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
-      const dest = new URL(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, req.url)
+      const dest = new URL(`/child-info?returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
     

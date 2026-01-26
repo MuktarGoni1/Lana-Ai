@@ -7,7 +7,7 @@ const urlsToCache = [
   '/register',
   '/homepage',
   '/term-plan',
-  '/onboarding',
+
   '/_next/static/css/',
   '/_next/static/chunks/',
   '/favicon.ico'
