@@ -164,12 +164,16 @@ function CheckoutPageContent() {
           <h2 className="text-xl font-bold text-gray-800 mb-4">Error</h2>
           <p className="text-gray-600 mb-6">{generalError}</p>
           <div className="flex flex-col gap-4">
-            <Link 
-              href="/pricing" 
+            <button 
+              onClick={() => {
+                setGeneralError(null);
+                // Reset form to allow user to try again
+                setErrors({});
+              }}
               className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
-              Go to Pricing
-            </Link>
+              Try Again
+            </button>
             <button 
               onClick={() => window.history.back()}
               className="inline-block bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full shadow hover:shadow-lg transition-all duration-300"

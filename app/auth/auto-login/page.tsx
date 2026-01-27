@@ -68,13 +68,13 @@ export default function AutoLoginPage() {
         // Check if user has completed onboarding
         const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
 
-        // If onboarding is not complete, redirect to onboarding regardless of user type
+        // If onboarding is not complete, redirect to first onboarding step
         if (!onboardingComplete) {
           setStatus("confirmed");
           
-          toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
+          toast({ title: "Authentication confirmed", description: "Redirecting to setup..." });
           setTimeout(() => {
-            router.push("/onboarding");
+            router.push("/child-info");
           }, 1000);
           return;
         }

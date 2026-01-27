@@ -70,7 +70,9 @@ export async function middleware(req: NextRequest) {
       '/privacy-policy',
       '/terms-of-service',
       '/security-policy',
-      '/cookie-policy'
+      '/cookie-policy',
+      '/checkout',
+      '/checkout/confirmation'
     ]
     const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
     // Treat any static asset (including files in /public root like /first-section.jpg) as pass-through
@@ -300,6 +302,19 @@ export async function middleware(req: NextRequest) {
       await authLogger.logRedirect(pathname, '/landing-page', 'role_mismatch_guardian_path', user?.id, user?.email);
       const dest = new URL('/landing-page', req.url)
       return NextResponse.redirect(dest)
+    }
+
+    // Ensure /checkout route is explicitly handled
+    if (pathname === '/checkout' || pathname.startsWith('/checkout')) {
+      console.log('[Middleware] Allowing access to checkout routes');
+      // Set the last visited page to prevent post-payment landing page redirect
+      res.cookies.set('lana_last_visited', pathname, {
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+        httpOnly: false,
+        sameSite: 'lax',
+        path: '/',
+      });
+      return res;
     }
 
     // Log successful middleware pass-through

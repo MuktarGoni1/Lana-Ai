@@ -156,9 +156,17 @@ function HeroSection() {
             
             <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
               {user ? (
-                <Link href="/homepage" className={getChildFriendlyClasses.button}>
-                  Continue Learning
-                </Link>
+                <>
+                  <Link href="/homepage" className={getChildFriendlyClasses.button}>
+                    Continue Learning
+                  </Link>
+                  {/* Show Continue Setup button if onboarding is incomplete */}
+                  {!user.user_metadata?.onboarding_complete && (
+                    <Link href="/child-info" className={getChildFriendlyClasses.buttonSecondary}>
+                      Continue Setup
+                    </Link>
+                  )}
+                </>
               ) : (
                 <>
                   <Link href="/register" className={getChildFriendlyClasses.button}>

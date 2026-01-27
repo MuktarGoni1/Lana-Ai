@@ -15,12 +15,12 @@ export default function CheckoutConfirmation() {
         <p className="text-gray-600 mb-6">
           This is a placeholder for the checkout confirmation page.
         </p>
-        <a 
-          href="/landing-page" 
+        <Link 
+          href="/homepage" 
           className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
         >
           Back to Home
-        </a>
+        </Link>
       </div>
     </div>
   );
