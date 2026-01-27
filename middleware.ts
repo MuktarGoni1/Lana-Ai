@@ -3,6 +3,28 @@ import { createServerClient } from '@supabase/ssr'
 import { type CookieOptions } from '@supabase/ssr'
 import { authLogger } from '@/lib/services/authLogger'
 
+// Helper function to validate redirect URLs
+function isValidRedirectUrl(url: string): boolean {
+  // Only allow relative URLs or URLs from the same domain
+  if (url.startsWith('/')) {
+    // Relative URL - check if it's not a protocol-relative URL
+    return !url.startsWith('//');
+  }
+  
+  // Check if it's an absolute URL from the same domain
+  try {
+    const parsedUrl = new URL(url);
+    const allowedHosts = ['lanamind.com', 'www.lanamind.com', 'localhost'];
+    return allowedHosts.some(host => 
+      parsedUrl.hostname === host || 
+      parsedUrl.hostname.endsWith('.' + host)
+    );
+  } catch {
+    // Invalid URL
+    return false;
+  }
+}
+
 // Generate a simple UUID-like string for guest sessions
 function generateGuestId(): string {
   return 'guest-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
@@ -244,6 +266,14 @@ export async function middleware(req: NextRequest) {
       console.log('[Middleware] Authenticated user with incomplete onboarding, redirecting to child info')
       await authLogger.logRedirect(pathname, '/child-info', 'incomplete_onboarding', user?.id, user?.email);
       const returnTo = `${pathname}${url.search}`
+      
+      // Validate redirect URL to prevent open redirect vulnerability
+      if (!isValidRedirectUrl(returnTo)) {
+        console.warn('[Middleware] Invalid redirect URL detected:', returnTo);
+        const dest = new URL('/child-info', req.url);
+        return NextResponse.redirect(dest);
+      }
+      
       const dest = new URL(`/child-info?returnTo=${encodeURIComponent(returnTo)}`, req.url)
       return NextResponse.redirect(dest)
     }
@@ -268,7 +298,8 @@ export async function middleware(req: NextRequest) {
                            !lastVisitedCookie.startsWith('/login') && 
                            !lastVisitedCookie.startsWith('/register') && 
                            !lastVisitedCookie.startsWith('/auth') && 
-                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie !== '/landing-page' &&
+                           isValidRedirectUrl(lastVisitedCookie) ? 
                            lastVisitedCookie : '/homepage';
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_landing_page_access', user?.id, user?.email);
@@ -288,7 +319,8 @@ export async function middleware(req: NextRequest) {
                            !lastVisitedCookie.startsWith('/login') && 
                            !lastVisitedCookie.startsWith('/register') && 
                            !lastVisitedCookie.startsWith('/auth') && 
-                           lastVisitedCookie !== '/landing-page' ? 
+                           lastVisitedCookie !== '/landing-page' &&
+                           isValidRedirectUrl(lastVisitedCookie) ? 
                            lastVisitedCookie : '/homepage';
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_root_access', user?.id, user?.email);
