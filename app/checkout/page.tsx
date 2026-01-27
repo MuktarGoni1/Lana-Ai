@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
 import { CreditCard, Lock, CheckCircle, ArrowLeft, AlertTriangle } from "lucide-react";
-import { processDirectPayment } from "@/services/paymentService";
+import { createSecurePaymentIntent, type SecureBillingInfo } from "@/lib/securePaymentHandler";
 
 export default function CheckoutPage() {
   return (
@@ -27,10 +27,7 @@ function CheckoutPageContent() {
     address: "",
     city: "",
     country: "Nigeria", // Default to Nigeria as per contact info
-    postalCode: "",
-    cardNumber: "",
-    expiryDate: "",
-    cvv: ""
+    postalCode: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [generalError, setGeneralError] = useState<string | null>(null);
@@ -109,9 +106,7 @@ function CheckoutPageContent() {
     if (!billingInfo.address.trim()) newErrors.address = "Address is required";
     if (!billingInfo.city.trim()) newErrors.city = "City is required";
     if (!billingInfo.postalCode.trim()) newErrors.postalCode = "Postal code is required";
-    if (!billingInfo.cardNumber.replace(/\s/g, '').match(/^[0-9]{16}$/)) newErrors.cardNumber = "Valid card number is required";
-    if (!billingInfo.expiryDate.match(/^(0[1-9]|1[0-2])\/?([0-9]{2})$/)) newErrors.expiryDate = "Valid expiry date (MM/YY) is required";
-    if (!billingInfo.cvv.match(/^[0-9]{3,4}$/)) newErrors.cvv = "Valid CVV is required";
+    // Card validation removed - handled securely by payment provider
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -125,15 +120,11 @@ function CheckoutPageContent() {
     setIsProcessing(true);
 
     try {
-      // Prepare payment data
-      const paymentData = {
-        planName: selectedPlan.name,
-        interval: interval as 'monthly' | 'yearly',
-        billingInfo
-      };
+      // Calculate amount based on selected plan
+      const amount = selectedPlan.price * (interval === 'yearly' ? 12 : 1); // Convert to monthly equivalent
       
-      // Process payment
-      const result = await processDirectPayment(paymentData);
+      // Create secure payment intent
+      const result = await createSecurePaymentIntent(amount, 'usd', billingInfo);
       
       if (result.success) {
         // Payment successful
@@ -434,70 +425,17 @@ function CheckoutPageContent() {
                 </div>
                 
                 <div className="border-t border-gray-200 pt-6">
-                  <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-                    <CreditCard className="w-5 h-5 mr-2 text-blue-600" />
-                    Payment Method
-                  </h3>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Card Number *
-                      </label>
-                      <input
-                        type="text"
-                        value={billingInfo.cardNumber}
-                        onChange={(e) => setBillingInfo({...billingInfo, cardNumber: e.target.value.replace(/\s/g, '').replace(/(.{4})/g, '$1 ').trim()})}
-                        className={`w-full px-4 py-3 rounded-xl border ${errors.cardNumber ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono`}
-                        placeholder="1234 5678 9012 3456"
-                        maxLength={19}
-                      />
-                      {errors.cardNumber && <p className="text-red-500 text-sm mt-1">{errors.cardNumber}</p>}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Expiry Date *
-                      </label>
-                      <input
-                        type="text"
-                        value={billingInfo.expiryDate}
-                        onChange={(e) => {
-                          let val = e.target.value.replace(/\D/g, '');
-                          if (val.length >= 2) {
-                            val = val.substring(0, 2) + '/' + val.substring(2, 4);
-                          }
-                          setBillingInfo({...billingInfo, expiryDate: val});
-                        }}
-                        className={`w-full px-4 py-3 rounded-xl border ${errors.expiryDate ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="MM/YY"
-                        maxLength={5}
-                      />
-                      {errors.expiryDate && <p className="text-red-500 text-sm mt-1">{errors.expiryDate}</p>}
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        CVV *
-                      </label>
-                      <input
-                        type="text"
-                        value={billingInfo.cvv}
-                        onChange={(e) => setBillingInfo({...billingInfo, cvv: e.target.value.replace(/\D/g, '')})}
-                        className={`w-full px-4 py-3 rounded-xl border ${errors.cvv ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                        placeholder="123"
-                        maxLength={4}
-                      />
-                      {errors.cvv && <p className="text-red-500 text-sm mt-1">{errors.cvv}</p>}
-                    </div>
-                    
-                    <div className="flex items-end">
-                      <div className="bg-gray-100 rounded-lg p-3 text-sm text-gray-600">
-                        <div className="flex space-x-2">
-                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
-                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
-                          <div className="w-8 h-5 bg-gray-300 rounded-sm"></div>
-                        </div>
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
+                    <div className="flex items-start">
+                      <div className="flex-shrink-0">
+                        <CreditCard className="w-6 h-6 text-blue-600 mt-0.5" />
+                      </div>
+                      <div className="ml-3">
+                        <h3 className="text-lg font-medium text-blue-800">Secure Payment Processing</h3>
+                        <p className="text-blue-700 mt-1">
+                          Your payment information is handled securely by our payment partner. 
+                          Card details are never stored on our servers.
+                        </p>
                       </div>
                     </div>
                   </div>

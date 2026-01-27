@@ -45,6 +45,14 @@ class ServerSideRateLimiter {
       maxRequests: isDevelopment ? 20 : 10, 
       windowMs: 60000 // 1 minute
     });
+    this.defaultLimits.set('/api/auth/register-parent', { 
+      maxRequests: isDevelopment ? 10 : 5, 
+      windowMs: 60000 // 1 minute
+    });
+    this.defaultLimits.set('/api/auth/register-child', { 
+      maxRequests: isDevelopment ? 20 : 10, 
+      windowMs: 60000 // 1 minute
+    });
   }
 
   /**

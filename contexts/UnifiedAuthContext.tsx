@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/db';
+import { UserService } from '@/lib/api/userService';
 import { type User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { RobustAuthService, type RobustAuthState } from '@/lib/services/robustAuthService';
@@ -35,24 +35,25 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const authService = RobustAuthService.getInstance();
 
-  // Refresh user data from Supabase
+  // Refresh user data using secure API
   const refreshUser = useCallback(async () => {
     try {
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      const profile = await UserService.getProfile();
       
-      if (error) {
-        console.error('[UnifiedAuthContext] Error refreshing user:', error);
-        setUser(null);
-        setIsAuthenticated(false);
-        setError(error.message);
-        return;
-      }
+      // Create a mock User object compatible with existing code
+      const currentUser = {
+        id: profile.id,
+        email: profile.email,
+        user_metadata: profile.user_metadata,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at
+      } as User;
       
       setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
+      setIsAuthenticated(true);
       setError(null);
     } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected error refreshing user:', error);
+      console.error('[UnifiedAuthContext] Error refreshing user:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -111,19 +112,14 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const login = useCallback(async (email: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
-        },
-      });
-
-      if (error) throw error;
+      // For now, delegate to authService which should handle the OTP login
+      // This maintains compatibility with existing auth flow
+      await authService.loginWithEmail(email);
     } catch (error) {
       console.error('[UnifiedAuthContext] Login error:', error);
       throw error;
     }
-  }, []);
+  }, [authService]);
 
   const loginWithEmail = useCallback(async (email: string) => {
     return await authService.loginWithEmail(email);
@@ -152,9 +148,8 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const logout = useCallback(async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) throw error;
+      // Delegate to authService for sign out
+      await authService.logout();
       
       setUser(null);
       setIsAuthenticated(false);
@@ -163,7 +158,7 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       console.error('[UnifiedAuthContext] Logout error:', error);
       throw error;
     }
-  }, [router]);
+  }, [authService, router]);
 
   // Get user's role
   const getUserRole = useCallback(() => {

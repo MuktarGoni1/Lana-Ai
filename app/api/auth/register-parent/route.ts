@@ -1,10 +1,79 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
+import serverRateLimiter from '@/lib/server-rate-limiter'
+import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf'
+// For now, we'll implement basic sanitization manually since dompurify import is problematic
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { email } = body
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await serverRateLimiter.isAllowed('/api/auth/register-parent', ip);
+    
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Too many requests. Please wait before trying again.'
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
+          }
+        }
+      );
+    }
+    
+    // CSRF protection
+    const csrfToken = request.headers.get('x-csrf-token');
+    if (!csrfToken || !validateCSRFToken(csrfToken)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Invalid request. Please try again.'
+        }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    const body = await request.json();
+    const { email, password } = body;
+    
+    // Enhanced input validation
+    if (!email) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Email is required'
+        }),
+        {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
+    if (password) {
+      // Strong password validation
+      const passwordValidation = validatePassword(password);
+      if (!passwordValidation.valid) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            message: passwordValidation.error
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+    }
 
     if (!email) {
       return new Response(
@@ -21,22 +90,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) {
+    // Enhanced email validation
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Invalid email format'
+          message: emailValidation.error
         }),
         {
           status: 400,
-          headers: {
-            'Content-Type': 'application/json'
+          headers: { 'Content-Type': 'application/json' }
         }
-        }
-      )
+      );
     }
+    
+    // Basic sanitization
+    const sanitizedEmail = email.trim().toLowerCase().replace(/[^a-zA-Z0-9@._-]/g, '');
 
     try {
       // Initialize Supabase admin client
@@ -44,7 +114,7 @@ export async function POST(request: NextRequest) {
 
       // First, create a record in the guardians table
       const { error: insertError } = await adminClient.from("guardians").upsert({
-        email: email.trim(),
+        email: sanitizedEmail,
         weekly_report: true,
         monthly_report: false,
       }, { onConflict: 'email' })
@@ -63,7 +133,7 @@ export async function POST(request: NextRequest) {
 
       // Sign in with OTP (this will send the magic link)
       const { data, error } = await adminClient.auth.signInWithOtp({
-        email: email.trim(),
+        email: sanitizedEmail,
         options: {
           data: { role: "parent" }, // Changed from "guardian" to "parent"
           emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
@@ -130,26 +200,15 @@ export async function POST(request: NextRequest) {
     } catch (error: any) {
       console.error('[API Register Parent] Unexpected error:', error)
       
-      // Provide more specific error messages based on error type
-      let message = 'Unexpected error during registration';
-      if (error instanceof Error) {
-        if (error.message?.includes('NetworkError')) {
-          message = 'Network error. Please check your connection and try again.';
-        } else if (error.message?.includes('Timeout')) {
-          message = 'Request timeout. Please try again.';
-        }
-      }
-      
+      // Generic error message for security
       return new Response(
         JSON.stringify({
           success: false,
-          message
+          message: 'Registration failed. Please try again.'
         }),
         {
           status: 500,
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         }
       )
     }
@@ -162,10 +221,59 @@ export async function POST(request: NextRequest) {
       }),
       {
         status: 400,
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' }
       }
     )
   }
+}
+
+// Password validation function
+function validatePassword(password: string): { valid: boolean; error?: string } {
+  if (password.length < 8) {
+    return { valid: false, error: 'Password must be at least 8 characters long' };
+  }
+  
+  if (password.length > 128) {
+    return { valid: false, error: 'Password must be less than 128 characters' };
+  }
+  
+  if (!/(?=.*[a-z])/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one lowercase letter' };
+  }
+  
+  if (!/(?=.*[A-Z])/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one uppercase letter' };
+  }
+  
+  if (!/(?=.*\d)/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one number' };
+  }
+  
+  if (!/(?=.*[@$!%*?&])/.test(password)) {
+    return { valid: false, error: 'Password must contain at least one special character (@$!%*?&)' };
+  }
+  
+  return { valid: true };
+}
+
+// Enhanced email validation function
+function validateEmail(email: string): { valid: boolean; error?: string } {
+  if (!email || typeof email !== 'string') {
+    return { valid: false, error: 'Email is required' };
+  }
+  
+  const trimmedEmail = email.trim();
+  
+  if (trimmedEmail.length > 254) {
+    return { valid: false, error: 'Email is too long' };
+  }
+  
+  // RFC 5322 compliant regex (simplified but secure)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(trimmedEmail)) {
+    return { valid: false, error: 'Invalid email format' };
+  }
+  
+  return { valid: true };
 }

@@ -1,5 +1,8 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
+import serverRateLimiter from '@/lib/server-rate-limiter'
+import { validateCSRFToken } from '@/lib/security/csrf'
+// For now, we'll implement basic sanitization manually since dompurify import is problematic
 
 // Enhanced validation functions
 const validateChildData = (data: any) => {
@@ -8,6 +11,8 @@ const validateChildData = (data: any) => {
   // Validate required fields
   if (!data.nickname || typeof data.nickname !== 'string' || data.nickname.trim().length < 2) {
     errors.push('Nickname must be at least 2 characters long')
+  } else if (data.nickname.trim().length > 50) {
+    errors.push('Nickname must be less than 50 characters')
   }
   
   if (!data.age || typeof data.age !== 'number' || data.age < 6 || data.age > 18) {
@@ -160,6 +165,41 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await serverRateLimiter.isAllowed('/api/auth/register-child', ip);
+    
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Too many requests. Please wait before trying again.'
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
+          }
+        }
+      );
+    }
+    
+    // CSRF protection
+    const csrfToken = request.headers.get('x-csrf-token');
+    if (!csrfToken || !validateCSRFToken(csrfToken)) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Invalid request. Please try again.'
+        }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     const body = await request.json()
     
     // Get client IP address for audit logging
@@ -335,20 +375,11 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Provide specific error messages
-    let message = 'Unexpected error during registration'
-    if (error instanceof Error) {
-      if (error.message?.includes('NetworkError')) {
-        message = 'Network error. Please check your connection and try again.'
-      } else if (error.message?.includes('Timeout')) {
-        message = 'Request timeout. Please try again.'
-      }
-    }
-    
+    // Generic error message for security
     return new Response(
       JSON.stringify({
         success: false,
-        message
+        message: 'Registration failed. Please try again.'
       }),
       {
         status: 500,
