@@ -4,7 +4,7 @@ import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
 import { LocalChildrenManager } from '@/components/local-children-manager'
-import { Navigation } from '@/components/navigation'
+import { Header } from '@/components/navigation'
 import { Footer } from '@/components/footer'
 
 export default function LandingPageLayout({ children }: { children: React.ReactNode }) {
@@ -36,7 +36,7 @@ export default function LandingPageLayout({ children }: { children: React.ReactN
       <body>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <UnifiedAuthProvider>
-            <Navigation />
+            <Header />
             <ClientProviders>
               {children}
               <LocalChildrenManager />

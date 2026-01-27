@@ -204,7 +204,7 @@ function CookiePolicyContent() {
         
         <div className="prose prose-gray dark:prose-invert max-w-none bg-card rounded-lg p-5 md:p-7 shadow-sm border">
           <p className="text-muted-foreground mb-6">
-            This Cookie Policy explains how Lana AI ("Company", "we", "us", and "our") uses cookies and similar technologies to recognize you when you visit our website at https://www.lanamind.com ("Website"). It explains what these technologies are and why we use them, as well as your rights to control our use of them.
+            This Cookie Policy explains how Lana AI uses cookies and similar technologies on our website. It tells you what cookies we use, why we use them, and how you can control them.
           </p>
 
           <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
@@ -212,10 +212,10 @@ function CookiePolicyContent() {
                       What are cookies?
                     </h2>
           <p className="text-muted-foreground mb-4">
-            Cookies are small data files that are placed on your computer or mobile device when you visit a website. Cookies are widely used by website owners in order to make their websites work, or to work more efficiently, as well as to provide reporting information.
+            Cookies are small files stored on your device when you visit websites. They help websites work better and remember your preferences.
           </p>
           <p className="text-muted-foreground mb-6">
-            Cookies set by the website owner (in this case, Lana AI) are called "first-party cookies". Cookies set by parties other than the website owner are called "third-party cookies". Third-party cookies enable third-party features or functionality to be provided on or through the website (e.g., advertising, interactive content, and analytics). The parties that set these third-party cookies can recognize your computer both when it visits the website in question and also when it visits certain other websites.
+            We use our own cookies ("first-party") and cookies from trusted partners ("third-party") to improve your experience.
           </p>
 
           <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
@@ -223,7 +223,7 @@ function CookiePolicyContent() {
                       Why do we use cookies?
                     </h2>
           <p className="text-muted-foreground mb-6">
-            We use first- and third-party cookies for several reasons. Some cookies are required for technical reasons in order for our Website to operate, and we refer to these as "essential" or "strictly necessary" cookies. Other cookies also enable us to track and target the interests of our users to enhance the experience on our Online Properties. Third parties serve cookies through our Website for advertising, analytics, and other purposes.
+            We use cookies to make our website work properly and to understand how you use it. Some cookies are essential for basic features, while others help us improve your experience.
           </p>
 
           <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
@@ -233,40 +233,40 @@ function CookiePolicyContent() {
           
           <h3 className="text-lg md:text-xl font-medium mt-5 mb-3 text-foreground flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      Essential website cookies
+                      Essential cookies
                     </h3>
           <p className="text-muted-foreground mb-3">
-            These cookies are strictly necessary to provide you with services available through our Website and to use some of its features, such as access to secure areas.
+            These cookies are necessary for our website to work. Without them, basic features won't function.
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-5">
-            <li><strong>Session ID:</strong> This cookie stores a unique session identifier to allow the server to recognize your browser. It expires when you close your browser.</li>
-            <li><strong>Security token:</strong> This cookie is used to prevent cross-site request forgery attacks. It expires when your session ends.</li>
-            <li><strong>Authentication:</strong> This cookie stores authentication information to allow the server to recognize you when you visit secure areas of the website. It expires when you log out.</li>
+            <li><strong>Session ID:</strong> Keeps you logged in and remembers your progress</li>
+            <li><strong>Security token:</strong> Protects your account from unauthorized access</li>
+            <li><strong>Authentication:</strong> Verifies your identity when accessing secure areas</li>
           </ul>
 
           <h3 className="text-lg md:text-xl font-medium mt-5 mb-3 text-foreground flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      Performance and functionality cookies
+                      Preference cookies
                     </h3>
           <p className="text-muted-foreground mb-3">
-            These cookies are used to enhance the performance and functionality of our website but are non-essential to its use. However, without these cookies, certain functionality may become unavailable.
+            These cookies remember your settings to make your experience better.
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-5">
-            <li><strong>UI preference:</strong> These cookies store information about your preferences and settings to provide you with enhanced, more personal features. These cookies may be set by us or by third-party providers whose services we have added to our pages. The cookies are persistent and may remain in your browser for up to 1 year.</li>
-            <li><strong>Font preferences:</strong> These cookies store information about your font preferences to provide a better reading experience. The cookies are persistent and may remain in your browser for up to 1 year.</li>
+            <li><strong>UI preferences:</strong> Saves your display settings for up to 1 year</li>
+            <li><strong>Font preferences:</strong> Remembers your font choices for easier reading</li>
           </ul>
 
           <h3 className="text-lg md:text-xl font-medium mt-5 mb-3 text-foreground flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      Analytics and customization cookies
+                      Analytics cookies
                     </h3>
           <p className="text-muted-foreground mb-3">
-            These cookies collect information that is used either in aggregate form to help us understand how our Website is being used or to help us customize our Website for you.
+            These cookies help us understand how you use our website so we can make it better.
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-5">
-            <li><strong>Google Analytics:</strong> These cookies help us understand how visitors interact with our website by collecting and reporting information anonymously. The cookies are persistent and may remain in your browser for up to 2 years.</li>
-            <li><strong>Hotjar:</strong> These cookies allow us to track user behavior and collect feedback to improve our website experience. The cookies are persistent and may remain in your browser for up to 1 year.</li>
-            <li><strong>User behavior tracking:</strong> These cookies store anonymous information about how you navigate our website to help us improve the user experience. The cookies are persistent and may remain in your browser for up to 2 years.</li>
+            <li><strong>Google Analytics:</strong> Shows us how visitors interact with our site (up to 2 years)</li>
+            <li><strong>Hotjar:</strong> Helps us improve your experience by tracking user behavior</li>
+            <li><strong>User behavior:</strong> Tells us how you navigate our site to improve usability</li>
           </ul>
 
           <h3 className="text-lg md:text-xl font-medium mt-5 mb-3 text-foreground flex items-center gap-2">
@@ -274,51 +274,40 @@ function CookiePolicyContent() {
                       Advertising cookies
                     </h3>
           <p className="text-muted-foreground mb-3">
-            These cookies are used to make advertising messages more relevant to you. They perform functions like preventing the same ad from continuously reappearing, ensuring that ads are properly displayed for advertisers, and in some cases selecting advertisements that are based on your interests.
+            These cookies help show you relevant ads and measure their effectiveness.
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-5">
-            <li><strong>Ad performance:</strong> These cookies track visits, conversions, and actions so that we can measure and improve the performance of our advertising campaigns. The cookies are persistent and may remain in your browser for up to 1 year.</li>
-            <li><strong>Retargeting:</strong> These cookies collect information about your browsing habits to make advertising relevant to you and your interests. The cookies are persistent and may remain in your browser for up to 1 year.</li>
+            <li><strong>Ad performance:</strong> Tracks how well our ads work to improve results</li>
+            <li><strong>Retargeting:</strong> Shows you ads based on your interests and browsing history</li>
           </ul>
 
           <h3 className="text-lg md:text-xl font-medium mt-5 mb-3 text-foreground flex items-center gap-2">
                       <span className="inline-block w-1.5 h-1.5 rounded-full bg-primary"></span>
-                      Social networking cookies
+                      Social media cookies
                     </h3>
           <p className="text-muted-foreground mb-3">
-            These cookies are used to enable you to share pages and content that you find interesting on our Website through third-party social networking and other websites. These cookies may also be used for advertising purposes too.
+            These cookies let you share our content on social media platforms.
           </p>
           <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-5">
-            <li><strong>Social sharing:</strong> These cookies allow you to share content on social networks like Facebook, Twitter, and LinkedIn. The cookies are set by the social networks themselves.</li>
+            <li><strong>Social sharing:</strong> Enables sharing on Facebook, Twitter, and LinkedIn</li>
           </ul>
 
           <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
                       <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                      How can you control cookies?
+                      Your cookie choices
                     </h2>
           <p className="text-muted-foreground mb-3">
-            You have the right to decide whether to accept or reject cookies. You can exercise your cookie rights by setting your preferences in the Cookie Consent Manager. The Cookie Consent Manager allows you to select which categories of cookies you accept.
+            You control your cookie preferences. You can:
           </p>
           <p className="text-muted-foreground mb-3">
-            You can also set or amend your web browser controls to accept or refuse cookies. As the means by which you can refuse cookies through your web browser controls vary from browser to browser, you should visit your browser's help menu for more information.
+            <strong>Use our Cookie Settings</strong>: When you visit our site, you'll see a cookie consent banner where you can choose which cookies to accept.
+          </p>
+          <p className="text-muted-foreground mb-3">
+            <strong>Adjust your browser settings</strong>: Most browsers allow you to block or delete cookies. Check your browser's help section for instructions.
           </p>
           <p className="text-muted-foreground mb-6">
-            The specific types of first and third-party cookies on our Website and the purposes they perform are described in the table above (although you should note that the specific cookies may vary depending on the particular services you use).
+            Note: Blocking all cookies may prevent some website features from working properly.
           </p>
-
-          <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>
-                      How can you manage your cookie preferences?
-                    </h2>
-          <p className="text-muted-foreground mb-3">
-            When you access our Website, you will be asked to consent to the placement of certain categories of cookies on your device. You can manage your cookie preferences by:
-          </p>
-          <ul className="list-disc pl-5 mt-2 space-y-1 text-muted-foreground mb-6">
-            <li>Accepting all cookies</li>
-            <li>Rejecting all non-essential cookies</li>
-            <li>Customizing your cookie preferences</li>
-            <li>Withdrawing your consent at any time by using the <Link href="/contact" className="text-primary hover:underline">Cookie Settings</Link> link in our footer</li>
-          </ul>
 
           <h2 className="text-xl md:text-2xl font-semibold mt-7 mb-4 text-foreground flex items-center gap-2">
                       <span className="inline-block w-2 h-2 rounded-full bg-primary"></span>

@@ -2,10 +2,11 @@
 
 import { useTheme } from "next-themes";
 import { useState, useEffect } from "react";
-import { GraduationCap, Lightbulb, BarChart3, Bot, Zap, MoreHorizontal, BookOpen, Calculator, Calendar } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { GraduationCap, Lightbulb, BarChart3, Bot, Zap, MoreHorizontal, BookOpen, Calculator, Calendar, CheckCircle, Users, Trophy, Star } from "lucide-react";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
+import { Header, Footer } from "@/components/navigation";
+import { getChildFriendlyClasses, getPastelBg } from "@/lib/ui-styles";
 
 export default function ClientFeaturesPage() {
   const { setTheme } = useTheme();
@@ -23,36 +24,60 @@ export default function ClientFeaturesPage() {
 
   const features = [
     { 
-      title: "Learn with term plans", 
-      desc: "Structured curriculum planning to guide your child's learning journey systematically.", 
+      title: "Learn with Term Plans", 
+      desc: "Structured curriculum planning to guide your child's learning journey systematically with age-appropriate content.", 
       icon: Calendar 
     },
     { 
-      title: "Structured lessons", 
-      desc: "Organized, step-by-step learning paths that break down complex topics into digestible parts.", 
+      title: "Structured Lessons", 
+      desc: "Organized, step-by-step learning paths that break down complex topics into digestible parts for better understanding.", 
       icon: BookOpen 
     },
     { 
-      title: "Math tutor", 
-      desc: "Expert assistance with step-by-step math problem solving and visual aids.", 
+      title: "Math Tutor", 
+      desc: "Expert assistance with step-by-step math problem solving and visual aids tailored to your child's learning level.", 
       icon: Calculator 
     },
     { 
-      title: "Quick explainer", 
-      desc: "Instant clarifications for complex topics that need immediate understanding.", 
+      title: "Quick Explainer", 
+      desc: "Instant clarifications for complex topics that need immediate understanding with personalized explanations.", 
       icon: Zap 
     },
     { 
-      title: "And more", 
-      desc: "Additional educational tools designed for modern learning experiences.", 
-      icon: MoreHorizontal 
+      title: "Avatar-Based Learning", 
+      desc: "Engaging learning experience with personalized avatars that make education fun and interactive.", 
+      icon: Users 
+    },
+    { 
+      title: "Performance Reporting", 
+      desc: "Detailed progress tracking and reports for parents to stay connected with their child's learning journey.", 
+      icon: BarChart3 
+    },
+    { 
+      title: "Automated Revision", 
+      desc: "Smart reminders and spaced repetition to help reinforce learning and improve retention.", 
+      icon: Trophy 
+    },
+    { 
+      title: "Explanatory Videos", 
+      desc: "High-quality educational videos that bring concepts to life and make learning more engaging.", 
+      icon: Star 
     },
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-foreground">
-      <div className="container mx-auto px-4 py-8">
-        <main>
+    <div className="flex min-h-screen flex-col bg-white text-foreground font-sans selection:bg-yellow-200">
+      {/* Skip to main content link for accessibility */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
+      >
+        Skip to main content
+      </a>
+      
+      <Header />
+      <main id="main-content" className="flex-grow">
+        <div className="container mx-auto px-4 py-8">
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Powerful Features for Personalized Learning
@@ -62,62 +87,63 @@ export default function ClientFeaturesPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 mb-20">
+          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-4 mb-20">
             {features.map((feature, index) => (
               <div 
                 key={feature.title} 
-                className="rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-6 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 dark:hover:shadow-blue-500/30 dark:hover:shadow-xl"
-              >
-                <feature.icon className="text-primary h-6 w-6 mb-3 dark:text-blue-400 dark:hover:text-blue-300" />
-                <h3 className="text-xl font-semibold mb-3 text-foreground leading-tight">{feature.title}</h3>
-                <p className="text-muted-foreground text-base leading-relaxed">{feature.desc}</p>
+                className={`rounded-3xl p-8 border border-slate-100 transition-all duration-300 transform hover:scale-105 overflow-hidden hover:shadow-2xl shadow ${getPastelBg(index)} bg-contain flex flex-col h-[360px]`}              >
+                <div className="w-12 h-12 rounded-xl bg-white shadow-sm flex items-center justify-center mb-6">
+                  <feature.icon className="text-slate-900 h-6 w-6" />
+                </div>
+                <h3 className="text-xl font-bold mb-3 text-slate-900">{feature.title}</h3>
+                <p className="text-slate-600 leading-relaxed font-medium">{feature.desc}</p>
               </div>
             ))}
           </div>
 
-          <div className="bg-card rounded-xl p-8 shadow-sm border border-border mb-16">
-            <h2 className="text-2xl font-semibold mb-6 text-foreground">Core Benefits</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-slate-50 rounded-3xl p-12 shadow-sm border border-slate-100 mb-16">
+            <h2 className="text-2xl font-bold mb-8 text-slate-900 text-center">Core Benefits</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg mt-1">
-                  <Bot className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <Bot className="h-6 w-6 text-slate-900" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2 text-foreground">AI-Powered Adaptation</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-bold mb-2 text-slate-900">AI-Powered Adaptation</h3>
+                  <p className="text-slate-600 font-medium">
                     The system adapts to each learner's pace and style, providing personalized content and challenges.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg mt-1">
-                  <BarChart3 className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <BarChart3 className="h-6 w-6 text-slate-900" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2 text-foreground">Progress Tracking</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-bold mb-2 text-slate-900">Progress Tracking</h3>
+                  <p className="text-slate-600 font-medium">
                     Detailed insights help students, parents, and teachers monitor growth and identify areas for improvement.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg mt-1">
-                  <GraduationCap className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <GraduationCap className="h-6 w-6 text-slate-900" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2 text-foreground">Expert Guidance</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-bold mb-2 text-slate-900">Expert Guidance</h3>
+                  <p className="text-slate-600 font-medium">
                     Access to AI tutors that provide clear explanations and support for challenging concepts.
                   </p>
                 </div>
               </div>
               <div className="flex items-start gap-4">
-                <div className="bg-primary/10 p-3 rounded-lg mt-1">
-                  <Lightbulb className="h-6 w-6 text-primary dark:text-blue-400 dark:hover:text-blue-300" />
+                <div className="bg-white p-3 rounded-xl shadow-sm">
+                  <Lightbulb className="h-6 w-6 text-slate-900" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold mb-2 text-foreground">Personalized Learning Paths</h3>
-                  <p className="text-muted-foreground">
+                  <h3 className="text-lg font-bold mb-2 text-slate-900">Personalized Learning Paths</h3>
+                  <p className="text-slate-600 font-medium">
                     Customized curricula that evolve based on the student's strengths, weaknesses, and interests.
                   </p>
                 </div>
@@ -132,27 +158,24 @@ export default function ClientFeaturesPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {user ? (
-                <Button size="lg" asChild>
-                  <Link href="/homepage">Go to Dashboard</Link>
-                </Button>
+                <Link href="/homepage" className={getChildFriendlyClasses.button}>
+                  Go to Dashboard
+                </Link>
               ) : (
                 <>
-                  <Button size="lg" asChild>
-                    <Link href="/register">Start Free Trial</Link>
-                  </Button>
-                  <Button variant="outline" size="lg" asChild>
-                    <Link href="/login">Log In</Link>
-                  </Button>
+                  <Link href="/register" className={getChildFriendlyClasses.button}>
+                    Start Free Trial
+                  </Link>
+                  <Link href="/login" className={getChildFriendlyClasses.buttonSecondary}>
+                    Log In
+                  </Link>
                 </>
               )}
             </div>
           </div>
-        </main>
-
-        <footer className="mt-16 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Lana AI. All rights reserved.</p>
-        </footer>
-      </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }

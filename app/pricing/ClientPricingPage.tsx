@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useTheme } from "next-themes";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
+import { Header, Footer } from "@/components/navigation";
+import { getChildFriendlyClasses } from "@/lib/ui-styles";
 
 const PLANS = {
   monthly: [
@@ -38,9 +39,18 @@ export default function ClientPricingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 text-foreground">
-      <div className="container mx-auto px-4 py-8">
-        <main>
+    <div className="flex min-h-screen flex-col bg-white text-foreground font-sans selection:bg-yellow-200">
+      {/* Skip to main content link for accessibility */}
+      <a 
+        href="#main-content" 
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-background focus:text-foreground focus:px-4 focus:py-2 focus:rounded-md focus:ring-2 focus:ring-primary"
+      >
+        Skip to main content
+      </a>
+      
+      <Header />
+      <main id="main-content" className="flex-grow">
+        <div className="container mx-auto px-4 py-8">
           <div className="text-center mb-16">
             <h1 className="text-4xl md:text-5xl font-bold mb-6 text-foreground">
               Simple, Transparent Pricing
@@ -49,10 +59,10 @@ export default function ClientPricingPage() {
               Choose the plan that's right for you. All plans include a 14-day free trial.
             </p>
 
-            <div className="mt-8 inline-flex rounded-full bg-muted p-1" role="tablist" aria-label="Billing frequency">
+            <div className="mt-8 inline-flex rounded-full bg-slate-100 p-1 border border-slate-200" role="tablist" aria-label="Billing frequency">
               <button
                 onClick={() => setInterval("monthly")}
-                className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "monthly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg`}
+                className={`px-8 py-3 rounded-full text-sm font-bold transition-all ${interval === "monthly" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
                 aria-pressed={interval === "monthly"}
                 role="tab"
                 aria-selected={interval === "monthly"}
@@ -62,7 +72,7 @@ export default function ClientPricingPage() {
               </button>
               <button
                 onClick={() => setInterval("yearly")}
-                className={`px-4 py-1.5 text-sm rounded-full transition-all duration-300 ease-in-out ${interval === "yearly" ? "bg-background shadow" : "text-muted-foreground"} hover:bg-accent hover:shadow-lg hover:scale-105 active:scale-[0.96] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:shadow-blue-500/30 dark:hover:shadow-lg`}
+                className={`px-8 py-3 rounded-full text-sm font-bold transition-all ${interval === "yearly" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-900"}`}
                 aria-pressed={interval === "yearly"}
                 role="tab"
                 aria-selected={interval === "yearly"}
@@ -77,72 +87,71 @@ export default function ClientPricingPage() {
             {plans.map((plan) => (
               <div
                 key={plan.name}
-                className={`relative rounded-xl border bg-card bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-900/30 p-8 shadow-sm transition-all duration-300 hover:shadow-xl hover:border-primary/60 hover:-translate-y-2 ${"popular" in plan && plan.popular ? "border-primary shadow-lg" : ""}`}
+                className={`rounded-3xl p-8 transition-all duration-300 ${"popular" in plan && plan.popular ? "bg-slate-900 text-white shadow-2xl scale-105 transform z-10" : "bg-white text-slate-900 border border-slate-200 shadow-sm"}`}
               >
                 {"popular" in plan && plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
-                    Most Popular
+                  <div className="text-center mb-4">
+                    <span className="inline-block bg-[#FACC15] text-slate-900 text-xs font-bold px-4 py-1 rounded-full">
+                      Most Popular
+                    </span>
                   </div>
                 )}
                 <div className="space-y-4 mb-6">
-                  <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
+                  <h3 className="text-2xl font-bold">{plan.name}</h3>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl font-extrabold">${plan.price}</span>
-                    <span className="text-muted-foreground">{periodLabel}</span>
+                    <span className={`text-sm ${"popular" in plan && plan.popular ? "text-slate-400" : "text-slate-500"}`}>{periodLabel}</span>
                   </div>
-                  <p className="text-muted-foreground">{plan.desc}</p>
+                  <p className={`font-medium ${"popular" in plan && plan.popular ? "text-slate-300" : "text-slate-600"}`}>{plan.desc}</p>
                 </div>
-                <ul className="space-y-3 mb-8">
+                <ul className="space-y-4 mb-8">
                   {plan.feats.map((feat) => (
-                    <li key={feat} className="flex items-center gap-2 text-sm">
-                      <svg className="h-5 w-5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <li key={feat} className="flex items-center gap-3">
+                      <svg className={`h-5 w-5 flex-shrink-0 ${"popular" in plan && plan.popular ? "text-yellow-400" : "text-green-500"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
                       </svg>
-                      <span>{feat}</span>
+                      <span className="font-medium">{feat}</span>
                     </li>
                   ))}
                 </ul>
-                <Button 
-                  className="w-full"
-                  asChild
-                >
-                  <Link href={user ? (plan.name !== "Free" ? `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}` : "/homepage") : "/register"}
-                    onClick={(e) => {
-                      if (user && plan.name !== "Free") {
-                        // Add validation to ensure plan is valid before redirecting
-                        const allowedPlans = ['Family', 'Family Plus'];
-                        if (allowedPlans.includes(plan.name)) {
-                          e.preventDefault();
-                          window.location.href = `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}`;
-                        }
+                <Link
+                  href={user ? (plan.name !== "Free" ? `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}` : "/homepage") : "/register"}
+                  className={`w-full block text-center py-4 rounded-full font-bold transition-all ${"popular" in plan && plan.popular ? "bg-[#FACC15] text-slate-900 hover:bg-[#EAB308]" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}
+                  onClick={(e) => {
+                    if (user && plan.name !== "Free") {
+                      // Add validation to ensure plan is valid before redirecting
+                      const allowedPlans = ['Family', 'Family Plus'];
+                      if (allowedPlans.includes(plan.name)) {
+                        e.preventDefault();
+                        window.location.href = `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}`;
                       }
-                    }}
-                    >
-                    {user ? (plan.name !== "Free" ? "Upgrade Now" : "Manage Subscription") : "Get Started"}
-                  </Link>
-                </Button>
+                    }
+                  }}
+                >
+                  {user ? (plan.name !== "Free" ? "Upgrade Now" : "Manage Subscription") : "Get Started"}
+                </Link>
               </div>
             ))}
           </div>
 
-          <div className="bg-card rounded-xl p-8 shadow-sm border border-border mb-16">
-            <h2 className="text-2xl font-semibold mb-4 text-foreground">Frequently Asked Questions</h2>
-            <div className="space-y-4">
+          <div className="bg-slate-50 rounded-3xl p-12 shadow-sm border border-slate-100 mb-16">
+            <h2 className="text-2xl font-bold mb-8 text-slate-900 text-center">Frequently Asked Questions</h2>
+            <div className="space-y-6">
               <div>
-                <h3 className="font-medium text-foreground">Can I change plans anytime?</h3>
-                <p className="text-muted-foreground mt-1">Yes, you can upgrade, downgrade, or cancel your subscription at any time.</p>
+                <h3 className="font-bold text-slate-900">Can I change plans anytime?</h3>
+                <p className="text-slate-600 mt-2 font-medium">Yes, you can upgrade, downgrade, or cancel your subscription at any time.</p>
               </div>
               <div>
-                <h3 className="font-medium text-foreground">Is there a free trial available?</h3>
-                <p className="text-muted-foreground mt-1">All paid plans include a 14-day free trial so you can explore all features risk-free.</p>
+                <h3 className="font-bold text-slate-900">Is there a free trial available?</h3>
+                <p className="text-slate-600 mt-2 font-medium">All paid plans include a 14-day free trial so you can explore all features risk-free.</p>
               </div>
               <div>
-                <h3 className="font-medium text-foreground">What payment methods do you accept?</h3>
-                <p className="text-muted-foreground mt-1">We accept all major credit cards including Visa, Mastercard, and American Express.</p>
+                <h3 className="font-bold text-slate-900">What payment methods do you accept?</h3>
+                <p className="text-slate-600 mt-2 font-medium">We accept all major credit cards including Visa, Mastercard, and American Express.</p>
               </div>
               <div>
-                <h3 className="font-medium text-foreground">Can I get a refund?</h3>
-                <p className="text-muted-foreground mt-1">Yes, we offer a 30-day money-back guarantee on all paid subscriptions.</p>
+                <h3 className="font-bold text-slate-900">Can I get a refund?</h3>
+                <p className="text-slate-600 mt-2 font-medium">Yes, we offer a 30-day money-back guarantee on all paid subscriptions.</p>
               </div>
             </div>
           </div>
@@ -154,27 +163,24 @@ export default function ClientPricingPage() {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {user ? (
-                <Button size="lg" asChild>
-                  <Link href="/homepage">Go to Dashboard</Link>
-                </Button>
+                <Link href="/homepage" className={getChildFriendlyClasses.button}>
+                  Go to Dashboard
+                </Link>
               ) : (
                 <>
-                  <Button size="lg" asChild>
-                    <Link href="/register">Start Free Trial</Link>
-                  </Button>
-                  <Button variant="outline" size="lg" asChild>
-                    <Link href="/login">Log In</Link>
-                  </Button>
+                  <Link href="/register" className={getChildFriendlyClasses.button}>
+                    Start Free Trial
+                  </Link>
+                  <Link href="/login" className={getChildFriendlyClasses.buttonSecondary}>
+                    Log In
+                  </Link>
                 </>
               )}
             </div>
           </div>
-        </main>
-
-        <footer className="mt-16 text-center text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} Lana AI. All rights reserved.</p>
-        </footer>
-      </div>
+        </div>
+      </main>
+      <Footer />
     </div>
   );
 }

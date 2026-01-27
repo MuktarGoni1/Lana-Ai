@@ -77,7 +77,10 @@ const FEATURES = [
   "Real-time progress reports for parents",
   "Crystal-clear explanations by Lana AI",
   "Personalized learning avatar",
-  "structured learning paths",
+  "Structured learning paths",
+  "Explanatory videos for every concept",
+  "Automated revision reminders",
+  "Performance reporting",
 ] as const
 
 const PLANS = {
@@ -182,7 +185,7 @@ function HeroSection() {
             <div className="pt-6">
               <p className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-wider">Key Features:</p>
               <ul className="space-y-3">
-                {FEATURES.slice(0,3).map((f) => (
+                {FEATURES.slice(0,4).map((f) => (
                   <li key={f} className="flex items-center gap-3 text-slate-700 font-medium">
                     <CheckCircle2 className="h-5 w-5 text-green-500 flex-shrink-0" />
                     <span>{f}</span>
@@ -218,12 +221,12 @@ function HeroSection() {
 /* ---------- FEATURES (PASTEL CARDS) ---------- */
 function FeaturesSection() {
   const features = [
-    { title: "Structured Paths", desc: "Organized lesson sequences that build knowledge.", icon: Calendar },
-    { title: "Clear Explanations", desc: "Step-by-step guidance making topics accessible.", icon: BookOpen },
-    { title: "Math Assistance", desc: "Interactive support with visual aids.", icon: Calculator },
-    { title: "Instant Clarity", desc: "Immediate answers to difficult questions.", icon: Zap },
-    { title: "Additional Tools", desc: "Supplementary learning resources.", icon: Sparkles },
-    { title: "AI Companion", desc: "Always there to help you learn.", icon: Bot },
+    { title: "Structured Paths", desc: "Organized lesson sequences that build knowledge step by step.", icon: Calendar },
+    { title: "Clear Explanations", desc: "Step-by-step guidance making topics accessible for your age.", icon: BookOpen },
+    { title: "Math Assistance", desc: "Interactive support with visual aids and examples.", icon: Calculator },
+    { title: "Instant Clarity", desc: "Immediate answers to difficult questions when you're stuck.", icon: Zap },
+    { title: "Learning Videos", desc: "Explanatory videos that bring concepts to life.", icon: Sparkles },
+    { title: "AI Companion", desc: "Always there to help you learn with personalized support.", icon: Bot },
   ]
   
   return (
@@ -245,7 +248,7 @@ function FeaturesSection() {
             Everything for <span className="text-purple-600">Effective Learning</span>
           </h2>
           <p className="text-lg text-slate-600 max-w-2xl mx-auto">
-            Lana AI combines advanced technology with proven methods to create clear learning experiences.
+            Lana AI uses smart technology to break down complex topics into easy-to-understand lessons that match your age and learning style.
           </p>
         </div>
 
@@ -278,22 +281,22 @@ function StructuredLessonsSection() {
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-extrabold text-slate-900 mb-4">Structured Learning</h2>
           <p className="text-slate-600 max-w-2xl mx-auto text-lg">
-            Our systematic approach breaks complex topics into manageable segments.
+            Our AI technology breaks down complex topics into bite-sized lessons that are easy to understand and remember.
           </p>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {[
-            { title: "Progressive Learning", icon: BookOpen, color: "bg-orange-50" },
-            { title: "Building Foundations", icon: GraduationCap, color: "bg-purple-50" },
-            { title: "Interactive Reinforcement", icon: Lightbulb, color: "bg-blue-50" }
+            { title: "Progressive Learning", icon: BookOpen, color: "bg-orange-50", desc: "Lessons build on each other so you master one concept before moving to the next." },
+            { title: "Building Foundations", icon: GraduationCap, color: "bg-purple-50", desc: "Strong basics help you understand harder topics later." },
+            { title: "Interactive Reinforcement", icon: Lightbulb, color: "bg-blue-50", desc: "Practice and review help you remember what you've learned." }
           ].map((item, i) => (
             <div key={i} className={`p-8 rounded-3xl ${item.color} border border-slate-100 text-center`}>
               <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center mx-auto mb-6">
                 <item.icon className="h-8 w-8 text-slate-900" />
               </div>
               <h3 className="text-xl font-bold mb-2 text-slate-900">{item.title}</h3>
-              <p className="text-slate-600 font-medium">Each concept reinforces prior knowledge for stronger retention.</p>
+              <p className="text-slate-600 font-medium">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -410,8 +413,22 @@ function CtaSection() {
             {user ? "Continue Your Learning Journey" : "Ready to Start Learning?"}
           </h2>
           <p className="text-slate-300 text-lg mb-10 max-w-2xl mx-auto">
-            Join students who are achieving better understanding through AI-powered learning. Begin your educational journey with clear explanations.
+            Join thousands of students learning with Lana. Our AI breaks down complex topics into simple, age-appropriate lessons. Parents get real-time progress reports and automated revision reminders to keep learning on track.
           </p>
+          <div className="flex flex-wrap justify-center gap-4 mb-10">
+            <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+              <CheckCircle2 className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Personalized Learning Paths</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+              <CheckCircle2 className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Progress Reports for Parents</span>
+            </div>
+            <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-full">
+              <CheckCircle2 className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Revision Reminders</span>
+            </div>
+          </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
              <Link 
                 href={user ? "/homepage" : "/register"}
@@ -455,18 +472,21 @@ function LanaSection() {
             </div>
             <h2 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-6">Meet Lana, Your <span className="text-blue-600">AI Assistant</span></h2>
             <p className="text-slate-600 text-lg mb-8 leading-relaxed font-medium">
-              Lana is your dedicated AI tutor that transforms complex concepts into clear, understandable explanations. Patient and always available.
+              Lana is your dedicated AI tutor that transforms complex concepts into clear, age-appropriate explanations. Patient, always available, and ready to help whenever you need it.
             </p>
             
             <div className="space-y-4">
               {[
-                { label: "Patient Guidance", icon: Star, color: "text-yellow-500", bg: "bg-yellow-50" },
-                { label: "Intelligent Support", icon: Lightbulb, color: "text-blue-500", bg: "bg-blue-50" },
-                { label: "Reliable Assistance", icon: Heart, color: "text-red-500", bg: "bg-red-50" }
+                { label: "Patient Guidance", icon: Star, color: "text-yellow-500", bg: "bg-yellow-50", desc: "Never feel rushed - Lana explains things as many times as you need." },
+                { label: "Intelligent Support", icon: Lightbulb, color: "text-blue-500", bg: "bg-blue-50", desc: "Lana adapts explanations to match how you learn best." },
+                { label: "Reliable Assistance", icon: Heart, color: "text-red-500", bg: "bg-red-50", desc: "Always there when you need help, day or night." }
               ].map((item, i) => (
-                <div key={i} className={`flex items-center gap-4 p-4 rounded-2xl ${item.bg}`}>
-                  <item.icon className={`h-6 w-6 ${item.color}`} />
-                  <span className="text-slate-900 font-bold">{item.label}</span>
+                <div key={i} className={`flex items-start gap-4 p-4 rounded-2xl ${item.bg}`}>
+                  <item.icon className={`h-6 w-6 ${item.color} flex-shrink-0 mt-1`} />
+                  <div>
+                    <span className="text-slate-900 font-bold">{item.label}</span>
+                    <p className="text-slate-700 text-sm mt-1">{item.desc}</p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -490,11 +510,15 @@ function MathTutorSection() {
               <div className="grid gap-4">
                 <div className="p-6 rounded-2xl bg-[#EFF6FF] border border-blue-100">
                   <h3 className="text-xl font-bold text-slate-900 mb-2">Detailed Problem Solving</h3>
-                  <p className="text-slate-600">Master mathematical concepts through comprehensive explanations.</p>
+                  <p className="text-slate-600">Step-by-step guidance that breaks down math problems into simple parts.</p>
                 </div>
                 <div className="p-6 rounded-2xl bg-[#ECFDF5] border border-green-100">
                   <h3 className="text-xl font-bold text-slate-900 mb-2">Visual Mathematics</h3>
-                  <p className="text-slate-600">Understand complex concepts through clear diagrams.</p>
+                  <p className="text-slate-600">Understand complex concepts through clear diagrams and examples.</p>
+                </div>
+                <div className="p-6 rounded-2xl bg-[#FFF7ED] border border-orange-100">
+                  <h3 className="text-xl font-bold text-slate-900 mb-2">Age-Appropriate Explanations</h3>
+                  <p className="text-slate-600">Lana explains math in ways that make sense for your age and learning level.</p>
                 </div>
               </div>
            </div>
@@ -515,7 +539,7 @@ function QuickExplainerSection() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
         <h2 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-6">Moments of Clarity</h2>
         <p className="text-slate-600 text-lg max-w-2xl mx-auto mb-12">
-          Experience breakthrough understanding when complex concepts become instantly clear.
+          Watch how Lana breaks down tricky topics into simple, easy-to-understand videos that make learning fun.
         </p>
         
         <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-slate-900 max-w-4xl mx-auto">
@@ -524,6 +548,9 @@ function QuickExplainerSection() {
             controls={true}
             className="w-full h-auto"
           />
+          <div className="absolute bottom-4 left-4 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-bold">
+            Watch Lana in Action
+          </div>
         </div>
       </div>
     </section>
