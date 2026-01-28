@@ -21,7 +21,7 @@ export function Footer() {
           {[
             { head: "Product", links: ["Features", "Pricing", "Demo"] },
             { head: "Company", links: ["About", "Blog", "Careers", "Contact"] },
-            { head: "Legal", links: ["Privacy", "Terms", "Security"] }
+            { head: "Legal", links: ["Privacy", "Terms", "Refund Policy", "Security"] }
           ].map((col) => (
             <div key={col.head}>
               <h4 className="font-bold text-slate-900 mb-4">{col.head}</h4>
@@ -39,6 +39,7 @@ export function Footer() {
                         l === 'Contact' ? '/contact' : 
                         l === 'Privacy' ? '/privacy-policy' : 
                         l === 'Terms' ? '/terms-of-service' : 
+                        l === 'Refund Policy' ? '/refund-policy' : 
                         l === 'Security' ? '/security-policy' : 
                         `/${l.toLowerCase().replace(' ', '-')}`
                       }
@@ -53,7 +54,7 @@ export function Footer() {
           ))}
         </div>
         <div className="mt-12 pt-8 border-t border-slate-200 text-center text-slate-500 font-medium">
-          © {new Date().getFullYear()} Lana AI. All rights reserved.
+          © {new Date().getFullYear()} LanaMind. All rights reserved.
         </div>
       </div>
     </footer>

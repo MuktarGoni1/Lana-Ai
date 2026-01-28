@@ -261,7 +261,7 @@ export function Header() {
 export const footerLinks = {
   Product: ["Features", "Pricing", "Demo", "API"],
   Company: ["About", "Blog", "Careers", "Contact"],
-  Legal: ["Privacy Policy", "Terms of Service", "Security Policy", "Cookie Policy"],
+  Legal: ["Privacy Policy", "Terms of Service", "Refund Policy", "Security Policy", "Cookie Policy"],
   Support: ["Term Plan", "Feedback", "Settings"]
 }
 
@@ -271,7 +271,7 @@ export function Footer() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-6 sm:gap-8 md:grid-cols-2 lg:grid-cols-5 md:gap-12">
           <div className="lg:col-span-2">
-            <Link href="/" className="text-xl font-bold text-foreground">Lana AI</Link>
+            <Link href="/" className="text-xl font-bold text-foreground">LanaMind</Link>
             <p className="text-muted-foreground text-sm mt-3 max-w-md">
               Empowering you and your child through personalized AI tutoring while keeping you connected to the learning journey.
             </p>
@@ -319,6 +319,7 @@ export function Footer() {
                         l === "Settings" ? "/settings" :
                         l === "Privacy Policy" ? "/privacy-policy" :
                         l === "Terms of Service" ? "/terms-of-service" :
+                        l === "Refund Policy" ? "/refund-policy" :
                         l === "Security Policy" ? "/security-policy" :
                         l === "Cookie Policy" ? "/cookie-policy" :
                         l === "About" ? "/about" :
@@ -341,7 +342,7 @@ export function Footer() {
           ))}
         </div>
         <div className="mt-12 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Lana AI. All rights reserved.
+          © {new Date().getFullYear()} LanaMind. All rights reserved.
         </div>
       </div>
     </footer>

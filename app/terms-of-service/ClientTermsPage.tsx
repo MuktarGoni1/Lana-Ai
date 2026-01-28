@@ -19,7 +19,7 @@ function TermsOfServiceContent() {
         
         <div className="bg-slate-50 rounded-3xl p-8 md:p-12 shadow-sm border border-slate-100">
           <p className="text-slate-600 mb-8 leading-relaxed font-medium">
-            Please read these terms carefully before using Lana AI. By using our service, you agree to follow these rules.
+            Please read these terms carefully before using LanaMind. By using our service, you agree to follow these rules.
           </p>
 
           <h2 className="text-xl md:text-2xl font-bold mt-12 mb-6 text-slate-900 flex items-center gap-2">
@@ -54,7 +54,7 @@ function TermsOfServiceContent() {
             Our Content
           </h2>
           <p className="text-slate-600 mb-8 leading-relaxed font-medium">
-            All content on our service is owned by Lana AI and protected by copyright laws.
+            All content on our service is owned by LanaMind and protected by copyright laws.
           </p>
 
           <h2 className="text-xl md:text-2xl font-bold mt-12 mb-6 text-slate-900 flex items-center gap-2">

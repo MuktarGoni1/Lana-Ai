@@ -19,7 +19,7 @@ function PrivacyPolicyContent() {
         
         <div className="bg-slate-50 rounded-3xl p-8 md:p-12 shadow-sm border border-slate-100">
           <p className="text-slate-600 mb-8 leading-relaxed font-medium">
-            Welcome to Lana AI's Privacy Policy. We care about your privacy and want you to understand how we handle your information. This policy explains what data we collect, why we need it, and how we protect it when you use our website www.lanamind.com.
+            Welcome to LanaMind's Privacy Policy. We care about your privacy and want you to understand how we handle your information. This policy explains what data we collect, why we need it, and how we protect it when you use our website www.lanamind.com.
           </p>
 
           <h2 className="text-xl md:text-2xl font-bold mt-12 mb-6 text-slate-900 flex items-center gap-2">
