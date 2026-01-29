@@ -35,7 +35,7 @@ function TermsOfServiceContent() {
             Age Requirements
           </h2>
           <p className="text-slate-600 mb-8 leading-relaxed font-medium">
-            Our service is for children 13 and older. If you're between 13-18, you need a parent's permission to use it.
+            Our service is for children 10 and older. If you're between 10-18, you need a parent's permission to use it.
           </p>
 
           <h2 className="text-xl md:text-2xl font-bold mt-12 mb-6 text-slate-900 flex items-center gap-2">

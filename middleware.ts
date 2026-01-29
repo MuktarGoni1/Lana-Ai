@@ -91,6 +91,7 @@ export async function middleware(req: NextRequest) {
       '/contact',
       '/privacy-policy',
       '/terms-of-service',
+      '/refund-policy',
       '/security-policy',
       '/cookie-policy',
       '/checkout',
