@@ -349,7 +349,7 @@ function ChatWithSidebarContent() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       onClick={() => router.push('/video-explainer')}
-                      className="w-full justify-start gap-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 text-white border border-blue-500/30"
+                      className="w-full justify-start gap-3 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10"
                     >
                       <Video className="size-4" />
                       <span>Video Lessons</span>
