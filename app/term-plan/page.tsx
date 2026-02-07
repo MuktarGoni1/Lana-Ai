@@ -4,7 +4,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -727,7 +727,18 @@ function TermPlanPageContent() {
                                   <div className="w-2 h-2 rounded-full bg-white/40" />
                                   <span className="text-sm">{topic.name}</span>
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/video-explainer?topic=${encodeURIComponent(topic.name)}`);
+                                    }}
+                                    className="opacity-0 group-hover:opacity-100 p-2 
+                                             hover:bg-white/10 rounded-lg transition-all flex items-center justify-center"
+                                    title="Create Video"
+                                  >
+                                    <Video className="w-4 h-4 text-blue-400" />
+                                  </button>
                                   <span className="text-xs text-white/40">
                                     {topic.dateAdded}
                                   </span>
