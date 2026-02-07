@@ -48,7 +48,12 @@ export default function LearningPreferencePage() {
         description: "Successfully saved learning preference."
       });
       
-      router.push("/schedule");
+      // Route based on preference
+      if (preference === "video") {
+        router.push("/video-explainer");
+      } else {
+        router.push("/schedule");
+      }
     } catch (error: any) {
       console.error("Preference save error:", error);
       toast({

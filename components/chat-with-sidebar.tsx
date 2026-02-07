@@ -13,7 +13,7 @@ import {
   SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { History, Library, Plus, MessageSquare, Settings, Mail, LogIn, LogOut, AlertCircle } from "lucide-react"
+import { History, Library, Plus, MessageSquare, Settings, Mail, LogIn, LogOut, AlertCircle, Video } from "lucide-react"
 import { uuid } from "@/lib/client-utils"
 import Logo from "@/components/logo"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -336,6 +336,23 @@ function ChatWithSidebarContent() {
                     >
                       <Plus className="size-4" />
                       <span>New Chat</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            {/* Video Lessons */}
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => router.push('/video-explainer')}
+                      className="w-full justify-start gap-3 bg-gradient-to-r from-blue-500/20 to-purple-500/20 hover:from-blue-500/30 hover:to-purple-500/30 text-white border border-blue-500/30"
+                    >
+                      <Video className="size-4" />
+                      <span>Video Lessons</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>

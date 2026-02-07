@@ -1095,8 +1095,21 @@ interface AnimatedAIChatProps {
   const modeSuggestions = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Explainer",
-      description: "Comprehensive Ai explanations",
+      label: "AI Video Lesson",
+      description: "Generate custom explainer video",
+      action: () => {
+        const topic = value.trim();
+        if (topic) {
+          router.push(`/video-explainer?topic=${encodeURIComponent(topic)}`);
+        } else {
+          router.push("/video-explainer");
+        }
+      },
+    },
+    {
+      icon: <Video className="w-4 h-4" />,
+      label: "Avatar Tutor",
+      description: "Interactive AI tutor session",
       action: () =>
         onNavigateToVideoLearning?.(
           value.trim() || "What would you like to learn?"

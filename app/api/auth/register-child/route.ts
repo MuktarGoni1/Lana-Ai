@@ -15,8 +15,8 @@ const validateChildData = (data: any) => {
     errors.push('Nickname must be less than 50 characters')
   }
   
-  if (!data.age || typeof data.age !== 'number' || data.age < 6 || data.age > 18) {
-    errors.push('Age must be between 6 and 18')
+  if (!data.age || typeof data.age !== 'number' || data.age < 10 || data.age > 18) {
+    errors.push('Age must be between 10 and 18')
   }
   
   if (!data.grade || typeof data.grade !== 'string' || !['6', '7', '8', '9', '10', '11', '12', 'college'].includes(data.grade)) {
