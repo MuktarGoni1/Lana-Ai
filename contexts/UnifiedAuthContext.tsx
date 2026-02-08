@@ -12,15 +12,19 @@ interface UnifiedAuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   lastChecked: number | null;
+  role: 'child' | 'guardian' | 'parent' | null;
+  isParent: boolean;
   login: (email: string) => Promise<void>;
   loginWithEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshSession: () => Promise<{ success: boolean; error?: string }>;
   setUser: (user: User | null) => void;
   checkAuthStatus: (forceRefresh?: boolean) => Promise<RobustAuthState>;
   getUserRole: () => 'child' | 'guardian' | 'parent' | null;
   isOnboardingComplete: () => boolean;
+  registerChild: (nickname: string, age: number, grade: string, parentEmail?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
@@ -160,6 +164,52 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     }
   }, [authService, router]);
 
+  const refreshSession = useCallback(async () => {
+    try {
+      const result = await authService.refreshSession();
+      if (result.success) {
+        // Update state after successful refresh
+        await checkAuthStatus(true);
+      }
+      return result;
+    } catch (error) {
+      console.error('[UnifiedAuthContext] Refresh session error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, [authService, checkAuthStatus]);
+
+  const registerChild = useCallback(async (nickname: string, age: number, grade: string, parentEmail?: string) => {
+    try {
+      // Call the backend API to register a child
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nickname, age, grade, parentEmail }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          success: false, 
+          error: errorData.error || `Failed to register child: ${response.status}` 
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('[UnifiedAuthContext] Register child error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, []);
+
   // Get user's role
   const getUserRole = useCallback(() => {
     if (!user) return null;
@@ -182,21 +232,29 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     );
   }, [user]);
 
+  // Computed properties for backward compatibility
+  const role = getUserRole();
+  const isParent = role === 'parent' || role === 'guardian';
+
   const value = {
     user,
     isLoading,
     isAuthenticated,
     error,
     lastChecked,
+    role,
+    isParent,
     login,
     loginWithEmail,
     loginWithGoogle,
     logout,
     refreshUser,
+    refreshSession,
     setUser,
     checkAuthStatus,
     getUserRole,
-    isOnboardingComplete
+    isOnboardingComplete,
+    registerChild
   };
 
   return (

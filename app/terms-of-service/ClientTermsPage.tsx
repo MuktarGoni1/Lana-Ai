@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { useEnhancedAuth } from '@/hooks/useEnhancedAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { Header, Footer } from "@/components/navigation";
 import { getChildFriendlyClasses } from "@/lib/ui-styles";
 

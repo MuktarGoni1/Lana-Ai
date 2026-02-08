@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { supabase } from "@/lib/db";
 import { Bot, Video, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function LearningPreferencePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const [preference, setPreference] = useState<"avatar" | "video" | null>(null);
   const [loading, setLoading] = useState(false);

@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useEffect, useState } from "react";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from '@/lib/db';
 
 export default function SessionTimeoutHandler() {
-  const { isAuthenticated, logout } = useEnhancedAuth();
+  const { isAuthenticated, logout } = useUnifiedAuth();
   const { toast } = useToast();
   const router = useRouter();
   const [showWarning, setShowWarning] = useState(false);

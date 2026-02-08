@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { supabase } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, User, BarChart3, Settings } from 'lucide-react';
 
 export default function ParentDashboard() {
-  const { user } = useAuth();
+  const { user } = useUnifiedAuth();
   const router = useRouter();
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);

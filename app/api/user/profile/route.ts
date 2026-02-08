@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf';
+import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf-server';
 
 // Helper function to get user ID from session
 async function getUserId() {

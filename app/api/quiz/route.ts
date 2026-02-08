@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 type Question = {
   q: string;
@@ -42,6 +43,12 @@ function validateQuizPayload(payload: unknown): Question[] | null {
 
 export async function POST(req: Request) {
   try {
+    // Check authentication first
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const payload = await req.json();
     const quiz = validateQuizPayload(payload);
     if (!quiz) {
@@ -59,6 +66,12 @@ export async function POST(req: Request) {
 // Add GET endpoint to retrieve quizzes
 export async function GET(req: Request) {
   try {
+    // Check authentication first
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     

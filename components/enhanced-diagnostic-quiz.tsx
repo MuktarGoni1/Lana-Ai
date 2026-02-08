@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/db";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { eventTracker } from "@/lib/event-tracker";
@@ -76,7 +76,7 @@ export default function EnhancedDiagnosticQuiz({ onComplete, childAge, childGrad
   const [loading, setLoading] = useState(false);
   const [assessmentResults, setAssessmentResults] = useState<AssessmentResults | null>(null);
   
-  const { user } = useEnhancedAuth();
+  const { user } = useUnifiedAuth();
   const router = useRouter();
   const { toast } = useToast();
 

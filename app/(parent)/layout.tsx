@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -10,13 +10,13 @@ export default function ParentLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { role, isLoading } = useAuth();
+  const { role, isLoading } = useUnifiedAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading) {
-      if (role !== 'parent') {
+      if (role !== 'parent' && role !== 'guardian') {
         toast({
           title: 'Access Denied',
           description: 'Only parents can access this area',
@@ -27,7 +27,7 @@ export default function ParentLayout({
     }
   }, [role, isLoading, router, toast]);
 
-  if (isLoading || role !== 'parent') {
+  if (isLoading || (role !== 'parent' && role !== 'guardian')) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">

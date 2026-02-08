@@ -4,12 +4,110 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
-import { CreditCard, Lock, CheckCircle, ArrowLeft, AlertTriangle } from "lucide-react";
-import { createSecurePaymentIntent, type SecureBillingInfo } from "@/lib/securePaymentHandler";
+import { CreditCard, Lock, CheckCircle, ArrowLeft, AlertTriangle, Loader2, Shield, Clock } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+// Payment placeholder component shown when user tries to checkout
+function PaymentComingSoon({ onBack }: { onBack: () => void }) {
+  const [dots, setDots] = useState('');
+  const [countdown, setCountdown] = useState(5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots(prev => prev.length >= 3 ? '' : prev + '.');
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown(prev => prev <= 1 ? 0 : prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="min-h-screen bg-black flex items-center justify-center p-4"
+    >
+      <div className="w-full max-w-md">
+        <div className="bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm rounded-2xl p-8">
+          <div className="text-center mb-6">
+            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-2xl flex items-center justify-center mb-4">
+              <CreditCard className="w-8 h-8 text-blue-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Secure Checkout Coming Soon</h2>
+            <p className="text-white/60">
+              We're setting up our payment system to provide you with a secure and seamless experience.
+            </p>
+          </div>
+          
+          <div className="flex items-center justify-center gap-3 py-4 mb-6">
+            <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+            <span className="text-white/70 text-sm">
+              Initializing secure payment environment{dots}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="flex items-center gap-2 p-3 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+              <Shield className="w-4 h-4 text-green-400" />
+              <span className="text-xs text-white/60">256-bit SSL</span>
+            </div>
+            <div className="flex items-center gap-2 p-3 bg-white/[0.03] rounded-lg border border-white/[0.06]">
+              <Clock className="w-4 h-4 text-blue-400" />
+              <span className="text-xs text-white/60">PCI Compliant</span>
+            </div>
+          </div>
+
+          <div className="text-center mb-6">
+            <p className="text-white/50 text-sm">
+              Redirecting in{' '}
+              <span className="text-blue-400 font-mono font-bold">{countdown}</span>{' '}
+              seconds
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              onClick={onBack}
+              className="flex-1 px-4 py-2 rounded-lg border border-white/10 text-white/70 hover:bg-white/5 transition-colors"
+            >
+              Go Back
+            </button>
+            <Link
+              href="/pricing"
+              className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-center transition-colors"
+            >
+              View Plans
+            </Link>
+          </div>
+        </div>
+
+        <div className="mt-6 flex items-center justify-center gap-4 text-white/40 text-xs">
+          <span>🔒 Secure Connection</span>
+          <span>•</span>
+          <span>✓ Verified</span>
+          <span>•</span>
+          <span>🛡️ Protected</span>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 export default function CheckoutPage() {
   return (
-    <Suspense fallback={<div>Loading checkout...</div>}>
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Loading checkout...</p>
+        </div>
+      </div>
+    }>
       <CheckoutPageContent />
     </Suspense>
   );
@@ -19,155 +117,44 @@ function CheckoutPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { user, isLoading } = useUnifiedAuth();
-  const [selectedPlan, setSelectedPlan] = useState<any>(null);
-  const [billingInfo, setBillingInfo] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    address: "",
-    city: "",
-    country: "Nigeria", // Default to Nigeria as per contact info
-    postalCode: ""
-  });
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPaymentPlaceholder, setShowPaymentPlaceholder] = useState(true); // Always show placeholder until Stripe is ready
   const [generalError, setGeneralError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
 
   const planName = searchParams.get("plan");
   const interval = searchParams.get("interval");
 
-  // Mock pricing data - in real implementation this would come from your backend
-  const PLANS = {
-    monthly: [
-      { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-      { name: "Family", price: 19, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-      { name: "Family Plus", price: 29, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-    ],
-    yearly: [
-      { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-      { name: "Family", price: 17, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-      { name: "Family Plus", price: 25, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-    ],
-  };
-
+  // Validate URL parameters
   useEffect(() => {
-    // Enhanced security validation with better error handling
     if (!planName || !interval) {
       setGeneralError('Invalid plan selection. Please select a plan from the pricing page.');
       return;
     }
     
-    // Sanitize and validate inputs
-    const sanitizedPlanName = decodeURIComponent(planName);
     const sanitizedInterval = decodeURIComponent(interval);
-    
-    // Validate interval is either 'monthly' or 'yearly'
     if (sanitizedInterval !== 'monthly' && sanitizedInterval !== 'yearly') {
       setGeneralError('Invalid billing interval selected.');
       return;
     }
     
-    // Validate plan name against allowed values
     const allowedPlans = ['Free', 'Family', 'Family Plus'];
-    if (!allowedPlans.includes(sanitizedPlanName)) {
+    if (!allowedPlans.includes(decodeURIComponent(planName))) {
       setGeneralError('Invalid plan selected. Please select a valid plan from the pricing page.');
-      return;
     }
-    
-    const plans = PLANS[sanitizedInterval as "monthly" | "yearly"];
-    const plan = plans.find(p => p.name === sanitizedPlanName);
-    
-    if (plan) {
-      setSelectedPlan(plan);
-    } else {
-      setGeneralError('Selected plan not found. Please select a plan from the pricing page.');
-    }
-  }, [planName, interval, router]);
-
-  useEffect(() => {
-    if (user && billingInfo.email === "") {
-      setBillingInfo(prev => ({
-        ...prev,
-        email: user.email || "",
-        firstName: user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || "",
-        lastName: user.user_metadata?.last_name || user.user_metadata?.full_name?.split(' ').slice(1).join(' ') || ""
-      }));
-    }
-  }, [user]);
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!billingInfo.firstName.trim()) newErrors.firstName = "First name is required";
-    if (!billingInfo.lastName.trim()) newErrors.lastName = "Last name is required";
-    if (!billingInfo.email.trim()) newErrors.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(billingInfo.email)) newErrors.email = "Email is invalid";
-    if (!billingInfo.address.trim()) newErrors.address = "Address is required";
-    if (!billingInfo.city.trim()) newErrors.city = "City is required";
-    if (!billingInfo.postalCode.trim()) newErrors.postalCode = "Postal code is required";
-    // Card validation removed - handled securely by payment provider
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-
-    setIsProcessing(true);
-
-    try {
-      // Calculate amount based on selected plan
-      const amount = selectedPlan.price * (interval === 'yearly' ? 12 : 1); // Convert to monthly equivalent
-      
-      // Create secure payment intent
-      const result = await createSecurePaymentIntent(amount, 'usd', billingInfo);
-      
-      if (result.success) {
-        // Payment successful
-        setPaymentSuccess(true);
-        
-        // Redirect after delay
-        setTimeout(() => {
-          router.push("/homepage");
-        }, 3000);
-      } else {
-        setGeneralError(result.error || "There was an error processing your payment. Please try again.");
-      }
-    } catch (error) {
-      console.error("Payment error:", error);
-      setGeneralError("There was an error processing your payment. Please try again.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  }, [planName, interval]);
 
   if (generalError) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Error</h2>
-          <p className="text-gray-600 mb-6">{generalError}</p>
+          <h2 className="text-xl font-bold text-white mb-4">Error</h2>
+          <p className="text-white/60 mb-6">{generalError}</p>
           <div className="flex flex-col gap-4">
             <button 
-              onClick={() => {
-                setGeneralError(null);
-                // Reset form to allow user to try again
-                setErrors({});
-              }}
-              className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-            >
-              Try Again
-            </button>
-            <button 
               onClick={() => window.history.back()}
-              className="inline-block bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full shadow hover:shadow-lg transition-all duration-300"
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               Go Back
             </button>
@@ -177,35 +164,12 @@ function CheckoutPageContent() {
     );
   }
 
-  if (!selectedPlan) {
-    return <div>Loading...</div>;
-  }
-
-  if (paymentSuccess) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-8 h-8 text-green-500" />
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Payment Successful!</h2>
-          <p className="text-gray-600 mb-6">
-            Thank you for subscribing to the {selectedPlan.name} plan! Your payment has been processed successfully.
-          </p>
-          <p className="text-gray-500 text-sm">
-            Redirecting to your dashboard...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Verifying your account...</p>
+          <Loader2 className="w-8 h-8 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white/60">Verifying your account...</p>
         </div>
       </div>
     );
@@ -213,25 +177,25 @@ function CheckoutPageContent() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4 flex items-center justify-center">
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <AlertTriangle className="w-8 h-8 text-red-500" />
+      <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white/[0.03] border border-white/[0.06] rounded-2xl p-8 text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertTriangle className="w-8 h-8 text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Authentication Required</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className="text-xl font-bold text-white mb-4">Authentication Required</h2>
+          <p className="text-white/60 mb-6">
             You need to be signed in to complete your purchase.
           </p>
           <div className="flex flex-col gap-4">
             <Link 
               href="/login" 
-              className="inline-block bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-3 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+              className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
             >
               Sign In
             </Link>
             <Link 
               href="/register" 
-              className="inline-block bg-gray-100 text-gray-800 font-bold py-3 px-6 rounded-full shadow hover:shadow-lg transition-all duration-300"
+              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
             >
               Create Account
             </Link>
@@ -241,235 +205,11 @@ function CheckoutPageContent() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        {generalError && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <div className="flex">
-              <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 mr-2 flex-shrink-0" />
-              <div>
-                <h3 className="text-red-800 font-medium">Error</h3>
-                <p className="text-red-600 text-sm">{generalError}</p>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <div className="text-center mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Complete Your Subscription
-          </h1>
-          <p className="text-gray-600">
-            Securely process your payment for the {selectedPlan.name} plan
-          </p>
-        </div>
+  // Show payment placeholder instead of actual checkout
+  if (showPaymentPlaceholder) {
+    return <PaymentComingSoon onBack={() => router.back()} />;
+  }
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-3xl shadow-lg p-6 sticky top-8">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Order Summary</h2>
-              
-              <div className="border-b border-gray-100 pb-4 mb-4">
-                <div className="flex justify-between mb-2">
-                  <span className="font-medium">{selectedPlan.name} Plan</span>
-                  <span className="font-bold text-blue-600">
-                    ${selectedPlan.price}/{interval}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-500">
-                  {interval === 'yearly' ? 'Billed annually' : 'Billed monthly'}
-                </p>
-              </div>
-              
-              <div className="space-y-2 mb-6">
-                <div className="flex justify-between">
-                  <span>Subtotal</span>
-                  <span>${selectedPlan.price}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Tax</span>
-                  <span>$0.00</span>
-                </div>
-                <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                  <span>Total</span>
-                  <span>${selectedPlan.price}</span>
-                </div>
-              </div>
-              
-              <div className="flex items-center text-sm text-gray-500">
-                <Lock className="w-4 h-4 mr-2" />
-                Secure payment powered by Stripe
-              </div>
-            </div>
-          </div>
-
-          {/* Payment Form */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-3xl shadow-lg p-6 md:p-8">
-              <div className="flex items-center mb-6">
-                <button 
-                  onClick={() => router.back()}
-                  className="flex items-center text-blue-600 hover:text-blue-800 font-medium"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-1" />
-                  Back to plans
-                </button>
-              </div>
-              
-              <h2 className="text-2xl font-bold text-gray-800 mb-6">Payment Information</h2>
-              
-              <form onSubmit={handleSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={billingInfo.firstName}
-                      onChange={(e) => setBillingInfo({...billingInfo, firstName: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="John"
-                    />
-                    {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={billingInfo.lastName}
-                      onChange={(e) => setBillingInfo({...billingInfo, lastName: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="Doe"
-                    />
-                    {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      value={billingInfo.email}
-                      onChange={(e) => setBillingInfo({...billingInfo, email: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.email ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="john@example.com"
-                    />
-                    {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address *
-                    </label>
-                    <input
-                      type="text"
-                      value={billingInfo.address}
-                      onChange={(e) => setBillingInfo({...billingInfo, address: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.address ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="123 Main Street"
-                    />
-                    {errors.address && <p className="text-red-500 text-sm mt-1">{errors.address}</p>}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      City *
-                    </label>
-                    <input
-                      type="text"
-                      value={billingInfo.city}
-                      onChange={(e) => setBillingInfo({...billingInfo, city: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.city ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="Lagos"
-                    />
-                    {errors.city && <p className="text-red-500 text-sm mt-1">{errors.city}</p>}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Postal Code *
-                    </label>
-                    <input
-                      type="text"
-                      value={billingInfo.postalCode}
-                      onChange={(e) => setBillingInfo({...billingInfo, postalCode: e.target.value})}
-                      className={`w-full px-4 py-3 rounded-xl border ${errors.postalCode ? 'border-red-500' : 'border-gray-300'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                      placeholder="100001"
-                    />
-                    {errors.postalCode && <p className="text-red-500 text-sm mt-1">{errors.postalCode}</p>}
-                  </div>
-                  
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Country
-                    </label>
-                    <select
-                      value={billingInfo.country}
-                      onChange={(e) => setBillingInfo({...billingInfo, country: e.target.value})}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="Nigeria">Nigeria</option>
-                      <option value="United States">United States</option>
-                      <option value="Canada">Canada</option>
-                      <option value="United Kingdom">United Kingdom</option>
-                      <option value="Australia">Australia</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div className="border-t border-gray-200 pt-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mb-6">
-                    <div className="flex items-start">
-                      <div className="flex-shrink-0">
-                        <CreditCard className="w-6 h-6 text-blue-600 mt-0.5" />
-                      </div>
-                      <div className="ml-3">
-                        <h3 className="text-lg font-medium text-blue-800">Secure Payment Processing</h3>
-                        <p className="text-blue-700 mt-1">
-                          Your payment information is handled securely by our payment partner. 
-                          Card details are never stored on our servers.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="mt-8 pt-6 border-t border-gray-200">
-                  <button
-                    type="submit"
-                    disabled={isProcessing}
-                    className="w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white font-bold py-4 px-6 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    {isProcessing ? (
-                      <span className="flex items-center justify-center">
-                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Processing Payment...
-                      </span>
-                    ) : (
-                      `Pay $${selectedPlan.price} ${interval === 'yearly' ? 'annually' : 'monthly'}`
-                    )}
-                  </button>
-                  
-                  <div className="mt-4 flex items-center justify-center text-xs text-gray-500">
-                    <Lock className="w-4 h-4 mr-1" />
-                    Your payment is secured with 256-bit SSL encryption
-                  </div>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+  // This should never render since we always show the placeholder
+  return null;
 }

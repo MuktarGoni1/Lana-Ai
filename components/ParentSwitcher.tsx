@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { supabase } from '@/lib/db';
 import { Button } from '@/components/ui/button';
 import { 
@@ -13,7 +13,7 @@ import {
 import { User, Users, Eye } from 'lucide-react';
 
 export default function ParentSwitcher() {
-  const { user, role, isParent } = useAuth();
+  const { user, role, isParent } = useUnifiedAuth();
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 

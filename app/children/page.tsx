@@ -15,13 +15,13 @@ import {
   X 
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
 
 export default function ChildManagementPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, registerChild } = useEnhancedAuth()
+  const { user, registerChild } = useUnifiedAuth()
   const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})

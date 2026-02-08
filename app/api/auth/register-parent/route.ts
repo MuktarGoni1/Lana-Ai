@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
 import serverRateLimiter from '@/lib/server-rate-limiter'
-import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf'
+import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf-server'
 // For now, we'll implement basic sanitization manually since dompurify import is problematic
 
 export async function POST(request: NextRequest) {

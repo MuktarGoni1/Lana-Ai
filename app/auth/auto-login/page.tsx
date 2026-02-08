@@ -4,63 +4,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-
-// Create a safe version of useRobustAuth that doesn't throw during SSR
-function useSafeRobustAuth() {
-  const [authState, setAuthState] = useState<{
-    checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
-  } | null>(null);
-
-  useEffect(() => {
-    // Dynamically import the useRobustAuth hook only on the client side
-    const loadAuth = async () => {
-      try {
-        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
-        // Try to use the hook, but catch any errors
-        try {
-          const auth = useRobustAuth();
-          setAuthState({
-            checkAuthStatus: auth.checkAuthStatus,
-          });
-        } catch (error) {
-          // If useRobustAuth throws (e.g., outside provider), set to null state
-          setAuthState(null);
-        }
-      } catch (error) {
-        // If import fails, set to null state
-        setAuthState(null);
-      }
-    };
-
-    loadAuth();
-  }, []);
-
-  return authState;
-}
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 export default function AutoLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useSafeRobustAuth();
+  const { checkAuthStatus } = useUnifiedAuth();
   const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
 
   useEffect(() => {
     const autoLogin = async () => {
-      if (!auth) {
-        setStatus("error");
-        toast({
-          title: "Authentication issue",
-          description: "Authentication system not available.",
-          variant: "destructive",
-        });
-        setTimeout(() => router.replace("/landing-page"), 2500);
-        return;
-      }
-
       setStatus("confirming");
       try {
         // Force refresh the authentication status
-        const authResult = await auth.checkAuthStatus(true);
+        const authResult = await checkAuthStatus(true);
 
         const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
@@ -139,20 +96,8 @@ export default function AutoLoginPage() {
       }
     };
 
-    // Only run autoLogin if we have the auth context
-    if (auth !== null) {
-      autoLogin();
-    } else if (auth === null) {
-      // If auth is explicitly null (meaning we tried and failed), show error
-      setStatus("error");
-      toast({
-        title: "Authentication issue",
-        description: "Authentication system not available.",
-        variant: "destructive",
-      });
-      setTimeout(() => router.replace("/landing-page"), 2500);
-    }
-  }, [router, toast, auth]);
+    autoLogin();
+  }, [router, toast, checkAuthStatus]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">

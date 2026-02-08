@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 const PersonalisedAiTutor = dynamic(
   () => import("@/components/personalised-Ai-tutor"), 
@@ -24,7 +24,7 @@ const PersonalisedAiTutor = dynamic(
 function PersonalisedAiTutorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
   
   // Optional: Get question from URL params if passed from another page
   const question = searchParams.get('q') || undefined;

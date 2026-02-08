@@ -1,14 +1,14 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { supabase } from "@/lib/db";
 import { User, GraduationCap, Calendar, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ChildInfoPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     nickname: "",

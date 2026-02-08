@@ -3,7 +3,7 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, MessageSquare, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
@@ -33,12 +33,12 @@ function TermPlanPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
   const onboardingParam = searchParams.get("onboarding");
   const isOnboarding = onboardingParam === "1" || onboardingParam === "true";
   const returnTo = searchParams.get("returnTo");
   
-  // Authentication state is now handled by useEnhancedAuth hook
+  // Authentication state is now handled by useUnifiedAuth hook
   
   // Check if this is a child user (no email) to adjust the flow
   const [isChildUser, setIsChildUser] = useState(false);

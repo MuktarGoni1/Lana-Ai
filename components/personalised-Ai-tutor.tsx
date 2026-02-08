@@ -7,7 +7,7 @@ import { ArrowLeft, Video, Loader2, AlertCircle, Home, Play, MessageSquare } fro
 import { Button } from "@/components/ui/button";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 interface PersonalisedAiTutorProps {
   question?: string;
@@ -17,7 +17,7 @@ interface PersonalisedAiTutorProps {
 
 export default function PersonalisedAiTutor({ question, fromMode, onBack }: PersonalisedAiTutorProps) {
   const router = useRouter();
-  const { isAuthenticated } = useEnhancedAuth();
+  const { isAuthenticated } = useUnifiedAuth();
   const [input, setInput] = useState<string>(question || '');
   const [modeSpecificState, setModeSpecificState] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState<boolean>(false);

@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast"
 import { z } from "zod"
 import { AuthService } from "@/lib/services/authService"
 import { motion, AnimatePresence } from "framer-motion"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 
 // =============== SHARED COMPONENTS ===============
 
@@ -136,7 +136,7 @@ function ParentFlow() {
   const [errors, setErrors] = useState<{ email?: string }>({})
   const [isLoading, setIsLoading] = useState(false)
   const { toast } = useToast()
-  const { loginWithGoogle } = useEnhancedAuth()
+  const { loginWithGoogle } = useUnifiedAuth()
 
   const validateForm = (): boolean => {
     const newErrors: { email?: string } = {}

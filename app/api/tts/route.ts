@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import serverRateLimiter from '@/lib/server-rate-limiter';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
   try {
+    // Check authentication first
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     // Check server-side rate limiting (primary defense)
     const endpoint = '/api/tts';
     const serverRateLimitCheck = await serverRateLimiter.isAllowedSimple(endpoint, req.headers.get('x-forwarded-for') || 'unknown');

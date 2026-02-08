@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useEffect } from "react";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useRouter } from "next/navigation";
 
 interface AuthGuardProps {
@@ -11,7 +11,7 @@ interface AuthGuardProps {
 }
 
 export default function AuthGuard({ children, redirectTo = "/login" }: AuthGuardProps) {
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
   const router = useRouter();
 
   useEffect(() => {

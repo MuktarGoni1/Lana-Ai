@@ -23,7 +23,7 @@ import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 
 // Centralized API base with optional proxying via Next.js rewrites
 // Using unified API configuration
@@ -80,8 +80,8 @@ function ChatWithSidebarContent() {
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  // Replace individual auth state variables with useEnhancedAuth hook
-  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
+  // Replace individual auth state variables with useUnifiedAuth hook
+  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
   const [role, setRole] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
@@ -185,7 +185,7 @@ function ChatWithSidebarContent() {
     }
   }, [sid, accessToken, api, isAuthenticated]);
 
-  // Fetch user session - simplified with useEnhancedAuth
+  // Fetch user session - simplified with useUnifiedAuth
   useEffect(() => {
     if (user) {
       setRole(user.user_metadata?.role || null)

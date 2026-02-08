@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { supabase } from "@/lib/db";
 import { Calendar, Clock, ArrowRight, Loader2, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +14,7 @@ interface ScheduleSlot {
 
 export default function SchedulePage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useEnhancedAuth();
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
   const { toast } = useToast();
   const [schedule, setSchedule] = useState<ScheduleSlot[]>([
     { day: "Monday", time: "16:00", enabled: false },

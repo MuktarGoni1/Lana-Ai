@@ -2,9 +2,16 @@ import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import rateLimiter from '@/lib/rate-limiter';
 import serverRateLimiter from '@/lib/server-rate-limiter';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
   try {
+    // Check authentication first
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     // Check client-side rate limiting (still useful for UX)
     const endpoint = '/api/structured-lesson';
     if (!rateLimiter.isAllowed(endpoint)) {

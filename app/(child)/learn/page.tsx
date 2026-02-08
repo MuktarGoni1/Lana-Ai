@@ -1,13 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookOpen, Brain, Trophy, Star } from 'lucide-react';
 
 export default function ChildLearnPage() {
-  const { user } = useAuth();
+  const { user } = useUnifiedAuth();
   const [activeTab, setActiveTab] = useState('lessons');
 
   return (

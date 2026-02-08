@@ -1,6 +1,6 @@
 'use client';
 
-import { useAuth } from '@/hooks/useAuth';
+import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -10,7 +10,7 @@ export default function ChildLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { role, isLoading } = useAuth();
+  const { role, isLoading } = useUnifiedAuth();
   const router = useRouter();
   const { toast } = useToast();
 

@@ -1,5 +1,5 @@
 // lib/api/userService.ts
-import { getCSRFToken } from '@/lib/security/csrf';
+import { getCSRFToken } from '@/lib/security/csrf-client';
 
 interface UserProfile {
   id: string;
@@ -55,12 +55,17 @@ export class UserService {
     try {
       const csrfToken = await getCSRFToken();
       
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (csrfToken) {
+        headers['X-CSRF-Token'] = csrfToken;
+      }
+      
       const response = await fetch(`${this.baseUrl}/profile`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken
-        },
+        headers,
         credentials: 'include',
         body: JSON.stringify(data)
       });
