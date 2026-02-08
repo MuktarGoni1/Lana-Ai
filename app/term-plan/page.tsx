@@ -4,7 +4,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, Video } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, MessageSquare, Video } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -668,12 +668,32 @@ function TermPlanPageContent() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      onClick={() => deleteSubject(subject.id)}
-                      className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center active:scale-95"
-                    >
-                      <Trash2 className="w-4 h-4 text-white/50 hover:text-white/80" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {subject.topics.length > 0 && (
+                        <>
+                          <button
+                            onClick={() => router.push(`/homepage?topic=${encodeURIComponent(subject.name)}`)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
+                            title="Chat about this subject"
+                          >
+                            <MessageSquare className="w-4 h-4 text-white/60 hover:text-white" />
+                          </button>
+                          <button
+                            onClick={() => router.push(`/video-explainer?topic=${encodeURIComponent(subject.name)}`)}
+                            className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
+                            title="Create video for this subject"
+                          >
+                            <Video className="w-4 h-4 text-white/60 hover:text-white" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => deleteSubject(subject.id)}
+                        className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
+                      >
+                        <Trash2 className="w-4 h-4 text-white/50 hover:text-white/80" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Topics Section */}
@@ -713,45 +733,48 @@ function TermPlanPageContent() {
 
                           {/* Topics List */}
                           <div className="space-y-2">
-                            {subject.topics.map((topic) => (
+                             {subject.topics.map((topic) => (
                               <motion.div
                                 key={topic.id}
                                 initial={{ opacity: 0, x: -20 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 exit={{ opacity: 0, x: -20 }}
                                 className="flex items-center justify-between p-3 rounded-lg 
-                                         bg-white/5 border border-white/10 group cursor-pointer hover:bg-white/10 transition-all"
-                                onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
+                                         bg-white/5 border border-white/10 group hover:bg-white/10 transition-all"
                               >
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 rounded-full bg-white/40" />
                                   <span className="text-sm">{topic.name}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      router.push(`/video-explainer?topic=${encodeURIComponent(topic.name)}`);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 p-2 
-                                             hover:bg-white/10 rounded-lg transition-all flex items-center justify-center"
-                                    title="Create Video"
-                                  >
-                                    <Video className="w-4 h-4 text-blue-400" />
-                                  </button>
-                                  <span className="text-xs text-white/40">
+                                  <span className="text-xs text-white/40 hidden sm:inline">
                                     {topic.dateAdded}
                                   </span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      deleteTopic(subject.id, topic.id);
-                                    }}
-                                    className="opacity-0 group-hover:opacity-100 p-1 
-                                             hover:bg-white/10 rounded-full transition-all flex items-center justify-center"
-                                  >
-                                    <X className="w-3 h-3" />
-                                  </button>
+                                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
+                                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                      title="Chat about this topic"
+                                    >
+                                      <MessageSquare className="w-4 h-4 text-white/60 hover:text-white" />
+                                    </button>
+                                    <button
+                                      onClick={() => router.push(`/video-explainer?topic=${encodeURIComponent(topic.name)}`)}
+                                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                      title="Create video for this topic"
+                                    >
+                                      <Video className="w-4 h-4 text-white/60 hover:text-white" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTopic(subject.id, topic.id);
+                                      }}
+                                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                    >
+                                      <X className="w-3 h-3 text-white/50 hover:text-white" />
+                                    </button>
+                                  </div>
                                 </div>
                               </motion.div>
                             ))}

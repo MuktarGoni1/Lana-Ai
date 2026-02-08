@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, AlertCircle, CheckCircle2, Sparkles, Zap } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface VideoGeneratorProps {
@@ -75,9 +75,6 @@ export function VideoGenerator({ onVideoComplete, initialTopic }: VideoGenerator
   return (
     <div className="space-y-6">
       <div className="text-center mb-6">
-        <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 mb-4">
-          <Sparkles className="w-6 h-6 text-white" />
-        </div>
         <h2 className="text-xl font-semibold text-white">Create AI Video Lesson</h2>
         <p className="text-zinc-400 text-sm mt-1">
           Enter a topic and we&apos;ll generate an explainer video for you
