@@ -668,32 +668,12 @@ function TermPlanPageContent() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {subject.topics.length > 0 && (
-                        <>
-                          <button
-                            onClick={() => router.push(`/homepage?topic=${encodeURIComponent(subject.name)}`)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
-                            title="Chat about this subject"
-                          >
-                            <MessageSquare className="w-4 h-4 text-white/60 hover:text-white" />
-                          </button>
-                          <button
-                            onClick={() => router.push(`/video-explainer?topic=${encodeURIComponent(subject.name)}`)}
-                            className="p-2 hover:bg-white/10 rounded-lg transition-colors flex items-center justify-center"
-                            title="Create video for this subject"
-                          >
-                            <Video className="w-4 h-4 text-white/60 hover:text-white" />
-                          </button>
-                        </>
-                      )}
-                      <button
-                        onClick={() => deleteSubject(subject.id)}
-                        className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center"
-                      >
-                        <Trash2 className="w-4 h-4 text-white/50 hover:text-white/80" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => deleteSubject(subject.id)}
+                      className="p-2 hover:bg-white/10 rounded-full transition-colors flex items-center justify-center active:scale-95"
+                    >
+                      <Trash2 className="w-4 h-4 text-white/50 hover:text-white/80" />
+                    </button>
                   </div>
 
                   {/* Topics Section */}
