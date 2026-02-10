@@ -10,6 +10,18 @@ export async function GET(
   { params }: { params: Promise<{ jobId: string }> }
 ) {
   try {
+    // Check environment variables
+    if (!VIDEO_API_URL || !VIDEO_API_KEY) {
+      console.error('[Video API] Missing environment variables:', {
+        hasUrl: !!VIDEO_API_URL,
+        hasKey: !!VIDEO_API_KEY
+      });
+      return NextResponse.json(
+        { error: 'Video API configuration error' },
+        { status: 500 }
+      );
+    }
+
     // Check authentication
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
@@ -50,9 +62,13 @@ export async function GET(
     return NextResponse.json(data);
 
   } catch (error: any) {
-    console.error('Status check error:', error);
+    console.error('[Video API] Status check error:', {
+      message: error.message,
+      stack: error.stack,
+      url: VIDEO_API_URL
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }

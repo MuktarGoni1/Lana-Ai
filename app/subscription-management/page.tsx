@@ -35,7 +35,7 @@ export default function SubscriptionManagement() {
         status: "active",
         startDate: "2024-01-15",
         endDate: "2024-02-15",
-        amount: 19,
+        amount: 5,
         nextBillingDate: "2024-02-15"
       };
       setSubscription(mockSubscription);

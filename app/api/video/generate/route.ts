@@ -7,6 +7,18 @@ const VIDEO_API_KEY = process.env.VIDEO_API_KEY;
 
 export async function POST(request: NextRequest) {
   try {
+    // Check environment variables
+    if (!VIDEO_API_URL || !VIDEO_API_KEY) {
+      console.error('[Video API] Missing environment variables:', {
+        hasUrl: !!VIDEO_API_URL,
+        hasKey: !!VIDEO_API_KEY
+      });
+      return NextResponse.json(
+        { error: 'Video API configuration error' },
+        { status: 500 }
+      );
+    }
+
     // Check authentication
     const supabase = createRouteHandlerClient({ cookies });
     const { data: { session } } = await supabase.auth.getSession();
@@ -45,7 +57,18 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      const errorText = await response.text();
+      console.error('[Video API] Error response:', {
+        status: response.status,
+        body: errorText,
+        url: VIDEO_API_URL
+      });
+      let errorData;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch {
+        errorData = { error: errorText || 'Unknown error' };
+      }
       return NextResponse.json(
         { error: errorData.error || 'Failed to generate video' },
         { status: response.status }
@@ -56,9 +79,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(data);
 
   } catch (error: any) {
-    console.error('Video generation error:', error);
+    console.error('[Video API] Generation error:', {
+      message: error.message,
+      stack: error.stack,
+      url: VIDEO_API_URL
+    });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error.message || 'Internal server error' },
       { status: 500 }
     );
   }
