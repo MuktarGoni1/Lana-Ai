@@ -1,25 +1,40 @@
 import { Metadata } from 'next';
+import { SEO_CONFIG } from '@/lib/seo-config';
 
 export const metadata: Metadata = {
-  title: 'LanaMind Features – Advanced AI Tutoring Capabilities',
+  title: {
+    template: `%s | ${SEO_CONFIG.site.name}`,
+    default: 'LanaMind Features – Advanced AI Tutoring Capabilities'
+  },
   description: 'Explore LanaMind\'s powerful features including adaptive lessons, real-time progress tracking, crystal-clear explanations, and personalized AI tutoring designed for students and parents.',
-  keywords: ['AI tutoring features', 'adaptive learning', 'progress tracking', 'personalized education', 'student learning tools', 'AI tutor capabilities'],
+  keywords: [
+    'AI tutoring features',
+    'adaptive learning',
+    'progress tracking',
+    'personalized education',
+    'student learning tools',
+    'AI tutor capabilities',
+    'real-time feedback',
+    'learning analytics',
+    'ai lesson generation',
+    'smart tutoring system'
+  ],
   authors: [{ name: 'LanaMind Team' }],
   creator: 'LanaMind Team',
   publisher: 'LanaMind Team',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    url: 'https://lanamind.com/features',
-    siteName: 'LanaMind',
+    locale: SEO_CONFIG.site.locale,
+    url: '/features',
+    siteName: SEO_CONFIG.site.name,
     title: 'LanaMind Features – Advanced AI Tutoring Capabilities',
     description: 'Explore LanaMind\'s powerful features including adaptive lessons, real-time progress tracking, crystal-clear explanations, and personalized AI tutoring designed for students and parents.',
     images: [
       {
-        url: '/icons/icon-512.png',
-        width: 512,
-        height: 512,
-        alt: 'LanaMind Features',
+        url: '/features/opengraph-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'LanaMind Features - Advanced AI Tutoring Capabilities',
       },
     ],
   },
@@ -27,9 +42,10 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'LanaMind Features – Advanced AI Tutoring Capabilities',
     description: 'Explore LanaMind\'s powerful features including adaptive lessons, real-time progress tracking, crystal-clear explanations, and personalized AI tutoring designed for students and parents.',
-    images: ['/icons/icon-512.png'],
+    images: ['/features/opengraph-image.png'],
+    creator: SEO_CONFIG.social.twitter,
   },
   alternates: {
-    canonical: 'https://lanamind.com/features',
+    canonical: '/features',
   },
-};
+}

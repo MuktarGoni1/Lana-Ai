@@ -1,54 +1,118 @@
 import { MetadataRoute } from 'next'
+import { SEO_CONFIG } from '@/lib/seo-config'
+
+// Dynamic content sources (would connect to database in production)
+const getBlogPosts = () => {
+  // This would fetch from your CMS or database
+  return [
+    { slug: 'future-of-personalized-learning', lastModified: new Date('2024-01-15') },
+    { slug: 'understanding-children-learning-styles', lastModified: new Date('2024-01-10') },
+    { slug: 'supporting-child-education-home', lastModified: new Date('2024-01-05') },
+    { slug: 'technology-early-childhood-education', lastModified: new Date('2023-12-20') },
+    { slug: 'building-confidence-math-science', lastModified: new Date('2023-12-15') },
+    { slug: 'learning-friendly-home-environment', lastModified: new Date('2023-12-10') },
+  ]
+}
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
+  const baseUrl = SEO_CONFIG.site.url
+  const currentDate = new Date()
+  
+  // Static pages
+  const staticPages: MetadataRoute.Sitemap = [
     {
-      url: 'https://lanamind.com',
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
+      url: baseUrl,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.homepage,
+      priority: SEO_CONFIG.sitemap.priority.homepage,
     },
     {
-      url: 'https://lanamind.com/landing-page',
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.9,
+      url: `${baseUrl}/landing-page`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.homepage,
+      priority: SEO_CONFIG.sitemap.priority.homepage - 0.1,
     },
     {
-      url: 'https://lanamind.com/homepage',
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.8,
+      url: `${baseUrl}/homepage`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.homepage,
+      priority: SEO_CONFIG.sitemap.priority.homepage - 0.2,
     },
     {
-      url: 'https://lanamind.com/features',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
+      url: `${baseUrl}/features`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.features,
+      priority: SEO_CONFIG.sitemap.priority.features,
     },
     {
-      url: 'https://lanamind.com/pricing',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.7,
+      url: `${baseUrl}/pricing`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pricing,
+      priority: SEO_CONFIG.sitemap.priority.pricing,
     },
     {
-      url: 'https://lanamind.com/demo',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.6,
+      url: `${baseUrl}/demo`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages + 0.1,
     },
     {
-      url: 'https://lanamind.com/login',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
+      url: `${baseUrl}/login`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages,
     },
     {
-      url: 'https://lanamind.com/register',
-      lastModified: new Date(),
-      changeFrequency: 'monthly',
-      priority: 0.5,
+      url: `${baseUrl}/register`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages,
+    },
+    {
+      url: `${baseUrl}/about`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages,
+    },
+    {
+      url: `${baseUrl}/contact`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages,
+    },
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.blog,
+      priority: SEO_CONFIG.sitemap.priority.blog,
+    },
+    {
+      url: `${baseUrl}/careers`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages,
+    },
+    {
+      url: `${baseUrl}/privacy-policy`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages - 0.1,
+    },
+    {
+      url: `${baseUrl}/terms-of-service`,
+      lastModified: currentDate,
+      changeFrequency: SEO_CONFIG.sitemap.changefreq.pages,
+      priority: SEO_CONFIG.sitemap.priority.pages - 0.1,
     },
   ]
+
+  // Dynamic blog posts
+  const blogPosts = getBlogPosts().map(post => ({
+    url: `${baseUrl}/blog/${post.slug}`,
+    lastModified: post.lastModified,
+    changeFrequency: 'monthly' as const,
+    priority: 0.6,
+  }))
+
+  return [...staticPages, ...blogPosts]
 }

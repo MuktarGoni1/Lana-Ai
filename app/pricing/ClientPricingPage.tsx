@@ -5,20 +5,29 @@ import { useTheme } from "next-themes";
 import { useEffect } from "react";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import Link from "next/link";
+import Script from "next/script";
 import { Header, Footer } from "@/components/navigation";
+import { PRICING_CONFIG, getPlanPrice, getPlanFeatures, getPlanDescription } from "@/lib/pricing-config";
+import { validatePlanSelection, getPlanRedirectUrl, isAllowedPlan } from "@/lib/pricing-validation";
+import { useRouter } from "next/navigation";
 import { getChildFriendlyClasses } from "@/lib/ui-styles";
+import { serializeJsonLd } from "@/lib/structured-data";
+import { pricingStructuredData } from "./metadata";
+
+// Using centralized pricing configuration
+const getPlansForInterval = (interval: "monthly" | "yearly") => {
+  return Object.entries(PRICING_CONFIG.plans).map(([name, plan]) => ({
+    name,
+    price: plan[interval],
+    desc: plan.description,
+    feats: plan.features,
+    popular: name === "Family" // Mark Family as popular
+  }));
+};
 
 const PLANS = {
-  monthly: [
-    { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-    { name: "Family", price: 5, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-    { name: "Family Plus", price: 29, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-  ],
-  yearly: [
-    { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-    { name: "Family", price: 4, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-    { name: "Family Plus", price: 23, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-  ],
+  monthly: getPlansForInterval("monthly"),
+  yearly: getPlansForInterval("yearly")
 };
 
 export default function ClientPricingPage() {
@@ -26,8 +35,32 @@ export default function ClientPricingPage() {
   const [mounted, setMounted] = useState(false);
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
   const { user } = useUnifiedAuth();
+  const router = useRouter();
   const plans = PLANS[interval];
   const periodLabel = interval === "yearly" ? "/mo (billed yearly)" : "/mo";
+
+  const handlePlanClick = (planName: string) => {
+    if (!user) {
+      router.push('/register');
+      return;
+    }
+
+    // Validate plan selection
+    const validation = validatePlanSelection(planName, interval);
+    if (!validation.isValid) {
+      console.error('Invalid plan selection:', validation.errors);
+      return;
+    }
+
+    // Get secure redirect URL
+    const redirectUrl = getPlanRedirectUrl(
+      planName as any, 
+      interval, 
+      !!user
+    );
+    
+    router.push(redirectUrl);
+  };
 
   useEffect(() => { 
     setMounted(true); 
@@ -114,22 +147,12 @@ export default function ClientPricingPage() {
                     </li>
                   ))}
                 </ul>
-                <Link
-                  href={user ? (plan.name !== "Free" ? `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}` : "/homepage") : "/register"}
+                <button
+                  onClick={() => handlePlanClick(plan.name)}
                   className={`w-full block text-center py-4 rounded-full font-bold transition-all ${"popular" in plan && plan.popular ? "bg-[#FACC15] text-slate-900 hover:bg-[#EAB308]" : "bg-slate-100 text-slate-900 hover:bg-slate-200"}`}
-                  onClick={(e) => {
-                    if (user && plan.name !== "Free") {
-                      // Add validation to ensure plan is valid before redirecting
-                      const allowedPlans = ['Family', 'Family Plus'];
-                      if (allowedPlans.includes(plan.name)) {
-                        e.preventDefault();
-                        window.location.href = `/checkout?plan=${encodeURIComponent(plan.name)}&interval=${encodeURIComponent(interval)}`;
-                      }
-                    }
-                  }}
                 >
                   {user ? (plan.name !== "Free" ? "Upgrade Now" : "Manage Subscription") : "Get Started"}
-                </Link>
+                </button>
               </div>
             ))}
           </div>
@@ -181,6 +204,16 @@ export default function ClientPricingPage() {
         </div>
       </main>
       <Footer />
+      {/* Structured Data for Pricing Plans */}
+      {pricingStructuredData.map((schema, index) => (
+        <Script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(schema)
+          }}
+        />
+      ))}
     </div>
   );
 }

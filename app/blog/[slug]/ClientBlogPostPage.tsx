@@ -6,29 +6,51 @@ import { useTheme } from "next-themes";
 import { useUnifiedAuth } from '@/contexts/UnifiedAuthContext';
 import { Header, Footer } from "@/components/navigation";
 import { getBlogPostBySlug, type BlogPost } from "@/lib/blog-data";
+import { SEO_CONFIG } from "@/lib/seo-config";
+import { generateArticleSchema, serializeJsonLd } from "@/lib/structured-data";
+import Script from "next/script";
 
 type Props = {
   slug: string;
 };
 
 function BlogPostContent({ post }: { post: BlogPost }) {
+  // Generate Article structured data
+  const articleSchema = generateArticleSchema(
+    post.title,
+    post.excerpt,
+    new Date(post.date).toISOString(),
+    new Date(post.date).toISOString(),
+    post.author
+  );
+
   return (
-    <article className="py-12 md:py-16 bg-transparent">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8">
-          <Link 
-            href="/blog" 
-            className="inline-flex items-center text-primary hover:underline mb-6 text-sm"
-          >
-            ← Back to Blog
-          </Link>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{post.title}</h1>
-          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-            <span>By {post.author}</span>
-            <span>•</span>
-            <span>{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+    <>
+      {/* Article Structured Data */}
+      <Script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(articleSchema)
+        }}
+      />
+      <article className="py-12 md:py-16 bg-transparent">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
+          <div className="mb-8">
+            <Link
+              href="/blog"
+              className="inline-flex items-center text-primary hover:underline mb-6 text-sm"
+            >
+              ← Back to Blog
+            </Link>
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{post.title}</h1>
+            <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <span>By {post.author}</span>
+              <span>•</span>
+              <span>{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              <span>•</span>
+              <span>{Math.ceil(post.content.split(/\s+/).length / 200)} min read</span>
+            </div>
           </div>
-        </div>
         
         <div className="prose prose-lg max-w-none dark:prose-invert prose-headings:text-foreground prose-p:text-muted-foreground prose-a:text-primary hover:prose-a:underline">
           {post.content.split('\n').map((paragraph, index) => {
@@ -90,6 +112,7 @@ function BlogPostContent({ post }: { post: BlogPost }) {
         </div>
       </div>
     </article>
+    </>
   );
 }
 

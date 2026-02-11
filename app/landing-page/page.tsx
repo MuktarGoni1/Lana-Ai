@@ -5,7 +5,9 @@ import Image from "next/image"
 import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
-import { createCheckoutSession } from "@/services/paymentService"
+import { useRouter } from "next/navigation";
+import { PRICING_CONFIG, getPlanPrice, getPlanFeatures, getPlanDescription } from "@/lib/pricing-config";
+import { validatePlanSelection, getPlanRedirectUrl, isAllowedPlan } from "@/lib/pricing-validation";
 import {
   CheckCircle2,
   Moon,
@@ -83,18 +85,21 @@ const FEATURES = [
   "Performance reporting",
 ] as const
 
+// Using centralized pricing configuration
+const getPlansForInterval = (interval: "monthly" | "yearly") => {
+  return Object.entries(PRICING_CONFIG.plans).map(([name, plan]) => ({
+    name,
+    price: plan[interval],
+    desc: plan.description,
+    feats: plan.features,
+    popular: name === "Family" // Mark Family as popular
+  }));
+};
+
 const PLANS = {
-  monthly: [
-    { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-    { name: "Family", price: 5, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-    { name: "Family Plus", price: 29, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-  ],
-  yearly: [
-    { name: "Free", price: 0, desc: "Perfect for individual learners", feats: ["Unlimited lessons", "Adaptive AI", "Progress tracking", "Mobile & desktop"] },
-    { name: "Family", price: 4, desc: "Connect parent and student", popular: true, feats: ["Up to 2 students", "Parent dashboard", "Real-time reports", "Push notifications"] },
-    { name: "Family Plus", price: 25, desc: "For larger families", feats: ["Up to 5 students", "Advanced analytics", "Weekly summaries", "Priority support"] },
-  ],
-} as const
+  monthly: getPlansForInterval("monthly"),
+  yearly: getPlansForInterval("yearly")
+} as const;
 
 /* ---------- THEME TOGGLE ---------- */
 function ThemeToggle() {
@@ -310,6 +315,30 @@ function PricingSection() {
   const [interval, setInterval] = useState<"monthly" | "yearly">("monthly")
   const plans = PLANS[interval]
   const { user } = useUnifiedAuth()
+  const router = useRouter()
+  
+  const handlePlanClick = (planName: string) => {
+    if (!user) {
+      router.push('/register');
+      return;
+    }
+
+    // Validate plan selection
+    const validation = validatePlanSelection(planName, interval);
+    if (!validation.isValid) {
+      console.error('Invalid plan selection:', validation.errors);
+      return;
+    }
+
+    // Get secure redirect URL
+    const redirectUrl = getPlanRedirectUrl(
+      planName as any, 
+      interval, 
+      !!user
+    );
+    
+    router.push(redirectUrl);
+  };
   
   return (
     <section id="pricing" className={getChildFriendlyClasses.sectionAlt}>
@@ -359,35 +388,16 @@ function PricingSection() {
                 ))}
               </ul>
               
-              <Link
-                href={user ? `/checkout?plan=${encodeURIComponent(p.name)}&interval=${encodeURIComponent(interval)}` : "/register"}
+              <button
+                onClick={() => handlePlanClick(p.name)}
                 className={`w-full block text-center py-4 rounded-full font-bold transition-all ${
                   "popular" in p && p.popular 
                     ? "bg-[#FACC15] text-slate-900 hover:bg-[#EAB308]" 
                     : "bg-slate-100 text-slate-900 hover:bg-slate-200"
                 }`}
-                onClick={(e) => {
-                  if (user) {
-                    e.preventDefault();
-                    // Add security validation before redirecting to checkout
-                    if (p.name !== 'Free') {
-                      // Validate the plan is allowed
-                      const allowedPlans = ['Family', 'Family Plus'];
-                      if (allowedPlans.includes(p.name)) {
-                        window.location.href = `/checkout?plan=${encodeURIComponent(p.name)}&interval=${encodeURIComponent(interval)}`;
-                      } else {
-                        // Handle invalid plan by showing error or redirecting
-                        window.location.href = `/pricing?error=invalid_plan`;
-                      }
-                    } else {
-                      // Free plan goes directly to homepage
-                      window.location.href = '/homepage';
-                    }
-                  }
-                }}
               >
                 {p.price > 0 ? 'Get Started' : 'Sign Up Free'}
-              </Link>
+              </button>
             </div>
           ))}
         </div>

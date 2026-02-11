@@ -8,9 +8,12 @@ import { LocalChildrenManager } from '@/components/local-children-manager'
 import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
+import { SEO_CONFIG } from '@/lib/seo-config'
+import { generateOrganizationSchema, serializeJsonLd } from '@/lib/structured-data'
 
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SEO_CONFIG.site.url),
   title: 'LanaMind – AI Tutor for Clear, Structured Learning',
   description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
   keywords: ['AI tutoring', 'personalized learning', 'education technology', 'student progress tracking', 'parent dashboard'],
@@ -56,6 +59,13 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta httpEquiv="Expires" content="0" />
         <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
         <link rel="manifest" href="/manifest.json" />
+        {/* Organization Structured Data */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(generateOrganizationSchema())
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `

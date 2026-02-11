@@ -1,35 +1,51 @@
-import { Metadata } from 'next';
+import { Metadata } from 'next'
+import { SEO_CONFIG } from '@/lib/seo-config'
 
 export const metadata: Metadata = {
-  title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-  description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
-  keywords: ['AI tutoring', 'personalized learning', 'education technology', 'student progress tracking', 'parent dashboard'],
+  title: {
+    template: `%s | ${SEO_CONFIG.site.name}`,
+    default: 'LanaMind – AI Tutor for Clear, Structured Learning'
+  },
+  description: 'Transform your child\'s education with LanaMind\'s AI-powered tutoring platform. Personalized learning, real-time progress tracking, and adaptive teaching methods for students of all ages.',
+  keywords: [
+    'ai tutoring software',
+    'personalized learning platform', 
+    'ai homework helper',
+    'educational ai tools',
+    'smart tutoring system',
+    'ai learning assistant',
+    'virtual tutoring service',
+    'online ai tutor for kids',
+    'adaptive learning technology',
+    'student progress analytics'
+  ],
   authors: [{ name: 'LanaMind Team' }],
   creator: 'LanaMind Team',
   publisher: 'LanaMind Team',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
-    url: 'https://lanamind.com/landing-page',
-    siteName: 'LanaMind',
-    title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-    description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
+    locale: SEO_CONFIG.site.locale,
+    url: '/landing-page',
+    siteName: SEO_CONFIG.site.name,
+    title: 'LanaMind – Revolutionary AI Tutoring Platform',
+    description: 'Experience the future of education with LanaMind\'s intelligent AI tutor that adapts to each student\'s unique learning style and pace.',
     images: [
       {
-        url: '/icons/icon-512.png',
-        width: 512,
-        height: 512,
-        alt: 'LanaMind Logo',
+        url: '/opengraph-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'LanaMind AI Tutoring Platform - Personalized Learning for Every Student',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-    description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
-    images: ['/icons/icon-512.png'],
+    title: 'LanaMind – AI-Powered Personalized Learning Platform',
+    description: 'Revolutionary AI tutoring that understands and adapts to your child\'s unique learning journey. Try it free today!',
+    images: ['/twitter-image.png'],
+    creator: SEO_CONFIG.social.twitter,
   },
   alternates: {
-    canonical: 'https://lanamind.com',
+    canonical: '/',
   },
-};
+}
