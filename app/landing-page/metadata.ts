@@ -46,6 +46,17 @@ export const metadata: Metadata = {
     creator: SEO_CONFIG.social.twitter,
   },
   alternates: {
-    canonical: '/',
+    canonical: 'https://lanamind.com',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
   },
 }

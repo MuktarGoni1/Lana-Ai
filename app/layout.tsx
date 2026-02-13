@@ -8,6 +8,7 @@ import { LocalChildrenManager } from '@/components/local-children-manager'
 import { UnifiedAuthProvider } from '@/contexts/UnifiedAuthContext'
 import SessionTimeoutHandler from '@/components/session-timeout-handler'
 import { SessionMonitor } from '@/components/auth/SessionMonitor'
+import { GoogleAnalytics } from '@/components/google-analytics'
 import { SEO_CONFIG } from '@/lib/seo-config'
 import { generateOrganizationSchema, serializeJsonLd } from '@/lib/structured-data'
 
@@ -92,6 +93,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
               <LocalChildrenManager />
               <SessionTimeoutHandler />
               <SessionMonitor />
+              <GoogleAnalytics />
             </ClientProviders>
           </UnifiedAuthProvider>
         </ThemeProvider>

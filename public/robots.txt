@@ -8,13 +8,10 @@ Disallow: /admin/
 
 Sitemap: https://lanamind.com/sitemap.xml
 
-# Crawl delay to prevent overwhelming the server
-Crawl-delay: 2
-
-# Host directive
+# Host directive for canonical URL
 Host: https://lanamind.com
 
-# Specific directives for major search engines
+# Googlebot specific rules
 User-agent: Googlebot
 Allow: /
 Disallow: /api/
@@ -23,6 +20,7 @@ Disallow: /_next/
 Disallow: /dashboard/
 Disallow: /admin/
 
+# Bingbot specific rules  
 User-agent: Bingbot
 Allow: /
 Disallow: /api/

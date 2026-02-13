@@ -572,7 +572,56 @@ export default function Home() {
   const { setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true); setTheme("light") }, [])
-  if (!mounted) { return null }
+  
+  // SEO-FIX: Return skeleton instead of null for Googlebot
+  // This ensures search engines see content structure immediately
+  if (!mounted) {
+    return (
+      <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans">
+        <main className="flex-grow">
+          {/* Hero Skeleton */}
+          <section className="py-12 md:py-24 bg-white">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                <div className="flex flex-col gap-6">
+                  <h1 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-slate-900">
+                    Your AI-powered <br/>
+                    <span className="text-purple-600">afterclass tutor!</span>
+                  </h1>
+                  <p className="text-lg md:text-xl text-slate-600 leading-relaxed font-medium max-w-lg">
+                    Learn with our AI tutor that provides clear, age-appropriate explanations for every concept.
+                  </p>
+                  <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
+                    <span className="rounded-full bg-[#FACC15] text-slate-900 font-extrabold py-4 px-8 text-center">Start Learning</span>
+                    <span className="rounded-full bg-white text-slate-700 font-bold py-4 px-8 border border-slate-200 text-center">Sign In</span>
+                  </div>
+                </div>
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-slate-200 bg-slate-100 aspect-square sm:aspect-video lg:aspect-square flex items-center justify-center">
+                  <span className="text-slate-400">Video Loading...</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          
+          {/* Features Skeleton */}
+          <section className="py-16 bg-slate-50">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-16">
+                <h2 className="text-3xl md:text-5xl font-extrabold text-slate-900 mb-6">
+                  Everything for <span className="text-purple-600">Effective Learning</span>
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[1,2,3,4,5,6].map((i) => (
+                  <div key={i} className="rounded-3xl bg-slate-100 p-8 h-64"></div>
+                ))}
+              </div>
+            </div>
+          </section>
+        </main>
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans selection:bg-yellow-200">
