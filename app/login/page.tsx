@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
+import { createClient } from "@/lib/supabase/client";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
 // --- Reusable Components ---
@@ -388,36 +389,56 @@ function LoginContent() {
 
   // Check if user has completed onboarding
   const [showContinue, setShowContinue] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(false);
   
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      // Check onboarding status
-      const onboardingComplete = user?.user_metadata?.onboarding_complete;
-      if (!onboardingComplete) {
-        setShowContinue(true);
-      } else {
-        // Redirect to last visited page or homepage
-        let lastVisited = null;
-        
-        // Try to get from localStorage
-        if (typeof window !== 'undefined') {
-          lastVisited = localStorage.getItem('lana_last_visited');
+    async function resolveDestination() {
+      if (isLoading || !isAuthenticated || !user?.id) return;
+
+      setCheckingProfile(true);
+      try {
+        const supabase = createClient() as any;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role, age, grade")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const missingRequired =
+          !profile?.role || profile?.age == null || !profile?.grade;
+
+        if (missingRequired) {
+          setShowContinue(true);
+          return;
         }
-        
-        // Redirect to last visited page if available and not an auth page, otherwise dashboard
-        const redirectPath = lastVisited && 
-                             !lastVisited.startsWith('/login') && 
-                             !lastVisited.startsWith('/register') && 
-                             !lastVisited.startsWith('/auth') && 
-                             lastVisited !== '/landing-page' ? 
-                             lastVisited : '/';
-        
+
+        let lastVisited: string | null = null;
+        if (typeof window !== "undefined") {
+          lastVisited = localStorage.getItem("lana_last_visited");
+        }
+
+        const redirectPath =
+          lastVisited &&
+          !lastVisited.startsWith("/login") &&
+          !lastVisited.startsWith("/register") &&
+          !lastVisited.startsWith("/auth") &&
+          lastVisited !== "/landing-page"
+            ? lastVisited
+            : "/";
+
         router.push(redirectPath);
+      } catch {
+        // On fetch errors, never trap user on login
+        router.push("/");
+      } finally {
+        setCheckingProfile(false);
       }
     }
-  }, [isAuthenticated, isLoading, router]);
 
-  if (isLoading) {
+    void resolveDestination();
+  }, [isAuthenticated, isLoading, router, user?.id]);
+
+  if (isLoading || checkingProfile) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -448,12 +469,12 @@ function LoginContent() {
               </div>
               <div className="space-y-1">
                 <h1 className="text-2xl font-semibold text-white">Welcome Back!</h1>
-                <p className="text-white/40 text-sm">You're signed in. Let's continue setting up your account.</p>
+                <p className="text-white/40 text-sm">You're signed in. Complete your setup to personalize learning.</p>
               </div>
             </div>
             
             <button
-              onClick={() => router.push("/child-info")}
+              onClick={() => router.push("/onboarding")}
               className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
                        hover:bg-white/90 transition-all duration-200
                        flex items-center justify-center gap-2"

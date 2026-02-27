@@ -10,7 +10,7 @@ interface GuestGuardProps {
   redirectTo?: string;
 }
 
-export default function GuestGuard({ children, redirectTo = "/homepage" }: GuestGuardProps) {
+export default function GuestGuard({ children, redirectTo = "/" }: GuestGuardProps) {
   const { isAuthenticated, isLoading } = useUnifiedAuth();
   const router = useRouter();
 

@@ -1,88 +1,65 @@
-"use client"
-import React, { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/db"
-import { useToast } from "@/hooks/use-toast"
-import { Mail, Loader2 } from "lucide-react"
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/db";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2, Mail } from "lucide-react";
 
 export default function ChildLoginPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const [email, setEmail] = useState("")
-  const [loading, setLoading] = useState(false)
-  const [emailError, setEmailError] = useState("")
+  const router = useRouter();
+  const { toast } = useToast();
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [emailError, setEmailError] = useState("");
 
-  // Check if user is already authenticated
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        const role = session.user.user_metadata?.role
-        // Check if onboarding is complete
-        const onboardingComplete = Boolean(session.user.user_metadata?.onboarding_complete)
-        
-        if (role === "child") {
-          if (onboardingComplete) {
-            router.push("/homepage")
-          } else {
-            router.push("/term-plan?onboarding=1")
-          }
-        } else {
-          router.push("/onboarding") // parent → setup
-        }
-      }
-    })
-  }, [router])
+      if (session) router.push("/");
+    });
+  }, [router]);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    return emailRegex.test(email)
-  }
+  const validateEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+    e.preventDefault();
+
     if (!email.trim()) {
-      setEmailError("Email is required")
-      return
+      setEmailError("Email is required");
+      return;
     }
-    
     if (!validateEmail(email.trim())) {
-      setEmailError("Please enter a valid email address")
-      return
+      setEmailError("Please enter a valid email address");
+      return;
     }
-    
-    setLoading(true)
-    setEmailError("")
-    
+
+    setLoading(true);
+    setEmailError("");
     try {
-      // Send magic link
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim(),
         options: {
           emailRedirectTo: "https://www.lanamind.com/auth/auto-login",
         },
-      })
-      
-      if (error) throw error
-      
+      });
+      if (error) throw error;
+
       toast({
         title: "Magic link sent",
         description: "Check your email for the login link.",
-      })
-      
-      // Redirect to a confirmation page
-      router.push(`/login?magic-link-sent=true&email=${encodeURIComponent(email.trim())}`)
+      });
+      router.push(`/login?magic-link-sent=true&email=${encodeURIComponent(email.trim())}`);
     } catch (error: any) {
-      console.error("[Child Login] Error:", error)
+      console.error("[Child Login] Error:", error);
       toast({
         title: "Login failed",
         description: error.message || "Failed to send magic link. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
@@ -96,7 +73,7 @@ export default function ChildLoginPage() {
             <p className="text-white/40 text-sm">Use the magic link your parent shared</p>
           </div>
         </div>
-        
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-xs text-white/40 mb-2">
@@ -107,28 +84,20 @@ export default function ChildLoginPage() {
               type="email"
               value={email}
               onChange={(e) => {
-                setEmail(e.target.value)
-                if (emailError) setEmailError("")
+                setEmail(e.target.value);
+                if (emailError) setEmailError("");
               }}
               placeholder="child@example.com"
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] 
-                       text-white placeholder-white/20 text-sm
-                       focus:outline-none focus:border-white/10 focus:bg-white/[0.05]
-                       transition-all duration-200"
+              className="w-full px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] text-white placeholder-white/20 text-sm focus:outline-none focus:border-white/10 focus:bg-white/[0.05] transition-all duration-200"
               required
             />
-            {emailError && (
-              <p className="mt-1 text-xs text-red-400">{emailError}</p>
-            )}
+            {emailError && <p className="mt-1 text-xs text-red-400">{emailError}</p>}
           </div>
-          
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm
-                     hover:bg-white/90 transition-all duration-200
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     flex items-center justify-center gap-2"
+            className="w-full px-6 py-3 rounded-xl bg-white text-black font-medium text-sm hover:bg-white/90 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -139,21 +108,8 @@ export default function ChildLoginPage() {
               <span>Send Magic Link</span>
             )}
           </button>
-          
-          <p className="text-xs text-white/20 text-center">
-            No password required • Secure authentication
-          </p>
         </form>
-        
-        <div className="pt-6 border-t border-white/[0.05] text-center">
-          <button 
-            onClick={() => router.push("/login")}
-            className="text-sm text-white/30 hover:text-white/50 transition-colors duration-200"
-          >
-            Parent login
-          </button>
-        </div>
       </div>
     </div>
-  )
+  );
 }

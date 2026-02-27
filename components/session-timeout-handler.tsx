@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ export default function SessionTimeoutHandler() {
   const router = useRouter();
   const [showWarning, setShowWarning] = useState(false);
   const [timeUntilLogout, setTimeUntilLogout] = useState(60); // 60 seconds warning
+  const missingSessionChecks = useRef(0);
 
   // Check session validity periodically
   useEffect(() => {
@@ -30,14 +31,21 @@ export default function SessionTimeoutHandler() {
         
         if (error) {
           console.error("Session check error:", error);
-          handleSessionExpired();
+          // Network or transient auth errors should not force logout.
+          warningTimeout = setTimeout(checkSession, 30000);
           return;
         }
         
         if (!session) {
-          handleSessionExpired();
+          missingSessionChecks.current += 1;
+          if (missingSessionChecks.current >= 3) {
+            handleSessionExpired();
+            return;
+          }
+          warningTimeout = setTimeout(checkSession, 30000);
           return;
         }
+        missingSessionChecks.current = 0;
         
         // Calculate time until expiration
         const expiresAt = session.expires_at;

@@ -29,9 +29,9 @@ export default function NotFound() {
     }
   }, []);
 
-  // Default to homepage if client is authenticated, otherwise landing page
-  const redirectUrl = isClient && isAuthenticated ? '/homepage' : '/';
-  const buttonText = isClient && isAuthenticated ? 'Go to homepage' : 'Go to landing page';
+  // Default to root route for both states (dashboard for auth, landing for guests)
+  const redirectUrl = '/';
+  const buttonText = isClient && isAuthenticated ? 'Go to dashboard' : 'Go to landing page';
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black p-4">

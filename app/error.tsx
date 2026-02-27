@@ -15,13 +15,13 @@ export default function Error({
   useEffect(() => {
     // Log the error to an error reporting service
     console.error('Global error caught:', error)
-    // Default: auto-redirect users to homepage after brief delay
+    // Default: auto-redirect users to dashboard/landing root after brief delay
     const timer = setTimeout(() => {
-      console.warn('Redirecting to homepage due to error')
+      console.warn('Redirecting to / due to error')
       try {
-        window.location.assign('/homepage')
+        window.location.assign('/')
       } catch {
-        window.location.href = '/homepage'
+        window.location.href = '/'
       }
     }, 1200)
     return () => clearTimeout(timer)
@@ -47,10 +47,10 @@ export default function Error({
           </Button>
           <Button 
             variant="outline" 
-            onClick={() => window.location.assign('/homepage')}
+            onClick={() => window.location.assign('/')}
             className="w-full"
           >
-            Go to homepage
+            Go home
           </Button>
         </div>
       </div>
