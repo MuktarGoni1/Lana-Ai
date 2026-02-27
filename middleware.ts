@@ -25,25 +25,6 @@ function isValidRedirectUrl(url: string): boolean {
   }
 }
 
-// Generate a simple UUID-like string for guest sessions
-function generateGuestId(): string {
-  return 'guest-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 5)
-}
-
-// Set guest cookie for unauthenticated users
-function setGuestCookie(req: NextRequest, res: NextResponse) {
-  const hasCookie = req.cookies.has('lana_guest_id')
-  if (!hasCookie) {
-    const id = generateGuestId()
-    res.cookies.set('lana_guest_id', id, {
-      maxAge: 60 * 60 * 24 * 365, // 1 year
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-    })
-  }
-}
-
 // Centralized auth gating and role-based redirects
 export async function middleware(req: NextRequest) {
   try {
@@ -174,24 +155,18 @@ export async function middleware(req: NextRequest) {
 
     // Define protected routes
     const protectedPaths = [
+      '/',
       '/dashboard',
       '/guardian',
       '/personalised-ai-tutor',
       '/children'
     ]
 
-    const isProtectedRoute = protectedPaths.some(path => 
-      pathname.startsWith(path)
+    const isProtectedRoute = protectedPaths.some(path =>
+      path === '/' ? pathname === '/' : pathname.startsWith(path)
     )
 
-    // Special handling for homepage - allow access even without session
-    if (pathname === '/homepage') {
-      console.log('[Middleware] Allowing access to homepage');
-      const hasGuestCookie = req.cookies.has('lana_guest_id');
-      await authLogger.logGuestAccess(pathname, hasGuestCookie);
-      setGuestCookie(req, res);
-      return res;
-    }
+    // Homepage is now authenticated; no guest allowance here.
     
     // If there's an authentication error but we're trying to access a public path, allow it
     if (error && isPublic) {
@@ -232,9 +207,9 @@ export async function middleware(req: NextRequest) {
     if (sessionExists && isAuthPath) {
       console.log('[Middleware] Authenticated user accessing auth path, redirecting to dashboard')
       await authLogger.logProtectedRouteAccess(pathname, true, user?.id, user?.email);
-      // Redirect all authenticated users to homepage
-      const dest = new URL('/homepage', req.url)
-      await authLogger.logRedirect(pathname, '/homepage', 'authenticated_user_on_auth_page', user?.id, user?.email);
+      // Redirect all authenticated users to dashboard root
+      const dest = new URL('/', req.url)
+      await authLogger.logRedirect(pathname, '/', 'authenticated_user_on_auth_page', user?.id, user?.email);
       return NextResponse.redirect(dest)
     }
 
@@ -281,55 +256,36 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(dest)
     }
     
-    // If onboarding was just completed, redirect to homepage regardless of role
+    // If onboarding was just completed, redirect to dashboard regardless of role
     if (isOnboardingCompletion) {
-      console.log('[Middleware] Onboarding just completed, redirecting to homepage')
-      await authLogger.logRedirect(pathname, '/homepage', 'onboarding_completed', user?.id, user?.email);
-      const dest = new URL('/homepage', req.url)
+      console.log('[Middleware] Onboarding just completed, redirecting to dashboard')
+      await authLogger.logRedirect(pathname, '/', 'onboarding_completed', user?.id, user?.email);
+      const dest = new URL('/', req.url)
       return NextResponse.redirect(dest)
     }
 
-    // If authenticated and trying to access the landing page, send to last visited page or homepage
+    // If authenticated and trying to access the landing page, send to last visited page or dashboard
     if (sessionExists && pathname === '/landing-page') {
-      console.log('[Middleware] Authenticated user accessing landing page, redirecting to last visited or homepage')
+      console.log('[Middleware] Authenticated user accessing landing page, redirecting to last visited or dashboard')
       
       // Try to get last visited from cookies
       const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
       
-      // Redirect to last visited page if available and not an auth page, otherwise homepage
+      // Redirect to last visited page if available and not an auth page, otherwise dashboard
       const redirectPath = lastVisitedCookie && 
                            !lastVisitedCookie.startsWith('/login') && 
                            !lastVisitedCookie.startsWith('/register') && 
                            !lastVisitedCookie.startsWith('/auth') && 
                            lastVisitedCookie !== '/landing-page' &&
                            isValidRedirectUrl(lastVisitedCookie) ? 
-                           lastVisitedCookie : '/homepage';
+                           lastVisitedCookie : '/';
       
       await authLogger.logRedirect(pathname, redirectPath, 'authenticated_landing_page_access', user?.id, user?.email);
       const dest = new URL(redirectPath, req.url)
       return NextResponse.redirect(dest)
     }
 
-    // If authenticated and hitting root, redirect to last visited page or homepage
-    if (sessionExists && pathname === '/') {
-      console.log('[Middleware] Authenticated user accessing root, redirecting to last visited or homepage')
-      
-      // Try to get last visited from cookies
-      const lastVisitedCookie = req.cookies.get('lana_last_visited')?.value;
-      
-      // Redirect to last visited page if available and not an auth page, otherwise homepage
-      const redirectPath = lastVisitedCookie && 
-                           !lastVisitedCookie.startsWith('/login') && 
-                           !lastVisitedCookie.startsWith('/register') && 
-                           !lastVisitedCookie.startsWith('/auth') && 
-                           lastVisitedCookie !== '/landing-page' &&
-                           isValidRedirectUrl(lastVisitedCookie) ? 
-                           lastVisitedCookie : '/homepage';
-      
-      await authLogger.logRedirect(pathname, redirectPath, 'authenticated_root_access', user?.id, user?.email);
-      const dest = new URL(redirectPath, req.url)
-      return NextResponse.redirect(dest)
-    }
+    // Root is now the dashboard; no redirect needed for authenticated users.
 
     // Role-based normalization
     if ((pathname.startsWith('/guardian') || pathname.startsWith('/children')) && role !== 'guardian') {

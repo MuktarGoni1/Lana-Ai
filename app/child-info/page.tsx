@@ -14,7 +14,8 @@ export default function ChildInfoPage() {
     nickname: "",
     age: "",
     grade: "",
-    interests: ""
+    interests: "",
+    role: ""
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -47,6 +48,10 @@ export default function ChildInfoPage() {
     if (!formData.grade) {
       newErrors.grade = "Grade is required";
     }
+
+    if (!formData.role) {
+      newErrors.role = "Please select a role";
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -67,15 +72,37 @@ export default function ChildInfoPage() {
     setLoading(true);
     
     try {
-      // Save child information to user metadata
+      const db = supabase as any;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
+
+      const ageValue = parseInt(formData.age, 10);
+
+      const { error: profileError } = await db
+        .from("profiles")
+        .update({
+          age: ageValue,
+          grade: formData.grade,
+          full_name: formData.nickname.trim(),
+          role: formData.role === "parent" ? "parent" : "child",
+          diagnostic_completed: true
+        })
+        .eq("id", user.id);
+
+      if (profileError) throw profileError;
+
+      // Keep metadata in sync for existing middleware checks
       const { error } = await supabase.auth.updateUser({
         data: {
           child_info: {
             nickname: formData.nickname.trim(),
-            age: parseInt(formData.age),
+            age: ageValue,
             grade: formData.grade,
             interests: formData.interests.trim()
           },
+          role: formData.role === "parent" ? "parent" : "child",
           onboarding_step: 1
         }
       });
@@ -137,6 +164,45 @@ export default function ChildInfoPage() {
           </div>
           
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="block text-xs text-white/40 mb-2">
+                Who are you?
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, role: "child" });
+                    if (errors.role) setErrors({ ...errors, role: "" });
+                  }}
+                  className={`px-4 py-3 rounded-xl border text-sm transition-all ${
+                    formData.role === "child"
+                      ? "bg-white text-black border-white"
+                      : "bg-white/[0.03] border-white/[0.08] text-white/70 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  🎒 I'm a student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData({ ...formData, role: "parent" });
+                    if (errors.role) setErrors({ ...errors, role: "" });
+                  }}
+                  className={`px-4 py-3 rounded-xl border text-sm transition-all ${
+                    formData.role === "parent"
+                      ? "bg-white text-black border-white"
+                      : "bg-white/[0.03] border-white/[0.08] text-white/70 hover:bg-white/[0.06]"
+                  }`}
+                >
+                  👨👩👧 I'm a parent
+                </button>
+              </div>
+              {errors.role && (
+                <p className="text-red-400 text-xs mt-1">{errors.role}</p>
+              )}
+            </div>
+
             <div>
               <label htmlFor="nickname" className="block text-xs text-white/40 mb-2">
                 Child's Nickname

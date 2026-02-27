@@ -9,7 +9,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
 import { useToast } from '@/hooks/use-toast';
-import { dataSyncService } from '@/lib/services/dataSyncService';
 import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler';
 /* ---------- Types ---------- */
 interface Topic {
@@ -24,6 +23,10 @@ interface Subject {
   topics: Topic[];
   dateAdded: string;
   isExpanded: boolean;
+}
+
+interface ProfileRow {
+  grade: string | null;
 }
 
 /* ---------- main page ---------- */
@@ -149,33 +152,69 @@ function TermPlanPageContent() {
     }
   }, [isAuthenticated, isLoading, router]);
 
-  const saveToLocalAndCompleteOnboarding = async () => {
-    setSaving(true);
-    try {
-      console.log('[term-plan] Saving subjects and topics to localStorage');
-      console.log('[term-plan] Number of subjects to save:', subjects.length);
-      
-      // Save to localStorage
-      localStorage.setItem('lana_study_plan', JSON.stringify(subjects));
-      console.log('[term-plan] Successfully saved subjects and topics to localStorage');
-      
-      toast({ 
-        title: 'Plan Saved Locally', 
-        description: 'Your study plan has been saved locally and will be synced when connection is restored.' 
-      });
-      
-      // Complete onboarding
-      await completeOnboardingAndRedirect();
-    } catch (err: any) {
-      console.error('[term-plan] Error saving plan locally:', err.message);
-      console.error('[term-plan] Save error details:', err);
-      // Use our error handler to reload the page instead of continuing
-      handleErrorWithReload(err, "Failed to save study plan locally. Reloading page to try again...");
-    } finally {
-      setSaving(false);
+  const persistStudyPlanToSupabase = async (userId: string) => {
+    const db = supabase as any;
+
+    // Load profile grade once and reuse for inserted plans.
+    const { data: profileData, error: profileError } = await db
+      .from('profiles')
+      .select('grade')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      throw profileError;
+    }
+
+    const profile = (profileData ?? { grade: null }) as ProfileRow;
+
+    for (const subject of subjects) {
+      const topicNames = subject.topics
+        .map((topic) => topic.name.trim())
+        .filter(Boolean);
+
+      const rawSyllabus = topicNames.join('\n');
+
+      const { data: plan, error: planError } = await db
+        .from('term_plans')
+        .insert({
+          user_id: userId,
+          subject: subject.name.trim(),
+          grade: profile.grade,
+          term: null,
+          raw_syllabus: rawSyllabus,
+        })
+        .select('id')
+        .single();
+
+      if (planError || !plan) {
+        throw planError ?? new Error('Failed to create term plan');
+      }
+
+      if (topicNames.length === 0) {
+        continue;
+      }
+
+      const topicsToInsert = topicNames.map((title, index) => ({
+        user_id: userId,
+        term_plan_id: plan.id,
+        subject_name: subject.name.trim(),
+        title,
+        week_number: index + 1,
+        order_index: index,
+        status: index === 0 ? 'available' : 'locked',
+      }));
+
+      const { error: topicError } = await db
+        .from('topics')
+        .insert(topicsToInsert);
+
+      if (topicError) {
+        throw topicError;
+      }
     }
   };
-  
+
   const completeOnboardingAndRedirect = async () => {
     setSaving(true);
     try {
@@ -229,9 +268,9 @@ function TermPlanPageContent() {
       // Success toast for UX feedback
       toast({ title: 'Onboarding Complete', description: 'Your plan has been saved. Redirecting to dashboard...' });
 
-      // Redirect to homepage after onboarding completion
-      console.log('[term-plan] redirecting to homepage after onboarding completion');
-      router.push('/homepage');
+      // Redirect to dashboard root after onboarding completion
+      console.log('[term-plan] redirecting to dashboard after onboarding completion');
+      router.push('/');
     } catch (err: any) {
       console.error('[term-plan] completion error:', err.message);
       console.error('[term-plan] completion error details:', err);
@@ -248,31 +287,24 @@ function TermPlanPageContent() {
     try {
       console.log('[term-plan] Saving subjects and topics');
       console.log('[term-plan] Number of subjects to save:', subjects.length);
-      
-      // Try to save to backend first
-      if (!user?.email) {
+
+      if (!user?.id) {
         throw new Error('No authenticated user found');
       }
-      
-      // Save to backend API immediately (optimistic approach)
-      const response = await fetch('/api/study-plan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: user.email,
-          subjects
-        }),
-      });
-      
-      const result = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Failed to save study plan');
+
+      const nonEmptySubjects = subjects.filter((subject) => subject.name.trim().length > 0);
+      if (nonEmptySubjects.length === 0) {
+        toast({
+          title: 'Add at least one subject',
+          description: 'Create one subject before saving your plan.',
+          variant: 'destructive',
+        });
+        return;
       }
-      
-      console.log('[term-plan] Successfully saved subjects and topics to backend');
+
+      await persistStudyPlanToSupabase(user.id);
+
+      console.log('[term-plan] Successfully saved subjects/topics to Supabase');
       toast({ 
         title: 'Plan Saved', 
         description: 'Your study plan has been saved successfully.' 
@@ -293,7 +325,7 @@ function TermPlanPageContent() {
         localStorage.setItem('lana_study_plan_pending', JSON.stringify({
           subjects,
           timestamp: Date.now(),
-          email: user?.email
+          userId: user?.id
         }));
         console.log('[term-plan] Data saved locally as pending sync');
         
@@ -320,15 +352,12 @@ function TermPlanPageContent() {
     }
   };
   
-  // Backwards-compatible alias for existing button handlers
-  const handleComplete = completeOnboardingAndRedirect;
-  
   // Skip to homepage functionality
   const handleSkipToHomepage = () => {
     try {
-      // Redirect to homepage when skipping
-      console.log('[term-plan] skipping to homepage');
-      router.push('/homepage');
+      // Redirect to dashboard when skipping
+      console.log('[term-plan] skipping to dashboard');
+      router.push('/');
     } catch (err: any) {
       console.error('[term-plan] skip error:', err.message);
       console.error('[term-plan] skip error details:', err);
@@ -589,7 +618,7 @@ function TermPlanPageContent() {
           <h1 className="text-lg sm:text-xl font-semibold">Term Planner</h1>
         </div>
         <button
-          onClick={() => router.push("/homepage")}
+          onClick={() => router.push("/")}
           className="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center"
         >
           <X className="w-5 h-5" />
@@ -732,7 +761,7 @@ function TermPlanPageContent() {
                                   </span>
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
-                                      onClick={() => router.push(`/homepage?topic=${encodeURIComponent(topic.name)}`)}
+                                      onClick={() => router.push(`/?q=${encodeURIComponent(topic.name)}`)}
                                       className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                                       title="Chat about this topic"
                                     >
