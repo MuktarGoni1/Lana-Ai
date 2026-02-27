@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/db";
 import { ArrowRight, GraduationCap, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -52,11 +52,11 @@ export default function OnboardingPage() {
     setError(null);
 
     try {
-      const supabase = createClient() as any;
+      const db = supabase as any;
       const {
         data: { user },
         error: authErr,
-      } = await supabase.auth.getUser();
+      } = await db.auth.getUser();
 
       if (authErr || !user) {
         // Not logged in — just go to dashboard, they'll be redirected to login
@@ -79,7 +79,7 @@ export default function OnboardingPage() {
       updates.diagnostic_completed = true;
 
       // Upsert in case the profile row doesn't exist yet
-      const { error: upsertErr } = await supabase
+      const { error: upsertErr } = await db
         .from("profiles")
         .upsert({ id: user.id, ...updates }, { onConflict: "id" });
 

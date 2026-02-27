@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/db";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { AlertTriangle, ArrowRight, Clock, RefreshCw, Video } from "lucide-react";
 
 type TopicStatus = "locked" | "available" | "in_progress" | "completed";
@@ -34,7 +35,7 @@ interface TermPlan {
 interface SearchRow {
   id: string;
   title: string;
-  created_at: string;
+  created_at: string | null;
 }
 
 interface Props {
@@ -57,49 +58,34 @@ function missingFieldLabels(profile: Profile | null) {
 
 export function LanaMindDashboard({ onWatchVideo }: Props) {
   const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [sessionChecked, setSessionChecked] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [termPlans, setTermPlans] = useState<TermPlan[]>([]);
   const [recentSearches, setRecentSearches] = useState<SearchRow[]>([]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (userId: string) => {
     setLoading(true);
     setLoadError(null);
 
     try {
-      const supabase = createClient() as any;
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      const user = session?.user ?? null;
-      setSessionChecked(true);
-      setIsAuthenticated(Boolean(user));
-
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
-      const userId = user.id;
+      const db = supabase as any;
 
       const [profileRes, plansRes, searchesRes] = await Promise.allSettled([
-        supabase
-          .from("profiles")
+          db
+            .from("profiles")
           .select("id, full_name, role, age, grade")
           .eq("id", userId)
           .maybeSingle(),
-        supabase
-          .from("term_plans")
+          db
+            .from("term_plans")
           .select("id, subject")
           .eq("user_id", userId)
           .order("created_at", { ascending: false }),
-        supabase
-          .from("searches")
+          db
+            .from("searches")
           .select("id, title, created_at")
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
@@ -124,7 +110,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       let allTopics: Topic[] = [];
       if (rawPlans.length > 0) {
         const planIds = rawPlans.map((p) => p.id);
-        const { data: topicsData, error: topicsError } = await supabase
+        const { data: topicsData, error: topicsError } = await db
           .from("topics")
           .select("id, term_plan_id, subject_name, title, week_number, order_index, status")
           .in("term_plan_id", planIds)
@@ -154,8 +140,21 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   }, []);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!isAuthenticated || !user?.id) {
+      setLoading(false);
+      setProfile(null);
+      setTermPlans([]);
+      setRecentSearches([]);
+      return;
+    }
+
+    void load(user.id);
+  }, [authLoading, isAuthenticated, load, user?.id]);
 
   const missingFields = useMemo(() => missingFieldLabels(profile), [profile]);
   const showSetupBanner = isAuthenticated && missingFields.length > 0 && !bannerDismissed;
@@ -188,7 +187,11 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           <AlertTriangle className="mx-auto h-6 w-6 text-white/50" />
           <p className="text-white/70 text-sm">{loadError}</p>
           <button
-            onClick={() => void load()}
+            onClick={() => {
+              if (user?.id) {
+                void load(user.id);
+              }
+            }}
             className="inline-flex items-center gap-2 rounded-lg border border-white/20 px-3 py-2 text-xs hover:bg-white/10"
           >
             <RefreshCw className="h-3.5 w-3.5" />
@@ -199,7 +202,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     );
   }
 
-  if (sessionChecked && !isAuthenticated) {
+  if (!authLoading && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-black text-white grid place-items-center p-6">
         <div className="max-w-sm text-center space-y-3">

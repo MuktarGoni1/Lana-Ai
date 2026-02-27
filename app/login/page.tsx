@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/db";
 import { ArrowLeft, ArrowRight, Loader2, Mail, User, Chrome } from "lucide-react";
 
 // --- Reusable Components ---
@@ -390,15 +390,16 @@ function LoginContent() {
   // Check if user has completed onboarding
   const [showContinue, setShowContinue] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(false);
+  const [resolvedRedirect, setResolvedRedirect] = useState(false);
   
   useEffect(() => {
     async function resolveDestination() {
-      if (isLoading || !isAuthenticated || !user?.id) return;
+      if (isLoading || !isAuthenticated || !user?.id || resolvedRedirect) return;
 
       setCheckingProfile(true);
       try {
-        const supabase = createClient() as any;
-        const { data: profile } = await supabase
+        const db = supabase as any;
+        const { data: profile } = await db
           .from("profiles")
           .select("role, age, grade")
           .eq("id", user.id)
@@ -409,6 +410,7 @@ function LoginContent() {
 
         if (missingRequired) {
           setShowContinue(true);
+          setResolvedRedirect(true);
           return;
         }
 
@@ -431,12 +433,13 @@ function LoginContent() {
         // On fetch errors, never trap user on login
         router.push("/");
       } finally {
+        setResolvedRedirect(true);
         setCheckingProfile(false);
       }
     }
 
     void resolveDestination();
-  }, [isAuthenticated, isLoading, router, user?.id]);
+  }, [isAuthenticated, isLoading, resolvedRedirect, router, user?.id]);
 
   if (isLoading || checkingProfile) {
     return (

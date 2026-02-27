@@ -5,13 +5,14 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { AuthService } from "@/lib/services/authService";
-import { supabase } from "@/lib/db";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 export function LocalChildrenManager() {
   const [localChildren, setLocalChildren] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const { toast } = useToast();
   const authService = new AuthService();
+  const { user, isAuthenticated } = useUnifiedAuth();
 
   // Load local children on component mount
   useEffect(() => {
@@ -30,9 +31,8 @@ export function LocalChildrenManager() {
   const syncLocalChildren = async () => {
     setSyncing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      const email = user?.email ?? null;
+      if (!isAuthenticated || !email) {
         toast({
           title: "Authentication Required",
           description: "Please log in to sync local children data.",
@@ -42,7 +42,7 @@ export function LocalChildrenManager() {
         return;
       }
 
-      const result = await authService.linkLocalChildrenToAccount(session.user.email!);
+      const result = await authService.linkLocalChildrenToAccount(email);
       
       if (result.success) {
         toast({

@@ -21,7 +21,7 @@ import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
 export default function ChildManagementPage() {
   const router = useRouter()
   const { toast } = useToast()
-  const { user, registerChild } = useUnifiedAuth()
+  const { user, isAuthenticated, isLoading: authLoading, registerChild } = useUnifiedAuth()
   const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
   const [loading, setLoading] = useState(false)
   const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})
@@ -35,32 +35,24 @@ export default function ChildManagementPage() {
   useEffect(() => {
     // Reset error handler on successful page load
     resetErrorHandler();
-    
-    const checkAuth = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (!session) {
-          router.push("/login");
-          return;
-        }
-        
-        const userRole = session.user.user_metadata?.role;
-        if (userRole !== 'guardian' && userRole !== 'parent') {
-          // Redirect to homepage if user is not a guardian/parent
-          router.push("/homepage");
-          return;
-        }
-      } catch (error) {
-        console.error('[ChildManagement] Auth check error:', error);
-        router.push("/login");
-      } finally {
-        setInitialSyncComplete(true);
-      }
-    };
 
-    checkAuth();
-  }, [router]);
+    if (authLoading) return;
+
+    if (!isAuthenticated || !user) {
+      router.push("/login");
+      setInitialSyncComplete(true);
+      return;
+    }
+
+    const userRole = user.user_metadata?.role;
+    if (userRole !== 'guardian' && userRole !== 'parent') {
+      router.push("/");
+      setInitialSyncComplete(true);
+      return;
+    }
+
+    setInitialSyncComplete(true);
+  }, [authLoading, isAuthenticated, router, user]);
 
   // Validation functions
   const validateNickname = (value: string) => {
@@ -172,11 +164,7 @@ export default function ChildManagementPage() {
 
     setLoading(true)
     try {
-      console.log('[ChildManagement] Getting user session');
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[ChildManagement] Session status:', session ? 'Active' : 'None');
-      
-      if (!session) {
+      if (!user?.email) {
         console.error('[ChildManagement] No session found, redirecting to login');
         toast({
           title: "Authentication Required",
@@ -194,7 +182,7 @@ export default function ChildManagementPage() {
           child.nickname,
           Number(child.age),
           child.grade,
-          session.user.email!
+          user.email
         )
         
         if (!result.success) {
@@ -209,7 +197,7 @@ export default function ChildManagementPage() {
 
       // Redirect to homepage after successful registration
       setTimeout(() => {
-        router.push("/homepage");
+        router.push("/");
       }, 1500);
       
     } catch (err: unknown) {
@@ -580,7 +568,7 @@ Bob,15,10`}
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => router.push("/homepage")}
+                onClick={() => router.push("/")}
                 className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
               >
                 <ChevronLeft className="mr-2 h-4 w-4" />

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import { createClient } from "@/lib/supabase/client";
+import { supabase } from "@/lib/db";
 
 export default function AutoLoginPage() {
   const router = useRouter();
@@ -19,8 +19,8 @@ export default function AutoLoginPage() {
         const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
 
-        const supabase = createClient() as any;
-        const { data: profile } = await supabase
+        const db = supabase as any;
+        const { data: profile } = await db
           .from("profiles")
           .select("role, age, grade")
           .eq("id", user.id)

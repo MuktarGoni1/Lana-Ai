@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { useToast } from "@/hooks/use-toast"
 import { User, BookOpen, Calendar, Mail, Copy, Check, Plus, Home, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 import type { Database } from "@/types/supabase"
 
 // Define the type for the data we're selecting from guardians table
@@ -37,6 +38,7 @@ type UpdateGuardian = Database['public']['Tables']['guardians']['Update'];
 export default function GuardianDashboard() {
   const router = useRouter()
   const { toast } = useToast()
+  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth()
   const [children, setChildren] = useState<Child[]>([])
   const [parentEmail, setParentEmail] = useState("")
   const [copied, setCopied] = useState(false)
@@ -45,13 +47,20 @@ export default function GuardianDashboard() {
 
   /* ---- auth ---- */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return router.push("/login")
-      const email = session.user.email
-      setParentEmail(email ?? "")
-      if (email) loadChildren(email)
-    })
-  }, [router])
+    if (authLoading) return;
+    if (!isAuthenticated || !user) {
+      router.push("/login");
+      return;
+    }
+
+    const email = user.email;
+    setParentEmail(email ?? "");
+    if (email) {
+      void loadChildren(email);
+    } else {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, router, user])
 
   /* ---- data ---- */
   async function loadChildren(email: string) {
@@ -282,7 +291,7 @@ export default function GuardianDashboard() {
           
           <div className="pt-4">
             <button
-              onClick={() => router.push("/homepage")}
+              onClick={() => router.push("/")}
               className="px-5 py-2.5 rounded-xl bg-transparent hover:bg-white/5 border border-white/10 text-white/70 hover:text-white transition-all duration-200 flex items-center gap-2 mx-auto"
             >
               <Home className="w-4 h-4" />
@@ -323,7 +332,7 @@ export default function GuardianDashboard() {
             </Button>
             
             <button
-              onClick={() => router.push("/homepage")}
+              onClick={() => router.push("/")}
               className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-sm flex items-center gap-2"
             >
               <Home className="w-4 h-4" />
