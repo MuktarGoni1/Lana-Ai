@@ -404,13 +404,13 @@ function LoginContent() {
           lastVisited = localStorage.getItem('lana_last_visited');
         }
         
-        // Redirect to last visited page if available and not an auth page, otherwise homepage
+        // Redirect to last visited page if available and not an auth page, otherwise dashboard
         const redirectPath = lastVisited && 
                              !lastVisited.startsWith('/login') && 
                              !lastVisited.startsWith('/register') && 
                              !lastVisited.startsWith('/auth') && 
                              lastVisited !== '/landing-page' ? 
-                             lastVisited : '/homepage';
+                             lastVisited : '/';
         
         router.push(redirectPath);
       }

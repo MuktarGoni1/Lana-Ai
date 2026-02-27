@@ -165,7 +165,7 @@ function HeroSection() {
             <div className="flex flex-col sm:flex-row gap-4 w-full mt-4">
               {user ? (
                 <>
-                  <Link href="/homepage" className={getChildFriendlyClasses.button}>
+                  <Link href="/" className={getChildFriendlyClasses.button}>
                     Continue Learning
                   </Link>
                   {/* Show Continue Setup button if onboarding is incomplete */}
@@ -441,7 +441,7 @@ function CtaSection() {
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
              <Link 
-                href={user ? "/homepage" : "/register"}
+                href={user ? "/" : "/register"}
                 className={getChildFriendlyClasses.button}
               >
                 {user ? "Go to Dashboard" : "Get Started Now"}
