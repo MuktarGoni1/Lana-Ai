@@ -1,12 +1,14 @@
 "use client";
 
 /**
- * components/dashboard/index.tsx — LanaMind Student Dashboard
+ * components/dashboard/index.tsx
  *
- * Notes:
- * - Uses real Supabase schema: profiles, term_plans, topics, quiz_attempts, searches.
- * - No hard redirect on missing age/grade; show banner instead.
- * - Recent searches shown when no term plan exists yet.
+ * Core principles:
+ *   - Authenticated users ALWAYS see this page. No hard redirects.
+ *   - Null age, missing grade, no term plans → inline banners/prompts, not errors.
+ *   - Recent searches shown as fallback content while no term plan exists.
+ *   - All data fetches fail silently — partial data is fine.
+ *   - Loading skeleton, never a blank white flash.
  */
 
 import { useEffect, useState, useCallback } from "react";
@@ -21,27 +23,34 @@ import {
   CircleCheck,
   Circle,
   ArrowRight,
-  AlertTriangle,
   LoaderIcon,
   Plus,
   Video,
   RefreshCw,
   Clock,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ─────────────────────────────────────────────────────────────────
-// TYPES — mirror the real schema exactly
+// TYPES
 // ─────────────────────────────────────────────────────────────────
 
 type TopicStatus = "locked" | "available" | "in_progress" | "completed";
 
-/** mirrors public.topics */
+interface Profile {
+  id: string;
+  full_name: string | null;
+  role: "parent" | "child" | null;
+  age: number | null;
+  grade: string | null;
+  diagnostic_completed: boolean;
+}
+
 interface Topic {
   id: string;
   term_plan_id: string | null;
-  user_id: string;
   subject_name: string;
   title: string;
   week_number: number;
@@ -49,49 +58,34 @@ interface Topic {
   status: TopicStatus;
 }
 
-/** mirrors public.term_plans */
 interface TermPlan {
   id: string;
-  user_id: string;
   subject: string;
   grade: string | null;
   term: string | null;
   topics: Topic[];
 }
 
-/** mirrors public.quiz_attempts */
 interface QuizAttempt {
   topic_id: string;
   score: number;
   total: number;
 }
 
-/** mirrors public.profiles */
-interface Profile {
-  id: string;
-  full_name: string | null;
-  role: "parent" | "child" | null;
-  parent_id: string | null;
-  age: number | null;
-  grade: string | null;
-  diagnostic_completed: boolean;
-}
-
 interface Search {
   id: string;
   title: string;
-  created_at: string | null;
+  created_at: string;
 }
 
-interface DashboardState {
-  profile: Profile;
+interface DashboardData {
+  profile: Profile | null;
   userName: string;
   termPlans: TermPlan[];
   allTopics: Topic[];
   attempts: QuizAttempt[];
   recentSearches: Search[];
   continueTopic: Topic | null;
-  activeWeek: number;
   maxWeek: number;
 }
 
@@ -99,108 +93,118 @@ interface DashboardState {
 // COMPONENT
 // ─────────────────────────────────────────────────────────────────
 
-interface LanaMindDashboardProps {
+interface Props {
   onWatchVideo: (topic: string) => void;
 }
 
-export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
+export function LanaMindDashboard({ onWatchVideo }: Props) {
   const router = useRouter();
-  const supabase = createClient();
-  const db = supabase as any;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<DashboardState | null>(null);
-  const [activeWeek, setActiveWeek] = useState(1);
+  const [loading, setLoading]           = useState(true);
+  const [data, setData]                 = useState<DashboardData | null>(null);
+  const [loadError, setLoadError]       = useState<string | null>(null);
+  const [activeWeek, setActiveWeek]     = useState(1);
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
-  // ── LOAD ─────────────────────────────────────────────────────────
+  // ── FETCH ─────────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
-      try {
-        setLoading(true);
+      const supabase = createClient() as any;
 
-        // 1. Auth session
+      try {
+        // 1. Auth — if no session, middleware handles redirect, but be safe
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) {
           router.push("/login");
           return;
         }
         const userId = session.user.id;
+        const emailName = session.user.email?.split("@")[0] ?? "there";
 
-        // 2. Profile
-        const { data: profile, error: profileErr } = await db
-          .from("profiles")
-          .select("id, full_name, role, parent_id, age, grade, diagnostic_completed")
-          .eq("id", userId)
-          .single();
+        // 2. All fetches run in parallel — each fails independently
+        const [profileRes, plansRes, searchesRes] = await Promise.allSettled([
 
-        if (profileErr || !profile) {
-          router.push("/child-info");
-          return;
-        }
+          // Profile — age, name, grade
+          supabase
+            .from("profiles")
+            .select("id, full_name, role, age, grade, diagnostic_completed")
+            .eq("id", userId)
+            .maybeSingle(),
+
+          // Term plans with topics
+          supabase
+            .from("term_plans")
+            .select("id, subject, grade, term, topics(id, term_plan_id, subject_name, title, week_number, order_index, status)")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false }),
+
+          // Recent searches as fallback content
+          supabase
+            .from("searches")
+            .select("id, title, created_at")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(5),
+        ]);
+
+        if (cancelled) return;
+
+        // 3. Extract profile safely
+        const profile: Profile | null =
+          profileRes.status === "fulfilled" && profileRes.value.data
+            ? profileRes.value.data
+            : null;
 
         const userName =
-          profile.full_name ||
-          session.user.email?.split("@")[0] ||
-          "there";
+          profile?.full_name ||
+          emailName;
 
-        // 3. Term plans
-        const { data: plans } = await db
-          .from("term_plans")
-          .select("id, user_id, subject, grade, term")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
+        // 4. Extract term plans safely
+        const rawPlans =
+          plansRes.status === "fulfilled" && plansRes.value.data
+            ? plansRes.value.data
+            : [];
 
-        const rawPlans = plans ?? [];
-
-        // 4. Topics
-        const { data: rawTopics } = await db
-          .from("topics")
-          .select("id, term_plan_id, user_id, subject_name, title, week_number, order_index, status")
-          .eq("user_id", userId)
-          .order("week_number", { ascending: true })
-          .order("order_index", { ascending: true });
-
-        const allTopics: Topic[] = rawTopics ?? [];
-
-        // 5. Attach topics to plans
         const termPlans: TermPlan[] = rawPlans.map((p: any) => ({
           ...p,
-          topics: allTopics.filter((t) => t.term_plan_id === p.id),
+          topics: (p.topics ?? []).sort((a: Topic, b: Topic) =>
+            a.week_number !== b.week_number
+              ? a.week_number - b.week_number
+              : a.order_index - b.order_index
+          ),
         }));
 
-        // 6. Quiz attempts
-        const topicIds = allTopics.map((t) => t.id);
+        const allTopics = termPlans.flatMap((p) => p.topics);
+
+        // 5. Quiz attempts — only if we have topics
         let attempts: QuizAttempt[] = [];
+        const topicIds = allTopics.map((t) => t.id);
         if (topicIds.length > 0) {
-          const { data: att } = await db
+          const { data: att } = await supabase
             .from("quiz_attempts")
             .select("topic_id, score, total")
             .eq("user_id", userId)
             .in("topic_id", topicIds)
             .order("attempted_at", { ascending: false })
-            .limit(30);
+            .limit(20);
           attempts = att ?? [];
         }
 
-        // 7. Recent searches
-        const { data: recentSearches } = await db
-          .from("searches")
-          .select("id, title, created_at")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false })
-          .limit(5);
+        // 6. Recent searches
+        const recentSearches: Search[] =
+          searchesRes.status === "fulfilled" && searchesRes.value.data
+            ? searchesRes.value.data
+            : [];
 
-        // 8. Continue topic
+        // 7. Continue topic
         const continueTopic =
           allTopics.find((t) => t.status === "in_progress") ||
           allTopics.find((t) => t.status === "available") ||
           null;
 
-        // 9. Active week — lowest week with non-locked topics
+        // 8. Active week
         const liveTopics = allTopics.filter(
           (t) => t.status === "available" || t.status === "in_progress"
         );
@@ -213,8 +217,6 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
             ? Math.max(...allTopics.map((t) => t.week_number))
             : 1;
 
-        if (cancelled) return;
-
         setActiveWeek(week);
         setData({
           profile,
@@ -222,15 +224,14 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           termPlans,
           allTopics,
           attempts,
-          recentSearches: recentSearches ?? [],
+          recentSearches,
           continueTopic,
-          activeWeek: week,
           maxWeek,
         });
       } catch (err: any) {
         if (!cancelled) {
           console.error("[dashboard]", err);
-          setError("Something went wrong loading your dashboard.");
+          setLoadError("Couldn't load your dashboard. Check your connection.");
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -238,24 +239,17 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
     }
 
     load();
-    return () => {
-      cancelled = true;
-    };
-  }, [router, supabase]);
+    return () => { cancelled = true; };
+  }, []);
 
   // ── HELPERS ───────────────────────────────────────────────────────
 
-  const bestScore = useCallback(
-    (topicId: string): number | null => {
-      if (!data) return null;
-      const relevant = data.attempts.filter((a) => a.topic_id === topicId);
-      if (!relevant.length) return null;
-      return Math.max(
-        ...relevant.map((a) => Math.round((a.score / a.total) * 100))
-      );
-    },
-    [data]
-  );
+  const bestScore = useCallback((topicId: string): number | null => {
+    if (!data) return null;
+    const relevant = data.attempts.filter((a) => a.topic_id === topicId);
+    if (!relevant.length) return null;
+    return Math.max(...relevant.map((a) => Math.round((a.score / a.total) * 100)));
+  }, [data]);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -264,51 +258,62 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
     return "Good evening";
   };
 
+  const scoreChip = (pct: number) => (
+    <span className={cn(
+      "text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0",
+      pct >= 80 ? "bg-emerald-500/15 text-emerald-400"
+        : pct >= 60 ? "bg-amber-500/15 text-amber-400"
+        : "bg-red-500/15 text-red-400"
+    )}>
+      {pct}%
+    </span>
+  );
+
   const statusIcon = (status: TopicStatus) => {
-    switch (status) {
-      case "completed":
-        return <CircleCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
-      case "in_progress":
-        return <Circle className="w-4 h-4 text-blue-400 flex-shrink-0 animate-pulse" />;
-      case "locked":
-        return <Lock className="w-4 h-4 text-white/20 flex-shrink-0" />;
-      default:
-        return <Circle className="w-4 h-4 text-white/30 flex-shrink-0" />;
-    }
+    if (status === "completed")
+      return <CircleCheck className="w-4 h-4 text-emerald-400 flex-shrink-0" />;
+    if (status === "in_progress")
+      return <Circle className="w-4 h-4 text-blue-400 flex-shrink-0 animate-pulse" />;
+    if (status === "locked")
+      return <Lock className="w-4 h-4 text-white/20 flex-shrink-0" />;
+    return <Circle className="w-4 h-4 text-white/30 flex-shrink-0" />;
   };
 
-  const scoreColor = (pct: number) =>
-    pct >= 80
-      ? "bg-emerald-500/15 text-emerald-400"
-      : pct >= 60
-      ? "bg-amber-500/15 text-amber-400"
-      : "bg-red-500/15 text-red-400";
-
-  // ── LOADING ───────────────────────────────────────────────────────
+  // ── LOADING SKELETON ──────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <motion.div
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
-        >
-          <LoaderIcon className="w-7 h-7 text-white/25" />
-        </motion.div>
+      <div className="min-h-screen bg-black text-white">
+        <header className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/8 px-5 h-14 flex items-center justify-between">
+          <span className="text-white font-bold text-base">
+            Lana<span className="text-white/30">Mind</span>
+          </span>
+          <div className="w-8 h-8 rounded-full bg-white/8 animate-pulse" />
+        </header>
+        <div className="max-w-xl mx-auto px-5 pt-7 space-y-5">
+          <div className="space-y-2">
+            <div className="h-3 w-24 bg-white/8 rounded-full animate-pulse" />
+            <div className="h-7 w-40 bg-white/10 rounded-full animate-pulse" />
+          </div>
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-16 rounded-2xl bg-white/5 animate-pulse" />
+          ))}
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  // ── LOAD ERROR ─────────────────────────────────────────────────────
+  if (loadError) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 p-6">
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center gap-4 p-6 text-center">
         <AlertTriangle className="w-6 h-6 text-white/30" />
-        <p className="text-white/50 text-sm text-center">{error}</p>
+        <p className="text-white/50 text-sm max-w-xs">{loadError}</p>
         <button
           onClick={() => window.location.reload()}
-          className="flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition-colors"
+          className="flex items-center gap-2 text-xs text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-lg px-3 py-2"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          Refresh
+          Try again
         </button>
       </div>
     );
@@ -316,42 +321,37 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
 
   if (!data) return null;
 
-  // ── DERIVED DATA ──────────────────────────────────────────────────
+  // ── DERIVED ───────────────────────────────────────────────────────
+  const hasPlans    = data.termPlans.length > 0;
+  const isIncomplete = !data.profile?.age || !data.profile?.grade;
+  const showBanner  = isIncomplete && !bannerDismissed;
 
-  const hasPlans = data.termPlans.length > 0;
-  const isProfileIncomplete = !data.profile.age || !data.profile.grade;
-  const showBanner = isProfileIncomplete && !bannerDismissed;
+  const weekTopics = data.allTopics.filter((t) => t.week_number === activeWeek);
 
-  // Topics for the active week
-  const weekTopics = data.allTopics.filter(
-    (t) => t.week_number === activeWeek
-  );
-
-  // Subject progress — group topics by subject_name
-  const subjectMap: Record<string, { done: number; total: number; next: Topic | null }> = {};
-  for (const t of data.allTopics) {
-    if (!subjectMap[t.subject_name]) {
-      subjectMap[t.subject_name] = { done: 0, total: 0, next: null };
-    }
-    subjectMap[t.subject_name].total++;
-    if (t.status === "completed") subjectMap[t.subject_name].done++;
-    if (!subjectMap[t.subject_name].next &&
-        (t.status === "available" || t.status === "in_progress")) {
-      subjectMap[t.subject_name].next = t;
+  // Subject progress by subject_name
+  const subjectMap: Record<string, { done: number; total: number; planId?: string; next: Topic | null }> = {};
+  for (const plan of data.termPlans) {
+    for (const t of plan.topics) {
+      if (!subjectMap[t.subject_name]) {
+        subjectMap[t.subject_name] = { done: 0, total: 0, planId: plan.id, next: null };
+      }
+      subjectMap[t.subject_name].total++;
+      if (t.status === "completed") subjectMap[t.subject_name].done++;
+      if (!subjectMap[t.subject_name].next &&
+          (t.status === "available" || t.status === "in_progress")) {
+        subjectMap[t.subject_name].next = t;
+      }
     }
   }
 
-  // Recent scores (best per topic, max 3)
-  const seenTopics = new Set<string>();
-  const recentScores = data.attempts
-    .filter((a) => {
-      if (seenTopics.has(a.topic_id)) return false;
-      seenTopics.add(a.topic_id);
-      return true;
-    })
-    .slice(0, 3);
+  // Recent unique quiz scores
+  const seen = new Set<string>();
+  const recentScores = data.attempts.filter((a) => {
+    if (seen.has(a.topic_id)) return false;
+    seen.add(a.topic_id);
+    return true;
+  }).slice(0, 3);
 
-  // Topic meta lookup
   const topicMeta: Record<string, { title: string; subject: string }> = {};
   for (const t of data.allTopics) {
     topicMeta[t.id] = { title: t.title, subject: t.subject_name };
@@ -363,7 +363,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
   return (
     <div className="min-h-screen bg-black text-white">
 
-      {/* ── NAV ───────────────────────────────────────────────────── */}
+      {/* ── NAV ──────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-30 bg-black/80 backdrop-blur-md border-b border-white/8 px-5 h-14 flex items-center justify-between">
         <span className="text-white font-bold tracking-wide text-base">
           Lana<span className="text-white/30">Mind</span>
@@ -377,10 +377,9 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
         </button>
       </header>
 
-      {/* ── MAIN ──────────────────────────────────────────────────── */}
-      <main className="max-w-xl mx-auto px-5 pb-24 pt-7 space-y-8">
+      <main className="max-w-xl mx-auto px-5 pb-24 pt-6 space-y-7">
 
-        {/* PROFILE INCOMPLETE BANNER */}
+        {/* ── PROFILE INCOMPLETE BANNER ─────────────────────────── */}
         <AnimatePresence>
           {showBanner && (
             <motion.div
@@ -395,12 +394,12 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
                   Complete your profile
                 </p>
                 <p className="text-xs text-white/35 mt-0.5">
-                  Add your age and grade to personalize your lessons.
+                  Add your age and grade to personalise your lessons.
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <button
-                  onClick={() => router.push("/child-info")}
+                  onClick={() => router.push("/onboarding")}
                   className="text-xs text-white/60 hover:text-white border border-white/15 hover:border-white/30 px-2.5 py-1.5 rounded-lg transition-all"
                 >
                   Set up
@@ -417,24 +416,22 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           )}
         </AnimatePresence>
 
-        {/* GREETING */}
+        {/* ── GREETING ─────────────────────────────────────────────── */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.35 }}
+          transition={{ duration: 0.3 }}
         >
           <p className="text-white/35 text-sm mb-0.5">{greeting()},</p>
           <h1 className="text-2xl font-bold tracking-tight capitalize">
             {data.userName} 👋
           </h1>
-          {data.profile.grade && (
-            <p className="text-white/25 text-xs mt-1">
-              Grade {data.profile.grade}
-            </p>
+          {data.profile?.grade && (
+            <p className="text-white/25 text-xs mt-1">Grade {data.profile.grade}</p>
           )}
         </motion.div>
 
-        {/* SETUP CTA — no plans yet */}
+        {/* ── NO PLAN: SETUP CTA ────────────────────────────────────── */}
         {!hasPlans && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -450,17 +447,18 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
                 <BookOpen className="w-5 h-5 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="font-semibold">Set up your study plan</p>
-                  <p className="text-sm font-normal text-black/55 mt-0.5">
-                    Add your school syllabus — we build your lessons
+                  <p className="text-sm font-normal text-black/50 mt-0.5">
+                    Add your syllabus — we build your lessons
                   </p>
                 </div>
               </div>
               <ArrowRight className="w-5 h-5 flex-shrink-0" />
             </button>
 
+            {/* Recent searches as fallback content */}
             {data.recentSearches.length > 0 && (
               <div>
-                <Label>Recent topics you explored</Label>
+                <Label>Topics you've explored</Label>
                 <div className="space-y-2">
                   {data.recentSearches.map((s, idx) => (
                     <motion.button
@@ -484,7 +482,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           </motion.div>
         )}
 
-        {/* CONTINUE CARD */}
+        {/* ── CONTINUE CARD ────────────────────────────────────────── */}
         {data.continueTopic && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -492,17 +490,13 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
             transition={{ delay: 0.06 }}
           >
             <Label>Continue learning</Label>
-            <motion.button
-              whileTap={{ scale: 0.985 }}
-              onClick={() =>
-                router.push(`/lesson/${data.continueTopic!.id}`)
-              }
+            <button
+              onClick={() => router.push(`/lesson/${data.continueTopic!.id}`)}
               className="w-full flex items-center justify-between p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-white/20 hover:bg-white/7 transition-all text-left"
             >
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-white/35 mb-1">
-                  {data.continueTopic.subject_name} · Week{" "}
-                  {data.continueTopic.week_number}
+                  {data.continueTopic.subject_name} · Week {data.continueTopic.week_number}
                 </p>
                 <p className="font-semibold text-lg leading-snug truncate">
                   {data.continueTopic.title}
@@ -512,11 +506,11 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
                 <span className="text-xs text-white/30">Resume</span>
                 <ChevronRight className="w-4 h-4 text-white/25" />
               </div>
-            </motion.button>
+            </button>
           </motion.div>
         )}
 
-        {/* THIS WEEK */}
+        {/* ── THIS WEEK ─────────────────────────────────────────────── */}
         {hasPlans && weekTopics.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -546,18 +540,15 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
             <div className="space-y-2">
               {weekTopics.map((topic, idx) => {
                 const locked = topic.status === "locked";
-                const score = bestScore(topic.id);
+                const score  = bestScore(topic.id);
                 return (
                   <motion.button
                     key={topic.id}
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: idx * 0.04 }}
-                    whileTap={locked ? {} : { scale: 0.985 }}
                     disabled={locked}
-                    onClick={() =>
-                      !locked && router.push(`/lesson/${topic.id}`)
-                    }
+                    onClick={() => !locked && router.push(`/lesson/${topic.id}`)}
                     className={cn(
                       "w-full flex items-center gap-3 p-4 rounded-xl border text-left transition-all",
                       locked
@@ -566,34 +557,17 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
                     )}
                   >
                     {statusIcon(topic.status)}
-
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {topic.title}
-                      </p>
-                      <p className="text-xs text-white/35 mt-0.5">
-                        {topic.subject_name}
-                      </p>
+                      <p className="text-sm font-medium truncate">{topic.title}</p>
+                      <p className="text-xs text-white/35 mt-0.5">{topic.subject_name}</p>
                     </div>
-
-                    {score !== null && (
-                      <span className={cn(
-                        "text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0",
-                        scoreColor(score)
-                      )}>
-                        {score}%
-                      </span>
-                    )}
-
+                    {score !== null && scoreChip(score)}
                     {!locked && (
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onWatchVideo(topic.title);
-                          }}
+                          onClick={(e) => { e.stopPropagation(); onWatchVideo(topic.title); }}
                           className="p-1.5 rounded-lg bg-white/5 hover:bg-white/12 transition-colors"
-                          aria-label="Watch video lesson"
+                          aria-label="Watch video"
                         >
                           <Video className="w-3.5 h-3.5 text-white/40" />
                         </button>
@@ -607,7 +581,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           </motion.div>
         )}
 
-        {/* SUBJECTS GRID — built from subject_name on topics */}
+        {/* ── SUBJECTS GRID ────────────────────────────────────────── */}
         {hasPlans && Object.keys(subjectMap).length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -617,30 +591,23 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
             <Label>Your subjects</Label>
             <div className="grid grid-cols-2 gap-3">
               {Object.entries(subjectMap).map(([subject, prog], idx) => {
-                const pct =
-                  prog.total > 0
-                    ? Math.round((prog.done / prog.total) * 100)
-                    : 0;
-                const plan = data.termPlans.find(
-                  (p) => p.subject === subject
-                );
+                const pct = prog.total > 0
+                  ? Math.round((prog.done / prog.total) * 100)
+                  : 0;
                 return (
                   <motion.button
                     key={subject}
                     initial={{ opacity: 0, scale: 0.96 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.14 + idx * 0.055 }}
-                    whileTap={{ scale: 0.97 }}
+                    transition={{ delay: 0.14 + idx * 0.05 }}
                     onClick={() =>
-                      plan
-                        ? router.push(`/subject/${plan.id}`)
+                      prog.planId
+                        ? router.push(`/subject/${prog.planId}`)
                         : router.push("/term-plan")
                     }
                     className="flex flex-col p-4 rounded-2xl bg-white/4 border border-white/10 hover:border-white/18 hover:bg-white/6 transition-all text-left"
                   >
-                    <p className="font-semibold text-sm truncate mb-0.5">
-                      {subject}
-                    </p>
+                    <p className="font-semibold text-sm truncate mb-0.5">{subject}</p>
                     <p className="text-xs text-white/35 mb-3">
                       {prog.done}/{prog.total} topics
                     </p>
@@ -664,7 +631,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           </motion.div>
         )}
 
-        {/* RECENT SCORES */}
+        {/* ── RECENT SCORES ────────────────────────────────────────── */}
         {recentScores.length > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -675,7 +642,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
             <div className="space-y-2">
               {recentScores.map((a) => {
                 const meta = topicMeta[a.topic_id];
-                const pct = Math.round((a.score / a.total) * 100);
+                const pct  = Math.round((a.score / a.total) * 100);
                 return (
                   <div
                     key={a.topic_id}
@@ -683,9 +650,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
                   >
                     <Star className="w-4 h-4 text-white/15 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm truncate">
-                        {meta?.title ?? "Topic"}
-                      </p>
+                      <p className="text-sm truncate">{meta?.title ?? "Topic"}</p>
                       <p className="text-xs text-white/30">{meta?.subject}</p>
                     </div>
                     <span className={cn(
@@ -703,7 +668,7 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
           </motion.div>
         )}
 
-        {/* ADD SUBJECT */}
+        {/* ── ADD SUBJECT ──────────────────────────────────────────── */}
         {hasPlans && (
           <motion.button
             initial={{ opacity: 0 }}
@@ -722,15 +687,9 @@ export function LanaMindDashboard({ onWatchVideo }: LanaMindDashboardProps) {
   );
 }
 
-// ── SMALL HELPERS ──────────────────────────────────────────────────
+// ── LABEL ────────────────────────────────────────────────────────────
 
-function Label({
-  children,
-  noMargin,
-}: {
-  children: React.ReactNode;
-  noMargin?: boolean;
-}) {
+function Label({ children, noMargin }: { children: React.ReactNode; noMargin?: boolean }) {
   return (
     <p className={cn(
       "text-xs text-white/35 font-semibold uppercase tracking-widest",
