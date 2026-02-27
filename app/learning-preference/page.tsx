@@ -31,17 +31,33 @@ export default function LearningPreferencePage() {
     }
     
     setLoading(true);
+
+    const localPayload = {
+      preference: {
+        learning_preference: preference,
+        onboarding_step: 2,
+        savedAt: Date.now(),
+      },
+      savedAt: Date.now(),
+    };
     
     try {
-      // Save preference to user metadata
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          learning_preference: preference,
-          onboarding_step: 2
-        }
-      });
-      
-      if (error) throw error;
+      if (!isAuthenticated || !user) {
+        // Local-only fallback
+        localStorage.setItem("lana_onboarding_preference", JSON.stringify(localPayload.preference));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify(localPayload));
+      } else {
+        // Save preference to user metadata
+        const { error } = await supabase.auth.updateUser({
+          data: {
+            learning_preference: preference,
+            onboarding_step: 2
+          }
+        });
+        
+        if (error) throw error;
+        localStorage.removeItem("lana_onboarding_preference");
+      }
       
       toast({
         title: "Preference Saved",
@@ -56,11 +72,19 @@ export default function LearningPreferencePage() {
       }
     } catch (error: any) {
       console.error("Preference save error:", error);
+      try {
+        localStorage.setItem("lana_onboarding_preference", JSON.stringify(localPayload.preference));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify(localPayload));
+      } catch {}
       toast({
-        title: "Error",
-        description: error.message || "Failed to save preference. Please try again.",
-        variant: "destructive"
+        title: "Saved Locally",
+        description: "We'll sync this once you're signed in.",
       });
+      if (preference === "video") {
+        router.push("/video-explainer");
+      } else {
+        router.push("/schedule");
+      }
     } finally {
       setLoading(false);
     }

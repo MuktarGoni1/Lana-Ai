@@ -50,16 +50,35 @@ export default function SchedulePage() {
     setLoading(true);
     
     try {
+      const payload = {
+        revision_schedule: schedule.filter(s => s.enabled),
+        schedule_set: true,
+        onboarding_step: 3,
+        savedAt: Date.now(),
+      };
+
+      if (!isAuthenticated || !user) {
+        localStorage.setItem("lana_onboarding_schedule", JSON.stringify(payload));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify({ schedule: payload, savedAt: Date.now() }));
+        toast({
+          title: "Saved Locally",
+          description: "We'll sync your schedule once you're signed in.",
+        });
+        router.push("/term-plan?onboarding=1");
+        return;
+      }
+
       // Save schedule to user metadata
       const { error } = await supabase.auth.updateUser({
         data: {
-          revision_schedule: schedule.filter(s => s.enabled),
+          revision_schedule: payload.revision_schedule,
           schedule_set: true,
           onboarding_step: 3
         }
       });
       
       if (error) throw error;
+      localStorage.removeItem("lana_onboarding_schedule");
       
       toast({
         title: "Schedule Saved",
@@ -69,11 +88,21 @@ export default function SchedulePage() {
       router.push("/term-plan?onboarding=1");
     } catch (error: any) {
       console.error("Schedule save error:", error);
+      try {
+        const payload = {
+          revision_schedule: schedule.filter(s => s.enabled),
+          schedule_set: true,
+          onboarding_step: 3,
+          savedAt: Date.now(),
+        };
+        localStorage.setItem("lana_onboarding_schedule", JSON.stringify(payload));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify({ schedule: payload, savedAt: Date.now() }));
+      } catch {}
       toast({
-        title: "Error",
-        description: error.message || "Failed to save schedule. Please try again.",
-        variant: "destructive"
+        title: "Saved Locally",
+        description: "We'll sync your schedule once you're signed in.",
       });
+      router.push("/term-plan?onboarding=1");
     } finally {
       setLoading(false);
     }

@@ -4,7 +4,7 @@ import React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, MessageSquare, Video } from "lucide-react";
+import { Plus, X, BookOpen, ChevronDown, ChevronUp, Trash2, Loader2, ArrowRight, MessageSquare, Video, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Logo from '@/components/logo';
 import { supabase } from '@/lib/db';
@@ -27,6 +27,12 @@ interface Subject {
 
 interface ProfileRow {
   grade: string | null;
+}
+
+interface SearchRow {
+  id: string;
+  title: string;
+  created_at: string | null;
 }
 
 /* ---------- main page ---------- */
@@ -63,6 +69,8 @@ function TermPlanPageContent() {
   });
   const [subjectInput, setSubjectInput] = useState("");
   const [topicInputs, setTopicInputs] = useState<{ [key: string]: string }>({});
+  const [recentSearches, setRecentSearches] = useState<SearchRow[]>([]);
+  const [recentSearchesError, setRecentSearchesError] = useState<string | null>(null);
 
   // Save subjects to localStorage whenever they change
   useEffect(() => {
@@ -99,6 +107,99 @@ function TermPlanPageContent() {
       }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.id && typeof window !== "undefined") {
+      const pending = localStorage.getItem("lana_onboarding_pending_sync");
+      if (!pending) return;
+      (async () => {
+        try {
+          const payload = JSON.parse(pending);
+          const db = supabase as any;
+
+          if (payload.childInfo) {
+            const info = payload.childInfo;
+            const ageValue = parseInt(info.age, 10);
+            await db
+              .from("profiles")
+              .update({
+                age: isNaN(ageValue) ? null : ageValue,
+                grade: info.grade || null,
+                full_name: info.nickname || null,
+                role: info.role === "parent" ? "parent" : "child",
+                diagnostic_completed: true,
+              })
+              .eq("id", user.id);
+
+            await supabase.auth.updateUser({
+              data: {
+                child_info: {
+                  nickname: info.nickname,
+                  age: ageValue,
+                  grade: info.grade,
+                  interests: info.interests || "",
+                },
+                role: info.role === "parent" ? "parent" : "child",
+                onboarding_step: 1,
+              },
+            });
+          }
+
+          if (payload.preference) {
+            await supabase.auth.updateUser({
+              data: {
+                learning_preference: payload.preference.learning_preference,
+                onboarding_step: 2,
+              },
+            });
+          }
+
+          if (payload.schedule) {
+            await supabase.auth.updateUser({
+              data: {
+                revision_schedule: payload.schedule.revision_schedule || [],
+                schedule_set: true,
+                onboarding_step: 3,
+              },
+            });
+          }
+
+          localStorage.removeItem("lana_onboarding_pending_sync");
+          localStorage.removeItem("lana_onboarding_child_info");
+          localStorage.removeItem("lana_onboarding_preference");
+          localStorage.removeItem("lana_onboarding_schedule");
+        } catch (err) {
+          console.error("[term-plan] onboarding sync failed:", err);
+        }
+      })();
+    }
+  }, [isAuthenticated, isLoading, user?.id]);
+
+  const fetchRecentSearches = async () => {
+    if (!user?.id) return;
+    try {
+      setRecentSearchesError(null);
+      const db = supabase as any;
+      const { data, error } = await db
+        .from("searches")
+        .select("id, title, created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      if (error) throw error;
+      setRecentSearches((data ?? []) as SearchRow[]);
+    } catch (err: any) {
+      console.error("[term-plan] failed to load recent searches:", err);
+      setRecentSearchesError("Couldn't load recent topics.");
+    }
+  };
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && user?.id) {
+      fetchRecentSearches();
+    }
+  }, [isAuthenticated, isLoading, user?.id]);
   
   const syncPendingData = async (pendingObj: any, userEmail: string) => {
     try {
@@ -136,19 +237,8 @@ function TermPlanPageContent() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      try {
-        // Delay the redirect slightly to show the error message
-        const timer = setTimeout(() => {
-          router.push("/login");
-        }, 3000);
-        
-        return () => clearTimeout(timer);
-      } catch (err: any) {
-        console.error('[term-plan] auth redirect error:', err.message);
-        console.error('[term-plan] auth redirect error details:', err);
-        // Use our error handler to reload the page instead of redirecting
-        handleErrorWithReload(err, "Authentication check failed. Reloading page to try again...");
-      }
+      // No hard redirect. Allow local-only planning and prompt sign-in.
+      console.warn("[term-plan] unauthenticated, staying in local-only mode");
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -288,10 +378,6 @@ function TermPlanPageContent() {
       console.log('[term-plan] Saving subjects and topics');
       console.log('[term-plan] Number of subjects to save:', subjects.length);
 
-      if (!user?.id) {
-        throw new Error('No authenticated user found');
-      }
-
       const nonEmptySubjects = subjects.filter((subject) => subject.name.trim().length > 0);
       if (nonEmptySubjects.length === 0) {
         toast({
@@ -299,6 +385,21 @@ function TermPlanPageContent() {
           description: 'Create one subject before saving your plan.',
           variant: 'destructive',
         });
+        return;
+      }
+
+      if (!user?.id) {
+        // Local-only fallback
+        localStorage.setItem('lana_study_plan_pending', JSON.stringify({
+          subjects,
+          timestamp: Date.now(),
+          userId: null
+        }));
+        toast({
+          title: 'Saved Locally',
+          description: 'Sign in later to sync your study plan.',
+        });
+        router.push('/');
         return;
       }
 
@@ -419,6 +520,63 @@ function TermPlanPageContent() {
     }
     
     setSubjectInput("");
+  };
+
+  const createSubjectFromSearch = (title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    const newSubject: Subject = {
+      id: Date.now().toString(),
+      name: trimmed,
+      topics: [],
+      dateAdded: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }),
+      isExpanded: true
+    };
+
+    setSubjects((prev) => [...prev, newSubject]);
+  };
+
+  const addTopicFromSearch = (title: string) => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+
+    const topic: Topic = {
+      id: Date.now().toString(),
+      name: trimmed,
+      dateAdded: new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    };
+
+    setSubjects((prev) => {
+      if (prev.length === 0) {
+        const newSubject: Subject = {
+          id: Date.now().toString(),
+          name: "General",
+          topics: [topic],
+          dateAdded: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+          }),
+          isExpanded: true
+        };
+        return [newSubject];
+      }
+
+      const [first, ...rest] = prev;
+      return [
+        { ...first, topics: [...first.topics, topic], isExpanded: true },
+        ...rest
+      ];
+    });
   };
 
   const addTopic = async (subjectId: string) => {
@@ -597,13 +755,24 @@ function TermPlanPageContent() {
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <div className="text-center space-y-4 max-w-md p-6">
           <X className="w-12 h-12 mx-auto text-red-500" />
-          <h2 className="text-2xl font-semibold">Access Denied</h2>
+          <h2 className="text-2xl font-semibold">Continue Offline</h2>
           <p className="text-white/70">
-            You must be authenticated to access this page.
+            You can build your plan locally now and sync after signing in.
           </p>
-          <p className="text-white/50 text-sm">
-            Redirecting to login page...
-          </p>
+          <div className="flex items-center justify-center gap-2 pt-2">
+            <button
+              onClick={() => router.push("/login")}
+              className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
+            >
+              Sign in
+            </button>
+            <button
+              onClick={() => router.push("/")}
+              className="px-4 py-2 rounded-lg border border-white/20 text-white text-sm"
+            >
+              Continue
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -642,6 +811,52 @@ function TermPlanPageContent() {
                 : "Organize your subjects and topics for the term"}
             </p>
           </div>
+
+          {/* Recent topics */}
+          {recentSearchesError && (
+            <div className="flex items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60">
+              <span>{recentSearchesError}</span>
+              <button
+                onClick={fetchRecentSearches}
+                className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-xs hover:bg-white/10"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </button>
+            </div>
+          )}
+
+          {recentSearches.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-widest text-white/40">
+                Recent topics you've explored
+              </p>
+              <div className="space-y-2">
+                {recentSearches.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-3"
+                  >
+                    <span className="text-sm text-white/80 truncate">{s.title}</span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => addTopicFromSearch(s.title)}
+                        className="px-2.5 py-1 rounded-md bg-white/10 hover:bg-white/20 text-xs"
+                      >
+                        Add as Topic
+                      </button>
+                      <button
+                        onClick={() => createSubjectFromSearch(s.title)}
+                        className="px-2.5 py-1 rounded-md border border-white/10 hover:bg-white/10 text-xs"
+                      >
+                        Create Subject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Add Subject Input */}
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">

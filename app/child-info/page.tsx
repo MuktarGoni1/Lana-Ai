@@ -70,12 +70,32 @@ export default function ChildInfoPage() {
     }
     
     setLoading(true);
+
+    const localPayload = {
+      childInfo: {
+        nickname: formData.nickname.trim(),
+        age: formData.age,
+        grade: formData.grade,
+        interests: formData.interests.trim(),
+        role: formData.role,
+        savedAt: Date.now(),
+      },
+      savedAt: Date.now(),
+    };
     
     try {
       const db = supabase as any;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error("No authenticated user found");
+        // Local-only fallback
+        localStorage.setItem("lana_onboarding_child_info", JSON.stringify(localPayload.childInfo));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify(localPayload));
+        toast({
+          title: "Saved Locally",
+          description: "Sign in later to sync your child info.",
+        });
+        router.push("/learning-preference");
+        return;
       }
 
       const ageValue = parseInt(formData.age, 10);
@@ -109,6 +129,9 @@ export default function ChildInfoPage() {
       
       if (error) throw error;
       
+      // Clear local fallback on success
+      localStorage.removeItem("lana_onboarding_child_info");
+      localStorage.removeItem("lana_onboarding_pending_sync");
       toast({
         title: "Child Information Saved",
         description: "Successfully saved child details."
@@ -117,11 +140,15 @@ export default function ChildInfoPage() {
       router.push("/learning-preference");
     } catch (error: any) {
       console.error("Child info save error:", error);
+      try {
+        localStorage.setItem("lana_onboarding_child_info", JSON.stringify(localPayload.childInfo));
+        localStorage.setItem("lana_onboarding_pending_sync", JSON.stringify(localPayload));
+      } catch {}
       toast({
-        title: "Error",
-        description: error.message || "Failed to save child information. Please try again.",
-        variant: "destructive"
+        title: "Saved Locally",
+        description: "We'll sync this once you're signed in.",
       });
+      router.push("/learning-preference");
     } finally {
       setLoading(false);
     }
