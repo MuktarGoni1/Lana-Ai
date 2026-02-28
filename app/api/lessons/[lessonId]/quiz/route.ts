@@ -1,59 +1,44 @@
 import { NextResponse } from 'next/server';
-
-type Question = {
-  q: string;
-  options: string[];
-  answer: string;
-  explanation?: string;
-};
-
-// Mock data for demonstration - in a real implementation, this would fetch from a database
-const mockLessonQuizzes: Record<string, Question[]> = {
-  'math-intro': [
-    {
-      q: "What is 2 + 2?",
-      options: ["3", "4", "5", "6"],
-      answer: "4",
-      explanation: "Basic addition: 2 + 2 equals 4."
-    },
-    {
-      q: "Which shape has 3 sides?",
-      options: ["Square", "Circle", "Triangle", "Rectangle"],
-      answer: "Triangle",
-      explanation: "A triangle is a polygon with three sides."
-    }
-  ],
-  'science-basics': [
-    {
-      q: "What planet is known as the Red Planet?",
-      options: ["Earth", "Venus", "Mars", "Jupiter"],
-      answer: "Mars",
-      explanation: "Mars is often called the Red Planet due to iron oxide on its surface."
-    },
-    {
-      q: "What gas do plants absorb from the atmosphere?",
-      options: ["Oxygen", "Carbon Dioxide", "Nitrogen", "Hydrogen"],
-      answer: "Carbon Dioxide",
-      explanation: "Plants absorb carbon dioxide during photosynthesis."
-    }
-  ],
-  'literature-quiz': [
-    {
-      q: "Who wrote 'Romeo and Juliet'?",
-      options: ["Charles Dickens", "William Shakespeare", "Jane Austen", "Mark Twain"],
-      answer: "William Shakespeare",
-      explanation: "'Romeo and Juliet' is one of Shakespeare's most famous plays."
-    }
-  ]
-};
+import { createServerClient } from '@/lib/supabase/server';
+import { normalizeQuizQuestions } from '@/lib/api/learning-utils';
 
 export async function GET(request: Request, { params }: { params: Promise<{ lessonId: string }> }) {
   try {
     const { lessonId } = await params;
-    
-    // In a real implementation, you would fetch from your database
-    // For now, we'll use mock data
-    const quiz = mockLessonQuizzes[lessonId] || [];
+    const supabase = await createServerClient();
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: topic } = await supabase
+      .from('topics')
+      .select('id')
+      .eq('id', lessonId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (!topic) {
+      return NextResponse.json({ error: 'Lesson/topic not found' }, { status: 404 });
+    }
+
+    const { data: quizRow, error: quizError } = await supabase
+      .from('quiz_questions')
+      .select('questions')
+      .eq('topic_id', lessonId)
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (quizError) {
+      return NextResponse.json({ error: quizError.message }, { status: 500 });
+    }
+
+    const quiz = normalizeQuizQuestions(quizRow?.questions as any);
 
     if (!quiz || quiz.length === 0) {
       return NextResponse.json(

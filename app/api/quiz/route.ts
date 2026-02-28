@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
+import { createServerClient } from '@/lib/supabase/server';
+import { normalizeQuizQuestions } from '@/lib/api/learning-utils';
 
 type Question = {
   q: string;
@@ -50,10 +52,42 @@ export async function POST(req: Request) {
     }
 
     const payload = await req.json();
-    const quiz = validateQuizPayload(payload);
+    const topicId = typeof payload?.topicId === 'string' ? payload.topicId : null;
+    const rawQuiz = Array.isArray(payload) ? payload : payload?.questions;
+    const quiz = validateQuizPayload(rawQuiz);
     if (!quiz) {
       return NextResponse.json({ error: 'Invalid quiz payload' }, { status: 400 });
     }
+
+    if (topicId) {
+      const supabase = await createServerClient();
+      const {
+        data: { user: currentUser },
+      } = await supabase.auth.getUser();
+
+      if (currentUser) {
+        const { data: topic } = await supabase
+          .from('topics')
+          .select('id')
+          .eq('id', topicId)
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+        if (topic) {
+          await supabase.from('quiz_questions').delete().eq('topic_id', topicId);
+          const { data: saved, error: saveError } = await supabase
+            .from('quiz_questions')
+            .insert([{ topic_id: topicId, questions: quiz }])
+            .select('topic_id')
+            .single();
+
+          if (!saveError && saved) {
+            return NextResponse.json({ id: saved.topic_id, topicId: saved.topic_id }, { status: 201 });
+          }
+        }
+      }
+    }
+
     const id = (globalThis.crypto?.randomUUID && globalThis.crypto.randomUUID()) || Math.random().toString(36).slice(2, 10);
     store.set(id, quiz);
     return NextResponse.json({ id }, { status: 201 });
@@ -79,11 +113,33 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Missing quiz ID' }, { status: 400 });
     }
     
+    const supabase = await createServerClient();
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+
+    if (currentUser) {
+      const { data: topic } = await supabase.from('topics').select('id').eq('id', id).eq('user_id', currentUser.id).maybeSingle();
+      if (topic) {
+        const { data: savedQuiz } = await supabase
+          .from('quiz_questions')
+          .select('questions')
+          .eq('topic_id', id)
+          .order('generated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const normalized = normalizeQuizQuestions(savedQuiz?.questions as any);
+        if (normalized.length > 0) {
+          return NextResponse.json(normalized, { status: 200 });
+        }
+      }
+    }
+
     const quiz = store.get(id);
     if (!quiz) {
       return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
     }
-    
+
     return NextResponse.json(quiz, { status: 200 });
   } catch (error) {
     console.error('Quiz GET error:', error);
