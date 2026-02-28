@@ -54,6 +54,18 @@ export class RobustAuthService {
     // Listen for auth state changes
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[RobustAuthService] Auth state changed:', event);
+
+      // Best-effort cookie sync for middleware-protected routes
+      if (session?.access_token && session?.refresh_token) {
+        fetch('/api/auth/sync-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }),
+        }).catch(() => {});
+      }
       
       switch (event) {
         case 'SIGNED_IN':
@@ -72,6 +84,7 @@ export class RobustAuthService {
             isLoading: false,
             error: null
           });
+          fetch('/api/auth/clear-session', { method: 'POST' }).catch(() => {});
           break;
           
         case 'TOKEN_REFRESHED':

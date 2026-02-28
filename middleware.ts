@@ -1,23 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED_ROUTES = [
-  "/dashboard",
-  "/lesson",
-  "/subject",
-  "/term-plan",
-  "/quiz",
-  "/progress",
-  "/settings",
-  "/video-explainer",
-];
-
 const PUBLIC_API_PREFIXES = ["/api/contact", "/api/newsletter"];
-
-function isProtectedPath(pathname: string) {
-  return PROTECTED_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-}
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -52,16 +35,6 @@ export async function middleware(request: NextRequest) {
     if (!isPublicApi) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
-  }
-
-  if (!isAuthenticated && isProtectedPath(pathname)) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("next", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  if (isAuthenticated && (pathname === "/login" || pathname === "/register")) {
-    return NextResponse.redirect(new URL("/", request.url));
   }
 
   return response;

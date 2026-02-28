@@ -234,21 +234,12 @@ function TermPlanPageContent() {
     }
   };
 
-  // Redirect if not authenticated
+  // No hard redirect; allow viewing/editing and prompt sign-in when saving
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      try {
-        const timer = setTimeout(() => {
-          router.push("/login");
-        }, 500);
-        return () => clearTimeout(timer);
-      } catch (err: any) {
-        console.error('[term-plan] auth redirect error:', err.message);
-        console.error('[term-plan] auth redirect error details:', err);
-        handleErrorWithReload(err, "Authentication check failed. Reloading page to try again...");
-      }
+      console.warn("[term-plan] unauthenticated; local-only mode");
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading]);
 
   const persistStudyPlanToSupabase = async (userId: string) => {
     const db = supabase as any;
@@ -753,8 +744,36 @@ function TermPlanPageContent() {
   }
 
   // Show error and redirect if not authenticated
-  if (!isAuthenticated) {
-    return null;
+  if (!isAuthenticated && !isLoading) {
+    return (
+      <div className="min-h-screen bg-black text-white">
+        <header className="border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between sticky top-0 bg-black z-10">
+          <div className="flex items-center gap-3">
+            <Logo className="w-8 h-8 sm:w-10 sm:h-10" />
+            <h1 className="text-lg sm:text-xl font-semibold">Term Planner</h1>
+          </div>
+          <button
+            onClick={() => router.push("/")}
+            className="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </header>
+        <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+          <div className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+            You can draft your plan here, but you’ll need to sign in to save it.
+            <div className="mt-3">
+              <button
+                onClick={() => router.push("/login")}
+                className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
+              >
+                Sign in to save
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (
