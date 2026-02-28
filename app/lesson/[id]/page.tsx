@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/db";
+import AppTopbar from "@/components/layout/app-topbar";
 
 type TopicMeta = {
   id: string;
@@ -265,19 +266,15 @@ export default function LessonPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/80 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <button onClick={() => router.push("/lessons")} className="rounded-md border border-white/20 px-3 py-2 text-xs">
-            Back to lessons
-          </button>
-          <div className="text-right">
-            <p className="text-sm font-semibold">{topic?.title || "Lesson"}</p>
-            <p className="text-xs text-white/60">{topic?.subject_name || "Subject"}</p>
-          </div>
-        </div>
-      </header>
+      <AppTopbar
+        title={topic?.title || "Lesson"}
+        subtitle={topic?.subject_name || "Subject"}
+        showBack
+        backLabel="Lessons"
+        onBack={() => router.push("/lessons")}
+      />
 
-      <main className="mx-auto max-w-4xl space-y-4 px-5 py-6">
+      <main className="mx-auto max-w-4xl space-y-4 px-4 py-5 sm:px-5 sm:py-6">
         <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2">
           {[
             { id: "lesson", label: "Lesson" },
@@ -287,7 +284,7 @@ export default function LessonPage() {
             <button
               key={step.id}
               onClick={() => setActiveStep(step.id as "lesson" | "quiz" | "video")}
-              className={`rounded-lg px-3 py-2 text-sm ${activeStep === step.id ? "bg-white text-black" : "text-white/70"}`}
+              className={`min-h-10 rounded-lg px-3 py-2 text-xs sm:text-sm ${activeStep === step.id ? "bg-white text-black" : "text-white/70"}`}
             >
               {step.label}
             </button>
@@ -317,7 +314,7 @@ export default function LessonPage() {
               </div>
             )}
 
-            <button onClick={() => setActiveStep("quiz")} className="rounded-md bg-white px-3 py-2 text-xs font-semibold text-black">
+            <button onClick={() => setActiveStep("quiz")} className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black">
               Continue to quiz
             </button>
           </section>
@@ -330,13 +327,13 @@ export default function LessonPage() {
             ) : (
               <>
                 {quiz.map((q, idx) => (
-                  <div key={`${q.q}-${idx}`} className="space-y-2 rounded-lg border border-white/10 bg-white/5 p-3">
+                  <div key={`${q.q}-${idx}`} className="space-y-2 rounded-xl border border-white/10 bg-white/5 p-3">
                     <p className="text-sm font-medium">
                       {idx + 1}. {q.q}
                     </p>
                     <div className="space-y-1">
                       {q.options.map((option) => (
-                        <label key={option} className="flex cursor-pointer items-center gap-2 text-sm text-white/90">
+                        <label key={option} className="flex min-h-8 cursor-pointer items-center gap-2 text-sm text-white/90">
                           <input
                             type="radio"
                             name={`q-${idx}`}
@@ -352,7 +349,7 @@ export default function LessonPage() {
 
                 <button
                   onClick={submitQuiz}
-                  className="rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+                  className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
                   disabled={Object.keys(answers).length < quiz.length}
                 >
                   Submit quiz
@@ -374,7 +371,7 @@ export default function LessonPage() {
                   </div>
                 )}
 
-                <button onClick={() => setActiveStep("video")} className="rounded-md border border-white/20 px-3 py-2 text-xs">
+                <button onClick={() => setActiveStep("video")} className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs">
                   Continue to explainer video
                 </button>
               </>
@@ -384,12 +381,12 @@ export default function LessonPage() {
 
         {activeStep === "video" && (
           <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">Generated explainer video</h2>
               <button
                 onClick={generateExplainerVideo}
                 disabled={videoBusy}
-                className="inline-flex items-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
               >
                 {videoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
                 {videoBusy ? "Generating..." : videoUrl ? "Regenerate video" : "Generate video"}

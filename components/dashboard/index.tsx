@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import Logo from "@/components/logo";
+import AppTopbar from "@/components/layout/app-topbar";
 import {
   AlertTriangle,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   Lock,
   MessageSquare,
   RefreshCw,
+  Settings,
   Star,
   Video,
 } from "lucide-react";
@@ -256,6 +257,19 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   const showSetupBanner = isAuthenticated && missingFields.length > 0 && !bannerDismissed;
 
   const hasPlans = termPlans.length > 0;
+  const allTopics = useMemo(() => termPlans.flatMap((p) => p.topics), [termPlans]);
+  const completedTopics = useMemo(
+    () => allTopics.filter((t) => t.status === "completed").length,
+    [allTopics]
+  );
+  const inProgressTopics = useMemo(
+    () => allTopics.filter((t) => t.status === "in_progress").length,
+    [allTopics]
+  );
+  const availableTopics = useMemo(
+    () => allTopics.filter((t) => t.status === "available").length,
+    [allTopics]
+  );
 
   const continueTopic = useMemo(() => {
     const topics = termPlans.flatMap((p) => p.topics);
@@ -319,16 +333,18 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <div className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-md">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <Logo width={96} height={28} className="w-[72px] sm:w-[96px] h-auto" />
-          {isAuthenticated ? (
+      <AppTopbar
+        title="Dashboard"
+        subtitle={isAuthenticated ? "Your learning workspace" : "Welcome to LanaMind"}
+        rightSlot={
+          isAuthenticated ? (
             <button
               onClick={() => router.push("/settings")}
-              className="h-9 w-9 rounded-full bg-white/10 text-sm font-semibold text-white"
+              className="inline-flex h-9 items-center gap-1 rounded-full border border-white/20 bg-white/5 px-3 text-xs text-white/90 hover:bg-white/10"
               aria-label="Open settings"
             >
-              {(profile?.full_name?.[0] ?? user?.email?.[0] ?? "U").toUpperCase()}
+              <Settings className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Settings</span>
             </button>
           ) : (
             <button
@@ -337,15 +353,15 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             >
               Sign in
             </button>
-          )}
-        </div>
-      </div>
+          )
+        }
+      />
 
-      <main className="mx-auto max-w-5xl space-y-8 px-5 pb-16 pt-6">
+      <main className="mx-auto max-w-5xl space-y-7 px-4 pb-16 pt-5 sm:space-y-8 sm:px-5 sm:pt-6">
         <section className="space-y-2">
           <p className="text-xs uppercase tracking-widest text-white/40">{greeting}</p>
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold">
+            <h1 className="text-xl font-semibold sm:text-2xl">
               {profile?.full_name || user?.email?.split("@")[0] || "Welcome back"}
             </h1>
             <p className="text-sm text-white/50">Your learning dashboard is ready.</p>
@@ -377,6 +393,27 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           </section>
         )}
 
+        {isAuthenticated && (
+          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+            <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
+              <p className="text-xs text-white/50">Subjects</p>
+              <p className="mt-1 text-lg font-semibold">{termPlans.length}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
+              <p className="text-xs text-white/50">Completed</p>
+              <p className="mt-1 text-lg font-semibold">{completedTopics}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
+              <p className="text-xs text-white/50">In Progress</p>
+              <p className="mt-1 text-lg font-semibold">{inProgressTopics}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
+              <p className="text-xs text-white/50">Available</p>
+              <p className="mt-1 text-lg font-semibold">{availableTopics}</p>
+            </div>
+          </section>
+        )}
+
         {!isAuthenticated && (
           <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm font-medium">You are not signed in.</p>
@@ -386,13 +423,13 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 onClick={() => router.push("/login")}
-                className="rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+                className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
               >
                 Sign in
               </button>
               <button
                 onClick={() => router.push("/register")}
-                className="rounded-md border border-white/20 px-3 py-2 text-xs"
+                className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs"
               >
                 Create account
               </button>
@@ -402,10 +439,10 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
 
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-widest text-white/40">Learning tools</p>
-          <div className="grid gap-3 sm:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <button
               onClick={() => router.push("/lessons")}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+              className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
             >
               <span className="inline-flex items-center gap-2 text-sm font-medium">
                 <BookOpen className="h-4 w-4 text-white/70" />
@@ -415,7 +452,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             </button>
             <button
               onClick={() => router.push("/chatbot")}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+              className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
             >
               <span className="inline-flex items-center gap-2 text-sm font-medium">
                 <MessageSquare className="h-4 w-4 text-white/70" />
@@ -425,7 +462,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             </button>
             <button
               onClick={() => router.push("/personalised-ai-tutor")}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+              className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
             >
               <span className="inline-flex items-center gap-2 text-sm font-medium">
                 <Video className="h-4 w-4 text-white/70" />
@@ -435,7 +472,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             </button>
             <button
               onClick={() => router.push("/video-explainer")}
-              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+              className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
             >
               <span className="inline-flex items-center gap-2 text-sm font-medium">
                 <Video className="h-4 w-4 text-white/70" />
@@ -450,7 +487,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           <section className="space-y-4">
             <button
               onClick={() => router.push("/term-plan")}
-              className="flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left text-black"
+              className="flex w-full items-center justify-between rounded-2xl bg-white px-5 py-4 text-left text-black shadow-sm"
             >
               <div>
                 <p className="text-sm font-semibold">Set up your study plan</p>
@@ -492,13 +529,13 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 onClick={() => router.push(`/lesson/${continueTopic.id}`)}
-                className="rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+                className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
               >
                 Open lesson
               </button>
               <button
                 onClick={() => onWatchVideo(continueTopic.title)}
-                className="inline-flex items-center gap-1 rounded-md border border-white/20 px-3 py-2 text-xs"
+                className="inline-flex min-h-10 items-center gap-1 rounded-md border border-white/20 px-3 py-2 text-xs"
               >
                 <Video className="h-3.5 w-3.5" />
                 Watch video
@@ -514,13 +551,13 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
               <div className="flex gap-2 text-xs text-white/50">
                 <button
                   onClick={() => setCurrentWeek((week) => Math.max(1, week - 1))}
-                  className="rounded-md border border-white/10 px-2 py-1"
+                  className="min-h-9 rounded-md border border-white/10 px-2.5 py-1.5"
                 >
                   Prev
                 </button>
                 <button
                   onClick={() => setCurrentWeek((week) => week + 1)}
-                  className="rounded-md border border-white/10 px-2 py-1"
+                  className="min-h-9 rounded-md border border-white/10 px-2.5 py-1.5"
                 >
                   Next
                 </button>
@@ -566,6 +603,11 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                     </button>
                   );
                 })}
+              {termPlans.flatMap((plan) => plan.topics).filter((topic) => topic.week_number === currentWeek).length === 0 && (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
+                  No lessons scheduled for week {currentWeek}.
+                </div>
+              )}
             </div>
           </section>
         )}
@@ -627,7 +669,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         {hasPlans && (
           <button
             onClick={() => router.push("/term-plan")}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 px-4 py-3 text-xs text-white/60"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-white/20 px-4 py-3 text-xs text-white/60"
           >
             Add another subject
           </button>

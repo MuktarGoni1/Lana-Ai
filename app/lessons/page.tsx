@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, ChevronRight, Clock3, Lock, Save } from "lucide-react";
-import Logo from "@/components/logo";
+import AppTopbar from "@/components/layout/app-topbar";
 import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
@@ -196,23 +196,22 @@ export default function LessonsPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
-      <header className="sticky top-0 z-20 border-b border-white/10 bg-black/80 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <Logo width={118} height={34} className="h-auto w-[96px] sm:w-[118px]" />
-          <button onClick={() => router.push("/")} className="rounded-md border border-white/20 px-3 py-2 text-xs">
-            Back to dashboard
-          </button>
-        </div>
-      </header>
+      <AppTopbar
+        title="Lessons"
+        subtitle="Lesson schedule and progress"
+        showBack
+        backLabel="Dashboard"
+        onBack={() => router.push("/")}
+      />
 
-      <main className="mx-auto max-w-5xl space-y-6 px-5 py-6">
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-5 sm:px-5 sm:py-6">
         <div>
-          <h1 className="text-2xl font-semibold">Lessons</h1>
+          <h1 className="text-xl font-semibold sm:text-2xl">Lessons</h1>
           <p className="text-sm text-white/60">{availableCount} available lesson{availableCount === 1 ? "" : "s"}.</p>
         </div>
 
         {!loading && isAuthenticated && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <div className="mb-3 flex items-center gap-2">
               <Clock3 className="h-4 w-4 text-white/70" />
               <h2 className="text-sm font-semibold">Today&apos;s lessons {todayDay ? `(${todayDay})` : ""}</h2>
@@ -225,7 +224,7 @@ export default function LessonsPage() {
                   <button
                     key={topic.id}
                     onClick={() => router.push(`/lesson/${topic.id}`)}
-                    className="flex w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/10"
+                    className="flex min-h-14 w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/10"
                   >
                     <div>
                       <p className="text-sm font-medium">{topic.title}</p>
@@ -240,7 +239,7 @@ export default function LessonsPage() {
         )}
 
         {!loading && isAuthenticated && subjectOptions.length > 0 && (
-          <section className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <h2 className="text-sm font-semibold">Lesson day and reminder settings</h2>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -280,7 +279,7 @@ export default function LessonsPage() {
                       key={day}
                       type="button"
                       onClick={() => toggleDay(day)}
-                      className={`rounded-full border px-3 py-1 text-xs ${
+                      className={`min-h-9 rounded-full border px-3 py-1 text-xs ${
                         active ? "border-white bg-white text-black" : "border-white/20 bg-transparent text-white/70"
                       }`}
                     >
@@ -317,7 +316,7 @@ export default function LessonsPage() {
               type="button"
               onClick={saveSchedule}
               disabled={savingSchedule || !selectedSubject}
-              className="mt-4 inline-flex items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
+              className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
             >
               <Save className="h-3.5 w-3.5" />
               {savingSchedule ? "Saving..." : "Save lesson settings"}
@@ -363,7 +362,7 @@ export default function LessonsPage() {
                   key={topic.id}
                   disabled={locked}
                   onClick={() => router.push(`/lesson/${topic.id}`)}
-                  className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
+                  className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
                     locked ? "border-white/5 bg-white/5 opacity-50" : "border-white/10 bg-white/5 hover:bg-white/10"
                   }`}
                 >
