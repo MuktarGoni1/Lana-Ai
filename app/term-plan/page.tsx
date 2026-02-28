@@ -804,7 +804,7 @@ function TermPlanPageContent() {
       </header>
 
       {/* body */}
-      <main className="max-w-4xl mx-auto p-4 sm:p-6 space-y-6">
+      <main className="max-w-4xl mx-auto p-4 sm:p-6 pb-28 space-y-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -985,7 +985,7 @@ function TermPlanPageContent() {
                                   </span>
                                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
-                                      onClick={() => router.push(`/?q=${encodeURIComponent(topic.name)}`)}
+                                      onClick={() => router.push(`/chatbot?topic=${encodeURIComponent(topic.name)}`)}
                                       className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                                       title="Chat about this topic"
                                     >
@@ -1037,42 +1037,44 @@ function TermPlanPageContent() {
         </motion.div>
       </main>
 
-      {/* footer actions (only during onboarding) */}
-      {isOnboarding && (
-        <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-3 sm:p-4">
-          <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-3 w-full">
-            <button
-              onClick={handleSkipToHomepage}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center shadow-sm hover:shadow-md active:scale-95"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
-                  Skipping...
-                </>
-              ) : (
-                "Skip for now"
-              )}
-              <ArrowRight className="ml-2 h-4 w-4" />
-            </button>
-            <button
-              onClick={saveAndCompleteOnboarding}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center shadow-sm hover:shadow-md active:scale-95"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                "Save plan and continue"
-              )}
-            </button>
-          </div>
+      {/* footer actions */}
+      <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-3 sm:p-4">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-3 w-full">
+          <button
+            onClick={isOnboarding ? handleSkipToHomepage : () => router.push("/")}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center shadow-sm hover:shadow-md active:scale-95"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin inline" />
+                Working...
+              </>
+            ) : isOnboarding ? (
+              "Skip for now"
+            ) : (
+              "Back to dashboard"
+            )}
+            <ArrowRight className="ml-2 h-4 w-4" />
+          </button>
+          <button
+            onClick={saveAndCompleteOnboarding}
+            disabled={saving}
+            className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center shadow-sm hover:shadow-md active:scale-95"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating class...
+              </>
+            ) : isOnboarding ? (
+              "Generate class and continue"
+            ) : (
+              "Generate class"
+            )}
+          </button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

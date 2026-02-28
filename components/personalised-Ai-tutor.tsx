@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { motion } from "framer-motion";
@@ -50,7 +50,7 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
     if (onBack) {
       onBack();
     } else {
-      router.push('/homepage');
+      router.push('/');
     }
   }, [onBack, router, trackNavigation]);
 
@@ -160,7 +160,7 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
   useEffect(() => {
     if (!checkingPro && !isPro && !showGatingOverlay) {
       // Non-pro user dismissed the gating overlay, redirect to homepage
-      router.push('/homepage');
+      router.push('/');
     }
   }, [checkingPro, isPro, showGatingOverlay, router]);
 
@@ -554,7 +554,7 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
                 onClick={navigateToHomepage}
                 className="text-white/60 hover:text-white text-xs sm:text-sm"
               >
-                ← Back to Homepage
+                â† Back to Homepage
               </Button>
             </div>
           </motion.div>

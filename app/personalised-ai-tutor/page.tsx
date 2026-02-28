@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
@@ -33,7 +33,7 @@ function PersonalisedAiTutorContent() {
   const handleBackNavigation = () => {
     if (isAuthenticated) {
       // If user is authenticated, navigate to homepage instead of back
-      router.push('/homepage');
+      router.push('/');
     } else {
       // If user is not authenticated, go back in history
       router.back();

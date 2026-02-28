@@ -8,9 +8,11 @@ import Logo from "@/components/logo";
 import {
   AlertTriangle,
   ArrowRight,
+  BookOpen,
   ChevronRight,
   Clock,
   Lock,
+  MessageSquare,
   RefreshCw,
   Star,
   Video,
@@ -319,7 +321,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <Logo />
+          <Logo width={118} height={34} className="w-[96px] sm:w-[118px] h-auto" />
           {isAuthenticated ? (
             <button
               onClick={() => router.push("/settings")}
@@ -397,6 +399,52 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             </div>
           </section>
         )}
+
+        <section className="space-y-3">
+          <p className="text-xs uppercase tracking-widest text-white/40">Learning tools</p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <button
+              onClick={() => router.push("/lessons")}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <BookOpen className="h-4 w-4 text-white/70" />
+                Lessons
+              </span>
+              <p className="mt-1 text-xs text-white/50">Open all your lesson topics</p>
+            </button>
+            <button
+              onClick={() => router.push("/chatbot")}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <MessageSquare className="h-4 w-4 text-white/70" />
+                Chatbot
+              </span>
+              <p className="mt-1 text-xs text-white/50">Ask questions instantly</p>
+            </button>
+            <button
+              onClick={() => router.push("/personalised-ai-tutor")}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <Video className="h-4 w-4 text-white/70" />
+                Personalized Tutor
+              </span>
+              <p className="mt-1 text-xs text-white/50">1:1 tutor with voice + video</p>
+            </button>
+            <button
+              onClick={() => router.push("/video-explainer")}
+              className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left hover:bg-white/10 transition"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <Video className="h-4 w-4 text-white/70" />
+                Video Explainer
+              </span>
+              <p className="mt-1 text-xs text-white/50">Generate explainers by topic</p>
+            </button>
+          </div>
+        </section>
 
         {!hasPlans && (
           <section className="space-y-4">
