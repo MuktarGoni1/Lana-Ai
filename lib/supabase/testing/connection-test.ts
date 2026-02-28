@@ -34,7 +34,7 @@ export async function testSupabaseConnection(): Promise<{
     
     // Test regular client connection
     const { data: healthData, error: healthError } = await supabase
-      .from('guardians')
+      .from('guardian_settings')
       .select('count')
       .limit(1);
     
@@ -54,7 +54,7 @@ export async function testSupabaseConnection(): Promise<{
     const adminClient = getSupabaseAdmin();
     
     const { data: adminData, error: adminError } = await adminClient
-      .from('guardians')
+      .from('guardian_settings')
       .select('count')
       .limit(1);
     

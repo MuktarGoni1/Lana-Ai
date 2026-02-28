@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React from "react"
 import { useState, Suspense, useEffect } from "react"
@@ -170,11 +170,11 @@ function ParentFlow() {
       if (error) throw error
 
       const { error: upsertError } = await (supabase as any)
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({ email: email.trim(), weekly_report: true, monthly_report: false }, { onConflict: 'email' })
       
       if (upsertError) {
-        console.warn('[Register Parent] Failed to upsert guardian record:', upsertError)
+        console.warn('[Register Parent] Failed to upsert guardian settings record:', upsertError)
       }
 
       // Delay navigation to ensure form submission completes

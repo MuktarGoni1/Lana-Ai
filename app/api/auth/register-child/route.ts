@@ -154,7 +154,7 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
     
     return {
       success: true,
-      child_uid: childUserId,
+      child_id: childUserId,
       nickname: childData.nickname
     }
   } catch (error) {
@@ -187,7 +187,7 @@ export async function POST(request: NextRequest) {
     
     // CSRF protection
     const csrfToken = request.headers.get('x-csrf-token');
-    if (!csrfToken || !validateCSRFToken(csrfToken)) {
+    if (!csrfToken || !(await validateCSRFToken(csrfToken))) {
       return new Response(
         JSON.stringify({
           success: false,

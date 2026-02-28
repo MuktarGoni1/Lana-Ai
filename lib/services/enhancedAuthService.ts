@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 import { authLogger } from './authLogger';
 
@@ -307,9 +307,9 @@ export class EnhancedAuthService {
         await authLogger.logGuestConversionStart(guestId, email);
       }
       
-      // First create/update guardian record
+      // First create/update guardian settings record
       const { error: insertError } = await supabase
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
@@ -317,7 +317,7 @@ export class EnhancedAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[EnhancedAuthService] Failed to create guardian record:', insertError);
+        console.warn('[EnhancedAuthService] Failed to create guardian settings record:', insertError);
       }
 
       // Send magic link

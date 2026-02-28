@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -32,9 +32,9 @@ export default function AuthConfirmedPage() {
             // Cast supabase to any to bypass typing issues (following the pattern used in authService)
             const sb: any = supabase;
             const { error: upsertError } = await sb
-              .from("guardians")
+              .from("guardian_settings")
               .upsert({ email: userEmail, weekly_report: true, monthly_report: false }, { onConflict: "email" });
-            if (upsertError) console.warn("[auth/confirmed] guardian upsert warn:", upsertError);
+            if (upsertError) console.warn("[auth/confirmed] guardian settings upsert warn:", upsertError);
           } else if (role === "child" && userEmail) {
             // Child users typically inserted during registration; ensure existence by upserting minimal record
             // Cast supabase to any to bypass typing issues (following the pattern used in authService)
@@ -82,9 +82,9 @@ export default function AuthConfirmedPage() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Authentication Confirmed</h1>
           <p className="text-white/50 text-sm">
-            {status === "confirming" && "Confirming your session…"}
+            {status === "confirming" && "Confirming your sessionâ€¦"}
             {status === "confirmed" && "Your authentication is complete/confirmed."}
-            {status === "error" && "We couldn’t confirm your session."}
+            {status === "error" && "We couldnâ€™t confirm your session."}
           </p>
         </div>
         {email && (

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf-server';
+import { validateCSRFToken } from '@/lib/security/csrf-server';
 
 // Helper function to get user ID from session
 async function getUserId() {
@@ -64,7 +64,7 @@ export async function PUT(request: NextRequest) {
   try {
     // Validate CSRF token for state-changing requests
     const csrfToken = request.headers.get('x-csrf-token');
-    if (!csrfToken || !validateCSRFToken(csrfToken)) {
+    if (!csrfToken || !(await validateCSRFToken(csrfToken))) {
       return NextResponse.json(
         { error: 'Invalid CSRF token' },
         { status: 403 }

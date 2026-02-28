@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { createClient } from '@supabase/supabase-js';
 
 export class AuthService {
@@ -171,17 +171,17 @@ export class AuthService {
     try {
       const trimmedEmail = email.trim();
       
-      // First, create a record in the guardians table
+      // First, create a record in the guardian_settings table
       // Cast supabase to any to bypass typing issues
       const sb: any = supabase;
-      const { error: insertError } = await sb.from("guardians").upsert({
+      const { error: insertError } = await sb.from("guardian_settings").upsert({
         email: trimmedEmail,
         weekly_report: true,
         monthly_report: false,
       }, { onConflict: 'email' });
       
       if (insertError) {
-        console.warn('[AuthService] Failed to create guardian record:', insertError);
+        console.warn('[AuthService] Failed to create guardian settings record:', insertError);
         // Don't throw here as we still want to proceed with authentication
       }
 

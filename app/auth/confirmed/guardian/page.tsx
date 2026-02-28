@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -25,10 +25,10 @@ export default function GuardianConfirmedPage() {
         const userEmail = user.email || null;
         setEmail(userEmail);
 
-        // Add or update guardian record
+        // Add or update guardian settings record
         if (userEmail) {
           const { error: upsertError } = await (supabase as any)
-            .from("guardians")
+            .from("guardian_settings")
             .upsert({ email: userEmail, weekly_report: true, monthly_report: false }, { onConflict: "email" });
           if (upsertError) console.warn("[auth/confirmed/guardian] upsert warn:", upsertError);
         }
@@ -61,9 +61,9 @@ export default function GuardianConfirmedPage() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Authentication Confirmed</h1>
           <p className="text-white/50 text-sm">
-            {status === "confirming" && "Confirming your session…"}
+            {status === "confirming" && "Confirming your sessionâ€¦"}
             {status === "confirmed" && "Welcome! Your guardian account is ready."}
-            {status === "error" && "We couldn’t confirm your session."}
+            {status === "error" && "We couldnâ€™t confirm your session."}
           </p>
         </div>
         {email && (

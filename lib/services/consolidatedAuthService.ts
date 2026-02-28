@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 import { authLogger } from './authLogger';
 import { dataSyncService } from './dataSyncService';
@@ -466,9 +466,9 @@ export class ConsolidatedAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      // First create/update guardian record
+      // First create/update guardian settings record
       const { error: insertError } = await supabase
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
@@ -476,7 +476,7 @@ export class ConsolidatedAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[ConsolidatedAuthService] Failed to create guardian record:', insertError);
+        console.warn('[ConsolidatedAuthService] Failed to create guardian settings record:', insertError);
       }
 
       // Send magic link

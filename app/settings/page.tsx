@@ -67,7 +67,7 @@ export default function SettingsPage() {
     if (!email) return;
     
     const { data, error } = await supabase
-      .from("guardians")
+      .from("guardian_settings")
       .select("weekly_report, monthly_report")
       .eq("email", email)
       .single()
@@ -151,12 +151,13 @@ export default function SettingsPage() {
                   const newMonthly = !monthly;
                   
                   const { error } = await supabase
-                    .from("guardians")
-                    .update({ 
+                    .from("guardian_settings")
+                    .upsert({
+                      email: auth.user!.email!,
                       weekly_report: newWeekly,
-                      monthly_report: newMonthly
-                    })
-                    .eq("email", auth.user!.email!)
+                      monthly_report: newMonthly,
+                      updated_at: new Date().toISOString(),
+                    }, { onConflict: "email" })
                   
                   if (error) throw error
                   

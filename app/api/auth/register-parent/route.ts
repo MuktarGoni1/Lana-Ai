@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
 import serverRateLimiter from '@/lib/server-rate-limiter'
-import { validateCSRFToken, getCSRFTokenServer } from '@/lib/security/csrf-server'
+import { validateCSRFToken } from '@/lib/security/csrf-server'
 // For now, we'll implement basic sanitization manually since dompurify import is problematic
 
 export async function POST(request: NextRequest) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     
     // CSRF protection
     const csrfToken = request.headers.get('x-csrf-token');
-    if (!csrfToken || !validateCSRFToken(csrfToken)) {
+    if (!csrfToken || !(await validateCSRFToken(csrfToken))) {
       return new Response(
         JSON.stringify({
           success: false,
@@ -112,23 +112,18 @@ export async function POST(request: NextRequest) {
       // Initialize Supabase admin client
       const adminClient = getSupabaseAdmin()
 
-      // First, create a record in the guardians table
-      const { error: insertError } = await adminClient.from("guardians").upsert({
+      // Create or update guardian settings row
+      const { error: insertError } = await adminClient.from("guardian_settings").upsert({
         email: sanitizedEmail,
         weekly_report: true,
         monthly_report: false,
       }, { onConflict: 'email' })
       
       if (insertError) {
-        console.warn('[API Register Parent] Failed to create guardian record:', insertError)
+        console.warn('[API Register Parent] Failed to create guardian settings record:', insertError)
         // Don't throw here as we still want to proceed with authentication
       } else {
-        console.log('[API Register Parent] Successfully created guardian record')
-      }
-      
-      if (insertError) {
-        console.warn('[API Register Parent] Failed to create guardian record:', insertError)
-        // Don't throw here as we still want to proceed with authentication
+        console.log('[API Register Parent] Successfully created guardian settings record')
       }
 
       // Sign in with OTP (this will send the magic link)

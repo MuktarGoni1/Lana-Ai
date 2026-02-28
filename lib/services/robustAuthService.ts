@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 
 export interface RobustAuthState {
@@ -152,8 +152,8 @@ export class RobustAuthService {
   }
 
   private startPeriodicRefresh() {
-    // Check auth status every configured interval with ±30s jitter
-    const jitter = Math.random() * 60000 - 30000; // ±30 seconds
+    // Check auth status every configured interval with Â±30s jitter
+    const jitter = Math.random() * 60000 - 30000; // Â±30 seconds
     const intervalWithJitter = this.config.refreshInterval + jitter;
     
     this.refreshInterval = setInterval(() => {
@@ -350,9 +350,9 @@ export class RobustAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      // Create/update guardian record first
+      // Create/update guardian settings record first
       const { error: insertError } = await supabase
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
@@ -360,7 +360,7 @@ export class RobustAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[RobustAuthService] Failed to create guardian record:', insertError);
+        console.warn('[RobustAuthService] Failed to create guardian settings record:', insertError);
       }
 
       // Send magic link
