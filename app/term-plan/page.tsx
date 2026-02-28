@@ -784,12 +784,23 @@ function TermPlanPageContent() {
           <Logo className="w-8 h-8 sm:w-10 sm:h-10" />
           <h1 className="text-lg sm:text-xl font-semibold">Term Planner</h1>
         </div>
-        <button
-          onClick={() => router.push("/")}
-          className="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center"
-        >
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => router.push("/")}
+            className="px-3 py-2 rounded-lg border border-white/10 text-xs text-white/70 hover:bg-white/10 transition-colors"
+          >
+            Back to dashboard
+          </button>
+          {isOnboarding && (
+            <button
+              onClick={handleSkipToHomepage}
+              className="p-2 rounded-lg hover:bg-white/10 transition-colors flex items-center justify-center"
+              title="Skip for now"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
       </header>
 
       {/* body */}
@@ -1041,7 +1052,7 @@ function TermPlanPageContent() {
                   Skipping...
                 </>
               ) : (
-                "Skip to homepage"
+                "Skip for now"
               )}
               <ArrowRight className="ml-2 h-4 w-4" />
             </button>
