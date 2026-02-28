@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_API_PREFIXES = ["/api/contact", "/api/newsletter"];
+const PUBLIC_API_PREFIXES = ["/api/contact", "/api/newsletter", "/api/reminders/dispatch"];
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

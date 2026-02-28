@@ -321,7 +321,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     <div className="min-h-screen bg-black text-white">
       <div className="sticky top-0 z-30 border-b border-white/10 bg-black/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-5 py-4">
-          <Logo width={118} height={34} className="w-[96px] sm:w-[118px] h-auto" />
+          <Logo width={96} height={28} className="w-[72px] sm:w-[96px] h-auto" />
           {isAuthenticated ? (
             <button
               onClick={() => router.push("/settings")}
