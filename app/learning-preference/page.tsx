@@ -13,6 +13,11 @@ export default function LearningPreferencePage() {
   const [preference, setPreference] = useState<"avatar" | "video" | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Legacy route: redirect to canonical onboarding
+  useEffect(() => {
+    router.replace("/onboarding");
+  }, [router]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

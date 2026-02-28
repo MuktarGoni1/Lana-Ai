@@ -22,7 +22,7 @@ export default function ChildLayout({
           description: 'Only children can access this area',
           variant: 'destructive',
         });
-        router.push('/login'); // Redirect non-children
+        router.push('/'); // Redirect non-children to dashboard
       }
     }
   }, [role, isLoading, router, toast]);

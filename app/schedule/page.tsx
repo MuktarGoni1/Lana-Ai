@@ -27,6 +27,11 @@ export default function SchedulePage() {
   ]);
   const [loading, setLoading] = useState(false);
 
+  // Legacy route: redirect to canonical onboarding
+  useEffect(() => {
+    router.replace("/onboarding");
+  }, [router]);
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

@@ -170,7 +170,7 @@ function HeroSection() {
                   </Link>
                   {/* Show Continue Setup button if onboarding is incomplete */}
                   {!user.user_metadata?.onboarding_complete && (
-                    <Link href="/child-info" className={getChildFriendlyClasses.buttonSecondary}>
+                    <Link href="/onboarding" className={getChildFriendlyClasses.buttonSecondary}>
                       Continue Setup
                     </Link>
                   )}

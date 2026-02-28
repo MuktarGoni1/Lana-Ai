@@ -22,7 +22,7 @@ export default function ParentLayout({
           description: 'Only parents can access this area',
           variant: 'destructive',
         });
-        router.push('/login'); // Redirect non-parents
+        router.push('/'); // Redirect non-parents to dashboard
       }
     }
   }, [role, isLoading, router, toast]);

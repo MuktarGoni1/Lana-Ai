@@ -89,6 +89,23 @@ export default function OnboardingPage() {
         // Don't show this to the user — just continue
       }
 
+      // Also mark onboarding complete in user metadata for legacy checks
+      try {
+        await db.auth.updateUser({
+          data: { onboarding_complete: true },
+        });
+      } catch {
+        console.warn("[onboarding] failed to update onboarding_complete metadata");
+      }
+
+      // Optional cookie marker for legacy checks
+      try {
+        const oneYear = 60 * 60 * 24 * 365;
+        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+      } catch {
+        // Non-fatal
+      }
+
       router.push("/");
     } catch (err: any) {
       console.error("[onboarding] unexpected error:", err);
@@ -330,3 +347,4 @@ export default function OnboardingPage() {
     </div>
   );
 }
+

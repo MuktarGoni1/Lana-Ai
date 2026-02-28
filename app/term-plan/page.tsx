@@ -237,8 +237,16 @@ function TermPlanPageContent() {
   // Redirect if not authenticated
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      // No hard redirect. Allow local-only planning and prompt sign-in.
-      console.warn("[term-plan] unauthenticated, staying in local-only mode");
+      try {
+        const timer = setTimeout(() => {
+          router.push("/login");
+        }, 500);
+        return () => clearTimeout(timer);
+      } catch (err: any) {
+        console.error('[term-plan] auth redirect error:', err.message);
+        console.error('[term-plan] auth redirect error details:', err);
+        handleErrorWithReload(err, "Authentication check failed. Reloading page to try again...");
+      }
     }
   }, [isAuthenticated, isLoading, router]);
 
@@ -389,17 +397,12 @@ function TermPlanPageContent() {
       }
 
       if (!user?.id) {
-        // Local-only fallback
-        localStorage.setItem('lana_study_plan_pending', JSON.stringify({
-          subjects,
-          timestamp: Date.now(),
-          userId: null
-        }));
         toast({
-          title: 'Saved Locally',
-          description: 'Sign in later to sync your study plan.',
+          title: "Authentication Required",
+          description: "Please sign in to save your study plan.",
+          variant: "destructive",
         });
-        router.push('/');
+        router.push("/login");
         return;
       }
 
@@ -751,31 +754,7 @@ function TermPlanPageContent() {
 
   // Show error and redirect if not authenticated
   if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <div className="text-center space-y-4 max-w-md p-6">
-          <X className="w-12 h-12 mx-auto text-red-500" />
-          <h2 className="text-2xl font-semibold">Continue Offline</h2>
-          <p className="text-white/70">
-            You can build your plan locally now and sync after signing in.
-          </p>
-          <div className="flex items-center justify-center gap-2 pt-2">
-            <button
-              onClick={() => router.push("/login")}
-              className="px-4 py-2 rounded-lg bg-white text-black text-sm font-medium"
-            >
-              Sign in
-            </button>
-            <button
-              onClick={() => router.push("/")}
-              className="px-4 py-2 rounded-lg border border-white/20 text-white text-sm"
-            >
-              Continue
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (

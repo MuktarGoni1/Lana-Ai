@@ -22,6 +22,14 @@ function RegisterLandingContent() {
       description: "Monitor progress, manage learning journey",
       path: "/register/form?role=parent",
       features: ["Progress reports", "Learning insights", "Account management"]
+    },
+    {
+      id: 'child',
+      icon: UserCircle,
+      title: "Student",
+      description: "Get personalized lessons and quizzes",
+      path: "/register/form?role=child",
+      features: ["Personalized lessons", "Practice quizzes", "Progress tracking"]
     }
   ]
 
@@ -50,6 +58,18 @@ function RegisterLandingContent() {
             >
               <Users className="h-4 w-4" />
               Register as Parent
+            </button>
+
+            <button
+              onClick={() => handleNavigation('child', '/register/form?role=child')}
+              disabled={isNavigating}
+              className="w-full px-6 py-3 rounded-xl bg-white/[0.05] border border-white/[0.05] 
+                       text-white font-medium text-sm
+                       hover:bg-white/[0.1] transition-all duration-200
+                       flex items-center justify-center gap-3"
+            >
+              <UserCircle className="h-4 w-4" />
+              Register as Student
             </button>
             
             <div className="relative my-4">
