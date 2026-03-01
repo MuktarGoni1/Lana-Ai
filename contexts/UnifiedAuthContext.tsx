@@ -228,7 +228,8 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     
     return Boolean(
       user.user_metadata?.onboarding_complete ||
-      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1'))
+      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1')) ||
+      (typeof window !== 'undefined' && localStorage.getItem('lana_onboarding_complete') === '1')
     );
   }, [user]);
 

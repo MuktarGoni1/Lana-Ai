@@ -58,6 +58,9 @@ export default function LessonPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
+  const [generationJobId, setGenerationJobId] = useState<string | null>(null);
+  const [generationBusy, setGenerationBusy] = useState(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
 
   const passScore = useMemo(() => {
     const total = quiz.length;
@@ -85,6 +88,9 @@ export default function LessonPage() {
 
       setLoading(true);
       setError(null);
+      setGenerationError(null);
+      setGenerationBusy(false);
+      setGenerationJobId(null);
 
       try {
         const db = supabase as any;
@@ -95,49 +101,7 @@ export default function LessonPage() {
           .maybeSingle();
         setTopic(topicData ?? null);
 
-        let unitRes = await fetch(`/api/lesson/${topicId}`, { cache: "no-store" });
-        if (unitRes.status === 404) {
-          const generateRes = await fetch("/api/lesson/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topicId }),
-          });
-
-          if (!generateRes.ok) {
-            const body = await generateRes.json().catch(() => ({}));
-            throw new Error(body?.error || "Failed to generate lesson");
-          }
-
-          unitRes = await fetch(`/api/lesson/${topicId}`, { cache: "no-store" });
-        }
-
-        if (!unitRes.ok) {
-          const body = await unitRes.json().catch(() => ({}));
-          throw new Error(body?.error || "Failed to load lesson");
-        }
-
-        const unitPayload = await unitRes.json();
-        const lessonContent = (unitPayload?.data?.lesson_content || {}) as LessonPayload;
-
-        setLesson(lessonContent);
-        setQuiz(Array.isArray(lessonContent.quiz) ? lessonContent.quiz : []);
-        setVideoUrl(unitPayload?.data?.video_url || null);
-
-        if (!Array.isArray(lessonContent.quiz) || lessonContent.quiz.length === 0) {
-          const quizRes = await fetch("/api/quiz/generate", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ topicId }),
-          });
-
-          if (quizRes.ok) {
-            const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
-            if (fetchQuizRes.ok) {
-              const q = await fetchQuizRes.json();
-              if (Array.isArray(q)) setQuiz(q);
-            }
-          }
-        }
+        await loadOrGenerateLesson(topicId);
       } catch (err: any) {
         setError(err?.message || "Failed to load lesson");
       } finally {
@@ -147,6 +111,77 @@ export default function LessonPage() {
 
     void load();
   }, [params?.id]);
+
+  async function loadOrGenerateLesson(topicId: string) {
+    const unitRes = await fetch(`/api/lesson/${topicId}`, { cache: "no-store" });
+
+    if (unitRes.ok) {
+      const unitPayload = await unitRes.json();
+      const quality = unitPayload?.meta?.quality_status;
+
+      if (quality === "invalid") {
+        await beginGeneration(topicId, true);
+        return;
+      }
+
+      const lessonContent = (unitPayload?.data?.lesson_content || {}) as LessonPayload;
+      setLesson(lessonContent);
+      setQuiz(Array.isArray(lessonContent.quiz) ? lessonContent.quiz : []);
+      setVideoUrl(unitPayload?.data?.video_url || null);
+
+      if (!Array.isArray(lessonContent.quiz) || lessonContent.quiz.length === 0) {
+        const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
+        if (fetchQuizRes.ok) {
+          const q = await fetchQuizRes.json();
+          if (Array.isArray(q)) setQuiz(q);
+        }
+      }
+      return;
+    }
+
+    if (unitRes.status === 404) {
+      const missingPayload = await unitRes.json().catch(() => ({}));
+      const generationStatus = missingPayload?.meta?.generation_status;
+      const existingJobId = missingPayload?.meta?.job?.id as string | undefined;
+
+      if (generationStatus === "processing" && existingJobId) {
+        setGenerationBusy(true);
+        setGenerationError(null);
+        setGenerationJobId(existingJobId);
+        return;
+      }
+
+      await beginGeneration(topicId, false);
+      return;
+    }
+
+    const body = await unitRes.json().catch(() => ({}));
+    throw new Error(body?.error || "Failed to load lesson");
+  }
+
+  async function beginGeneration(topicId: string, forceRefresh: boolean) {
+    setGenerationBusy(true);
+    setGenerationError(null);
+
+    const startRes = await fetch("/api/lesson/generate-job", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId, forceRefresh }),
+    });
+
+    if (!startRes.ok) {
+      const body = await startRes.json().catch(() => ({}));
+      throw new Error(body?.error || "Failed to start lesson generation");
+    }
+
+    const startPayload = await startRes.json();
+    const jobId = startPayload?.data?.jobId as string | undefined;
+    if (!jobId) {
+      throw new Error("Generation job was created without a job id");
+    }
+
+    setGenerationJobId(jobId);
+  }
 
   useEffect(() => {
     if (!videoJobId) return;
@@ -188,6 +223,74 @@ export default function LessonPage() {
       clearInterval(interval);
     };
   }, [videoJobId, params.id]);
+
+  useEffect(() => {
+    if (!generationJobId || !params?.id) return;
+
+    let stopped = false;
+    const interval = setInterval(async () => {
+      if (stopped) return;
+      try {
+        const statusRes = await fetch(`/api/lesson/generate-job/${generationJobId}`, { cache: "no-store" });
+        if (!statusRes.ok) return;
+
+        const statusPayload = await statusRes.json();
+        const status = statusPayload?.data?.status;
+
+        if (status === "queued" || status === "processing") {
+          setGenerationBusy(true);
+          return;
+        }
+
+        if (status === "failed") {
+          setGenerationBusy(false);
+          setGenerationError(statusPayload?.data?.errorMessage || "Lesson generation failed.");
+          setGenerationJobId(null);
+          return;
+        }
+
+        if (status === "completed") {
+          await loadOrGenerateLesson(params.id);
+          setGenerationBusy(false);
+          setGenerationError(null);
+          setGenerationJobId(null);
+        }
+      } catch {
+      }
+    }, 2000);
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [generationJobId, params?.id]);
+
+  async function retryGeneration() {
+    if (!params?.id) return;
+    setGenerationError(null);
+    setGenerationBusy(true);
+
+    const res = await fetch(`/api/lesson/${params.id}/regenerate`, {
+      method: "POST",
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setGenerationBusy(false);
+      setGenerationError(body?.error || "Retry failed.");
+      return;
+    }
+
+    const payload = await res.json();
+    const nextJobId = payload?.data?.jobId as string | undefined;
+    if (!nextJobId) {
+      setGenerationBusy(false);
+      setGenerationError("Retry started without a valid job id.");
+      return;
+    }
+
+    setGenerationJobId(nextJobId);
+  }
 
   async function submitQuiz() {
     if (!params?.id || quiz.length === 0) return;
@@ -258,6 +361,37 @@ export default function LessonPage() {
     return (
       <div className="grid min-h-screen place-items-center bg-black">
         <Loader2 className="h-8 w-8 animate-spin text-white/70" />
+      </div>
+    );
+  }
+
+  if (generationBusy) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-black text-white">
+        <div className="space-y-3 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-white/70" />
+          <p className="text-sm text-white/70">Generating your lesson...</p>
+          <p className="text-xs text-white/45">This usually takes a few seconds.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (generationError) {
+    return (
+      <div className="min-h-screen bg-black px-5 py-8 text-white">
+        <button onClick={() => router.push("/lessons")} className="mb-4 rounded-md border border-white/20 px-3 py-2 text-xs">
+          Back to lessons
+        </button>
+        <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm">
+          <p>{generationError}</p>
+          <button
+            onClick={retryGeneration}
+            className="mt-3 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+          >
+            Retry generation
+          </button>
+        </div>
       </div>
     );
   }

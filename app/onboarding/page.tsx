@@ -70,9 +70,10 @@ export default function OnboardingPage() {
       try {
         setLoading(true);
 
-        const [progressRes, prefRes] = await Promise.all([
+        const [progressRes, prefRes, scheduleRes] = await Promise.all([
           fetch("/api/onboarding-progress", { cache: "no-store" }),
           fetch("/api/learner-preferences", { cache: "no-store" }),
+          fetch("/api/lesson-schedule", { cache: "no-store" }),
         ]);
 
         if (progressRes.ok) {
@@ -97,6 +98,17 @@ export default function OnboardingPage() {
           const s = pref?.data?.learning_style;
           if (["visual", "auditory", "reading_writing", "kinesthetic"].includes(s)) {
             setLearningStyle(s as LearningStyle);
+          }
+        }
+
+        if (scheduleRes.ok) {
+          const schedulePayload = await scheduleRes.json();
+          const firstSchedule = Array.isArray(schedulePayload?.data) ? schedulePayload.data[0] : null;
+          if (firstSchedule) {
+            setLessonDays(Array.isArray(firstSchedule.lesson_days) ? firstSchedule.lesson_days : []);
+            setReminderEnabled(Boolean(firstSchedule.reminder_enabled));
+            setReminderTime(typeof firstSchedule.reminder_time === "string" ? firstSchedule.reminder_time.slice(0, 5) : "16:00");
+            setReminderTimezone(firstSchedule.reminder_timezone || "UTC");
           }
         }
       } finally {
@@ -126,7 +138,7 @@ export default function OnboardingPage() {
   async function saveProgress(nextStep: Step) {
     const ageNum = age ? Number(age) : null;
 
-    await fetch("/api/onboarding-progress", {
+    const res = await fetch("/api/onboarding-progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -137,6 +149,10 @@ export default function OnboardingPage() {
         grade: grade.trim() || null,
       }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || "Could not save onboarding progress.");
+    }
   }
 
   async function handleNext() {
@@ -170,13 +186,19 @@ export default function OnboardingPage() {
     if (step === 2) {
       setSaving(true);
       try {
-        await fetch("/api/learner-preferences", {
+        const prefRes = await fetch("/api/learner-preferences", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ learning_style: learningStyle }),
         });
+        if (!prefRes.ok) {
+          const body = await prefRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Could not save learning style.");
+        }
         await saveProgress(3);
         setStep(3);
+      } catch (err: any) {
+        setError(err?.message || "Could not continue.");
       } finally {
         setSaving(false);
       }
@@ -192,6 +214,8 @@ export default function OnboardingPage() {
       try {
         await saveProgress(4);
         setStep(4);
+      } catch (err: any) {
+        setError(err?.message || "Could not continue.");
       } finally {
         setSaving(false);
       }
@@ -210,6 +234,23 @@ export default function OnboardingPage() {
 
       setSaving(true);
       try {
+        const scheduleRes = await fetch("/api/lesson-schedule", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectName: subjectName.trim(),
+            lessonDays,
+            reminderEnabled,
+            reminderTime,
+            reminderTimezone,
+          }),
+        });
+
+        if (!scheduleRes.ok) {
+          const body = await scheduleRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Could not save lesson-day settings.");
+        }
+
         const completeRes = await fetch("/api/onboarding/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,17 +267,9 @@ export default function OnboardingPage() {
           throw new Error(body?.error || "Failed to complete onboarding");
         }
 
-        await fetch("/api/lesson-schedule", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subjectName: subjectName.trim(),
-            lessonDays,
-            reminderEnabled,
-            reminderTime,
-            reminderTimezone,
-          }),
-        });
+        try {
+          localStorage.setItem("lana_onboarding_complete", "1");
+        } catch {}
 
         router.replace("/");
       } catch (err: any) {
