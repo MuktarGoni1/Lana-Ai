@@ -3,6 +3,26 @@ import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 
 const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+
+function isMissingLessonSchedulesTable(error: any): boolean {
+  const code = typeof error?.code === 'string' ? error.code : '';
+  const message = typeof error?.message === 'string' ? error.message : '';
+
+  return (
+    code === '42P01' ||
+    message.includes("public.lesson_schedules") ||
+    message.includes('relation "lesson_schedules" does not exist')
+  );
+}
+
+function buildSchedulesUnavailableResponse() {
+  return NextResponse.json({
+    success: true,
+    data: [],
+    warning: 'Lesson schedules table is unavailable in this environment.',
+  });
+}
+
 function normalizeTimezone(value: string): string {
   try {
     Intl.DateTimeFormat('en-US', { timeZone: value });
@@ -40,6 +60,10 @@ export async function GET() {
       .order('subject_name', { ascending: true });
 
     if (error) {
+      if (isMissingLessonSchedulesTable(error)) {
+        return buildSchedulesUnavailableResponse();
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
@@ -90,6 +114,14 @@ export async function PUT(req: Request) {
       .single();
 
     if (error) {
+      if (isMissingLessonSchedulesTable(error)) {
+        return NextResponse.json({
+          success: true,
+          data: null,
+          warning: 'Lesson schedules table is unavailable in this environment.',
+        });
+      }
+
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
