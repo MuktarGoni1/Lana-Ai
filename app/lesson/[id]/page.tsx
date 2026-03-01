@@ -33,6 +33,53 @@ type QuizQuestion = {
   explanation?: string;
 };
 
+function normalizeQuizForClient(input: unknown): QuizQuestion[] {
+  if (!Array.isArray(input)) return [];
+
+  function resolveAnswer(answerRaw: string, options: string[]): string | null {
+    const answer = answerRaw.trim();
+    if (!answer || options.length === 0) return null;
+    if (options.includes(answer)) return answer;
+
+    const ci = options.find((opt) => opt.toLowerCase() === answer.toLowerCase());
+    if (ci) return ci;
+
+    if (/^[A-Za-z]$/.test(answer)) {
+      const idx = answer.toUpperCase().charCodeAt(0) - 65;
+      if (idx >= 0 && idx < options.length) return options[idx];
+      return null;
+    }
+
+    if (/^\d+$/.test(answer)) {
+      const n = Number.parseInt(answer, 10);
+      if (Number.isNaN(n)) return null;
+      if (n >= 1 && n <= options.length) return options[n - 1];
+      if (n >= 0 && n < options.length) return options[n];
+    }
+
+    return null;
+  }
+
+  const out: QuizQuestion[] = [];
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const item = raw as Record<string, unknown>;
+    const q = (typeof item.q === "string" ? item.q : typeof item.question === "string" ? item.question : "").trim();
+    const rawOptions = Array.isArray(item.options) ? item.options : Array.isArray(item.choices) ? item.choices : [];
+    const options = rawOptions
+      .filter((opt): opt is string => typeof opt === "string")
+      .map((opt) => opt.trim())
+      .filter(Boolean);
+    const rawAnswer = (typeof item.answer === "string" ? item.answer : typeof item.correct === "string" ? item.correct : "").trim();
+    const answer = resolveAnswer(rawAnswer, options);
+    const explanation = typeof item.explanation === "string" ? item.explanation : undefined;
+
+    if (!q || options.length < 2 || !answer) continue;
+    out.push({ q, options, answer, explanation });
+  }
+  return out;
+}
+
 function isDoneStatus(status: string | undefined) {
   if (!status) return false;
   return ["completed", "done", "succeeded", "success"].includes(status.toLowerCase());
@@ -125,15 +172,16 @@ export default function LessonPage() {
       }
 
       const lessonContent = (unitPayload?.data?.lesson_content || {}) as LessonPayload;
+      const normalizedQuiz = normalizeQuizForClient(lessonContent.quiz);
       setLesson(lessonContent);
-      setQuiz(Array.isArray(lessonContent.quiz) ? lessonContent.quiz : []);
+      setQuiz(normalizedQuiz);
       setVideoUrl(unitPayload?.data?.video_url || null);
 
-      if (!Array.isArray(lessonContent.quiz) || lessonContent.quiz.length === 0) {
+      if (normalizedQuiz.length === 0) {
         const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
         if (fetchQuizRes.ok) {
           const q = await fetchQuizRes.json();
-          if (Array.isArray(q)) setQuiz(q);
+          if (Array.isArray(q)) setQuiz(normalizeQuizForClient(q));
         }
       }
       return;

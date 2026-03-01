@@ -15,32 +15,8 @@ const store: Map<string, Question[]> = (globalThis as any).__QUIZ_STORE ?? new M
 (globalThis as any).__QUIZ_STORE = store;
 
 function validateQuizPayload(payload: unknown): Question[] | null {
-  if (!Array.isArray(payload)) return null;
-  const MAX_QUESTIONS = 50;
-  const MAX_Q_LEN = 500;
-  const MAX_OPT_LEN = 200;
-  const MIN_OPTIONS = 2;
-  const MAX_OPTIONS = 10;
-
-  const cleaned: Question[] = [];
-  for (const item of payload.slice(0, MAX_QUESTIONS)) {
-    if (!item || typeof item !== 'object') continue;
-    const anyItem = item as any;
-    const q = typeof anyItem.q === 'string' ? anyItem.q.trim().slice(0, MAX_Q_LEN) : null;
-    const options = Array.isArray(anyItem.options)
-      ? anyItem.options
-          .filter((o: unknown) => typeof o === 'string')
-          .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
-      : null;
-    const answer = typeof anyItem.answer === 'string' ? anyItem.answer.trim().slice(0, MAX_OPT_LEN) : null;
-    const explanation = typeof anyItem.explanation === 'string' ? anyItem.explanation.trim().slice(0, MAX_Q_LEN) : undefined;
-
-    if (!q || !options || options.length < MIN_OPTIONS || options.length > MAX_OPTIONS || !answer) continue;
-    if (!options.includes(answer)) continue;
-
-    cleaned.push({ q, options, answer, explanation });
-  }
-  return cleaned.length ? cleaned : null;
+  const normalized = normalizeQuizQuestions(payload);
+  return normalized.length ? normalized : null;
 }
 
 export async function POST(req: Request) {

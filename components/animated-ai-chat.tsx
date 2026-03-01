@@ -427,8 +427,8 @@ const StructuredLessonCard = ({ lesson, isStreamingComplete }: { lesson: Lesson;
         throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
       }
       
-      // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`https://api.lanamind.com/api/tts/`, {
+      // Use local API proxy for auth/rate-limit/error handling consistency.
+      const res = await fetch(`/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),
@@ -744,8 +744,8 @@ const MathSolutionCard = ({ data }: { data: MathSolutionUI }) => {
         throw new Error(`Rate limit exceeded. Please wait ${Math.ceil(waitTime / 1000)} seconds before trying again.`);
       }
       
-      // Use the API base for TTS requests to ensure proper routing
-      const res = await fetch(`https://api.lanamind.com/api/tts/`, {
+      // Use local API proxy for auth/rate-limit/error handling consistency.
+      const res = await fetch(`/api/tts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text }),

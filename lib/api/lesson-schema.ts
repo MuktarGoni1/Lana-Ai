@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizeQuizQuestions } from '@/lib/api/learning-utils';
 
 export const LessonSectionSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -29,12 +30,19 @@ export function validateLessonPayload(input: unknown):
     return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
   }
 
-  const quizAllValid = parsed.data.quiz.every((q) => q.options.includes(q.answer));
-  if (!quizAllValid) {
-    return { ok: false, error: 'Quiz answer must be one of the options for each question' };
+  // Accept backend variants (A/B/C/D, 1/2/3, text) and canonicalize to option text.
+  const normalizedQuiz = normalizeQuizQuestions(parsed.data.quiz);
+  if (normalizedQuiz.length !== parsed.data.quiz.length) {
+    return { ok: false, error: 'Quiz contains invalid answer/options mapping' };
   }
 
-  return { ok: true, data: parsed.data };
+  return {
+    ok: true,
+    data: {
+      ...parsed.data,
+      quiz: normalizedQuiz,
+    },
+  };
 }
 
 export function qualityCheckLesson(lesson: LessonContent):

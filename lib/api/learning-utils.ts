@@ -7,6 +7,35 @@ export type QuizQuestion = {
   explanation?: string;
 };
 
+function resolveAnswerToOption(answerRaw: string, options: string[]): string | null {
+  const answer = answerRaw.trim();
+  if (!answer || options.length === 0) return null;
+
+  // Exact match first.
+  if (options.includes(answer)) return answer;
+
+  // Case-insensitive option match.
+  const ci = options.find((opt) => opt.toLowerCase() === answer.toLowerCase());
+  if (ci) return ci;
+
+  // Letter labels: A/B/C/D...
+  if (/^[A-Za-z]$/.test(answer)) {
+    const idx = answer.toUpperCase().charCodeAt(0) - 65;
+    if (idx >= 0 && idx < options.length) return options[idx];
+    return null;
+  }
+
+  // Numeric labels: supports both 1-based and 0-based indexing.
+  if (/^\d+$/.test(answer)) {
+    const n = Number.parseInt(answer, 10);
+    if (Number.isNaN(n)) return null;
+    if (n >= 1 && n <= options.length) return options[n - 1];
+    if (n >= 0 && n < options.length) return options[n];
+  }
+
+  return null;
+}
+
 export function normalizeQuizQuestions(input: unknown): QuizQuestion[] {
   if (!Array.isArray(input)) return [];
 
@@ -39,13 +68,12 @@ export function normalizeQuizQuestions(input: unknown): QuizQuestion[] {
       .slice(0, MAX_OPTIONS);
 
     const q = qRaw.trim().slice(0, MAX_Q_LEN);
-    const answer = answerRaw.trim().slice(0, MAX_OPT_LEN);
+    const resolvedAnswer = resolveAnswerToOption(answerRaw.slice(0, MAX_OPT_LEN), options);
     const explanation = typeof raw.explanation === 'string' ? raw.explanation.trim().slice(0, MAX_Q_LEN) : undefined;
 
-    if (!q || !answer || options.length < MIN_OPTIONS) continue;
-    if (!options.includes(answer)) continue;
+    if (!q || !resolvedAnswer || options.length < MIN_OPTIONS) continue;
 
-    cleaned.push({ q, options, answer, explanation });
+    cleaned.push({ q, options, answer: resolvedAnswer, explanation });
   }
 
   return cleaned;
@@ -72,4 +100,3 @@ export async function generateStructuredLesson(topic: string, age?: number | nul
 
   return response.json();
 }
-
