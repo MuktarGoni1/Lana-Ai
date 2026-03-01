@@ -29,6 +29,7 @@ export class RobustAuthService {
   private refreshInterval: NodeJS.Timeout | null = null;
   private networkStatus: 'online' | 'offline' = 'online';
   private offlineQueue: Array<() => Promise<any>> = [];
+  private sessionSyncInFlight: Promise<void> | null = null;
   private readonly DEFAULT_CONFIG: Required<RobustAuthConfig> = {
     refreshInterval: 5 * 60 * 1000, // 5 minutes
     cacheTimeout: 30000, // 30 seconds
@@ -50,69 +51,68 @@ export class RobustAuthService {
     return RobustAuthService.instance;
   }
 
+  private async syncServerSession(accessToken: string, refreshToken: string) {
+    if (!accessToken || !refreshToken) {
+      return;
+    }
+
+    if (this.sessionSyncInFlight) {
+      return this.sessionSyncInFlight;
+    }
+
+    this.sessionSyncInFlight = fetch('/api/auth/sync-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body?.error || `Session sync failed with status ${response.status}`);
+        }
+      })
+      .catch((error) => {
+        console.error('[RobustAuthService] Failed to sync server session:', error);
+      })
+      .finally(() => {
+        this.sessionSyncInFlight = null;
+      });
+
+    return this.sessionSyncInFlight;
+  }
+
+  private updateAuthenticatedState(user: User | null) {
+    this.updateAuthState({
+      user,
+      isAuthenticated: !!user,
+      isLoading: false,
+      error: null,
+    });
+  }
+
   private initializeAuthListener() {
     // Listen for auth state changes
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[RobustAuthService] Auth state changed:', event);
 
-      // Best-effort cookie sync for middleware-protected routes
-      if (session?.access_token && session?.refresh_token) {
-        fetch('/api/auth/sync-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }),
-        }).catch(() => {});
-      }
-      
       switch (event) {
-        case 'SIGNED_IN':
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
-          break;
-          
         case 'SIGNED_OUT':
-          this.updateAuthState({
-            user: null,
-            isAuthenticated: false,
-            isLoading: false,
-            error: null
-          });
+          this.updateAuthenticatedState(null);
           fetch('/api/auth/clear-session', { method: 'POST' }).catch(() => {});
           break;
-          
+
+        case 'SIGNED_IN':
         case 'TOKEN_REFRESHED':
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
-          break;
-          
         case 'USER_UPDATED':
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
-          break;
-          
         default:
-          // For other events, just update the user if available
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
+          if (session?.access_token && session?.refresh_token) {
+            await this.syncServerSession(session.access_token, session.refresh_token);
+          }
+          this.updateAuthenticatedState(session?.user || null);
+          break;
       }
     });
 
@@ -244,6 +244,16 @@ export class RobustAuthService {
         };
       }
       
+      if (user) {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session?.access_token && session?.refresh_token) {
+          await this.syncServerSession(session.access_token, session.refresh_token);
+        }
+      }
+
       // Update auth state with fresh data
       this.updateAuthState({ 
         user, 
