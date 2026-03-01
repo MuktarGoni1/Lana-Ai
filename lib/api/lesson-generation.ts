@@ -1,7 +1,7 @@
 import { generateStructuredLesson, normalizeQuizQuestions } from '@/lib/api/learning-utils';
 import { qualityCheckLesson, validateLessonPayload } from '@/lib/api/lesson-schema';
 
-const STALE_PROCESSING_MS = 2 * 60 * 1000;
+const STALE_PROCESSING_MS = 20 * 1000;
 
 export async function processLessonGenerationJob(supabase: any, jobId: string, userId: string) {
   const nowIso = new Date().toISOString();

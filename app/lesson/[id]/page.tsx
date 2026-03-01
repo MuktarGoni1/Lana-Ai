@@ -106,6 +106,7 @@ export default function LessonPage() {
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
 
   const passScore = useMemo(() => {
     const total = quiz.length;
@@ -136,6 +137,7 @@ export default function LessonPage() {
       setGenerationError(null);
       setGenerationBusy(false);
       setGenerationJobId(null);
+      setGenerationStartedAt(null);
 
       try {
         const db = supabase as any;
@@ -194,6 +196,7 @@ export default function LessonPage() {
         setGenerationBusy(true);
         setGenerationError(null);
         setGenerationJobId(existingJobId);
+        setGenerationStartedAt(Date.now());
         return;
       }
 
@@ -208,6 +211,7 @@ export default function LessonPage() {
   async function beginGeneration(topicId: string, forceRefresh: boolean) {
     setGenerationBusy(true);
     setGenerationError(null);
+    setGenerationStartedAt(Date.now());
 
     const startRes = await fetch("/api/lesson/generate-job", {
       method: "POST",
@@ -292,6 +296,7 @@ export default function LessonPage() {
           setGenerationBusy(false);
           setGenerationError(statusPayload?.data?.errorMessage || "Lesson generation failed.");
           setGenerationJobId(null);
+          setGenerationStartedAt(null);
           return;
         }
 
@@ -300,6 +305,7 @@ export default function LessonPage() {
           setGenerationBusy(false);
           setGenerationError(null);
           setGenerationJobId(null);
+          setGenerationStartedAt(null);
         }
       } catch {
       }
@@ -311,10 +317,57 @@ export default function LessonPage() {
     };
   }, [generationJobId, params?.id]);
 
+  async function fallbackGenerateLesson(topicId: string) {
+    const lessonRes = await fetch("/api/lesson/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId, forceRefresh: true }),
+    });
+
+    if (!lessonRes.ok) {
+      const body = await lessonRes.json().catch(() => ({}));
+      throw new Error(body?.error || "Fallback lesson generation failed.");
+    }
+
+    const quizRes = await fetch("/api/quiz/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId, forceRefresh: true }),
+    });
+
+    if (!quizRes.ok) {
+      console.warn("[lesson-page] Quiz fallback generation failed", quizRes.status);
+    }
+
+    await loadOrGenerateLesson(topicId);
+    setGenerationBusy(false);
+    setGenerationError(null);
+    setGenerationJobId(null);
+    setGenerationStartedAt(null);
+  }
+
+  useEffect(() => {
+    if (!generationBusy || !generationJobId || !params?.id || !generationStartedAt) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        await fallbackGenerateLesson(params.id);
+      } catch (err: any) {
+        setGenerationBusy(false);
+        setGenerationJobId(null);
+        setGenerationStartedAt(null);
+        setGenerationError(err?.message || "Lesson generation timed out. Please retry.");
+      }
+    }, 45000);
+
+    return () => clearTimeout(timeout);
+  }, [generationBusy, generationJobId, generationStartedAt, params?.id]);
+
   async function retryGeneration() {
     if (!params?.id) return;
     setGenerationError(null);
     setGenerationBusy(true);
+    setGenerationStartedAt(Date.now());
 
     const res = await fetch(`/api/lesson/${params.id}/regenerate`, {
       method: "POST",
@@ -424,8 +477,8 @@ export default function LessonPage() {
       <div className="grid min-h-screen place-items-center bg-black text-white">
         <div className="space-y-3 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-white/70" />
-          <p className="text-sm text-white/70">Generating your lesson...</p>
-          <p className="text-xs text-white/45">This usually takes a few seconds.</p>
+          <p className="text-sm text-white/70">Generating your lesson and quiz...</p>
+          <p className="text-xs text-white/45">If this takes too long, we automatically switch to a fallback generator.</p>
         </div>
       </div>
     );
