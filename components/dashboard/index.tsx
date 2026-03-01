@@ -113,7 +113,7 @@ function writeDashboardCache(payload: {
 
 export function LanaMindDashboard({ onWatchVideo }: Props) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading: authLoading, isOnboardingComplete } = useUnifiedAuth();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -122,6 +122,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   const [recentSearches, setRecentSearches] = useState<SearchRow[]>([]);
   const [recentAttempts, setRecentAttempts] = useState<QuizAttempt[]>([]);
   const [currentWeek, setCurrentWeek] = useState(1);
+  const [showMoreTools, setShowMoreTools] = useState(false);
 
   const load = useCallback(async (userId: string) => {
     setLoading(true);
@@ -236,6 +237,11 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   }, []);
 
   useEffect(() => {
+    if (!authLoading && isAuthenticated && !isOnboardingComplete()) {
+      router.replace("/onboarding");
+      return;
+    }
+
     if (authLoading) {
       setLoading(true);
       return;
@@ -251,7 +257,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     }
 
     void load(user.id);
-  }, [authLoading, isAuthenticated, load, user?.id]);
+  }, [authLoading, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
 
   const missingFields = useMemo(() => missingFieldLabels(profile), [profile]);
   const showSetupBanner = isAuthenticated && missingFields.length > 0 && !bannerDismissed;
@@ -414,6 +420,51 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           </section>
         )}
 
+        {isAuthenticated && (
+          <section className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-widest text-white/40">Today</p>
+              <p className="mt-2 text-sm text-white/85">
+                {continueTopic ? `Next: ${continueTopic.title}` : "No active lesson yet."}
+              </p>
+              {continueTopic && (
+                <button
+                  onClick={() => router.push(`/lesson/${continueTopic.id}`)}
+                  className="mt-3 min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+                >
+                  Start today&apos;s lesson
+                </button>
+              )}
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-widest text-white/40">Continue</p>
+              <p className="mt-2 text-sm text-white/85">
+                {continueTopic ? `${continueTopic.subject_name || "Subject"} - Week ${continueTopic.week_number}` : "Create your first subject plan."}
+              </p>
+              <button
+                onClick={() => router.push(continueTopic ? `/lesson/${continueTopic.id}` : "/term-plan")}
+                className="mt-3 min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs"
+              >
+                {continueTopic ? "Open lesson" : "Add subject"}
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs uppercase tracking-widest text-white/40">Progress</p>
+              <p className="mt-2 text-sm text-white/85">
+                {completedTopics} completed, {inProgressTopics} in progress
+              </p>
+              <button
+                onClick={() => router.push("/lessons")}
+                className="mt-3 min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs"
+              >
+                View all lessons
+              </button>
+            </div>
+          </section>
+        )}
+
         {!isAuthenticated && (
           <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm font-medium">You are not signed in.</p>
@@ -437,6 +488,17 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           </section>
         )}
 
+        <section>
+          <button
+            onClick={() => setShowMoreTools((v) => !v)}
+            className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs text-white/80 hover:bg-white/10"
+          >
+            {showMoreTools ? "Hide extra tools" : "Show more tools"}
+          </button>
+        </section>
+
+        {showMoreTools && (
+          <>
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-widest text-white/40">Learning tools</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -673,6 +735,8 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           >
             Add another subject
           </button>
+        )}
+          </>
         )}
       </main>
     </div>

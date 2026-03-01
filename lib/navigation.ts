@@ -66,46 +66,46 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     
     switch (currentStep) {
       case 'auth':
-        // From authentication, go to child info
+        // From authentication, go to canonical onboarding
         if (router && typeof router.push === 'function') {
-          router.push('/child-info');
+          router.push('/onboarding');
         } else {
           // Fallback: use window.location
           if (typeof window !== 'undefined') {
-            window.location.assign('/child-info');
+            window.location.assign('/onboarding');
           }
         }
         break;
         
       case 'child-info':
-        // From child info, go to learning preference
+        // Legacy step aliases now point to canonical onboarding
         if (router && typeof router.push === 'function') {
-          router.push('/learning-preference');
+          router.push('/onboarding');
         } else {
           if (typeof window !== 'undefined') {
-            window.location.assign('/learning-preference');
+            window.location.assign('/onboarding');
           }
         }
         break;
         
       case 'learning-preference':
-        // From learning preference, go to schedule
+        // Legacy step aliases now point to canonical onboarding
         if (router && typeof router.push === 'function') {
-          router.push('/schedule');
+          router.push('/onboarding');
         } else {
           if (typeof window !== 'undefined') {
-            window.location.assign('/schedule');
+            window.location.assign('/onboarding');
           }
         }
         break;
         
       case 'schedule':
-        // From schedule, go to term-plan
+        // Legacy step aliases now point to canonical onboarding
         if (router && typeof router.push === 'function') {
-          router.push('/term-plan?onboarding=1');
+          router.push('/onboarding');
         } else {
           if (typeof window !== 'undefined') {
-            window.location.assign('/term-plan?onboarding=1');
+            window.location.assign('/onboarding');
           }
         }
         break;

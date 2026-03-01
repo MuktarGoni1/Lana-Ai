@@ -1,350 +1,486 @@
 "use client";
 
-/**
- * app/onboarding/page.tsx
- *
- * Simple 2-step onboarding. Fully skippable at any point.
- * Saves to public.profiles (the real table) not user_metadata.
- *
- * Step 1: Who are you? (student / parent)
- * Step 2: A bit about you (name, age, grade) — all optional
- *
- * Skip at any step → goes straight to dashboard.
- * On completion → goes to dashboard.
- * Never blocks. Never loops.
- */
-
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/lib/db";
-import { ArrowRight, GraduationCap, Users, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
-// Grades your target users are in
-const GRADES = ["6", "7", "8", "9", "10", "11", "12"];
+type LearningStyle = "visual" | "auditory" | "reading_writing" | "kinesthetic";
 
-type Role = "child" | "parent";
+type Step = 1 | 2 | 3 | 4;
 
-interface FormState {
-  role: Role | null;
-  name: string;
-  age: string;
-  grade: string;
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function getTimezoneList(): string[] {
+  try {
+    const intlAny = Intl as any;
+    if (typeof intlAny.supportedValuesOf === "function") {
+      return intlAny.supportedValuesOf("timeZone");
+    }
+  } catch {
+  }
+  return ["UTC"];
 }
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2>(1);
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+
+  const timezoneOptions = useMemo(() => getTimezoneList(), []);
+
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [form, setForm] = useState<FormState>({
-    role: null,
-    name: "",
-    age: "",
-    grade: "",
-  });
+  const [role, setRole] = useState<"child" | "parent">("child");
+  const [fullName, setFullName] = useState("");
+  const [age, setAge] = useState("");
+  const [grade, setGrade] = useState("");
 
-  // ── save to profiles and go to dashboard ─────────────────────────
-  async function saveAndContinue() {
-    setSaving(true);
-    setError(null);
+  const [learningStyle, setLearningStyle] = useState<LearningStyle>("visual");
 
-    try {
-      const db = supabase as any;
-      const {
-        data: { user },
-        error: authErr,
-      } = await db.auth.getUser();
+  const [lessonDays, setLessonDays] = useState<string[]>([]);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState("16:00");
+  const [reminderTimezone, setReminderTimezone] = useState("UTC");
 
-      if (authErr || !user) {
-        // Not logged in — just go to dashboard, they'll be redirected to login
-        router.push("/");
+  const [subjectName, setSubjectName] = useState("");
+  const [topicInput, setTopicInput] = useState("");
+  const [topics, setTopics] = useState<string[]>([]);
+
+  useEffect(() => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    setReminderTimezone(tz);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!isAuthenticated || !user?.id) {
+        if (!isLoading) setLoading(false);
         return;
       }
 
-      // Build the update — only include fields that have values
-      const updates: Record<string, any> = {};
-      if (form.role) updates.role = form.role;
-      if (form.name.trim()) updates.full_name = form.name.trim();
-
-      const ageNum = parseInt(form.age, 10);
-      if (!isNaN(ageNum) && ageNum >= 5 && ageNum <= 18) {
-        updates.age = ageNum;
-      }
-      if (form.grade) updates.grade = form.grade;
-
-      // Always mark diagnostic as completed when they reach this point
-      updates.diagnostic_completed = true;
-
-      // Upsert in case the profile row doesn't exist yet
-      const { error: upsertErr } = await db
-        .from("profiles")
-        .upsert({ id: user.id, ...updates }, { onConflict: "id" });
-
-      if (upsertErr) {
-        // Non-fatal — log and continue to dashboard anyway
-        console.error("[onboarding] profile save failed:", upsertErr.message);
-        // Don't show this to the user — just continue
-      }
-
-      // Also mark onboarding complete in user metadata for legacy checks
       try {
-        await db.auth.updateUser({
-          data: { onboarding_complete: true },
+        setLoading(true);
+
+        const [progressRes, prefRes] = await Promise.all([
+          fetch("/api/onboarding-progress", { cache: "no-store" }),
+          fetch("/api/learner-preferences", { cache: "no-store" }),
+        ]);
+
+        if (progressRes.ok) {
+          const progress = await progressRes.json();
+          const data = progress?.data || {};
+
+          const nextStep = Number(data.onboarding_step || 1);
+          setStep((Math.min(4, Math.max(1, nextStep)) as Step) || 1);
+          setRole(data.role === "parent" ? "parent" : "child");
+          setFullName(data.full_name || "");
+          setAge(data.age ? String(data.age) : "");
+          setGrade(data.grade || "");
+
+          if (data.onboarding_complete) {
+            router.replace("/");
+            return;
+          }
+        }
+
+        if (prefRes.ok) {
+          const pref = await prefRes.json();
+          const s = pref?.data?.learning_style;
+          if (["visual", "auditory", "reading_writing", "kinesthetic"].includes(s)) {
+            setLearningStyle(s as LearningStyle);
+          }
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [isAuthenticated, isLoading, router, user?.id]);
+
+  function toggleDay(day: string) {
+    setLessonDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
+  }
+
+  function addTopic() {
+    const trimmed = topicInput.trim();
+    if (!trimmed) return;
+    if (topics.includes(trimmed)) return;
+    setTopics((prev) => [...prev, trimmed]);
+    setTopicInput("");
+  }
+
+  function removeTopic(topic: string) {
+    setTopics((prev) => prev.filter((t) => t !== topic));
+  }
+
+  async function saveProgress(nextStep: Step) {
+    const ageNum = age ? Number(age) : null;
+
+    await fetch("/api/onboarding-progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        onboarding_step: nextStep,
+        role,
+        full_name: fullName.trim() || undefined,
+        age: Number.isFinite(ageNum) ? ageNum : null,
+        grade: grade.trim() || null,
+      }),
+    });
+  }
+
+  async function handleNext() {
+    setError(null);
+
+    if (step === 1) {
+      if (!fullName.trim()) {
+        setError("Please enter a name to continue.");
+        return;
+      }
+      if (!grade.trim()) {
+        setError("Please enter a grade to continue.");
+        return;
+      }
+      const ageNum = Number(age);
+      if (age && (!Number.isFinite(ageNum) || ageNum < 1 || ageNum > 120)) {
+        setError("Please enter a valid age.");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        await saveProgress(2);
+        setStep(2);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (step === 2) {
+      setSaving(true);
+      try {
+        await fetch("/api/learner-preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ learning_style: learningStyle }),
         });
-      } catch {
-        console.warn("[onboarding] failed to update onboarding_complete metadata");
+        await saveProgress(3);
+        setStep(3);
+      } finally {
+        setSaving(false);
       }
+      return;
+    }
 
-      // Optional cookie marker for legacy checks
+    if (step === 3) {
+      if (lessonDays.length === 0) {
+        setError("Select at least one lesson day to continue.");
+        return;
+      }
+      setSaving(true);
       try {
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-      } catch {
-        // Non-fatal
+        await saveProgress(4);
+        setStep(4);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (step === 4) {
+      if (!subjectName.trim()) {
+        setError("Add your first subject to continue.");
+        return;
+      }
+      if (topics.length === 0) {
+        setError("Add at least one topic to continue.");
+        return;
       }
 
-      router.push("/");
-    } catch (err: any) {
-      console.error("[onboarding] unexpected error:", err);
-      // Even on error, take them to the dashboard
-      router.push("/");
-    } finally {
-      setSaving(false);
+      setSaving(true);
+      try {
+        const completeRes = await fetch("/api/onboarding/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectPlan: {
+              subject: subjectName.trim(),
+              topics: topics.map((title) => ({ title })),
+            },
+          }),
+        });
+
+        if (!completeRes.ok) {
+          const body = await completeRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Failed to complete onboarding");
+        }
+
+        await fetch("/api/lesson-schedule", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectName: subjectName.trim(),
+            lessonDays,
+            reminderEnabled,
+            reminderTime,
+            reminderTimezone,
+          }),
+        });
+
+        router.replace("/");
+      } catch (err: any) {
+        setError(err?.message || "Could not complete onboarding.");
+      } finally {
+        setSaving(false);
+      }
     }
   }
 
-  // Skip entirely — go straight to dashboard, no save
-  function skip() {
-    router.push("/");
+  function handleBack() {
+    if (step === 1 || saving) return;
+    setError(null);
+    setStep((prev) => (prev - 1) as Step);
   }
 
-  // ── step 1: role selection ────────────────────────────────────────
-  const Step1 = (
-    <motion.div
-      key="step1"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      <div>
-        <h1 className="text-2xl font-bold text-white">Welcome to LanaMind</h1>
-        <p className="text-white/50 text-sm mt-1">Quick question — who's using this?</p>
+  if (isLoading || loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-black text-white">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
       </div>
+    );
+  }
 
-      <div className="grid grid-cols-2 gap-3">
-        {/* Student */}
-        <button
-          onClick={() => {
-            setForm((f) => ({ ...f, role: "child" }));
-            setStep(2);
-          }}
-          className={cn(
-            "flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all",
-            form.role === "child"
-              ? "border-white/40 bg-white/10"
-              : "border-white/10 bg-white/4 hover:border-white/20 hover:bg-white/7"
-          )}
-        >
-          <GraduationCap className="w-7 h-7 text-white/70" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-white">I'm a student</p>
-            <p className="text-xs text-white/40 mt-0.5">Here to learn</p>
-          </div>
-        </button>
+  const stepLabels = ["About You", "Learning Style", "Lesson Days", "First Subject"];
 
-        {/* Parent */}
-        <button
-          onClick={() => {
-            setForm((f) => ({ ...f, role: "parent" }));
-            setStep(2);
-          }}
-          className={cn(
-            "flex flex-col items-center gap-3 p-5 rounded-2xl border transition-all",
-            form.role === "parent"
-              ? "border-white/40 bg-white/10"
-              : "border-white/10 bg-white/4 hover:border-white/20 hover:bg-white/7"
-          )}
-        >
-          <Users className="w-7 h-7 text-white/70" />
-          <div className="text-center">
-            <p className="text-sm font-semibold text-white">I'm a parent</p>
-            <p className="text-xs text-white/40 mt-0.5">Setting up for my child</p>
-          </div>
-        </button>
-      </div>
-
-      <button
-        onClick={skip}
-        className="w-full text-center text-xs text-white/25 hover:text-white/50 transition-colors py-2"
-      >
-        Skip for now
-      </button>
-    </motion.div>
-  );
-
-  // ── step 2: optional details ──────────────────────────────────────
-  const Step2 = (
-    <motion.div
-      key="step2"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -16 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6"
-    >
-      <div>
-        <h1 className="text-2xl font-bold text-white">
-          {form.role === "parent" ? "About your child" : "A bit about you"}
-        </h1>
-        <p className="text-white/50 text-sm mt-1">
-          Optional — helps us tailor lessons.{" "}
-          <button onClick={skip} className="text-white/40 underline hover:text-white/60">
-            Skip this
-          </button>
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        {/* Name */}
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">
-            {form.role === "parent" ? "Child's name" : "Your name"}
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Alex"
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            maxLength={60}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-white/25 transition-colors"
-          />
-        </div>
-
-        {/* Age */}
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">Age</label>
-          <input
-            type="number"
-            placeholder="e.g. 14"
-            value={form.age}
-            min={5}
-            max={18}
-            onChange={(e) => {
-              setError(null);
-              setForm((f) => ({ ...f, age: e.target.value }));
-            }}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/25 outline-none focus:border-white/25 transition-colors"
-          />
-          {form.age && (parseInt(form.age) < 5 || parseInt(form.age) > 18) && (
-            <p className="text-xs text-red-400/80 mt-1.5">
-              Please enter an age between 5 and 18
-            </p>
-          )}
-        </div>
-
-        {/* Grade */}
-        <div>
-          <label className="text-xs text-white/40 mb-1.5 block">School grade</label>
-          <div className="grid grid-cols-4 gap-2">
-            {GRADES.map((g) => (
-              <button
-                key={g}
-                onClick={() =>
-                  setForm((f) => ({ ...f, grade: f.grade === g ? "" : g }))
-                }
-                className={cn(
-                  "py-2 rounded-xl text-sm font-medium border transition-all",
-                  form.grade === g
-                    ? "border-white/40 bg-white/12 text-white"
-                    : "border-white/10 bg-white/4 text-white/50 hover:border-white/20 hover:text-white/80"
-                )}
-              >
-                {g}
-              </button>
+  return (
+    <div className="min-h-screen bg-black px-4 py-8 text-white">
+      <div className="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+        <div className="mb-5">
+          <p className="text-xs uppercase tracking-widest text-white/45">Step {step} of 4</p>
+          <h1 className="mt-1 text-xl font-semibold">{stepLabels[step - 1]}</h1>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((s) => (
+              <div key={s} className={`h-1.5 rounded-full ${s <= step ? "bg-white" : "bg-white/15"}`} />
             ))}
           </div>
         </div>
-      </div>
 
-      {/* Error */}
-      {error && (
-        <p className="text-xs text-red-400/80 bg-red-500/8 border border-red-500/15 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setRole("child")}
+                className={`min-h-10 rounded-md border px-3 py-2 text-sm ${
+                  role === "child" ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                }`}
+              >
+                I&apos;m a student
+              </button>
+              <button
+                onClick={() => setRole("parent")}
+                className={`min-h-10 rounded-md border px-3 py-2 text-sm ${
+                  role === "parent" ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                }`}
+              >
+                I&apos;m a parent
+              </button>
+            </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={() => setStep(1)}
-          className="px-4 py-2.5 rounded-xl border border-white/10 text-sm text-white/40 hover:text-white/70 hover:border-white/20 transition-all"
-        >
-          Back
-        </button>
-        <button
-          onClick={saveAndContinue}
-          disabled={saving}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-semibold hover:bg-white/90 disabled:opacity-60 transition-all"
-        >
-          {saving ? (
-            <span className="flex items-center gap-2">
-              <span className="w-3.5 h-3.5 border-2 border-black/20 border-t-black rounded-full animate-spin" />
-              Saving…
-            </span>
-          ) : (
-            <>
-              Go to dashboard
-              <ArrowRight className="w-4 h-4" />
-            </>
-          )}
-        </button>
-      </div>
+            <label className="block space-y-1">
+              <span className="text-xs text-white/60">Name</span>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                placeholder={role === "parent" ? "Child name" : "Your name"}
+              />
+            </label>
 
-      <button
-        onClick={skip}
-        className="w-full text-center text-xs text-white/20 hover:text-white/40 transition-colors py-1"
-      >
-        Skip everything and go to dashboard
-      </button>
-    </motion.div>
-  );
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Age</span>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="Age"
+                />
+              </label>
 
-  // ── render ────────────────────────────────────────────────────────
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-5">
-      {/* Close / skip button — always accessible */}
-      <button
-        onClick={skip}
-        className="fixed top-5 right-5 w-8 h-8 flex items-center justify-center rounded-full bg-white/8 hover:bg-white/14 text-white/40 hover:text-white/70 transition-all"
-        aria-label="Skip onboarding"
-      >
-        <X className="w-4 h-4" />
-      </button>
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Grade</span>
+                <input
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="e.g. 7"
+                />
+              </label>
+            </div>
+          </div>
+        )}
 
-      <div className="w-full max-w-sm">
-        {/* Step dots */}
-        <div className="flex items-center gap-1.5 mb-8">
-          {[1, 2].map((s) => (
-            <div
-              key={s}
-              className={cn(
-                "h-1 rounded-full transition-all duration-300",
-                s === step ? "w-6 bg-white" : "w-3 bg-white/20"
-              )}
-            />
-          ))}
+        {step === 2 && (
+          <div className="space-y-3">
+            {[
+              { id: "visual", label: "Visual", desc: "Diagrams, charts, and examples" },
+              { id: "auditory", label: "Auditory", desc: "Explainers and spoken walkthroughs" },
+              { id: "reading_writing", label: "Reading/Writing", desc: "Clear notes and summaries" },
+              { id: "kinesthetic", label: "Kinesthetic", desc: "Practice-first and active checkpoints" },
+            ].map((item) => {
+              const active = learningStyle === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setLearningStyle(item.id as LearningStyle)}
+                  className={`flex min-h-12 w-full items-center justify-between rounded-lg border px-3 py-2 text-left ${
+                    active ? "border-white bg-white text-black" : "border-white/20 bg-black text-white"
+                  }`}
+                >
+                  <div>
+                    <p className="text-sm font-semibold">{item.label}</p>
+                    <p className={`text-xs ${active ? "text-black/70" : "text-white/60"}`}>{item.desc}</p>
+                  </div>
+                  {active && <Check className="h-4 w-4" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs text-white/60">Choose lesson days</p>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((day) => {
+                  const active = lessonDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => toggleDay(day)}
+                      className={`min-h-9 rounded-full border px-3 py-1 text-xs ${
+                        active ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                      }`}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} />
+              Enable reminders
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Reminder time</span>
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Timezone</span>
+                <select
+                  value={reminderTimezone}
+                  onChange={(e) => setReminderTimezone(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                >
+                  {timezoneOptions.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-4">
+            <label className="block space-y-1">
+              <span className="text-xs text-white/60">First subject</span>
+              <input
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+                className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                placeholder="e.g. Mathematics"
+              />
+            </label>
+
+            <div className="space-y-2">
+              <span className="text-xs text-white/60">Topics (add at least one)</span>
+              <div className="flex gap-2">
+                <input
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="e.g. Fractions"
+                />
+                <button onClick={addTopic} className="rounded-md border border-white/20 px-3 py-2 text-xs">
+                  Add
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {topics.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => removeTopic(topic)}
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/90"
+                    title="Remove topic"
+                  >
+                    {topic} x
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+
+        <div className="mt-6 flex items-center gap-2">
+          <button
+            onClick={handleBack}
+            disabled={step === 1 || saving}
+            className="inline-flex min-h-10 items-center gap-1 rounded-md border border-white/20 px-3 py-2 text-xs disabled:opacity-40"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+
+          <button
+            onClick={handleNext}
+            disabled={saving}
+            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 4 ? "Start learning" : "Continue"}
+            {!saving && <ArrowRight className="h-3.5 w-3.5" />}
+          </button>
         </div>
-
-        <AnimatePresence mode="wait">
-          {step === 1 ? Step1 : Step2}
-        </AnimatePresence>
       </div>
     </div>
   );
 }
-

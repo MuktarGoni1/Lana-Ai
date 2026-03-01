@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/db";
 import AppTopbar from "@/components/layout/app-topbar";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 
 type TopicMeta = {
   id: string;
@@ -40,6 +41,7 @@ function isDoneStatus(status: string | undefined) {
 export default function LessonPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading, isOnboardingComplete } = useUnifiedAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +64,16 @@ export default function LessonPage() {
     if (!total) return 0;
     return Math.ceil(total * 0.7);
   }, [quiz.length]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+    if (!authLoading && isAuthenticated && !isOnboardingComplete()) {
+      router.replace("/onboarding");
+    }
+  }, [authLoading, isAuthenticated, isOnboardingComplete, router]);
 
   useEffect(() => {
     const load = async () => {
