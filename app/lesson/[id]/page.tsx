@@ -100,8 +100,6 @@ export default function LessonPage() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
 
-  const [activeStep, setActiveStep] = useState<"lesson" | "quiz" | "video">("lesson");
-
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
@@ -373,7 +371,7 @@ export default function LessonPage() {
   }
 
   async function generateExplainerVideo() {
-    if (!topic?.title || videoBusy) return;
+    if (!topic?.title || videoBusy || videoJobId) return;
     setVideoBusy(true);
 
     try {
@@ -404,6 +402,14 @@ export default function LessonPage() {
       setVideoBusy(false);
     }
   }
+
+
+  useEffect(() => {
+    if (!lesson) return;
+    if (videoUrl || videoBusy || videoJobId) return;
+
+    void generateExplainerVideo();
+  }, [lesson, videoBusy, videoJobId, videoUrl]);
 
   if (loading) {
     return (
@@ -469,24 +475,8 @@ export default function LessonPage() {
       />
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-5 sm:px-5 sm:py-6">
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-          {[
-            { id: "lesson", label: "Lesson" },
-            { id: "quiz", label: "Quiz" },
-            { id: "video", label: "Explainer Video" },
-          ].map((step) => (
-            <button
-              key={step.id}
-              onClick={() => setActiveStep(step.id as "lesson" | "quiz" | "video")}
-              className={`min-h-10 rounded-lg px-3 py-2 text-xs sm:text-sm ${activeStep === step.id ? "bg-white text-black" : "text-white/70"}`}
-            >
-              {step.label}
-            </button>
-          ))}
-        </div>
-
-        {activeStep === "lesson" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <h2 className="text-sm font-semibold">Lesson content</h2>
             {intro && (
               <div>
                 <h2 className="mb-1 text-sm font-semibold text-white/80">Introduction</h2>
@@ -508,14 +498,10 @@ export default function LessonPage() {
               </div>
             )}
 
-            <button onClick={() => setActiveStep("quiz")} className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black">
-              Continue to quiz
-            </button>
           </section>
-        )}
 
-        {activeStep === "quiz" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <h2 className="text-sm font-semibold">Quiz</h2>
             {quiz.length === 0 ? (
               <p className="text-sm text-white/70">No quiz questions available for this lesson yet.</p>
             ) : (
@@ -565,35 +551,37 @@ export default function LessonPage() {
                   </div>
                 )}
 
-                <button onClick={() => setActiveStep("video")} className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs">
-                  Continue to explainer video
-                </button>
               </>
             )}
           </section>
-        )}
 
-        {activeStep === "video" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Generated explainer video</h2>
+              <h2 className="text-sm font-semibold">Explainer video</h2>
               <button
                 onClick={generateExplainerVideo}
-                disabled={videoBusy}
+                disabled={videoBusy || Boolean(videoJobId)}
                 className="inline-flex min-h-10 items-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
               >
-                {videoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
-                {videoBusy ? "Generating..." : videoUrl ? "Regenerate video" : "Generate video"}
+                {videoBusy || videoJobId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+                {videoBusy || videoJobId ? "Generating..." : videoUrl ? "Regenerate video" : "Generate video"}
               </button>
             </div>
 
             {videoUrl ? (
-              <video src={videoUrl} controls className="w-full rounded-lg border border-white/10 bg-black" />
+              <video src={videoUrl} controls autoPlay muted className="w-full rounded-lg border border-white/10 bg-black" />
+            ) : videoBusy || videoJobId ? (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-2 text-sm text-white/80">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating your explainer video…</span>
+                </div>
+                <p className="mt-2 text-xs text-white/60">Lesson and quiz are ready while your video is being prepared.</p>
+              </div>
             ) : (
               <p className="text-sm text-white/70">No video generated yet for this lesson.</p>
             )}
           </section>
-        )}
       </main>
     </div>
   );
