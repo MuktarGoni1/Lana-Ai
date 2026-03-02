@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 import { authLogger } from './authLogger';
 
@@ -307,9 +307,9 @@ export class EnhancedAuthService {
         await authLogger.logGuestConversionStart(guestId, email);
       }
       
-      // First create/update guardian record
+      // First create/update guardian settings record
       const { error: insertError } = await supabase
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
@@ -317,7 +317,7 @@ export class EnhancedAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[EnhancedAuthService] Failed to create guardian record:', insertError);
+        console.warn('[EnhancedAuthService] Failed to create guardian settings record:', insertError);
       }
 
       // Send magic link
@@ -414,12 +414,12 @@ export class EnhancedAuthService {
         return { success: false, error: errorMessage };
       }
 
+      // Note: We no longer store lana_sid in localStorage as per the new architecture
+      // The unified auth system manages session and role detection
       // Store session ID for anonymous users
       if (result.data && result.data.length > 0) {
         const childData = result.data[0];
-        if (typeof window !== 'undefined') {
-          localStorage.setItem("lana_sid", childData.child_uid);
-        }
+        // Session management is now handled by the unified auth system
       }
 
       this.updateAuthState({ isLoading: false });
@@ -463,7 +463,7 @@ export class EnhancedAuthService {
 
       // Clear local storage items related to auth
       if (typeof window !== 'undefined') {
-        localStorage.removeItem("lana_sid");
+        // Note: We no longer store lana_sid in localStorage as per the new architecture
         localStorage.removeItem("lana_onboarding_complete");
         localStorage.removeItem("lana_local_children");
       }

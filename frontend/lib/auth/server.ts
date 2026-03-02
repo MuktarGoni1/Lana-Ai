@@ -46,9 +46,9 @@ export async function redirectIfAuthenticated(): Promise<void> {
     // Check if user has completed onboarding
     const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete)
     
-    // If onboarding is not complete, redirect to term-plan for onboarding
+    // If onboarding is not complete, redirect to canonical onboarding flow
     if (!onboardingComplete) {
-      redirect('/term-plan?onboarding=1')
+      redirect('/onboarding')
       return
     }
     

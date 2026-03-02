@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
       
       // Test 3: Simple non-auth operation to avoid rate limits
       console.log('[Supabase Rate Limit Test] Testing simple operation');
-      const test = await client.from('guardians').select('email').limit(1);
+      const test = await client.from('guardian_settings').select('email').limit(1);
       console.log('[Supabase Rate Limit Test] Simple operation result:', {
         hasData: !!test.data,
         hasError: !!test.error,

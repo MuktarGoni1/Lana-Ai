@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useEffect } from "react";
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useRouter } from "next/navigation";
 
 interface GuestGuardProps {
@@ -10,8 +10,8 @@ interface GuestGuardProps {
   redirectTo?: string;
 }
 
-export default function GuestGuard({ children, redirectTo = "/homepage" }: GuestGuardProps) {
-  const { isAuthenticated, isLoading } = useEnhancedAuth();
+export default function GuestGuard({ children, redirectTo = "/" }: GuestGuardProps) {
+  const { isAuthenticated, isLoading } = useUnifiedAuth();
   const router = useRouter();
 
   useEffect(() => {

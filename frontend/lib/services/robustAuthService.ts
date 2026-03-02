@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/db';
+﻿import { supabase } from '@/lib/db';
 import { type User } from '@supabase/supabase-js';
 
 export interface RobustAuthState {
@@ -54,6 +54,18 @@ export class RobustAuthService {
     // Listen for auth state changes
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[RobustAuthService] Auth state changed:', event);
+
+      // Best-effort cookie sync for middleware-protected routes
+      if (session?.access_token && session?.refresh_token) {
+        fetch('/api/auth/sync-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }),
+        }).catch(() => {});
+      }
       
       switch (event) {
         case 'SIGNED_IN':
@@ -72,6 +84,7 @@ export class RobustAuthService {
             isLoading: false,
             error: null
           });
+          fetch('/api/auth/clear-session', { method: 'POST' }).catch(() => {});
           break;
           
         case 'TOKEN_REFRESHED':
@@ -139,8 +152,8 @@ export class RobustAuthService {
   }
 
   private startPeriodicRefresh() {
-    // Check auth status every configured interval with ±30s jitter
-    const jitter = Math.random() * 60000 - 30000; // ±30 seconds
+    // Check auth status every configured interval with Â±30s jitter
+    const jitter = Math.random() * 60000 - 30000; // Â±30 seconds
     const intervalWithJitter = this.config.refreshInterval + jitter;
     
     this.refreshInterval = setInterval(() => {
@@ -337,9 +350,9 @@ export class RobustAuthService {
     try {
       this.updateAuthState({ isLoading: true, error: null });
       
-      // Create/update guardian record first
+      // Create/update guardian settings record first
       const { error: insertError } = await supabase
-        .from("guardians")
+        .from("guardian_settings")
         .upsert({
           email: email.trim().toLowerCase(),
           weekly_report: true,
@@ -347,7 +360,7 @@ export class RobustAuthService {
         } as any, { onConflict: 'email' });
 
       if (insertError) {
-        console.warn('[RobustAuthService] Failed to create guardian record:', insertError);
+        console.warn('[RobustAuthService] Failed to create guardian settings record:', insertError);
       }
 
       // Send magic link
@@ -448,7 +461,7 @@ export class RobustAuthService {
 
       // Clear local storage items related to auth
       if (typeof window !== 'undefined') {
-        localStorage.removeItem("lana_sid");
+        // Note: We no longer store lana_sid in localStorage as per the new architecture
         localStorage.removeItem("lana_onboarding_complete");
         localStorage.removeItem("lana_local_children");
         localStorage.removeItem("lana_last_visited");

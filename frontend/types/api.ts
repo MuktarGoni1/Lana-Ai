@@ -32,7 +32,7 @@ export interface StructuredLessonResponse {
 // Search history item
 export interface SearchHistoryItem {
   id: string;
-  uid: string;
+  user_id: string;
   title: string;
   created_at: string;
 }

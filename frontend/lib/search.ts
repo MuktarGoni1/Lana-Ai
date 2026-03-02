@@ -12,11 +12,11 @@ export async function saveSearch(title: string) {
     
     // Get the current user's session
     const { data: sessionData } = await supabase.auth.getSession()
-    const uid = sessionData.session?.user?.id
+    const userId = sessionData.session?.user?.id
     
     // ONLY save search history for properly authenticated users
     // No fallback authentication - search history is a registered user feature
-    if (!uid) {
+    if (!userId) {
       return {
         success: false,
         message: 'Search completed! To save your search history, please register or sign in.',
@@ -33,7 +33,7 @@ export async function saveSearch(title: string) {
     const result: any = await (supabase as any)
       .from('searches')
       .insert({ 
-        'uid': uid, 
+        'user_id': userId,
         'title': sanitizedTitle, 
         'created_at': new Date().toISOString() 
       })

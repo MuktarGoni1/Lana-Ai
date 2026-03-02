@@ -2,131 +2,60 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/db";
 import { useToast } from "@/hooks/use-toast";
-
-// Create a safe version of useRobustAuth that doesn't throw during SSR
-function useSafeRobustAuth() {
-  const [authState, setAuthState] = useState<{
-    checkAuthStatus: (forceRefresh?: boolean) => Promise<any>;
-  } | null>(null);
-
-  useEffect(() => {
-    // Dynamically import the useRobustAuth hook only on the client side
-    const loadAuth = async () => {
-      try {
-        const { useRobustAuth } = await import("@/contexts/RobustAuthContext");
-        // Try to use the hook, but catch any errors
-        try {
-          const auth = useRobustAuth();
-          setAuthState({
-            checkAuthStatus: auth.checkAuthStatus,
-          });
-        } catch (error) {
-          // If useRobustAuth throws (e.g., outside provider), set to null state
-          setAuthState(null);
-        }
-      } catch (error) {
-        // If import fails, set to null state
-        setAuthState(null);
-      }
-    };
-
-    loadAuth();
-  }, []);
-
-  return authState;
-}
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+import { supabase } from "@/lib/db";
 
 export default function AutoLoginPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const auth = useSafeRobustAuth();
-  const [status, setStatus] = useState<"idle" | "confirming" | "confirmed" | "error">("idle");
+  const { checkAuthStatus } = useUnifiedAuth();
+  const [status, setStatus] = useState<"confirming" | "confirmed" | "error">("confirming");
 
   useEffect(() => {
-    const autoLogin = async () => {
-      if (!auth) {
-        setStatus("error");
-        toast({
-          title: "Authentication issue",
-          description: "Authentication system not available.",
-          variant: "destructive",
-        });
-        setTimeout(() => router.replace("/landing-page"), 2500);
-        return;
-      }
-
-      setStatus("confirming");
+    async function autoLogin() {
       try {
-        // Force refresh the authentication status
-        const authResult = await auth.checkAuthStatus(true);
-
+        const authResult = await checkAuthStatus(true);
         const user = authResult.user;
         if (!user) throw new Error("No active session after magic link.");
 
-        // Check if user has completed onboarding
-        const onboardingComplete = Boolean(user.user_metadata?.onboarding_complete);
+        const db = supabase as any;
+        const { data: profile } = await db
+          .from("profiles")
+          .select("role, age, grade")
+          .eq("id", user.id)
+          .maybeSingle();
 
-        // If onboarding is not complete, redirect appropriately based on user type
-        if (!onboardingComplete) {
-          setStatus("confirmed");
-          
-          // Check if this is a child user
-          const isChildUser = user.email?.endsWith('@child.lana') || false;
-          
-          if (isChildUser) {
-            // Child users go directly to term-plan
-            toast({ title: "Authentication confirmed", description: "Setting up your study plan..." });
-            setTimeout(() => {
-              router.push("/term-plan?onboarding=1");
-            }, 1000);
-          } else {
-            // Parent users go through onboarding flow
-            toast({ title: "Authentication confirmed", description: "Redirecting to onboarding..." });
-            setTimeout(() => {
-              router.push("/onboarding");
-            }, 1000);
-          }
-          return;
-        }
+        const needsSetup = !profile?.role || profile?.age == null || !profile?.grade;
 
-        setStatus("confirmed");
-        toast({ title: "Authentication confirmed", description: "You are now signed in." });
-
-        // Check for last visited page in cookies
-        let lastVisited = null;
-        if (typeof window !== 'undefined') {
-          // Try to get from localStorage first (fallback for older browsers)
-          lastVisited = localStorage.getItem('lana_last_visited');
-          
-          // Try to get from cookies (newer approach)
-          const cookies = document.cookie.split(';');
-          for (let cookie of cookies) {
-            const [name, value] = cookie.trim().split('=');
-            if (name === 'lana_last_visited') {
+        let lastVisited: string | null = null;
+        if (typeof window !== "undefined") {
+          lastVisited = localStorage.getItem("lana_last_visited");
+          const cookies = document.cookie.split(";");
+          for (const cookie of cookies) {
+            const [name, value] = cookie.trim().split("=");
+            if (name === "lana_last_visited") {
               lastVisited = decodeURIComponent(value);
               break;
             }
           }
+          if (lastVisited) localStorage.setItem("lana_last_visited", lastVisited);
         }
 
-        // Store the last visited page in localStorage as well for redundancy
-        if (typeof window !== 'undefined' && lastVisited) {
-          localStorage.setItem('lana_last_visited', lastVisited);
-        }
+        const redirectPath =
+          needsSetup
+            ? "/onboarding"
+            : lastVisited &&
+                !lastVisited.startsWith("/login") &&
+                !lastVisited.startsWith("/register") &&
+                !lastVisited.startsWith("/auth") &&
+                lastVisited !== "/landing-page"
+              ? lastVisited
+              : "/";
 
-        // Redirect to last visited page if available and not an auth page, otherwise homepage
-        const redirectPath = lastVisited && 
-                             !lastVisited.startsWith('/login') && 
-                             !lastVisited.startsWith('/register') && 
-                             !lastVisited.startsWith('/auth') && 
-                             lastVisited !== '/landing-page' ? 
-                             lastVisited : '/homepage';
-
-        setTimeout(() => {
-          router.push(redirectPath);
-        }, 1000);
+        setStatus("confirmed");
+        toast({ title: "Authentication confirmed", description: "Redirecting..." });
+        setTimeout(() => router.push(redirectPath), 600);
       } catch (err) {
         console.error("[auto-login] confirmation error:", err);
         setStatus("error");
@@ -135,36 +64,12 @@ export default function AutoLoginPage() {
           description: err instanceof Error ? err.message : "Unable to confirm authentication.",
           variant: "destructive",
         });
-        // Add error tracking
-        try {
-          // Log error details for debugging
-          console.error('[auto-login] detailed error info:', {
-            message: err instanceof Error ? err.message : 'Unknown error',
-            stack: err instanceof Error ? err.stack : 'No stack trace',
-            timestamp: new Date().toISOString()
-          });
-        } catch (logError) {
-          console.error('[auto-login] failed to log error details:', logError);
-        }
-        // Fallback: send user to landing page to avoid login loops
-        setTimeout(() => router.replace("/landing-page"), 2500);
+        setTimeout(() => router.replace("/login"), 1200);
       }
-    };
-
-    // Only run autoLogin if we have the auth context
-    if (auth !== null) {
-      autoLogin();
-    } else if (auth === null) {
-      // If auth is explicitly null (meaning we tried and failed), show error
-      setStatus("error");
-      toast({
-        title: "Authentication issue",
-        description: "Authentication system not available.",
-        variant: "destructive",
-      });
-      setTimeout(() => router.replace("/landing-page"), 2500);
     }
-  }, [router, toast, auth]);
+
+    void autoLogin();
+  }, [checkAuthStatus, router, toast]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
@@ -172,24 +77,14 @@ export default function AutoLoginPage() {
         <div className="space-y-2">
           <h1 className="text-2xl font-semibold">Signing you in</h1>
           <p className="text-white/50 text-sm">
-            {status === "confirming" && "Confirming your session…"}
-            {status === "confirmed" && "Authentication successful. Redirecting…"}
-            {status === "error" && "We couldn't sign you in."}
+            {status === "confirming" && "Confirming your session..."}
+            {status === "confirmed" && "Authentication successful. Redirecting..."}
+            {status === "error" && "We could not sign you in."}
           </p>
         </div>
         <div className="flex justify-center">
-          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin"></div>
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/30 rounded-full animate-spin" />
         </div>
-        {status === "error" && (
-          <div className="pt-4">
-            <button
-              onClick={() => router.replace("/login")}
-              className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
-            >
-              Return to Login
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );

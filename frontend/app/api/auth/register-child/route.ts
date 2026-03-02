@@ -1,5 +1,8 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { NextRequest } from 'next/server'
+import serverRateLimiter from '@/lib/server-rate-limiter'
+import { validateCSRFToken } from '@/lib/security/csrf-server'
+// For now, we'll implement basic sanitization manually since dompurify import is problematic
 
 // Enhanced validation functions
 const validateChildData = (data: any) => {
@@ -8,10 +11,12 @@ const validateChildData = (data: any) => {
   // Validate required fields
   if (!data.nickname || typeof data.nickname !== 'string' || data.nickname.trim().length < 2) {
     errors.push('Nickname must be at least 2 characters long')
+  } else if (data.nickname.trim().length > 50) {
+    errors.push('Nickname must be less than 50 characters')
   }
   
-  if (!data.age || typeof data.age !== 'number' || data.age < 6 || data.age > 18) {
-    errors.push('Age must be between 6 and 18')
+  if (!data.age || typeof data.age !== 'number' || data.age < 10 || data.age > 18) {
+    errors.push('Age must be between 10 and 18')
   }
   
   if (!data.grade || typeof data.grade !== 'string' || !['6', '7', '8', '9', '10', '11', '12', 'college'].includes(data.grade)) {
@@ -58,14 +63,16 @@ const logChildRegistration = async (adminClient: any, operation: string, details
 // Enhanced child registration function
 const registerSingleChild = async (adminClient: any, childData: any, guardianEmail: string, clientIP: string) => {
   try {
-    // Generate unique IDs
-    const child_uid = crypto.randomUUID()
-    const childEmail = `${child_uid}@child.lana`
-    const password = crypto.randomUUID()
+    // Get the authenticated parent user
+    const { data: { user: parentUser }, error: parentError } = await adminClient.auth.getUser();
+    
+    if (parentError || !parentUser) {
+      throw new Error('Parent authentication required to register child');
+    }
     
     // Log the attempt
     await logChildRegistration(adminClient, 'CHILD_REGISTRATION_ATTEMPT', {
-      child_uid,
+      parent_id: parentUser.id,
       guardianEmail,
       nickname: childData.nickname,
       ipAddress: clientIP,
@@ -73,31 +80,28 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
     })
 
     // Create the auth user
-    const { data, error: signUpError } = await adminClient.auth.signUp({
-      email: childEmail,
-      password: password,
-      options: {
-        data: { 
-          role: "child", 
-          nickname: childData.nickname, 
-          age: childData.age, 
-          grade: childData.grade, 
-          guardian_email: guardianEmail 
-        },
-        emailRedirectTo: 'https://www.lanamind.com/auth/auto-login',
-      }
+    const { data: childAuthData, error: signUpError } = await adminClient.auth.admin.createUser({
+      email: `${crypto.randomUUID()}@child.lana`,
+      password: crypto.randomUUID(),
+      user_metadata: { 
+        role: "child", 
+        nickname: childData.nickname, 
+        age: childData.age, 
+        grade: childData.grade, 
+        guardian_email: guardianEmail 
+      },
     })
 
     if (signUpError) {
       await logChildRegistration(adminClient, 'CHILD_REGISTRATION_FAILED', {
-        child_uid,
+        parent_id: parentUser.id,
         guardianEmail,
         error: signUpError.message,
         ipAddress: clientIP,
         timestamp: new Date().toISOString()
       })
       
-      console.error('[API Register Child] Supabase Auth error:', signUpError)
+      console.error('[API Register Child] Supabase Admin Auth error:', signUpError)
       
       // Provide specific error messages
       let message = 'Failed to create account'
@@ -111,45 +115,46 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
       
       throw new Error(message)
     }
-
-    // Link child to guardian with proper data structure
-    const { error: linkError } = await adminClient.from("guardians").upsert({
-      // Use a consistent ID based on guardian email to avoid duplicates
-      id: `${guardianEmail}-${data.user?.id}`,
-      email: guardianEmail,
-      child_uid: data.user?.id,
-      weekly_report: true,
-      monthly_report: false,
-      created_at: new Date().toISOString()
-    }, {
-      onConflict: 'id'
-    })
     
-    if (linkError) {
-      console.warn('[API Register Child] Failed to link child to guardian:', linkError)
-      await logChildRegistration(adminClient, 'CHILD_LINKING_FAILED', {
-        child_uid: data.user?.id,
-        guardianEmail,
-        error: linkError.message,
-        ipAddress: clientIP,
-        timestamp: new Date().toISOString()
-      })
-      // Don't throw here as the auth was successful
-    } else {
-      console.log('[API Register Child] Successfully linked child to guardian')
-      await logChildRegistration(adminClient, 'CHILD_REGISTRATION_SUCCESS', {
-        child_uid: data.user?.id,
-        guardianEmail,
-        nickname: childData.nickname,
-        ipAddress: clientIP,
-        timestamp: new Date().toISOString()
-      })
+    const childUserId = childAuthData.user?.id;
+    
+    if (!childUserId) {
+      throw new Error('Failed to create child user account');
     }
+
+    // Create the profile record linking child to parent with account status flags
+    const { error: profileError } = await adminClient.from('profiles').insert({
+      id: childUserId,
+      full_name: childData.nickname,
+      role: 'child',
+      parent_id: parentUser.id,
+      diagnostic_completed: false,
+      is_active: true,
+      created_at: new Date().toISOString()
+    });
+    
+    if (profileError) {
+      console.error('[API Register Child] Failed to create profile:', profileError);
+      
+      // Rollback: Delete the created user since profile creation failed
+      await adminClient.auth.admin.deleteUser(childUserId);
+      
+      throw new Error('Failed to create child profile');
+    }
+    
+    console.log('[API Register Child] Successfully registered child and created profile')
+    await logChildRegistration(adminClient, 'CHILD_REGISTRATION_SUCCESS', {
+      child_id: childUserId,
+      parent_id: parentUser.id,
+      guardianEmail,
+      nickname: childData.nickname,
+      ipAddress: clientIP,
+      timestamp: new Date().toISOString()
+    })
     
     return {
       success: true,
-      child_uid: data.user?.id,
-      childEmail,
+      child_id: childUserId,
       nickname: childData.nickname
     }
   } catch (error) {
@@ -160,6 +165,41 @@ const registerSingleChild = async (adminClient: any, childData: any, guardianEma
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    const rateLimitResult = await serverRateLimiter.isAllowed('/api/auth/register-child', ip);
+    
+    if (!rateLimitResult.allowed) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Too many requests. Please wait before trying again.'
+        }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
+          }
+        }
+      );
+    }
+    
+    // CSRF protection
+    const csrfToken = request.headers.get('x-csrf-token');
+    if (!csrfToken || !(await validateCSRFToken(csrfToken))) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Invalid request. Please try again.'
+        }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      );
+    }
+    
     const body = await request.json()
     
     // Get client IP address for audit logging
@@ -167,17 +207,52 @@ export async function POST(request: NextRequest) {
                      request.headers.get('x-real-ip') || 
                      'unknown';
     
-    // Handle bulk registration
-    const isBulk = Array.isArray(body.children)
-    const childrenData = isBulk ? body.children : [body]
-    const guardianEmail = body.guardianEmail || (isBulk ? body.guardianEmail : null)
+    // Initialize Supabase admin client
+    const adminClient = getSupabaseAdmin()
+
+    // Verify that the requesting user is authenticated and is a parent
+    const { data: { user }, error: authError } = await adminClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Authentication required to register child accounts'
+        }),
+        {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
     
-    // Validate guardian email
+    // Verify the user is a parent
+    const { data: userProfile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single();
+      
+    if (profileError || userProfile?.role !== 'parent') {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Only parents can register child accounts'
+        }),
+        {
+          status: 403,
+          headers: { 'Content-Type': 'application/json' }
+        }
+      )
+    }
+    
+    // Get the parent's email from the authenticated user
+    const guardianEmail = user.email;
+    
     if (!guardianEmail) {
       return new Response(
         JSON.stringify({
           success: false,
-          message: 'Guardian email is required'
+          message: 'Parent email is required for child registration'
         }),
         {
           status: 400,
@@ -186,23 +261,11 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(guardianEmail)) {
-      return new Response(
-        JSON.stringify({
-          success: false,
-          message: 'Invalid guardian email format'
-        }),
-        {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-
-    // Initialize Supabase admin client
-    const adminClient = getSupabaseAdmin()
+    // Handle bulk registration
+    const isBulk = Array.isArray(body.children)
+    const childrenData = isBulk ? body.children : [body]
+    // For the new system, we'll use the authenticated parent's email
+    // No need to validate guardian email since it comes from authenticated user
     
     // Validate all children data
     const validationErrors: { index: number; errors: string[] }[] = []
@@ -312,20 +375,11 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Provide specific error messages
-    let message = 'Unexpected error during registration'
-    if (error instanceof Error) {
-      if (error.message?.includes('NetworkError')) {
-        message = 'Network error. Please check your connection and try again.'
-      } else if (error.message?.includes('Timeout')) {
-        message = 'Request timeout. Please try again.'
-      }
-    }
-    
+    // Generic error message for security
     return new Response(
       JSON.stringify({
         success: false,
-        message
+        message: 'Registration failed. Please try again.'
       }),
       {
         status: 500,

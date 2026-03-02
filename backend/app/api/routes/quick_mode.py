@@ -190,13 +190,13 @@ async def generate_quick_lesson(req: QuickModeRequest):
         return _stub(topic)
 
 
-@router.post("/quick/stream", tags=["Quick Mode"])
+@router.post("/stream", tags=["Quick Mode"])
 async def stream_quick_mode_lesson(req: QuickModeRequest):
     """Stream a quick mode lesson as a single SSE 'done' event."""
     from fastapi.responses import StreamingResponse
     
     try:
-        lesson = await create_quick_mode_lesson(req)
+        lesson = await generate_quick_lesson(req)  # FIXED: Changed from create_quick_mode_lesson to generate_quick_lesson
         async def event_generator():
             try:
                 # Use model_dump for Pydantic v2 compatibility

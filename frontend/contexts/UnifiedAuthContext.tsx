@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/db';
+import { UserService } from '@/lib/api/userService';
 import { type User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { RobustAuthService, type RobustAuthState } from '@/lib/services/robustAuthService';
@@ -12,15 +12,19 @@ interface UnifiedAuthContextType {
   isAuthenticated: boolean;
   error: string | null;
   lastChecked: number | null;
+  role: 'child' | 'guardian' | 'parent' | null;
+  isParent: boolean;
   login: (email: string) => Promise<void>;
   loginWithEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
   loginWithGoogle: () => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  refreshSession: () => Promise<{ success: boolean; error?: string }>;
   setUser: (user: User | null) => void;
   checkAuthStatus: (forceRefresh?: boolean) => Promise<RobustAuthState>;
   getUserRole: () => 'child' | 'guardian' | 'parent' | null;
   isOnboardingComplete: () => boolean;
+  registerChild: (nickname: string, age: number, grade: string, parentEmail?: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const UnifiedAuthContext = createContext<UnifiedAuthContextType | undefined>(undefined);
@@ -35,24 +39,25 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const authService = RobustAuthService.getInstance();
 
-  // Refresh user data from Supabase
+  // Refresh user data using secure API
   const refreshUser = useCallback(async () => {
     try {
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      const profile = await UserService.getProfile();
       
-      if (error) {
-        console.error('[UnifiedAuthContext] Error refreshing user:', error);
-        setUser(null);
-        setIsAuthenticated(false);
-        setError(error.message);
-        return;
-      }
+      // Create a mock User object compatible with existing code
+      const currentUser = {
+        id: profile.id,
+        email: profile.email,
+        user_metadata: profile.user_metadata,
+        created_at: profile.created_at,
+        updated_at: profile.updated_at
+      } as User;
       
       setUser(currentUser);
-      setIsAuthenticated(!!currentUser);
+      setIsAuthenticated(true);
       setError(null);
     } catch (error) {
-      console.error('[UnifiedAuthContext] Unexpected error refreshing user:', error);
+      console.error('[UnifiedAuthContext] Error refreshing user:', error);
       setUser(null);
       setIsAuthenticated(false);
       setError(error instanceof Error ? error.message : 'Unknown error');
@@ -111,19 +116,14 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const login = useCallback(async (email: string) => {
     try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: `${typeof window !== 'undefined' ? window.location.origin : 'https://www.lanamind.com'}/auth/auto-login`,
-        },
-      });
-
-      if (error) throw error;
+      // For now, delegate to authService which should handle the OTP login
+      // This maintains compatibility with existing auth flow
+      await authService.loginWithEmail(email);
     } catch (error) {
       console.error('[UnifiedAuthContext] Login error:', error);
       throw error;
     }
-  }, []);
+  }, [authService]);
 
   const loginWithEmail = useCallback(async (email: string) => {
     return await authService.loginWithEmail(email);
@@ -152,9 +152,8 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
 
   const logout = useCallback(async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) throw error;
+      // Delegate to authService for sign out
+      await authService.logout();
       
       setUser(null);
       setIsAuthenticated(false);
@@ -163,7 +162,53 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
       console.error('[UnifiedAuthContext] Logout error:', error);
       throw error;
     }
-  }, [router]);
+  }, [authService, router]);
+
+  const refreshSession = useCallback(async () => {
+    try {
+      const result = await authService.refreshSession();
+      if (result.success) {
+        // Update state after successful refresh
+        await checkAuthStatus(true);
+      }
+      return result;
+    } catch (error) {
+      console.error('[UnifiedAuthContext] Refresh session error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, [authService, checkAuthStatus]);
+
+  const registerChild = useCallback(async (nickname: string, age: number, grade: string, parentEmail?: string) => {
+    try {
+      // Call the backend API to register a child
+      const response = await fetch('/api/auth/register-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nickname, age, grade, parentEmail }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          success: false, 
+          error: errorData.error || `Failed to register child: ${response.status}` 
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('[UnifiedAuthContext] Register child error:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  }, []);
 
   // Get user's role
   const getUserRole = useCallback(() => {
@@ -183,9 +228,14 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     
     return Boolean(
       user.user_metadata?.onboarding_complete ||
-      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1'))
+      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1')) ||
+      (typeof window !== 'undefined' && localStorage.getItem('lana_onboarding_complete') === '1')
     );
   }, [user]);
+
+  // Computed properties for backward compatibility
+  const role = getUserRole();
+  const isParent = role === 'parent' || role === 'guardian';
 
   const value = {
     user,
@@ -193,15 +243,19 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     isAuthenticated,
     error,
     lastChecked,
+    role,
+    isParent,
     login,
     loginWithEmail,
     loginWithGoogle,
     logout,
     refreshUser,
+    refreshSession,
     setUser,
     checkAuthStatus,
     getUserRole,
-    isOnboardingComplete
+    isOnboardingComplete,
+    registerChild
   };
 
   return (

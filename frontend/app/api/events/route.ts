@@ -31,8 +31,15 @@ export async function POST(req: Request) {
       );
     }
     
-    // Get user ID from session or from the request body
+    // user_events.user_id is NOT NULL + FK to auth.users in the target schema.
+    // We only allow authenticated event writes in this route.
     const userId = session?.user?.id || body.user_id;
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Authentication required to log events' },
+        { status: 401 }
+      );
+    }
     
     // Insert the event into the user_events table
     const { error } = await supabase

@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import rateLimiter from '@/lib/rate-limiter';
+import serverRateLimiter from '@/lib/server-rate-limiter';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 export async function POST(req: Request) {
   try {
-    // Check rate limiting
+    // Check authentication first
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
+    // Check client-side rate limiting (still useful for UX)
     const endpoint = '/api/chat';
     if (!rateLimiter.isAllowed(endpoint)) {
       const timeUntilReset = rateLimiter.getTimeUntilNextRequest(endpoint);
@@ -17,6 +25,24 @@ export async function POST(req: Request) {
           retryAfter: secondsUntilReset
         }, 
         { status: 429 }
+      );
+    }
+    
+    // Check server-side rate limiting (primary defense)
+    const serverRateLimitCheck = await serverRateLimiter.isAllowedSimple(endpoint, req.headers.get('x-forwarded-for') || 'unknown');
+    if (!serverRateLimitCheck.allowed) {
+      return NextResponse.json(
+        { 
+          error: 'Rate limit exceeded', 
+          message: `Too many requests. Please try again in ${serverRateLimitCheck.retryAfter} seconds.`,
+          retryAfter: serverRateLimitCheck.retryAfter
+        }, 
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': serverRateLimitCheck.retryAfter?.toString() || '60'
+          }
+        }
       );
     }
 
@@ -33,13 +59,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid mode. Supported modes: chat, quick, lesson, maths' }, { status: 400 });
     }
 
+    // Define backend base URL for configurable API endpoints
+    const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
+    
     console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
 
     // For chat mode, we need to generate a conversational response
-    // For quick mode, we route to structured lesson
+    // For quick mode, we route to configurable quick mode endpoint
     if (mode === 'chat') {
-      // For chat mode, generate a conversational response by calling the production AI service
-      const chatUrl = 'https://api.lanamind.com/api/chat/';
+      // For chat mode, generate a conversational response by calling the configurable AI service
+      const chatUrl = `${backendBase.replace(/\/$/, '')}/api/chat/`;
       
       // The production URL is hardcoded and assumed to be valid
       
@@ -117,18 +146,43 @@ export async function POST(req: Request) {
       }
     }
     
-    // For quick mode, we route to the production structured lesson endpoint but return a more concise response
-    const lessonUrl = 'https://api.lanamind.com/api/structured-lesson';
+    // Determine the correct backend endpoint based on the mode
+    let apiUrl: string;
+    let payload: any;
     
-    // Prepare the payload for the production structured lesson API
-    const payload = { 
-      topic: message,
-      age: age
+    if (mode === 'quick') {
+      // Quick mode uses the quick/generate endpoint
+      apiUrl = `${backendBase.replace(/\/$/, '')}/api/quick/generate`;
+      payload = { 
+        topic: message,
+        age: age
+      };
+    } else if (mode === 'lesson') {
+      // Lesson mode uses the structured-lesson endpoint
+      apiUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+      payload = { 
+        topic: message,
+        age: age
+      };
+    } else if (mode === 'maths') {
+      // Maths mode uses the math-solver endpoint
+      apiUrl = `${backendBase.replace(/\/$/, '')}/api/math-solver/solve`;
+      payload = { 
+        problem: message,
+        show_steps: true
+      };
+    } else {
+      // Default to quick mode for any unrecognized modes
+      apiUrl = `${backendBase.replace(/\/$/, '')}/api/quick/generate`;
+      payload = { 
+        topic: message,
+        age: age
+      };
     };
     
     try {
       const backendResponse = await fetchWithTimeoutAndRetry(
-        lessonUrl,
+        apiUrl,
         {
           method: 'POST',
           headers: { 
@@ -144,23 +198,12 @@ export async function POST(req: Request) {
       if (backendResponse.ok) {
         const responseData = await backendResponse.json();
         
-        // For quick mode, create a concise summary from the structured lesson response
-        let replyText = message;
-        if (responseData.introduction) {
-          replyText = responseData.introduction;
-          // For quick mode, only include introduction and first section if available
-          if (Array.isArray(responseData.sections) && responseData.sections.length > 0) {
-            const firstSection = responseData.sections[0];
-            if (firstSection.content) {
-              replyText += '\n\n' + (firstSection.title ? `**${firstSection.title}**: ` : '') + firstSection.content;
-            }
-          }
-        }
-        
+        // For quick mode, return the full response from the quick mode endpoint
+        // The quick mode endpoint already returns a properly formatted concise response
         return NextResponse.json({
           ...responseData,
           mode: mode,
-          reply: replyText
+          reply: responseData.introduction || message
         }, {
           status: 200,
           headers: {
@@ -171,19 +214,25 @@ export async function POST(req: Request) {
 
       // Handle specific error cases
       if (backendResponse.status === 404) {
-        console.error('Backend structured lesson endpoint not found:', lessonUrl);
+        console.error('Backend service endpoint not found:', apiUrl);
+        const serviceName = mode === 'quick' ? 'Quick mode' : 
+                          mode === 'lesson' ? 'Lesson' : 
+                          mode === 'maths' ? 'Math solver' : 'Service';
         return NextResponse.json(
-          { error: 'Lesson service not found', details: 'The requested service endpoint is not available' },
+          { error: `${serviceName} service not found`, details: 'The requested service endpoint is not available' },
           { status: 404 }
         );
       }
 
       // Non-OK from backend: return a clear error to the client
       const errorText = await backendResponse.text();
-      console.error('Backend lesson service error:', backendResponse.status, errorText);
+      const serviceName = mode === 'quick' ? 'Quick mode' : 
+                        mode === 'lesson' ? 'Lesson' : 
+                        mode === 'maths' ? 'Math solver' : 'Service';
+      console.error(`Backend ${serviceName.toLowerCase()} service error:`, backendResponse.status, errorText);
       return NextResponse.json(
         {
-          error: 'Lesson service is temporarily unavailable',
+          error: `${serviceName} service is temporarily unavailable`,
           details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
         },
         { status: backendResponse.status }

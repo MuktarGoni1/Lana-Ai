@@ -8,7 +8,7 @@ export async function GET() {
     
     // Test a simple query to verify connection
     const { data, error } = await adminClient
-      .from('guardians')
+      .from('guardian_settings')
       .select('id')
       .limit(1);
     

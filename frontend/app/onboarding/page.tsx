@@ -1,745 +1,519 @@
-"use client"
-import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/db"
-import { useToast } from "@/hooks/use-toast"
-import { Loader2, User, BookOpen, GraduationCap, ChevronLeft, ArrowRight, Plus, Trash2, Upload, RotateCcw } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import type { InsertGuardian } from "@/types/supabase"
-import { skipToHomepage, navigateToNextStep } from "@/lib/navigation"
-import { AuthService } from "@/lib/services/authService"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
-import { handleErrorWithReload, resetErrorHandler } from '@/lib/error-handler'
-import DiagnosticQuiz from '@/components/diagnostic-quiz'
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
+
+type LearningStyle = "visual" | "auditory" | "reading_writing" | "kinesthetic";
+
+type Step = 1 | 2 | 3 | 4;
+
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function getTimezoneList(): string[] {
+  try {
+    const intlAny = Intl as any;
+    if (typeof intlAny.supportedValuesOf === "function") {
+      return intlAny.supportedValuesOf("timeZone");
+    }
+  } catch {
+  }
+  return ["UTC"];
+}
+
 export default function OnboardingPage() {
-  const router = useRouter()
-  const { toast } = useToast()
-  const { user, registerChild } = useEnhancedAuth()
-  const [children, setChildren] = useState([{ nickname: "", age: "" as number | "", grade: "" }])
-  const [loading, setLoading] = useState(false)
-  const [errors, setErrors] = useState<{[key: number]: {nickname: string, age: string, grade: string}}>({})
-  const [csvFile, setCsvFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // Diagnostic quiz state
-  const [showDiagnosticQuiz, setShowDiagnosticQuiz] = useState(false)
-  
-  // Check for and sync local children data when component mounts
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+
+  const timezoneOptions = useMemo(() => getTimezoneList(), []);
+
+  const [step, setStep] = useState<Step>(1);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const [role, setRole] = useState<"child" | "parent">("child");
+  const [fullName, setFullName] = useState("");
+  const [age, setAge] = useState("");
+  const [grade, setGrade] = useState("");
+
+  const [learningStyle, setLearningStyle] = useState<LearningStyle>("visual");
+
+  const [lessonDays, setLessonDays] = useState<string[]>([]);
+  const [reminderEnabled, setReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState("16:00");
+  const [reminderTimezone, setReminderTimezone] = useState("UTC");
+
+  const [subjectName, setSubjectName] = useState("");
+  const [topicInput, setTopicInput] = useState("");
+  const [topics, setTopics] = useState<string[]>([]);
+
   useEffect(() => {
-    // Reset error handler on successful page load
-    resetErrorHandler();
-    
-    const syncLocalChildren = async () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    setReminderTimezone(tz);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, isLoading, router]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!isAuthenticated || !user?.id) {
+        if (!isLoading) setLoading(false);
+        return;
+      }
+
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user?.email) {
-          // Create authService instance here to avoid timing issues
-          const authService = new AuthService();
-          
-          // Check if there are local children to sync
-          const localChildren = authService.getLocalChildren();
-          if (localChildren.length > 0) {
-            toast({
-              title: "Syncing Local Data",
-              description: `Found ${localChildren.length} children saved locally. Syncing with account...`,
-            });
-            
-            // Try to sync local children
-            const result = await authService.linkLocalChildrenToAccount(session.user.email);
-            
-            if (result.success) {
-              toast({
-                title: "Sync Complete",
-                description: result.message,
-              });
-            } else {
-              toast({
-                title: "Sync Partially Failed",
-                description: result.message,
-                variant: "destructive",
-              });
-            }
+        setLoading(true);
+
+        const [progressRes, prefRes, scheduleRes] = await Promise.all([
+          fetch("/api/onboarding-progress", { cache: "no-store" }),
+          fetch("/api/learner-preferences", { cache: "no-store" }),
+          fetch("/api/lesson-schedule", { cache: "no-store" }),
+        ]);
+
+        if (progressRes.ok) {
+          const progress = await progressRes.json();
+          const data = progress?.data || {};
+
+          const nextStep = Number(data.onboarding_step || 1);
+          setStep((Math.min(4, Math.max(1, nextStep)) as Step) || 1);
+          setRole(data.role === "parent" ? "parent" : "child");
+          setFullName(data.full_name || "");
+          setAge(data.age ? String(data.age) : "");
+          setGrade(data.grade || "");
+
+          if (data.onboarding_complete) {
+            router.replace("/");
+            return;
           }
         }
-      } catch (error) {
-        console.error('[Onboarding] Error syncing local children:', error);
-        handleErrorWithReload(error, "Failed to sync local children data. Reloading page...");
+
+        if (prefRes.ok) {
+          const pref = await prefRes.json();
+          const s = pref?.data?.learning_style;
+          if (["visual", "auditory", "reading_writing", "kinesthetic"].includes(s)) {
+            setLearningStyle(s as LearningStyle);
+          }
+        }
+
+        if (scheduleRes.ok) {
+          const schedulePayload = await scheduleRes.json();
+          const firstSchedule = Array.isArray(schedulePayload?.data) ? schedulePayload.data[0] : null;
+          if (firstSchedule) {
+            setLessonDays(Array.isArray(firstSchedule.lesson_days) ? firstSchedule.lesson_days : []);
+            setReminderEnabled(Boolean(firstSchedule.reminder_enabled));
+            setReminderTime(typeof firstSchedule.reminder_time === "string" ? firstSchedule.reminder_time.slice(0, 5) : "16:00");
+            setReminderTimezone(firstSchedule.reminder_timezone || "UTC");
+          }
+        }
+      } finally {
+        setLoading(false);
       }
     };
-    
-    syncLocalChildren();
-  }, []);
-  
-  // Validation functions
-  const validateNickname = (value: string) => {
-    if (!value.trim()) return "Nickname is required"
-    if (value.trim().length < 2) return "Nickname must be at least 2 characters"
-    return ""
+
+    void load();
+  }, [isAuthenticated, isLoading, router, user?.id]);
+
+  function toggleDay(day: string) {
+    setLessonDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
   }
 
-  const validateAge = (value: number | "") => {
-    if (value === "") return "Age is required"
-    if (typeof value === "number" && (value < 6 || value > 18)) return "Age must be between 6 and 18"
-    return ""
+  function addTopic() {
+    const trimmed = topicInput.trim();
+    if (!trimmed) return;
+    if (topics.includes(trimmed)) return;
+    setTopics((prev) => [...prev, trimmed]);
+    setTopicInput("");
   }
 
-  const validateGrade = (value: string) => {
-    if (!value) return "Grade is required"
-    const validGrades = ['6', '7', '8', '9', '10', '11', '12', 'college']
-    if (!validGrades.includes(value)) return "Invalid grade. Must be 6-12 or college"
-    return ""
+  function removeTopic(topic: string) {
+    setTopics((prev) => prev.filter((t) => t !== topic));
   }
 
-  const validateChild = (index: number, child: {nickname: string, age: number | "", grade: string}) => {
-    const nicknameError = validateNickname(child.nickname)
-    const ageError = validateAge(child.age)
-    const gradeError = validateGrade(child.grade)
-    
-    const childErrors = {
-      nickname: nicknameError,
-      age: ageError,
-      grade: gradeError
-    }
-    
-    setErrors(prev => ({
-      ...prev,
-      [index]: childErrors
-    }))
-    
-    return !(nicknameError || ageError || gradeError)
-  }
+  async function saveProgress(nextStep: Step) {
+    const ageNum = age ? Number(age) : null;
 
-  const handleChildChange = (index: number, field: string, value: any) => {
-    setChildren(prev => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
-    
-    // Clear error for this field when user starts typing
-    setErrors(prev => {
-      if (prev[index]) {
-        const updatedErrors = { ...prev }
-        updatedErrors[index] = { ...updatedErrors[index], [field]: "" }
-        return updatedErrors
-      }
-      return prev
-    })
-  }
-
-  const addChild = () => {
-    setChildren(prev => [...prev, { nickname: "", age: "" as number | "", grade: "" }])
-  }
-
-  const removeChild = (index: number) => {
-    if (children.length <= 1) {
-      toast({
-        title: "Cannot remove",
-        description: "You must have at least one child.",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    setChildren(prev => prev.filter((_, i) => i !== index))
-    setErrors(prev => {
-      const updated = { ...prev }
-      delete updated[index]
-      // Reindex errors
-      const reindexed: typeof updated = {}
-      Object.keys(updated).forEach((key, i) => {
-        reindexed[i] = updated[Number(key)]
-      })
-      return reindexed
-    })
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log('[Onboarding] Starting child registration process');
-    console.log('[Onboarding] Form data:', children);
-    
-    // Validate all children
-    let hasErrors = false
-    const newErrors: {[key: number]: {nickname: string, age: string, grade: string}} = {}
-    
-    children.forEach((child, index) => {
-      const isValid = validateChild(index, child)
-      if (!isValid) hasErrors = true
-    })
-    
-    if (hasErrors) {
-      console.warn('[Onboarding] Validation failed');
-      toast({
-        title: "Validation Error",
-        description: "Please correct the errors in the form.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setLoading(true)
-    try {
-      console.log('[Onboarding] Getting user session');
-      const { data: { session } } = await supabase.auth.getSession()
-      console.log('[Onboarding] Session status:', session ? 'Active' : 'None');
-      
-      if (!session) {
-        console.error('[Onboarding] No session found, redirecting to login');
-        toast({
-          title: "Authentication Required",
-          description: "Please log in again to continue with child registration.",
-          variant: "destructive",
-        })
-        return router.push("/login")
-      }
-
-      // Register children using the enhanced AuthService
-      console.log('[Onboarding] Registering children');
-      let result
-      
-      try {
-        if (children.length === 1) {
-          // Single child registration
-          const child = children[0]
-          result = await registerChild(
-            child.nickname,
-            Number(child.age),
-            child.grade,
-            session.user.email!
-          )
-        } else {
-          // Bulk child registration
-          // Create authService instance for bulk registration
-          const authService = new AuthService();
-          const childrenData = children.map(child => ({
-            nickname: child.nickname,
-            age: Number(child.age),
-            grade: child.grade
-          }))
-          result = await authService.registerMultipleChildren(childrenData, session.user.email!)
-        }
-        
-        // Handle offline scenario
-        if (result && !result.success && result.offline) {
-          toast({
-            title: "Offline Mode",
-            description: result.message,
-          })
-          // Still redirect to term-plan to continue onboarding
-          console.log('[Onboarding] Redirecting to term-plan in offline mode');
-          navigateToNextStep(router, 'onboarding', null);
-          return;
-        }
-        
-        if (!result.success) {
-          throw new Error(result.message);
-        }
-        
-        toast({ 
-          title: "Success", 
-          description: children.length === 1 
-            ? "Child successfully linked to your account!"
-            : `${children.length} children successfully linked to your account!`
-        })
-                
-        // Show diagnostic quiz before proceeding
-        console.log('[Onboarding] Showing diagnostic quiz')
-        setShowDiagnosticQuiz(true);
-      } catch (err: unknown) {
-        // Handle registration failure by saving locally
-        console.error('[Onboarding] Registration failed:', err);
-        toast({
-          title: "Registration Failed",
-          description: err instanceof Error ? err.message : "Failed to complete child registration.",
-          variant: "destructive",
-        })
-        
-        // Inform user that data was saved locally
-        toast({
-          title: "Data Saved Locally",
-          description: "Child data has been saved locally and will be synced when connection is restored.",
-        })
-        
-        // Still redirect to term-plan to continue onboarding
-        console.log('[Onboarding] Redirecting to term-plan despite local save');
-        navigateToNextStep(router, 'onboarding', user || null);
-      }
-    } catch (err: unknown) {
-      console.error('[Onboarding] Unexpected error:', err);
-      console.error('[Onboarding] Error details:', {
-        message: err instanceof Error ? err.message : 'Unknown error',
-        stack: err instanceof Error ? err.stack : 'No stack trace'
-      });
-      toast({
-        title: "Registration Error",
-        description: err instanceof Error ? err.message : "Failed to complete child registration. Please try again.",
-        variant: "destructive",
-      })
-      // Use our error handler to reload the page instead of redirecting
-      handleErrorWithReload(err, "Registration failed. Reloading page to try again...");
-    } finally {
-      setLoading(false)
-    }
-  }
-  
-  const handleBackToDashboard = () => {
-    try {
-      navigateToNextStep(router, 'onboarding', user || null);
-    } catch (err: any) {
-      console.error('[Onboarding] back to dashboard error:', err.message);
-      console.error('[Onboarding] back to dashboard error details:', err);
-      // Use our error handler to reload the page instead of redirecting
-      handleErrorWithReload(err, "Failed to navigate to dashboard. Reloading page to try again...");
-    }
-  }
-
-  const handleSkipToHomepage = () => {
-    try {
-      // Get current user for navigation
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        skipToHomepage(router, user);
-      }).catch(() => {
-        // If we can't get the user, still navigate to homepage
-        skipToHomepage(router, null);
-      });
-    } catch (err: any) {
-      console.error('[Onboarding] skip error:', err.message);
-      console.error('[Onboarding] skip error details:', err);
-      // Use our error handler to reload the page instead of redirecting
-      handleErrorWithReload(err, "Failed to skip to homepage. Reloading page to try again...");
-    }
-  }
-
-  // Add a simplified form for adding children later
-  const handleAddLater = () => {
-    toast({
-      title: "Adding Children Later",
-      description: "You can add children to your account anytime from the settings page.",
+    const res = await fetch("/api/onboarding-progress", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        onboarding_step: nextStep,
+        role,
+        full_name: fullName.trim() || undefined,
+        age: Number.isFinite(ageNum) ? ageNum : null,
+        grade: grade.trim() || null,
+      }),
     });
-    navigateToNextStep(router, 'onboarding', user || null);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body?.error || "Could not save onboarding progress.");
+    }
   }
 
-  const parseCsv = (csvText: string): { nickname: string; age: number; grade: string }[] => {
-    const lines = csvText.trim().split('\n')
-    const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
-    
-    // Validate headers
-    const requiredHeaders = ['nickname', 'age', 'grade']
-    const missingHeaders = requiredHeaders.filter(header => !headers.includes(header))
-    
-    if (missingHeaders.length > 0) {
-      throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`)
-    }
-    
-    const results = []
-    
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim()
-      if (!line) continue
-      
-      const values = line.split(',').map(v => v.trim())
-      const row: any = {}
-      
-      headers.forEach((header, index) => {
-        row[header] = values[index] || ''
-      })
-      
-      // Validate data
-      if (!row.nickname || row.nickname.length < 2) {
-        throw new Error(`Row ${i + 1}: Nickname must be at least 2 characters`)
-      }
-      
-      const age = parseInt(row.age)
-      if (isNaN(age) || age < 6 || age > 18) {
-        throw new Error(`Row ${i + 1}: Age must be between 6 and 18`)
-      }
-      
-      const validGrades = ['6', '7', '8', '9', '10', '11', '12', 'college']
-      if (!validGrades.includes(row.grade)) {
-        throw new Error(`Row ${i + 1}: Invalid grade. Must be 6-12 or college`)
-      }
-      
-      results.push({
-        nickname: row.nickname,
-        age,
-        grade: row.grade
-      })
-    }
-    
-    if (results.length === 0) {
-      throw new Error('No valid data found in CSV file')
-    }
-    
-    return results
-  }
+  async function handleNext() {
+    setError(null);
 
-  const handleCsvImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    
-    // Validate file type
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload a CSV file",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    // Validate file size (max 1MB)
-    if (file.size > 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload a file smaller than 1MB",
-        variant: "destructive",
-      })
-      return
-    }
-    
-    const reader = new FileReader()
-    reader.onload = (e) => {
+    if (step === 1) {
+      if (!fullName.trim()) {
+        setError("Please enter a name to continue.");
+        return;
+      }
+      if (!grade.trim()) {
+        setError("Please enter a grade to continue.");
+        return;
+      }
+      const ageNum = Number(age);
+      if (age && (!Number.isFinite(ageNum) || ageNum < 1 || ageNum > 120)) {
+        setError("Please enter a valid age.");
+        return;
+      }
+
+      setSaving(true);
       try {
-        const csvText = e.target?.result as string
-        const parsedData = parseCsv(csvText)
-        
-        // Update state with parsed data
-        setChildren(parsedData.map(child => ({
-          nickname: child.nickname,
-          age: child.age,
-          grade: child.grade
-        })))
-        
-        // Clear errors
-        setErrors({})
-        
-        toast({
-          title: "Success",
-          description: `Imported ${parsedData.length} children from CSV`
-        })
-      } catch (error: any) {
-        toast({
-          title: "CSV Import Failed",
-          description: error.message,
-          variant: "destructive",
-        })
+        await saveProgress(2);
+        setStep(2);
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (step === 2) {
+      setSaving(true);
+      try {
+        const prefRes = await fetch("/api/learner-preferences", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ learning_style: learningStyle }),
+        });
+        if (!prefRes.ok) {
+          const body = await prefRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Could not save learning style.");
+        }
+        await saveProgress(3);
+        setStep(3);
+      } catch (err: any) {
+        setError(err?.message || "Could not continue.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (step === 3) {
+      if (lessonDays.length === 0) {
+        setError("Select at least one lesson day to continue.");
+        return;
+      }
+      setSaving(true);
+      try {
+        await saveProgress(4);
+        setStep(4);
+      } catch (err: any) {
+        setError(err?.message || "Could not continue.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    if (step === 4) {
+      if (!subjectName.trim()) {
+        setError("Add your first subject to continue.");
+        return;
+      }
+      if (topics.length === 0) {
+        setError("Add at least one topic to continue.");
+        return;
+      }
+
+      setSaving(true);
+      try {
+        const scheduleRes = await fetch("/api/lesson-schedule", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectName: subjectName.trim(),
+            lessonDays,
+            reminderEnabled,
+            reminderTime,
+            reminderTimezone,
+          }),
+        });
+
+        if (!scheduleRes.ok) {
+          const body = await scheduleRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Could not save lesson-day settings.");
+        }
+
+        const completeRes = await fetch("/api/onboarding/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subjectPlan: {
+              subject: subjectName.trim(),
+              topics: topics.map((title) => ({ title })),
+            },
+          }),
+        });
+
+        if (!completeRes.ok) {
+          const body = await completeRes.json().catch(() => ({}));
+          throw new Error(body?.error || "Failed to complete onboarding");
+        }
+
+        try {
+          localStorage.setItem("lana_onboarding_complete", "1");
+        } catch {}
+
+        router.replace("/");
+      } catch (err: any) {
+        setError(err?.message || "Could not complete onboarding.");
+      } finally {
+        setSaving(false);
       }
     }
-    
-    reader.onerror = () => {
-      toast({
-        title: "Import Failed",
-        description: "Failed to read the CSV file",
-        variant: "destructive",
-      })
-    }
-    
-    reader.readAsText(file)
   }
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click()
+  function handleBack() {
+    if (step === 1 || saving) return;
+    setError(null);
+    setStep((prev) => (prev - 1) as Step);
   }
+
+  if (isLoading || loading) {
+    return (
+      <div className="grid min-h-screen place-items-center bg-black text-white">
+        <Loader2 className="h-8 w-8 animate-spin text-white/60" />
+      </div>
+    );
+  }
+
+  const stepLabels = ["About You", "Learning Style", "Lesson Days", "First Subject"];
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
-      {showDiagnosticQuiz ? (
-        // Diagnostic Quiz Component
-        <div className="w-full max-w-md">
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-white/20 rounded-full"></div>
-              <div className="w-8 h-2 bg-white/80 rounded-full"></div>
-              <div className="w-2 h-2 bg-white/80 rounded-full"></div>
-            </div>
-          </div>
-          
-          <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/10 rounded-full blur-xl" />
-              <div className="relative w-16 h-16 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-full flex items-center justify-center">
-                <RotateCcw className="w-8 h-8 text-white/80" />
-              </div>
-            </div>
-          </div>
-          
-          <div className="text-center space-y-2 mb-10">
-            <h1 className="text-3xl font-light tracking-tight">
-              Diagnostic Quiz
-            </h1>
-            <p className="text-white/50 text-sm">
-              Complete this short quiz to help us personalize your learning experience
-            </p>
-          </div>
-          
-          <DiagnosticQuiz 
-            onComplete={() => navigateToNextStep(router, 'onboarding', user || null)} 
-            childAge={children[0]?.age ? Number(children[0].age) : undefined} 
-          />
-          
-          <div className="pt-4 flex justify-center">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowDiagnosticQuiz(false)}
-              className="px-4 py-2 border border-white/20 text-white rounded-lg hover:bg-white/10"
-            >
-              Back to Setup
-            </Button>
-          </div>
-        </div>
-      ) : (
-        // Original form
-        <div className="w-full max-w-md">
-          {/* Progress indicator */}
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-white/20 rounded-full"></div>
-              <div className="w-8 h-2 bg-white/80 rounded-full"></div>
-              <div className="w-2 h-2 bg-white/20 rounded-full"></div>
-            </div>
-          </div>
-
-          {/* Icon */}
-          <div className="flex justify-center mb-8">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white/10 rounded-full blur-xl" />
-              <div className="relative w-16 h-16 bg-white/[0.03] backdrop-blur-sm border border-white/10 rounded-full flex items-center justify-center">
-                <User className="w-8 h-8 text-white/80" />
-              </div>
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="text-center space-y-2 mb-10">
-            <h1 className="text-3xl font-light tracking-tight">
-              Set up your child{children.length > 1 ? 'ren' : ''}
-            </h1>
-            <p className="text-white/50 text-sm">
-              This helps Lana explain at the right level
-            </p>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* CSV Import Section */}
-            <div className="bg-white/[0.02] border border-white/10 rounded-xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-white/80">Bulk Import</h3>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={triggerFileInput}
-                  className="px-3 py-1.5 text-xs border-white/20 text-white/70 hover:bg-white/10"
-                >
-                  <Upload className="w-3 h-3 mr-1" />
-                  Import CSV
-                </Button>
-              </div>
-              <p className="text-xs text-white/50 mb-3">
-                Upload a CSV file with columns: nickname, age, grade
-              </p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleCsvImport}
-                className="hidden"
-              />
-              <div className="text-xs text-white/40 bg-white/5 rounded-lg p-3">
-                <p className="font-medium mb-1">CSV Format Example:</p>
-                <pre className="whitespace-pre-wrap">
-{`nickname,age,grade
-John,10,6
-Jane,12,8
-Bob,15,10`}
-                </pre>
-              </div>
-            </div>
-
-            {children.map((child, index) => (
-              <div key={index} className="space-y-6 p-4 rounded-xl bg-white/[0.02] border border-white/10">
-                {children.length > 1 && (
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Child {index + 1}</h3>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeChild(index)}
-                      className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                )}
-                
-                <div className="space-y-2">
-                  <label 
-                    htmlFor={`nickname-${index}`} 
-                    className="block text-xs font-medium text-white/40 uppercase tracking-wider"
-                  >
-                    Nickname
-                  </label>
-                  <div className="relative">
-                    <input
-                      id={`nickname-${index}`}
-                      type="text"
-                      value={child.nickname}
-                      onChange={(e) => handleChildChange(index, 'nickname', e.target.value)}
-                      placeholder="Enter child's nickname"
-                      className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/[0.03] transition-all pl-10 ${
-                        errors[index] && errors[index].nickname ? "border-red-500" : "border-white/10 focus:border-white/30"
-                      }`}
-                      required
-                    />
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-                  </div>
-                  {errors[index] && errors[index].nickname && (
-                    <p className="text-red-400 text-xs mt-1">{errors[index].nickname}</p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label 
-                      htmlFor={`age-${index}`} 
-                      className="block text-xs font-medium text-white/40 uppercase tracking-wider"
-                    >
-                      Age
-                    </label>
-                    <div className="relative">
-                      <input
-                        id={`age-${index}`}
-                        type="number"
-                        min={6}
-                        max={18}
-                        value={child.age || ""}
-                        onChange={(e) => handleChildChange(index, 'age', e.target.value === "" ? "" : Number(e.target.value))}
-                        placeholder="Age"
-                        className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:bg-white/[0.03] transition-all pl-10 ${
-                          errors[index] && errors[index].age ? "border-red-500" : "border-white/10 focus:border-white/30"
-                        }`}
-                        required
-                      />
-                      <GraduationCap className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-                    </div>
-                    {errors[index] && errors[index].age && (
-                      <p className="text-red-400 text-xs mt-1">{errors[index].age}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label 
-                      htmlFor={`grade-${index}`} 
-                      className="block text-xs font-medium text-white/40 uppercase tracking-wider"
-                    >
-                      Grade
-                    </label>
-                    <div className="relative">
-                      <select
-                        id={`grade-${index}`}
-                        value={child.grade}
-                        onChange={(e) => handleChildChange(index, 'grade', e.target.value)}
-                        className={`w-full px-4 py-3 bg-white/[0.02] border rounded-lg text-white focus:outline-none focus:bg-white/[0.03] transition-all appearance-none cursor-pointer pl-10 pr-8 ${
-                          errors[index] && errors[index].grade ? "border-red-500" : "border-white/10 focus:border-white/30"
-                        }`}
-                        style={{
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ffffff40' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                          backgroundPosition: 'right 0.5rem center',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1.5em 1.5em',
-                        }}
-                        required
-                      >
-                        <option value="" disabled className="bg-black text-white/50">
-                          Select
-                        </option>
-                        <option value="6" className="bg-black">Grade 6</option>
-                        <option value="7" className="bg-black">Grade 7</option>
-                        <option value="8" className="bg-black">Grade 8</option>
-                        <option value="9" className="bg-black">Grade 9</option>
-                        <option value="10" className="bg-black">Grade 10</option>
-                        <option value="11" className="bg-black">Grade 11</option>
-                        <option value="12" className="bg-black">Grade 12</option>
-                        <option value="college" className="bg-black">College</option>
-                      </select>
-                      <BookOpen className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-white/40" />
-                    </div>
-                    {errors[index] && errors[index].grade && (
-                      <p className="text-red-400 text-xs mt-1">{errors[index].grade}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+    <div className="min-h-screen bg-black px-4 py-8 text-white">
+      <div className="mx-auto w-full max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:p-6">
+        <div className="mb-5">
+          <p className="text-xs uppercase tracking-widest text-white/45">Step {step} of 4</p>
+          <h1 className="mt-1 text-xl font-semibold">{stepLabels[step - 1]}</h1>
+          <div className="mt-3 grid grid-cols-4 gap-2">
+            {[1, 2, 3, 4].map((s) => (
+              <div key={s} className={`h-1.5 rounded-full ${s <= step ? "bg-white" : "bg-white/15"}`} />
             ))}
+          </div>
+        </div>
 
-            {/* Add Child Button */}
-            <Button
-              type="button"
-              onClick={addChild}
-              variant="outline"
-              className="w-full px-4 py-3 border border-white/20 text-white font-medium rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Add Another Child
-            </Button>
-
-            <div className="pt-4 space-y-3">
-              <Button
-                type="submit"
-                className="w-full px-5 py-3.5 bg-white text-black font-medium text-sm rounded-lg hover:bg-white/95 transition-all duration-200 flex items-center justify-center"
-                disabled={loading}
+        {step === 1 && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setRole("child")}
+                className={`min-h-10 rounded-md border px-3 py-2 text-sm ${
+                  role === "child" ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                }`}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Setting up...
-                  </>
-                ) : (
-                  children.length === 1 ? "Finish setup" : `Finish setup for ${children.length} children`
-                )}
-              </Button>
-              
-              <div className="flex gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleBackToDashboard}
-                  className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
+                I&apos;m a student
+              </button>
+              <button
+                onClick={() => setRole("parent")}
+                className={`min-h-10 rounded-md border px-3 py-2 text-sm ${
+                  role === "parent" ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                }`}
+              >
+                I&apos;m a parent
+              </button>
+            </div>
+
+            <label className="block space-y-1">
+              <span className="text-xs text-white/60">Name</span>
+              <input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                placeholder={role === "parent" ? "Child name" : "Your name"}
+              />
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Age</span>
+                <input
+                  type="number"
+                  value={age}
+                  onChange={(e) => setAge(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="Age"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Grade</span>
+                <input
+                  value={grade}
+                  onChange={(e) => setGrade(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="e.g. 7"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div className="space-y-3">
+            {[
+              { id: "visual", label: "Visual", desc: "Diagrams, charts, and examples" },
+              { id: "auditory", label: "Auditory", desc: "Explainers and spoken walkthroughs" },
+              { id: "reading_writing", label: "Reading/Writing", desc: "Clear notes and summaries" },
+              { id: "kinesthetic", label: "Kinesthetic", desc: "Practice-first and active checkpoints" },
+            ].map((item) => {
+              const active = learningStyle === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setLearningStyle(item.id as LearningStyle)}
+                  className={`flex min-h-12 w-full items-center justify-between rounded-lg border px-3 py-2 text-left ${
+                    active ? "border-white bg-white text-black" : "border-white/20 bg-black text-white"
+                  }`}
                 >
-                  <ChevronLeft className="mr-2 h-4 w-4" />
-                  Back
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleAddLater}
-                  className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
-                >
-                  Add Later
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleSkipToHomepage}
-                  className="flex-1 px-5 py-3.5 border border-white/20 text-white font-medium text-sm rounded-lg hover:bg-white/10 transition-all duration-200 flex items-center justify-center"
-                >
-                  Skip to homepage
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+                  <div>
+                    <p className="text-sm font-semibold">{item.label}</p>
+                    <p className={`text-xs ${active ? "text-black/70" : "text-white/60"}`}>{item.desc}</p>
+                  </div>
+                  {active && <Check className="h-4 w-4" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-4">
+            <div>
+              <p className="mb-2 text-xs text-white/60">Choose lesson days</p>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map((day) => {
+                  const active = lessonDays.includes(day);
+                  return (
+                    <button
+                      key={day}
+                      onClick={() => toggleDay(day)}
+                      className={`min-h-9 rounded-full border px-3 py-1 text-xs ${
+                        active ? "border-white bg-white text-black" : "border-white/20 bg-black text-white/80"
+                      }`}
+                    >
+                      {day.slice(0, 3)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          </form>
 
-          {/* Footer note */}
-          <p className="text-center text-white/30 text-xs mt-8">
-            You can add more children later from settings
-          </p>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={reminderEnabled} onChange={(e) => setReminderEnabled(e.target.checked)} />
+              Enable reminders
+            </label>
+
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Reminder time</span>
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={(e) => setReminderTime(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                />
+              </label>
+
+              <label className="block space-y-1">
+                <span className="text-xs text-white/60">Timezone</span>
+                <select
+                  value={reminderTimezone}
+                  onChange={(e) => setReminderTimezone(e.target.value)}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                >
+                  {timezoneOptions.map((tz) => (
+                    <option key={tz} value={tz}>
+                      {tz}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="space-y-4">
+            <label className="block space-y-1">
+              <span className="text-xs text-white/60">First subject</span>
+              <input
+                value={subjectName}
+                onChange={(e) => setSubjectName(e.target.value)}
+                className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                placeholder="e.g. Mathematics"
+              />
+            </label>
+
+            <div className="space-y-2">
+              <span className="text-xs text-white/60">Topics (add at least one)</span>
+              <div className="flex gap-2">
+                <input
+                  value={topicInput}
+                  onChange={(e) => setTopicInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}
+                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                  placeholder="e.g. Fractions"
+                />
+                <button onClick={addTopic} className="rounded-md border border-white/20 px-3 py-2 text-xs">
+                  Add
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {topics.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => removeTopic(topic)}
+                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/90"
+                    title="Remove topic"
+                  >
+                    {topic} x
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {error && <p className="mt-4 text-sm text-red-300">{error}</p>}
+
+        <div className="mt-6 flex items-center gap-2">
+          <button
+            onClick={handleBack}
+            disabled={step === 1 || saving}
+            className="inline-flex min-h-10 items-center gap-1 rounded-md border border-white/20 px-3 py-2 text-xs disabled:opacity-40"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </button>
+
+          <button
+            onClick={handleNext}
+            disabled={saving}
+            className="inline-flex min-h-10 flex-1 items-center justify-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : step === 4 ? "Start learning" : "Continue"}
+            {!saving && <ArrowRight className="h-3.5 w-3.5" />}
+          </button>
         </div>
-      )}
+      </div>
     </div>
-  )
+  );
 }

@@ -65,14 +65,47 @@ export function navigateToNextStep(router: any, currentStep: string, user: User 
     console.log('[Navigation] Navigating to next step from:', currentStep);
     
     switch (currentStep) {
-      case 'onboarding':
-        // From onboarding, go to term-plan
+      case 'auth':
+        // From authentication, go to canonical onboarding
         if (router && typeof router.push === 'function') {
-          router.push('/term-plan?onboarding=1');
+          router.push('/onboarding');
         } else {
           // Fallback: use window.location
           if (typeof window !== 'undefined') {
-            window.location.assign('/term-plan?onboarding=1');
+            window.location.assign('/onboarding');
+          }
+        }
+        break;
+        
+      case 'child-info':
+        // Legacy step aliases now point to canonical onboarding
+        if (router && typeof router.push === 'function') {
+          router.push('/onboarding');
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.assign('/onboarding');
+          }
+        }
+        break;
+        
+      case 'learning-preference':
+        // Legacy step aliases now point to canonical onboarding
+        if (router && typeof router.push === 'function') {
+          router.push('/onboarding');
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.assign('/onboarding');
+          }
+        }
+        break;
+        
+      case 'schedule':
+        // Legacy step aliases now point to canonical onboarding
+        if (router && typeof router.push === 'function') {
+          router.push('/onboarding');
+        } else {
+          if (typeof window !== 'undefined') {
+            window.location.assign('/onboarding');
           }
         }
         break;

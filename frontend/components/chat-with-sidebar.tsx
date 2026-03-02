@@ -5,6 +5,7 @@ import React from "react"
 import { useState, useEffect, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { Suspense } from "react"
+import { motion, AnimatePresence } from "framer-motion"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
   Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
@@ -12,7 +13,7 @@ import {
   SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem,
   SidebarProvider, SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { History, Library, Plus, MessageSquare, Settings, Mail, LogIn, LogOut, AlertCircle } from "lucide-react"
+import { History, Library, Plus, MessageSquare, Settings, Mail, LogIn, LogOut, AlertCircle, Video } from "lucide-react"
 import { uuid } from "@/lib/client-utils"
 import Logo from "@/components/logo"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -22,7 +23,7 @@ import { ApiError } from "@/lib/errors";
 import { supabase } from "@/lib/db"
 import { useToast } from "@/hooks/use-toast"
 import type { User } from "@supabase/supabase-js"
-import { useEnhancedAuth } from "@/hooks/useEnhancedAuth"
+import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 
 // Centralized API base with optional proxying via Next.js rewrites
 // Using unified API configuration
@@ -79,8 +80,8 @@ function ChatWithSidebarContent() {
   const [question, setQuestion] = useState<string>("")
   const [history, setHistory] = useState<ChatHistory[]>([])
   const [sid, setSid] = useState<string | null>(null)
-  // Replace individual auth state variables with useEnhancedAuth hook
-  const { user, isAuthenticated, isLoading: authLoading } = useEnhancedAuth();
+  // Replace individual auth state variables with useUnifiedAuth hook
+  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
   const [role, setRole] = useState<string | null>(null)
   const [accessToken, setAccessToken] = useState<string | null>(null)
   const [loadingHistory, setLoadingHistory] = useState<boolean>(false)
@@ -100,13 +101,15 @@ function ChatWithSidebarContent() {
   /* 1️⃣ Initialize & persist session id once */
   useEffect(() => {
     const initSessionId = async () => {
-      // For guest users, generate a standard session ID
-      // For authenticated users, we'll namespace it with their user ID
-      let id = localStorage.getItem("lana_sid");
+      // Check authentication state first to avoid race conditions
+      let id;
       
-      if (!id) {
-        id = uuid();
-        localStorage.setItem("lana_sid", id);
+      // If user is authenticated, use their user ID as the session ID
+      if (user && user.id) {
+        id = user.id;
+      } else {
+        // For guest users, generate a standard session ID
+        id = `guest_${uuid()}`;
       }
       
       setSid(id);
@@ -122,12 +125,12 @@ function ChatWithSidebarContent() {
     };
     
     initSessionId();
-  }, [])
+  }, [user])
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
   
-  const fetchHistory = async (forceRefresh = false) => {
+  const fetchHistory = useCallback(async (forceRefresh = false) => {
     if (!sid) return;
     setLoadingHistory(true);
     setHistoryError(null);
@@ -180,9 +183,9 @@ function ChatWithSidebarContent() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [sid, accessToken, api, isAuthenticated]);
 
-  // Fetch user session - simplified with useEnhancedAuth
+  // Fetch user session - simplified with useUnifiedAuth
   useEffect(() => {
     if (user) {
       setRole(user.user_metadata?.role || null)
@@ -195,22 +198,13 @@ function ChatWithSidebarContent() {
       }
       getAccessToken()
       
-      // Ensure session id is namespaced by user id to satisfy backend auth checks
+      // Update session ID to use authenticated user ID
       try {
-        const currentSid = localStorage.getItem("lana_sid");
-        const uidPrefix = `${user.id}:`;
-        if (currentSid && !currentSid.startsWith(uidPrefix)) {
-          const newSid = `${user.id}:${currentSid}`;
-          localStorage.setItem("lana_sid", newSid);
-          setSid(newSid);
-        } else if (!currentSid) {
-          // If no SID exists, create a new one with user ID prefix
-          const newSid = `${user.id}:${uuid()}`;
-          localStorage.setItem("lana_sid", newSid);
-          setSid(newSid);
+        if (user?.id) {
+          setSid(user.id);
         }
       } catch (error) {
-        console.error('Error namespacing session ID:', error);
+        console.error('Error updating session ID:', error);
       }
       
       if (sid) {
@@ -236,12 +230,11 @@ function ChatWithSidebarContent() {
       // Generate a fresh session id locally instead of calling a non-existent /reset
       let newSid = uuid();
       
-      // For authenticated users, namespace the session ID with their user ID
+      // For authenticated users, use their user ID
       if (user?.id) {
-        newSid = `${user.id}:${newSid}`;
+        newSid = user.id;
       }
       
-      localStorage.setItem("lana_sid", newSid)
       setSid(newSid)
       await debouncedFetchHistory() // use debounced version
       setView("chat")
@@ -255,10 +248,37 @@ function ChatWithSidebarContent() {
     }
   }
 
-  const handleSelect = (title: string) => {
+  const handleSelect = (title: string, fromMode?: string) => {
     setQuestion(title)
     setView("video-learning")
   }
+
+  // Centralized navigation handlers for consistency
+  const handleNavigateToVideoLearning = useCallback((title: string, fromMode?: string) => {
+    setQuestion(title);
+    setView("video-learning");
+  }, []);
+
+  const handleNavigateToChat = useCallback(() => {
+    setView("chat");
+    debouncedFetchHistory();
+  }, [debouncedFetchHistory]);
+
+  const handleNavigateToHomepage = useCallback(() => {
+    router.push('/homepage');
+  }, [router]);
+
+  const handleNavigateToLogin = useCallback(() => {
+    router.push('/login');
+  }, [router]);
+
+  const handleNavigateToSettings = useCallback(() => {
+    router.push('/settings');
+  }, [router]);
+
+  const handleNavigateToFeedback = useCallback(() => {
+    router.push('/feedback');
+  }, [router]);
 
   const handleBack = () => {
     setView("chat")
@@ -268,10 +288,21 @@ function ChatWithSidebarContent() {
   /* 4️⃣ Routing */
   if (view === "video-learning") {
     return (
-      <PersonalisedAiTutor
-        question={question}
-        onBack={handleBack}
-      />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="standalone-video-learning-view"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ duration: 0.3 }}
+          className="w-full h-full"
+        >
+          <PersonalisedAiTutor
+            question={question}
+            onBack={handleNavigateToChat}
+          />
+        </motion.div>
+      </AnimatePresence>
     )
   }
 
@@ -310,6 +341,23 @@ function ChatWithSidebarContent() {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {/* Video Lessons */}
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      onClick={() => router.push('/video-explainer')}
+                      className="w-full justify-start gap-3 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10"
+                    >
+                      <Video className="size-4" />
+                      <span>Video Lessons</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
   
             {/* Live History - Secure Authentication Check */}
             <SidebarGroup>
@@ -334,7 +382,7 @@ function ChatWithSidebarContent() {
                             Login to save history and unlock full features
                           </p>
                           <SidebarMenuButton
-                            onClick={() => router.push("/login")}
+                            onClick={handleNavigateToLogin}
                             className="w-full justify-center bg-white/10 hover:bg-white/20 text-white border border-white/20"
                           >
                             <LogIn className="w-4 h-4" />
@@ -403,7 +451,7 @@ function ChatWithSidebarContent() {
               {/* Feedback */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
-                  onClick={() => router.push("/feedback")}
+                  onClick={handleNavigateToFeedback}
                   className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
                 >
                   <MessageSquare className="size-4" />
@@ -414,7 +462,7 @@ function ChatWithSidebarContent() {
               {/* Settings */}
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  onClick={() => router.push("/settings")}
+                  onClick={handleNavigateToSettings}
                   className="text-white/60 hover:text-white/80 w-full justify-start gap-2"
                 >
                   <Settings className="size-4" />
@@ -426,7 +474,7 @@ function ChatWithSidebarContent() {
               {role === "guardian" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton
-                    onClick={() => router.push("/homepage")}
+                    onClick={handleNavigateToHomepage}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <Mail className="w-4 h-4" />
@@ -450,7 +498,7 @@ function ChatWithSidebarContent() {
                   </SidebarMenuButton>
                 ) : (
                   <SidebarMenuButton
-                    onClick={() => router.push("/login")}
+                    onClick={handleNavigateToLogin}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >
                     <LogIn className="w-4 h-4" />
@@ -471,27 +519,50 @@ function ChatWithSidebarContent() {
           </header>
           <div className="flex-1">
             {view === "chat" ? (
-              <Suspense fallback={
-                <div className="flex-1 flex items-center justify-center bg-black">
-                  <div className="text-white animate-pulse">Loading Chat...</div>
-                </div>
-              }>
-                <AnimatedAIChat
-                  onNavigateToVideoLearning={handleSelect}
-                  onSend={debouncedFetchHistory}
-                />
-              </Suspense>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="chat-view"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full"
+                >
+                  <Suspense fallback={
+                    <div className="flex-1 flex items-center justify-center bg-black">
+                      <div className="text-white animate-pulse">Loading Chat...</div>
+                    </div>
+                  }>
+                    <AnimatedAIChat
+                      onNavigateToVideoLearning={handleNavigateToVideoLearning}
+                      onSend={debouncedFetchHistory}
+                      user={user}
+                    />
+                  </Suspense>
+                </motion.div>
+              </AnimatePresence>
             ) : (
-              <Suspense fallback={
-                <div className="flex-1 flex items-center justify-center bg-black">
-                  <div className="text-white animate-pulse">Loading Video Learning...</div>
-                </div>
-              }>
-                <PersonalisedAiTutor
-                  question={question}
-                  onBack={() => setView("chat")}
-                />
-              </Suspense>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key="video-learning-view"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full h-full"
+                >
+                  <Suspense fallback={
+                    <div className="flex-1 flex items-center justify-center bg-black">
+                      <div className="text-white animate-pulse">Loading Video Learning...</div>
+                    </div>
+                  }>
+                    <PersonalisedAiTutor
+                      question={question}
+                      onBack={handleNavigateToChat}
+                    />
+                  </Suspense>
+                </motion.div>
+              </AnimatePresence>
             )}
           </div>
         </SidebarInset>

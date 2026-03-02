@@ -22,8 +22,9 @@ const nextConfig = {
       "sentry.server.config.ts",
     ],
   },
-  // Configure image optimization
   images: {
+    domains: ['www.lanamind.com', 'lanamind.com'],
+    formats: ['image/webp', 'image/avif'],
     remotePatterns: [
       {
         protocol: 'https',
@@ -74,6 +75,15 @@ const nextConfig = {
         ],
       },
       {
+        source: '/_next/data/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
         source: '/api/(.*)',
         headers: [
           {
@@ -113,6 +123,7 @@ const nextConfig = {
       'check-user',
       'verify-user',
       'test-auth',
+      'test-auth-list',
       'deployment-test',
       'supabase-test',
       'avatar/streams',

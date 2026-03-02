@@ -1,64 +1,77 @@
-"""
-Application settings module.
-Provides configuration settings for the application.
-"""
+import os
+from typing import List, Optional
+from pydantic import BaseModel, field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 
-from app.config import (
-    API_DEBUG,
-    API_SECRET_KEY,
-    GROQ_API_KEY,
-    GOOGLE_API_KEY,
-    DATABASE_URL,
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-    SUPABASE_ANON_KEY,
-    SUPABASE_KEY,
-    TTS_API_KEY,
-    MATH_SOLVER_API_KEY,
-    CORS_ORIGINS,
-    RATE_LIMIT_PER_MINUTE,
-    RATE_LIMIT_PER_HOUR,
-    REDIS_HOST,
-    REDIS_PORT,
-    REDIS_PASSWORD,
-    REDIS_DB,
-    REDIS_URL,
-    CACHE_TTL_LESSONS,
-    CACHE_TTL_TTS,
-    CACHE_TTL_HISTORY,
-    CACHE_TTL_POPULAR,
-    CACHE_TTL_MATH
-)
 
-class Settings:
-    """Settings class to hold application configuration."""
-    
-    def __init__(self):
-        self.api_debug = API_DEBUG
-        self.api_secret_key = API_SECRET_KEY
-        self.groq_api_key = GROQ_API_KEY
-        self.google_api_key = GOOGLE_API_KEY
-        self.database_url = DATABASE_URL
-        self.supabase_url = SUPABASE_URL
-        self.supabase_service_role_key = SUPABASE_SERVICE_ROLE_KEY
-        self.supabase_anon_key = SUPABASE_ANON_KEY
-        self.supabase_key = SUPABASE_KEY
-        self.tts_api_key = TTS_API_KEY
-        self.math_solver_api_key = MATH_SOLVER_API_KEY
-        self.cors_origins = CORS_ORIGINS
-        self.rate_limit_per_minute = RATE_LIMIT_PER_MINUTE
-        self.rate_limit_per_hour = RATE_LIMIT_PER_HOUR
-        self.redis_host = REDIS_HOST
-        self.redis_port = REDIS_PORT
-        self.redis_password = REDIS_PASSWORD
-        self.redis_db = REDIS_DB
-        self.redis_url = REDIS_URL
-        self.cache_ttl_lessons = CACHE_TTL_LESSONS
-        self.cache_ttl_tts = CACHE_TTL_TTS
-        self.cache_ttl_history = CACHE_TTL_HISTORY
-        self.cache_ttl_popular = CACHE_TTL_POPULAR
-        self.cache_ttl_math = CACHE_TTL_MATH
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=None, extra="ignore")
 
-def load_settings():
-    """Load and return application settings."""
-    return Settings()
+    # App
+    api_host: str = "0.0.0.0"
+    api_port: int = 8000
+    api_debug: bool = False
+    api_secret_key: str = "change_me_in_prod"
+
+    # CORS and rate limit
+    cors_origins: List[str] = ["*"]
+    rate_limit_per_minute: int = 60
+    rate_limit_per_hour: int = 1000
+
+    # Supabase
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_anon_key: str = ""
+
+    # External APIs
+    groq_api_key: str = ""
+    google_api_key: str = ""
+
+    # Database and Redis
+    database_url: str = ""
+    redis_url: str = ""
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    redis_password: Optional[str] = None
+
+    @field_validator("cors_origins", mode="before")
+    def parse_origins(cls, v):
+        if isinstance(v, str):
+            return [o.strip() for o in v.split(",") if o.strip()]
+        return v
+
+
+def load_settings() -> Settings:
+    # Load .env from backend/.env or repo-root .env (same policy as app.config)
+    from dotenv import load_dotenv
+    env_dir = Path(__file__).resolve().parents[1]
+    backend_env = env_dir / ".env"
+    root_env = env_dir.parents[1] / ".env"
+    if backend_env.exists():
+        load_dotenv(backend_env)
+    elif root_env.exists():
+        load_dotenv(root_env)
+
+    # Map legacy env names to typed fields
+    values = {
+        "api_host": os.getenv("API_HOST", "0.0.0.0"),
+        "api_port": int(os.getenv("API_PORT", "8000")),
+        "api_debug": os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t"),
+        "api_secret_key": os.getenv("API_SECRET_KEY", "change_me_in_prod"),
+        "cors_origins": os.getenv("CORS_ORIGINS", "*") or "*",
+        "rate_limit_per_minute": int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
+        "groq_api_key": os.getenv("GROQ_API_KEY", ""),
+        "google_api_key": os.getenv("GOOGLE_API_KEY", ""),
+        "database_url": os.getenv("DATABASE_URL", ""),
+        "supabase_url": os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", ""),
+        "supabase_service_role_key": os.getenv("SUPABASE_SERVICE_ROLE_KEY", ""),
+        "supabase_anon_key": os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
+        "redis_url": os.getenv("REDIS_URL", ""),
+        "redis_host": os.getenv("REDIS_HOST", "localhost"),
+        "redis_port": int(os.getenv("REDIS_PORT", "6379")),
+        "redis_db": int(os.getenv("REDIS_DB", "0")),
+        "redis_password": os.getenv("REDIS_PASSWORD"),
+    }
+    return Settings(**values)

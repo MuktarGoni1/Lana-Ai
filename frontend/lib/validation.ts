@@ -10,7 +10,7 @@ export const registerSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   name: z.string().min(1, 'Name is required').max(100, 'Name must be less than 100 characters'),
-  age: z.number().min(1, 'Age must be at least 1 year').max(100, 'Age must be less than 100 years'),
+  age: z.number().min(10, 'Age must be at least 10 years').max(100, 'Age must be less than 100 years'),
 });
 
 export const searchSchema = z.object({

@@ -33,7 +33,8 @@ class EventTracker {
       const { data: { session } } = await supabase.auth.getSession();
       
       // Get session ID from localStorage
-      const sessionId = localStorage.getItem('lana_sid');
+      const { data: { user } } = await supabase.auth.getUser();
+      const sessionId = user?.id || `guest_${Date.now()}`;
       
       // Prepare event data
       const eventData: UserEvent = {
