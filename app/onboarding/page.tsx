@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Loader2 } from "lucide-react";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
-import { supabase } from "@/lib/db";
 
 type LearningStyle = "visual" | "auditory" | "reading_writing" | "kinesthetic";
 
@@ -56,30 +55,6 @@ export default function OnboardingPage() {
   }, []);
 
 
-  async function ensureServerSessionSynced() {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token || !session?.refresh_token) return;
-
-    await fetch("/api/auth/sync-session", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-      }),
-      cache: "no-store",
-    });
-  }
-
-  async function authFetch(input: RequestInfo | URL, init?: RequestInit) {
-    await ensureServerSessionSynced();
-    return fetch(input, {
-      ...(init || {}),
-      credentials: "include",
-      cache: init?.cache ?? "no-store",
-    });
-  }
-
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
@@ -97,9 +72,9 @@ export default function OnboardingPage() {
         setLoading(true);
 
         const [progressRes, prefRes, scheduleRes] = await Promise.all([
-          authFetch("/api/onboarding-progress"),
-          authFetch("/api/learner-preferences"),
-          authFetch("/api/lesson-schedule"),
+          fetch("/api/onboarding-progress", { cache: "no-store" }),
+          fetch("/api/learner-preferences", { cache: "no-store" }),
+          fetch("/api/lesson-schedule", { cache: "no-store" }),
         ]);
 
         if (progressRes.ok) {
@@ -164,7 +139,7 @@ export default function OnboardingPage() {
   async function saveProgress(nextStep: Step) {
     const ageNum = age ? Number(age) : null;
 
-    const res = await authFetch("/api/onboarding-progress", {
+    const res = await fetch("/api/onboarding-progress", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -212,7 +187,7 @@ export default function OnboardingPage() {
     if (step === 2) {
       setSaving(true);
       try {
-        const prefRes = await authFetch("/api/learner-preferences", {
+        const prefRes = await fetch("/api/learner-preferences", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ learning_style: learningStyle }),
@@ -260,7 +235,7 @@ export default function OnboardingPage() {
 
       setSaving(true);
       try {
-        const scheduleRes = await authFetch("/api/lesson-schedule", {
+        const scheduleRes = await fetch("/api/lesson-schedule", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -277,7 +252,7 @@ export default function OnboardingPage() {
           throw new Error(body?.error || "Could not save lesson-day settings.");
         }
 
-        const completeRes = await authFetch("/api/onboarding/complete", {
+        const completeRes = await fetch("/api/onboarding/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -16,11 +16,13 @@ function isMissingLessonSchedulesTable(error: any): boolean {
 }
 
 function buildSchedulesUnavailableResponse() {
-  return NextResponse.json({
-    success: true,
-    data: [],
-    warning: 'Lesson schedules table is unavailable in this environment.',
-  });
+  return NextResponse.json(
+    {
+      error: 'Lesson schedules are temporarily unavailable. Please try again later.',
+      code: 'LESSON_SCHEDULES_UNAVAILABLE',
+    },
+    { status: 503 }
+  );
 }
 
 function normalizeTimezone(value: string): string {
@@ -115,11 +117,7 @@ export async function PUT(req: Request) {
 
     if (error) {
       if (isMissingLessonSchedulesTable(error)) {
-        return NextResponse.json({
-          success: true,
-          data: null,
-          warning: 'Lesson schedules table is unavailable in this environment.',
-        });
+        return buildSchedulesUnavailableResponse();
       }
 
       return NextResponse.json({ error: error.message }, { status: 500 });

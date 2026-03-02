@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/db";
@@ -103,6 +103,7 @@ export default function LessonPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
@@ -135,6 +136,7 @@ export default function LessonPage() {
       setLoading(true);
       setError(null);
       setGenerationError(null);
+      setVideoError(null);
       setGenerationBusy(false);
       setGenerationJobId(null);
       setGenerationStartedAt(null);
@@ -257,6 +259,7 @@ export default function LessonPage() {
 
         setVideoUrl(resolvedUrl);
         setVideoBusy(false);
+        setVideoError(null);
         setVideoJobId(null);
 
         await fetch(`/api/lesson/${params.id}/video`, {
@@ -423,9 +426,10 @@ export default function LessonPage() {
     }
   }
 
-  async function generateExplainerVideo() {
+  const generateExplainerVideo = useCallback(async () => {
     if (!topic?.title || videoBusy || videoJobId) return;
     setVideoBusy(true);
+    setVideoError(null);
 
     try {
       const res = await fetch("/api/video/generate", {
@@ -440,6 +444,8 @@ export default function LessonPage() {
 
       if (!res.ok) {
         setVideoBusy(false);
+        const body = await res.json().catch(() => ({}));
+        setVideoError(body?.error || "Failed to generate explainer video.");
         return;
       }
 
@@ -447,22 +453,24 @@ export default function LessonPage() {
       const jobId = payload?.job_id || payload?.jobId || payload?.id;
       if (!jobId) {
         setVideoBusy(false);
+        setVideoError("Video generation started without a valid job id.");
         return;
       }
 
       setVideoJobId(String(jobId));
-    } catch {
+    } catch (err: any) {
       setVideoBusy(false);
+      setVideoError(err?.message || "Failed to generate explainer video.");
     }
-  }
+  }, [topic?.title, videoBusy, videoJobId]);
 
 
   useEffect(() => {
     if (!lesson) return;
-    if (videoUrl || videoBusy || videoJobId) return;
+    if (videoUrl || videoBusy || videoJobId || videoError) return;
 
     void generateExplainerVideo();
-  }, [lesson, videoBusy, videoJobId, videoUrl]);
+  }, [generateExplainerVideo, lesson, videoBusy, videoError, videoJobId, videoUrl]);
 
   if (loading) {
     return (
@@ -630,6 +638,10 @@ export default function LessonPage() {
                   <span>Generating your explainer video…</span>
                 </div>
                 <p className="mt-2 text-xs text-white/60">Lesson and quiz are ready while your video is being prepared.</p>
+              </div>
+            ) : videoError ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+                <p>{videoError}</p>
               </div>
             ) : (
               <p className="text-sm text-white/70">No video generated yet for this lesson.</p>
