@@ -7,6 +7,12 @@ const BodySchema = z.object({
   forceRefresh: z.boolean().optional().default(false),
 });
 
+function isMissingLessonGenerationJobsTable(errorMessage: string | undefined) {
+  if (!errorMessage) return false;
+  return errorMessage.includes("lesson_generation_jobs") && errorMessage.includes("schema cache");
+}
+
+
 export async function POST(req: Request) {
   try {
     const supabase = await createServerClient();
@@ -44,7 +50,7 @@ export async function POST(req: Request) {
     const nowIso = new Date().toISOString();
     const db = supabase as any;
 
-    const { data: activeJob } = await db
+    const { data: activeJob, error: activeJobError } = await db
       .from('lesson_generation_jobs')
       .select('id, status, topic_id, created_at')
       .eq('user_id', user.id)
@@ -53,6 +59,19 @@ export async function POST(req: Request) {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (activeJobError) {
+      if (isMissingLessonGenerationJobsTable(activeJobError.message)) {
+        return NextResponse.json(
+          {
+            error: 'Lesson generation queue table is unavailable. Falling back to direct generation is required.',
+            code: 'LESSON_GENERATION_QUEUE_MISSING',
+          },
+          { status: 501 }
+        );
+      }
+      return NextResponse.json({ error: activeJobError.message }, { status: 500 });
+    }
 
     if (activeJob) {
       return NextResponse.json({
@@ -80,6 +99,15 @@ export async function POST(req: Request) {
       .single();
 
     if (jobError || !job) {
+      if (isMissingLessonGenerationJobsTable(jobError?.message)) {
+        return NextResponse.json(
+          {
+            error: 'Lesson generation queue table is unavailable. Falling back to direct generation is required.',
+            code: 'LESSON_GENERATION_QUEUE_MISSING',
+          },
+          { status: 501 }
+        );
+      }
       return NextResponse.json({ error: jobError?.message || 'Failed to create generation job' }, { status: 500 });
     }
 

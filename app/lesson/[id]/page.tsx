@@ -269,6 +269,27 @@ export default function LessonPage() {
 
     if (!startRes.ok) {
       const body = await startRes.json().catch(() => ({}));
+      const shouldFallbackToDirectGeneration =
+        body?.code === "LESSON_GENERATION_QUEUE_MISSING" ||
+        String(body?.error || "").includes("lesson_generation_jobs");
+
+      if (shouldFallbackToDirectGeneration) {
+        const directRes = await fetch("/api/lesson/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ topicId, forceRefresh }),
+        });
+
+        if (!directRes.ok) {
+          const directBody = await directRes.json().catch(() => ({}));
+          throw new Error(directBody?.error || "Failed to generate lesson");
+        }
+
+        await loadOrGenerateLesson(topicId);
+        setGenerationBusy(false);
+        return;
+      }
+
       throw new Error(body?.error || "Failed to start lesson generation");
     }
 
