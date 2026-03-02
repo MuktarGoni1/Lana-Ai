@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/db";
@@ -107,6 +107,19 @@ export default function LessonPage() {
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
+  const fetchQuizForTopic = useCallback(async (topicId: string) => {
+    const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
+    if (!fetchQuizRes.ok) return;
+
+    const quizPayload = await fetchQuizRes.json();
+    if (!Array.isArray(quizPayload)) return;
+
+    const normalized = normalizeQuizForClient(quizPayload);
+    if (normalized.length > 0) {
+      setQuiz(normalized);
+    }
+  }, []);
+
   const passScore = useMemo(() => {
     const total = quiz.length;
     if (!total) return 0;
@@ -172,15 +185,13 @@ export default function LessonPage() {
       const lessonContent = (unitPayload?.data?.lesson_content || {}) as LessonPayload;
       const normalizedQuiz = normalizeQuizForClient(lessonContent.quiz);
       setLesson(lessonContent);
-      setQuiz(normalizedQuiz);
+      if (normalizedQuiz.length > 0) {
+        setQuiz(normalizedQuiz);
+      }
       setVideoUrl(unitPayload?.data?.video_url || null);
 
       if (normalizedQuiz.length === 0) {
-        const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
-        if (fetchQuizRes.ok) {
-          const q = await fetchQuizRes.json();
-          if (Array.isArray(q)) setQuiz(normalizeQuizForClient(q));
-        }
+        await fetchQuizForTopic(topicId);
       }
       return;
     }
@@ -204,6 +215,47 @@ export default function LessonPage() {
     const body = await unitRes.json().catch(() => ({}));
     throw new Error(body?.error || "Failed to load lesson");
   }
+
+  useEffect(() => {
+    if (!generationBusy || !params?.id) return;
+
+    let stopped = false;
+
+    const checkForProgressiveAssets = async () => {
+      if (stopped) return;
+
+      try {
+        if (!lesson) {
+          const lessonRes = await fetch(`/api/lesson/${params.id}`, { cache: "no-store" });
+          if (lessonRes.ok) {
+            const payload = await lessonRes.json();
+            const lessonContent = (payload?.data?.lesson_content || {}) as LessonPayload;
+            const normalizedQuiz = normalizeQuizForClient(lessonContent.quiz);
+            setLesson(lessonContent);
+            if (normalizedQuiz.length > 0) {
+              setQuiz(normalizedQuiz);
+            }
+            setVideoUrl(payload?.data?.video_url || null);
+          }
+        }
+
+        if (quiz.length === 0) {
+          await fetchQuizForTopic(params.id);
+        }
+      } catch {
+      }
+    };
+
+    void checkForProgressiveAssets();
+    const interval = setInterval(() => {
+      void checkForProgressiveAssets();
+    }, 1500);
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [fetchQuizForTopic, generationBusy, lesson, params?.id, quiz.length]);
 
   async function beginGeneration(topicId: string, forceRefresh: boolean) {
     setGenerationBusy(true);
@@ -507,7 +559,7 @@ export default function LessonPage() {
 
         <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
           <h2 className="text-sm font-semibold">Quiz</h2>
-          {!lesson && generationBusy ? (
+          {quiz.length === 0 && generationBusy ? (
             <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70">Generating quiz questions...</div>
           ) : quiz.length === 0 ? (
               <p className="text-sm text-white/70">No quiz questions available for this lesson yet.</p>

@@ -80,8 +80,7 @@ export function normalizeQuizQuestions(input: unknown): QuizQuestion[] {
 }
 
 export async function generateStructuredLesson(topic: string, age?: number | null): Promise<any> {
-  const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
-  const lessonUrl = `${backendBase.replace(/\/$/, '')}/api/structured-lesson`;
+  const lessonUrl = 'https://api.lanamind.com/api/structured-lesson';
 
   const response = await fetchWithTimeoutAndRetry(
     lessonUrl,
