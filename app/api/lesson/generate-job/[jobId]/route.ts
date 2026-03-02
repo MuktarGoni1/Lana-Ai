@@ -1,18 +1,14 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@/lib/supabase/server';
+import { requireApiUser } from '@/lib/api-auth';
 import { processLessonGenerationJob } from '@/lib/api/lesson-generation';
 
-export async function GET(_: Request, { params }: { params: Promise<{ jobId: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ jobId: string }> }) {
   try {
     const { jobId } = await params;
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const { supabase, user, unauthorized } = await requireApiUser(req);
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (unauthorized || !user) {
+      return unauthorized ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const db = supabase as any;

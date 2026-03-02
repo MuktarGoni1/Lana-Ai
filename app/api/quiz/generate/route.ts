@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createServerClient } from '@/lib/supabase/server';
+import { requireApiUser } from '@/lib/api-auth';
 import { generateStructuredLesson, normalizeQuizQuestions } from '@/lib/api/learning-utils';
 
 const BodySchema = z.object({
@@ -10,14 +10,10 @@ const BodySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const supabase = await createServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const { supabase, user, unauthorized } = await requireApiUser(req);
 
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (unauthorized || !user) {
+      return unauthorized ?? NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const parsed = BodySchema.safeParse(await req.json());

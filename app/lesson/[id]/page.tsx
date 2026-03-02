@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/db";
@@ -100,20 +100,37 @@ export default function LessonPage() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
 
-  const [activeStep, setActiveStep] = useState<"lesson" | "quiz" | "video">("lesson");
-
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [generationBusy, setGenerationBusy] = useState(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
+  const [fallbackAttempted, setFallbackAttempted] = useState(false);
 
   const passScore = useMemo(() => {
     const total = quiz.length;
     if (!total) return 0;
     return Math.ceil(total * 0.7);
   }, [quiz.length]);
+
+
+  async function authFetch(input: RequestInfo | URL, init?: RequestInit) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const headers = new Headers(init?.headers ?? {});
+
+    if (session?.access_token) {
+      headers.set("Authorization", `Bearer ${session.access_token}`);
+    }
+
+    return fetch(input, {
+      ...init,
+      headers,
+      credentials: "include",
+    });
+  }
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -136,8 +153,10 @@ export default function LessonPage() {
       setLoading(true);
       setError(null);
       setGenerationError(null);
+      setVideoError(null);
       setGenerationBusy(false);
       setGenerationJobId(null);
+      setGenerationStartedAt(null);
 
       try {
         const db = supabase as any;
@@ -160,7 +179,7 @@ export default function LessonPage() {
   }, [params?.id]);
 
   async function loadOrGenerateLesson(topicId: string) {
-    const unitRes = await fetch(`/api/lesson/${topicId}`, { cache: "no-store" });
+    const unitRes = await authFetch(`/api/lesson/${topicId}`, { cache: "no-store" });
 
     if (unitRes.ok) {
       const unitPayload = await unitRes.json();
@@ -178,7 +197,7 @@ export default function LessonPage() {
       setVideoUrl(unitPayload?.data?.video_url || null);
 
       if (normalizedQuiz.length === 0) {
-        const fetchQuizRes = await fetch(`/api/quiz/${topicId}`, { cache: "no-store" });
+        const fetchQuizRes = await authFetch(`/api/quiz/${topicId}`, { cache: "no-store" });
         if (fetchQuizRes.ok) {
           const q = await fetchQuizRes.json();
           if (Array.isArray(q)) setQuiz(normalizeQuizForClient(q));
@@ -196,6 +215,8 @@ export default function LessonPage() {
         setGenerationBusy(true);
         setGenerationError(null);
         setGenerationJobId(existingJobId);
+        setGenerationStartedAt(Date.now());
+        setFallbackAttempted(false);
         return;
       }
 
@@ -210,8 +231,10 @@ export default function LessonPage() {
   async function beginGeneration(topicId: string, forceRefresh: boolean) {
     setGenerationBusy(true);
     setGenerationError(null);
+    setGenerationStartedAt(Date.now());
+    setFallbackAttempted(false);
 
-    const startRes = await fetch("/api/lesson/generate-job", {
+    const startRes = await authFetch("/api/lesson/generate-job", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ topicId, forceRefresh }),
@@ -238,7 +261,7 @@ export default function LessonPage() {
     const interval = setInterval(async () => {
       if (stopped) return;
       try {
-        const res = await fetch(`/api/video/status/${videoJobId}`, { cache: "no-store" });
+        const res = await authFetch(`/api/video/status/${videoJobId}`, { cache: "no-store" });
         if (!res.ok) return;
 
         const payload = await res.json();
@@ -255,9 +278,10 @@ export default function LessonPage() {
 
         setVideoUrl(resolvedUrl);
         setVideoBusy(false);
+        setVideoError(null);
         setVideoJobId(null);
 
-        await fetch(`/api/lesson/${params.id}/video`, {
+        await authFetch(`/api/lesson/${params.id}/video`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ videoUrl: resolvedUrl }),
@@ -279,7 +303,7 @@ export default function LessonPage() {
     const interval = setInterval(async () => {
       if (stopped) return;
       try {
-        const statusRes = await fetch(`/api/lesson/generate-job/${generationJobId}`, { cache: "no-store" });
+        const statusRes = await authFetch(`/api/lesson/generate-job/${generationJobId}`, { cache: "no-store" });
         if (!statusRes.ok) return;
 
         const statusPayload = await statusRes.json();
@@ -291,9 +315,15 @@ export default function LessonPage() {
         }
 
         if (status === "failed") {
+          if (!fallbackAttempted) {
+            await fallbackGenerateLesson(params.id);
+            return;
+          }
+
           setGenerationBusy(false);
           setGenerationError(statusPayload?.data?.errorMessage || "Lesson generation failed.");
           setGenerationJobId(null);
+          setGenerationStartedAt(null);
           return;
         }
 
@@ -302,6 +332,8 @@ export default function LessonPage() {
           setGenerationBusy(false);
           setGenerationError(null);
           setGenerationJobId(null);
+          setGenerationStartedAt(null);
+          setFallbackAttempted(false);
         }
       } catch {
       }
@@ -311,14 +343,63 @@ export default function LessonPage() {
       stopped = true;
       clearInterval(interval);
     };
-  }, [generationJobId, params?.id]);
+  }, [fallbackAttempted, generationJobId, params?.id]);
+
+  async function fallbackGenerateLesson(topicId: string) {
+    setFallbackAttempted(true);
+    const lessonRes = await authFetch("/api/lesson/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId, forceRefresh: true }),
+    });
+
+    if (!lessonRes.ok) {
+      const body = await lessonRes.json().catch(() => ({}));
+      throw new Error(body?.error || "Fallback lesson generation failed.");
+    }
+
+    const quizRes = await authFetch("/api/quiz/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId, forceRefresh: true }),
+    });
+
+    if (!quizRes.ok) {
+      console.warn("[lesson-page] Quiz fallback generation failed", quizRes.status);
+    }
+
+    await loadOrGenerateLesson(topicId);
+    setGenerationBusy(false);
+    setGenerationError(null);
+    setGenerationJobId(null);
+    setGenerationStartedAt(null);
+  }
+
+  useEffect(() => {
+    if (!generationBusy || !generationJobId || !params?.id || !generationStartedAt || fallbackAttempted) return;
+
+    const timeout = setTimeout(async () => {
+      try {
+        await fallbackGenerateLesson(params.id);
+      } catch (err: any) {
+        setGenerationBusy(false);
+        setGenerationJobId(null);
+        setGenerationStartedAt(null);
+        setGenerationError(err?.message || "Lesson generation timed out. Please retry.");
+      }
+    }, 45000);
+
+    return () => clearTimeout(timeout);
+  }, [fallbackAttempted, generationBusy, generationJobId, generationStartedAt, params?.id]);
 
   async function retryGeneration() {
     if (!params?.id) return;
     setGenerationError(null);
     setGenerationBusy(true);
+    setGenerationStartedAt(Date.now());
+    setFallbackAttempted(false);
 
-    const res = await fetch(`/api/lesson/${params.id}/regenerate`, {
+    const res = await authFetch(`/api/lesson/${params.id}/regenerate`, {
       method: "POST",
     });
 
@@ -345,7 +426,7 @@ export default function LessonPage() {
 
     const score = quiz.reduce((acc, q, idx) => (answers[idx] === q.answer ? acc + 1 : acc), 0);
 
-    const res = await fetch("/api/quiz/attempt", {
+    const res = await authFetch("/api/quiz/attempt", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -364,7 +445,7 @@ export default function LessonPage() {
     setQuizScore(score);
 
     if (score >= passScore) {
-      await fetch("/api/topic/complete", {
+      await authFetch("/api/topic/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topicId: params.id }),
@@ -372,12 +453,13 @@ export default function LessonPage() {
     }
   }
 
-  async function generateExplainerVideo() {
-    if (!topic?.title || videoBusy) return;
+  const generateExplainerVideo = useCallback(async () => {
+    if (!topic?.title || videoBusy || videoJobId) return;
     setVideoBusy(true);
+    setVideoError(null);
 
     try {
-      const res = await fetch("/api/video/generate", {
+      const res = await authFetch("/api/video/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -389,6 +471,8 @@ export default function LessonPage() {
 
       if (!res.ok) {
         setVideoBusy(false);
+        const body = await res.json().catch(() => ({}));
+        setVideoError(body?.error || "Failed to generate explainer video.");
         return;
       }
 
@@ -396,14 +480,24 @@ export default function LessonPage() {
       const jobId = payload?.job_id || payload?.jobId || payload?.id;
       if (!jobId) {
         setVideoBusy(false);
+        setVideoError("Video generation started without a valid job id.");
         return;
       }
 
       setVideoJobId(String(jobId));
-    } catch {
+    } catch (err: any) {
       setVideoBusy(false);
+      setVideoError(err?.message || "Failed to generate explainer video.");
     }
-  }
+  }, [topic?.title, videoBusy, videoJobId]);
+
+
+  useEffect(() => {
+    if (!lesson) return;
+    if (videoUrl || videoBusy || videoJobId || videoError) return;
+
+    void generateExplainerVideo();
+  }, [generateExplainerVideo, lesson, videoBusy, videoError, videoJobId, videoUrl]);
 
   if (loading) {
     return (
@@ -418,8 +512,8 @@ export default function LessonPage() {
       <div className="grid min-h-screen place-items-center bg-black text-white">
         <div className="space-y-3 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-white/70" />
-          <p className="text-sm text-white/70">Generating your lesson...</p>
-          <p className="text-xs text-white/45">This usually takes a few seconds.</p>
+          <p className="text-sm text-white/70">Generating your lesson and quiz...</p>
+          <p className="text-xs text-white/45">If this fails or takes too long, we automatically retry with a fallback generator once.</p>
         </div>
       </div>
     );
@@ -469,24 +563,8 @@ export default function LessonPage() {
       />
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-5 sm:px-5 sm:py-6">
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-          {[
-            { id: "lesson", label: "Lesson" },
-            { id: "quiz", label: "Quiz" },
-            { id: "video", label: "Explainer Video" },
-          ].map((step) => (
-            <button
-              key={step.id}
-              onClick={() => setActiveStep(step.id as "lesson" | "quiz" | "video")}
-              className={`min-h-10 rounded-lg px-3 py-2 text-xs sm:text-sm ${activeStep === step.id ? "bg-white text-black" : "text-white/70"}`}
-            >
-              {step.label}
-            </button>
-          ))}
-        </div>
-
-        {activeStep === "lesson" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <h2 className="text-sm font-semibold">Lesson content</h2>
             {intro && (
               <div>
                 <h2 className="mb-1 text-sm font-semibold text-white/80">Introduction</h2>
@@ -508,14 +586,10 @@ export default function LessonPage() {
               </div>
             )}
 
-            <button onClick={() => setActiveStep("quiz")} className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black">
-              Continue to quiz
-            </button>
           </section>
-        )}
 
-        {activeStep === "quiz" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+            <h2 className="text-sm font-semibold">Quiz</h2>
             {quiz.length === 0 ? (
               <p className="text-sm text-white/70">No quiz questions available for this lesson yet.</p>
             ) : (
@@ -565,35 +639,41 @@ export default function LessonPage() {
                   </div>
                 )}
 
-                <button onClick={() => setActiveStep("video")} className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs">
-                  Continue to explainer video
-                </button>
               </>
             )}
           </section>
-        )}
 
-        {activeStep === "video" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">Generated explainer video</h2>
+              <h2 className="text-sm font-semibold">Explainer video</h2>
               <button
                 onClick={generateExplainerVideo}
-                disabled={videoBusy}
+                disabled={videoBusy || Boolean(videoJobId)}
                 className="inline-flex min-h-10 items-center gap-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black disabled:opacity-50"
               >
-                {videoBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
-                {videoBusy ? "Generating..." : videoUrl ? "Regenerate video" : "Generate video"}
+                {videoBusy || videoJobId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <PlayCircle className="h-3.5 w-3.5" />}
+                {videoBusy || videoJobId ? "Generating..." : videoUrl ? "Regenerate video" : "Generate video"}
               </button>
             </div>
 
             {videoUrl ? (
-              <video src={videoUrl} controls className="w-full rounded-lg border border-white/10 bg-black" />
+              <video src={videoUrl} controls autoPlay muted className="w-full rounded-lg border border-white/10 bg-black" />
+            ) : videoBusy || videoJobId ? (
+              <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                <div className="flex items-center gap-2 text-sm text-white/80">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating your explainer video…</span>
+                </div>
+                <p className="mt-2 text-xs text-white/60">Lesson and quiz are ready while your video is being prepared.</p>
+              </div>
+            ) : videoError ? (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+                <p>{videoError}</p>
+              </div>
             ) : (
               <p className="text-sm text-white/70">No video generated yet for this lesson.</p>
             )}
           </section>
-        )}
       </main>
     </div>
   );
