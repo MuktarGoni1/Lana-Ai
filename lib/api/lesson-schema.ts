@@ -1,6 +1,20 @@
 import { z } from 'zod';
 import { normalizeQuizQuestions } from '@/lib/api/learning-utils';
 
+const RawSectionSchema = z.object({
+  title: z.string().trim().min(1).max(200).optional(),
+  content: z.string().trim().min(1).max(5000).optional(),
+  heading: z.string().trim().min(1).max(200).optional(),
+  body: z.string().trim().min(1).max(5000).optional(),
+});
+
+const RawLessonContentSchema = z.object({
+  introduction: z.string().trim().min(1).max(5000).optional(),
+  summary: z.string().trim().min(1).max(5000).optional(),
+  sections: z.array(RawSectionSchema).min(1).max(20),
+  quiz: z.array(z.unknown()).min(1).max(20).optional(),
+});
+
 export const LessonSectionSchema = z.object({
   title: z.string().trim().min(1).max(200),
   content: z.string().trim().min(1).max(5000),
@@ -15,9 +29,9 @@ export const LessonQuizSchema = z.object({
 
 export const LessonContentSchema = z.object({
   introduction: z.string().trim().min(1).max(5000),
-  sections: z.array(LessonSectionSchema).min(2).max(20),
-  summary: z.string().trim().min(1).max(3000),
-  quiz: z.array(LessonQuizSchema).min(3).max(20),
+  sections: z.array(LessonSectionSchema).min(1).max(20),
+  summary: z.string().trim().min(1).max(5000),
+  quiz: z.array(LessonQuizSchema).min(1).max(20),
 });
 
 export type LessonContent = z.infer<typeof LessonContentSchema>;
@@ -25,24 +39,35 @@ export type LessonContent = z.infer<typeof LessonContentSchema>;
 export function validateLessonPayload(input: unknown):
   | { ok: true; data: LessonContent }
   | { ok: false; error: string } {
-  const parsed = LessonContentSchema.safeParse(input);
+  const rawParsed = RawLessonContentSchema.safeParse(input);
+  if (!rawParsed.success) {
+    return { ok: false, error: rawParsed.error.issues.map((i) => i.message).join('; ') };
+  }
+
+  const raw = rawParsed.data;
+  const normalizedSections = raw.sections
+    .map((section) => ({
+      title: (section.title ?? section.heading ?? '').trim(),
+      content: (section.content ?? section.body ?? '').trim(),
+    }))
+    .filter((section) => section.title.length > 0 && section.content.length > 0);
+
+  const normalizedQuiz = normalizeQuizQuestions(raw.quiz ?? []);
+  const intro = (raw.introduction ?? raw.summary ?? '').trim();
+  const summary = (raw.summary ?? raw.introduction ?? '').trim();
+
+  const parsed = LessonContentSchema.safeParse({
+    introduction: intro,
+    sections: normalizedSections,
+    summary,
+    quiz: normalizedQuiz,
+  });
+
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues.map((i) => i.message).join('; ') };
   }
 
-  // Accept backend variants (A/B/C/D, 1/2/3, text) and canonicalize to option text.
-  const normalizedQuiz = normalizeQuizQuestions(parsed.data.quiz);
-  if (normalizedQuiz.length !== parsed.data.quiz.length) {
-    return { ok: false, error: 'Quiz contains invalid answer/options mapping' };
-  }
-
-  return {
-    ok: true,
-    data: {
-      ...parsed.data,
-      quiz: normalizedQuiz,
-    },
-  };
+  return { ok: true, data: parsed.data };
 }
 
 export function qualityCheckLesson(lesson: LessonContent):
@@ -52,20 +77,20 @@ export function qualityCheckLesson(lesson: LessonContent):
     return { ok: false, reason: 'Introduction too short' };
   }
 
-  if (lesson.summary.length < 30) {
+  if (lesson.summary.length < 20) {
     return { ok: false, reason: 'Summary too short' };
   }
 
-  if (lesson.sections.length < 2) {
+  if (lesson.sections.length < 1) {
     return { ok: false, reason: 'Not enough sections' };
   }
 
-  const shortSections = lesson.sections.filter((s) => s.content.length < 60).length;
+  const shortSections = lesson.sections.filter((s) => s.content.length < 40).length;
   if (shortSections > 0) {
     return { ok: false, reason: 'Section content too short' };
   }
 
-  if (lesson.quiz.length < 3) {
+  if (lesson.quiz.length < 1) {
     return { ok: false, reason: 'Not enough quiz questions' };
   }
 

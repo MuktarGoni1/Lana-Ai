@@ -2,6 +2,13 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { qualityCheckLesson, validateLessonPayload } from '@/lib/api/lesson-schema';
 
+
+function isMissingLessonGenerationJobsTable(errorMessage: string | undefined) {
+  if (!errorMessage) return false;
+  return errorMessage.includes('lesson_generation_jobs') && errorMessage.includes('schema cache');
+}
+
+
 export async function GET(_: Request, { params }: { params: Promise<{ topicId: string }> }) {
   try {
     const { topicId } = await params;
@@ -31,7 +38,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ topicId: s
     }
 
     const db = supabase as any;
-    const [{ data: unit, error: unitError }, { data: latestJob }] = await Promise.all([
+    const [{ data: unit, error: unitError }, { data: latestJob, error: latestJobError }] = await Promise.all([
       db.from('lesson_units').select('*').eq('topic_id', topicId).maybeSingle(),
       db
         .from('lesson_generation_jobs')
@@ -45,6 +52,10 @@ export async function GET(_: Request, { params }: { params: Promise<{ topicId: s
 
     if (unitError) {
       return NextResponse.json({ error: unitError.message }, { status: 500 });
+    }
+
+    if (latestJobError && !isMissingLessonGenerationJobsTable(latestJobError.message)) {
+      return NextResponse.json({ error: latestJobError.message }, { status: 500 });
     }
 
     const generationStatus = latestJob?.status === 'failed'

@@ -15,8 +15,10 @@ type TopicMeta = {
 };
 
 type LessonSection = {
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
+  heading?: string;
+  body?: string;
 };
 
 type LessonPayload = {
@@ -83,6 +85,29 @@ function normalizeQuizForClient(input: unknown): QuizQuestion[] {
 function isDoneStatus(status: string | undefined) {
   if (!status) return false;
   return ["completed", "done", "succeeded", "success"].includes(status.toLowerCase());
+}
+
+
+function normalizeLessonForRender(input: LessonPayload | null): LessonPayload | null {
+  if (!input) return null;
+
+  const intro = (input.introduction || input.summary || '').trim();
+  const summary = (input.summary || input.introduction || '').trim();
+  const sections = Array.isArray(input.sections)
+    ? input.sections
+        .map((section) => ({
+          title: (section.title || section.heading || '').trim(),
+          content: (section.content || section.body || '').trim(),
+        }))
+        .filter((section) => section.title.length > 0 && section.content.length > 0)
+    : [];
+
+  return {
+    ...input,
+    introduction: intro,
+    summary,
+    sections,
+  };
 }
 
 export default function LessonPage() {
@@ -182,8 +207,8 @@ export default function LessonPage() {
         return;
       }
 
-      const lessonContent = (unitPayload?.data?.lesson_content || {}) as LessonPayload;
-      const normalizedQuiz = normalizeQuizForClient(lessonContent.quiz);
+      const lessonContent = normalizeLessonForRender((unitPayload?.data?.lesson_content || {}) as LessonPayload);
+      const normalizedQuiz = normalizeQuizForClient(lessonContent?.quiz);
       setLesson(lessonContent);
       if (normalizedQuiz.length > 0) {
         setQuiz(normalizedQuiz);
@@ -229,8 +254,8 @@ export default function LessonPage() {
           const lessonRes = await fetch(`/api/lesson/${params.id}`, { cache: "no-store" });
           if (lessonRes.ok) {
             const payload = await lessonRes.json();
-            const lessonContent = (payload?.data?.lesson_content || {}) as LessonPayload;
-            const normalizedQuiz = normalizeQuizForClient(lessonContent.quiz);
+            const lessonContent = normalizeLessonForRender((payload?.data?.lesson_content || {}) as LessonPayload);
+            const normalizedQuiz = normalizeQuizForClient(lessonContent?.quiz);
             setLesson(lessonContent);
             if (normalizedQuiz.length > 0) {
               setQuiz(normalizedQuiz);
@@ -520,7 +545,7 @@ export default function LessonPage() {
   }
 
   const intro = lesson?.introduction || "";
-  const sections = Array.isArray(lesson?.sections) ? lesson!.sections : [];
+  const sections = Array.isArray(lesson?.sections) ? lesson.sections : [];
 
   return (
     <div className="min-h-screen bg-black text-white">

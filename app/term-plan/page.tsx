@@ -270,7 +270,7 @@ function TermPlanPageContent() {
           user_id: userId,
           subject: subject.name.trim(),
           grade: profile.grade,
-          term: null,
+          term: "general",
           raw_syllabus: rawSyllabus,
         })
         .select('id')

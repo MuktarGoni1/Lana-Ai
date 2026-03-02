@@ -68,7 +68,7 @@ export async function POST(req: Request) {
           user_id: user.id,
           subject,
           grade: profile?.grade ?? null,
-          term: null,
+          term: "general",
           raw_syllabus: topics.map((t: any) => t.title).join('\n'),
           updated_at: nowIso,
         })
