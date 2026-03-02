@@ -30,6 +30,7 @@ export class RobustAuthService {
   private networkStatus: 'online' | 'offline' = 'online';
   private offlineQueue: Array<() => Promise<any>> = [];
   private sessionSyncInFlight: Promise<void> | null = null;
+  private authEventVersion = 0;
   private readonly DEFAULT_CONFIG: Required<RobustAuthConfig> = {
     refreshInterval: 5 * 60 * 1000, // 5 minutes
     cacheTimeout: 30000, // 30 seconds
@@ -96,6 +97,7 @@ export class RobustAuthService {
   private initializeAuthListener() {
     // Listen for auth state changes
     const { data } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const eventVersion = ++this.authEventVersion;
       console.log('[RobustAuthService] Auth state changed:', event);
 
       switch (event) {
@@ -111,6 +113,11 @@ export class RobustAuthService {
           if (session?.access_token && session?.refresh_token) {
             await this.syncServerSession(session.access_token, session.refresh_token);
           }
+
+          if (eventVersion !== this.authEventVersion) {
+            return;
+          }
+
           this.updateAuthenticatedState(session?.user || null);
           break;
       }

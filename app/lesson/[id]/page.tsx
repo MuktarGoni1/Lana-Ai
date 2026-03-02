@@ -100,8 +100,6 @@ export default function LessonPage() {
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
 
-  const [activeStep, setActiveStep] = useState<"lesson" | "quiz" | "video">("lesson");
-
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [videoJobId, setVideoJobId] = useState<string | null>(null);
   const [videoBusy, setVideoBusy] = useState(false);
@@ -273,6 +271,11 @@ export default function LessonPage() {
   }, [videoJobId, params.id]);
 
   useEffect(() => {
+    if (!lesson || !topic?.title || videoUrl || videoBusy || videoJobId) return;
+    void generateExplainerVideo();
+  }, [lesson, topic?.title, videoUrl, videoBusy, videoJobId]);
+
+  useEffect(() => {
     if (!generationJobId || !params?.id) return;
 
     let stopped = false;
@@ -413,19 +416,7 @@ export default function LessonPage() {
     );
   }
 
-  if (generationBusy) {
-    return (
-      <div className="grid min-h-screen place-items-center bg-black text-white">
-        <div className="space-y-3 text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-white/70" />
-          <p className="text-sm text-white/70">Generating your lesson...</p>
-          <p className="text-xs text-white/45">This usually takes a few seconds.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (generationError) {
+  if (generationError && !lesson) {
     return (
       <div className="min-h-screen bg-black px-5 py-8 text-white">
         <button onClick={() => router.push("/lessons")} className="mb-4 rounded-md border border-white/20 px-3 py-2 text-xs">
@@ -469,24 +460,25 @@ export default function LessonPage() {
       />
 
       <main className="mx-auto max-w-4xl space-y-4 px-4 py-5 sm:px-5 sm:py-6">
-        <div className="grid grid-cols-3 gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-          {[
-            { id: "lesson", label: "Lesson" },
-            { id: "quiz", label: "Quiz" },
-            { id: "video", label: "Explainer Video" },
-          ].map((step) => (
-            <button
-              key={step.id}
-              onClick={() => setActiveStep(step.id as "lesson" | "quiz" | "video")}
-              className={`min-h-10 rounded-lg px-3 py-2 text-xs sm:text-sm ${activeStep === step.id ? "bg-white text-black" : "text-white/70"}`}
-            >
-              {step.label}
-            </button>
-          ))}
-        </div>
+        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold">Lesson</h2>
+            {generationBusy && !lesson && (
+              <span className="inline-flex items-center gap-1 text-xs text-white/70">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                Generating your lesson...
+              </span>
+            )}
+          </div>
 
-        {activeStep === "lesson" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          {generationError && lesson && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+              {generationError}
+            </div>
+          )}
+
+          {lesson ? (
+            <>
             {intro && (
               <div>
                 <h2 className="mb-1 text-sm font-semibold text-white/80">Introduction</h2>
@@ -507,16 +499,17 @@ export default function LessonPage() {
                 <p className="text-sm text-white/85">{lesson.summary}</p>
               </div>
             )}
+            </>
+          ) : (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70">Lesson content will appear here as soon as it's ready.</div>
+          )}
+        </section>
 
-            <button onClick={() => setActiveStep("quiz")} className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black">
-              Continue to quiz
-            </button>
-          </section>
-        )}
-
-        {activeStep === "quiz" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            {quiz.length === 0 ? (
+        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <h2 className="text-sm font-semibold">Quiz</h2>
+          {!lesson && generationBusy ? (
+            <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm text-white/70">Generating quiz questions...</div>
+          ) : quiz.length === 0 ? (
               <p className="text-sm text-white/70">No quiz questions available for this lesson yet.</p>
             ) : (
               <>
@@ -565,16 +558,11 @@ export default function LessonPage() {
                   </div>
                 )}
 
-                <button onClick={() => setActiveStep("video")} className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs">
-                  Continue to explainer video
-                </button>
               </>
-            )}
-          </section>
-        )}
+          )}
+        </section>
 
-        {activeStep === "video" && (
-          <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <section className="space-y-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold">Generated explainer video</h2>
               <button
@@ -588,12 +576,18 @@ export default function LessonPage() {
             </div>
 
             {videoUrl ? (
-              <video src={videoUrl} controls className="w-full rounded-lg border border-white/10 bg-black" />
+              <video src={videoUrl} controls autoPlay playsInline className="w-full rounded-lg border border-white/10 bg-black" />
+            ) : videoBusy || videoJobId ? (
+              <div className="flex min-h-40 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                <div className="flex items-center gap-2 text-sm text-white/75">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Generating your explainer video…</span>
+                </div>
+              </div>
             ) : (
               <p className="text-sm text-white/70">No video generated yet for this lesson.</p>
             )}
-          </section>
-        )}
+        </section>
       </main>
     </div>
   );
