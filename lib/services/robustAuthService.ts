@@ -55,64 +55,27 @@ export class RobustAuthService {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('[RobustAuthService] Auth state changed:', event);
 
-      // Best-effort cookie sync for middleware-protected routes
-      if (session?.access_token && session?.refresh_token) {
-        fetch('/api/auth/sync-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }),
-        }).catch(() => {});
-      }
-      
       switch (event) {
         case 'SIGNED_IN':
+        case 'TOKEN_REFRESHED':
+        case 'USER_UPDATED':
+        default:
           this.updateAuthState({
             user: session?.user || null,
             isAuthenticated: !!session?.user,
             isLoading: false,
-            error: null
+            error: null,
           });
           break;
-          
+
         case 'SIGNED_OUT':
           this.updateAuthState({
             user: null,
             isAuthenticated: false,
             isLoading: false,
-            error: null
-          });
-          fetch('/api/auth/clear-session', { method: 'POST' }).catch(() => {});
-          break;
-          
-        case 'TOKEN_REFRESHED':
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
+            error: null,
           });
           break;
-          
-        case 'USER_UPDATED':
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
-          break;
-          
-        default:
-          // For other events, just update the user if available
-          this.updateAuthState({
-            user: session?.user || null,
-            isAuthenticated: !!session?.user,
-            isLoading: false,
-            error: null
-          });
       }
     });
 

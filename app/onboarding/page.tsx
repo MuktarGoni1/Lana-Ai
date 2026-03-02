@@ -54,6 +54,7 @@ export default function OnboardingPage() {
     setReminderTimezone(tz);
   }, []);
 
+
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login");
