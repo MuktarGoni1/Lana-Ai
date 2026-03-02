@@ -2,6 +2,10 @@ import { NextRequest } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  }
+
   try {
     // Test Supabase Admin Connection
     const adminClient = getSupabaseAdmin();

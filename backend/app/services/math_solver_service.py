@@ -3,12 +3,24 @@ import logging
 from typing import Any, Dict, List, Optional
 
 import orjson
+
 # from groq import AsyncGroq
-from sympy import Eq, sympify, solve, simplify
+from sympy import Eq, solve, simplify
+from sympy.parsing.sympy_parser import (
+    parse_expr,
+    standard_transformations,
+    implicit_multiplication_application,
+)
 import re
 import hashlib
 
 logger = logging.getLogger(__name__)
+
+# Safe transformations for math parsing - restrict to prevent code execution
+SAFE_TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
+
+# Safe transformations for math parsing - restrict to prevent code execution
+SAFE_TRANSFORMATIONS = standard_transformations + (implicit_multiplication_application,)
 
 MATH_RE = re.compile(
     r"\b(solve|simplify|factor|expand|integrate|derivative|equation|"
@@ -17,19 +29,23 @@ MATH_RE = re.compile(
     flags=re.I,
 )
 
+
 def is_math(q: str) -> bool:
     return bool(MATH_RE.search(q))
 
+
 from app.repositories.interfaces import ICacheRepository
 from app.schemas import MathProblemRequest, MathSolutionResponse, MathStep
+
 
 def _normalize_question(q: str) -> str:
     q = (q or "").strip()
     return re.sub(r"\s+", " ", q).lower()
 
+
 def _cache_key_for(question: str) -> str:
     norm = _normalize_question(question)
-    return hashlib.md5(norm.encode()).hexdigest()[:24]
+    return hashlib.sha256(norm.encode()).hexdigest()[:24]
 
 
 class MathSolverService:
@@ -50,7 +66,11 @@ class MathSolverService:
         try:
             cached = await self.cache_repo.get(key, namespace="math")
             if cached is not None:
-                if isinstance(cached, dict) and "problem" in cached and "solution" in cached:
+                if (
+                    isinstance(cached, dict)
+                    and "problem" in cached
+                    and "solution" in cached
+                ):
                     return MathSolutionResponse(**cached)
                 return cached
         except Exception:
@@ -60,7 +80,9 @@ class MathSolverService:
             try:
                 solved = await self._solve_with_sympy(question)
                 try:
-                    await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                    await self.cache_repo.set(
+                        key, solved.model_dump(), namespace="math"
+                    )
                 except Exception:
                     pass
                 return solved
@@ -69,8 +91,12 @@ class MathSolverService:
                 llm_result = await self._solve_with_llm(question)
                 try:
                     payload = (
-                        llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
-                            llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                        llm_result.model_dump()
+                        if hasattr(llm_result, "model_dump")
+                        else (
+                            llm_result.dict()
+                            if hasattr(llm_result, "dict")
+                            else llm_result
                         )
                     )
                     await self.cache_repo.set(key, payload, namespace="math")
@@ -91,7 +117,9 @@ class MathSolverService:
                         try:
                             solved = await self._solve_with_sympy(topic)
                             try:
-                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                                await self.cache_repo.set(
+                                    key, solved.model_dump(), namespace="math"
+                                )
                             except Exception:
                                 pass
                             return solved
@@ -100,11 +128,17 @@ class MathSolverService:
                             llm_result = await self._solve_with_llm(question)
                             try:
                                 payload = (
-                                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
-                                        llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                    llm_result.model_dump()
+                                    if hasattr(llm_result, "model_dump")
+                                    else (
+                                        llm_result.dict()
+                                        if hasattr(llm_result, "dict")
+                                        else llm_result
                                     )
                                 )
-                                await self.cache_repo.set(key, payload, namespace="math")
+                                await self.cache_repo.set(
+                                    key, payload, namespace="math"
+                                )
                             except Exception:
                                 pass
                             return llm_result
@@ -112,13 +146,17 @@ class MathSolverService:
                         return parsed
                 except Exception:
                     # Fallback to heuristic detection if parsing fails
-                    if text.startswith('{"type": "math"') or text.startswith('{"type":"math"'):
+                    if text.startswith('{"type": "math"') or text.startswith(
+                        '{"type":"math"'
+                    ):
                         try:
                             data = json.loads(text)
                             topic = data.get("topic", question)
                             solved = await self._solve_with_sympy(topic)
                             try:
-                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                                await self.cache_repo.set(
+                                    key, solved.model_dump(), namespace="math"
+                                )
                             except Exception:
                                 pass
                             return solved
@@ -126,20 +164,30 @@ class MathSolverService:
                             try:
                                 solved = await self._solve_with_sympy(question)
                                 try:
-                                    await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                                    await self.cache_repo.set(
+                                        key, solved.model_dump(), namespace="math"
+                                    )
                                 except Exception:
                                     pass
                                 return solved
                             except Exception as e:
-                                logger.info(f"SymPy failed after gate non-JSON, using LLM: {e}")
+                                logger.info(
+                                    f"SymPy failed after gate non-JSON, using LLM: {e}"
+                                )
                                 llm_result = await self._solve_with_llm(question)
                                 try:
                                     payload = (
-                                        llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
-                                            llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                        llm_result.model_dump()
+                                        if hasattr(llm_result, "model_dump")
+                                        else (
+                                            llm_result.dict()
+                                            if hasattr(llm_result, "dict")
+                                            else llm_result
                                         )
                                     )
-                                    await self.cache_repo.set(key, payload, namespace="math")
+                                    await self.cache_repo.set(
+                                        key, payload, namespace="math"
+                                    )
                                 except Exception:
                                     pass
                                 return llm_result
@@ -147,20 +195,30 @@ class MathSolverService:
                         try:
                             solved = await self._solve_with_sympy(question)
                             try:
-                                await self.cache_repo.set(key, solved.model_dump(), namespace="math")
+                                await self.cache_repo.set(
+                                    key, solved.model_dump(), namespace="math"
+                                )
                             except Exception:
                                 pass
                             return solved
                         except Exception as e:
-                            logger.info(f"SymPy failed after gate non-JSON, using LLM: {e}")
+                            logger.info(
+                                f"SymPy failed after gate non-JSON, using LLM: {e}"
+                            )
                             llm_result = await self._solve_with_llm(question)
                             try:
                                 payload = (
-                                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
-                                        llm_result.dict() if hasattr(llm_result, "dict") else llm_result
+                                    llm_result.model_dump()
+                                    if hasattr(llm_result, "model_dump")
+                                    else (
+                                        llm_result.dict()
+                                        if hasattr(llm_result, "dict")
+                                        else llm_result
                                     )
                                 )
-                                await self.cache_repo.set(key, payload, namespace="math")
+                                await self.cache_repo.set(
+                                    key, payload, namespace="math"
+                                )
                             except Exception:
                                 pass
                             return llm_result
@@ -178,7 +236,9 @@ class MathSolverService:
             llm_result = await self._solve_with_llm(question)
             try:
                 payload = (
-                    llm_result.model_dump() if hasattr(llm_result, "model_dump") else (
+                    llm_result.model_dump()
+                    if hasattr(llm_result, "model_dump")
+                    else (
                         llm_result.dict() if hasattr(llm_result, "dict") else llm_result
                     )
                 )
@@ -188,23 +248,50 @@ class MathSolverService:
             return llm_result
 
     async def _solve_with_sympy(self, question: str) -> MathSolutionResponse:
-        """Solve using SymPy."""
+        """Solve using SymPy with safe parsing to prevent code execution."""
+        # Validate input length to prevent resource exhaustion
+        MAX_INPUT_LENGTH = 1000
+        if len(question) > MAX_INPUT_LENGTH:
+            raise ValueError(
+                f"Input too long. Maximum length is {MAX_INPUT_LENGTH} characters."
+            )
+
         if "=" in question:
-            # Handle equations
+            # Handle equations - validate format first
+            if question.count("=") != 1:
+                raise ValueError("Equation must contain exactly one equals sign.")
+
             lhs, rhs = question.split("=", 1)
-            equation = Eq(sympify(lhs.strip()), sympify(rhs.strip()))
-            solutions = solve(equation)
+            try:
+                # Use safe parsing instead of sympify to prevent code execution
+                lhs_expr = parse_expr(
+                    lhs.strip(), transformations=SAFE_TRANSFORMATIONS, evaluate=True
+                )
+                rhs_expr = parse_expr(
+                    rhs.strip(), transformations=SAFE_TRANSFORMATIONS, evaluate=True
+                )
+                equation = Eq(lhs_expr, rhs_expr)
+                solutions = solve(equation)
+            except (SyntaxError, TypeError, ValueError) as e:
+                raise ValueError(f"Invalid mathematical expression: {e}")
 
             steps = [
                 MathStep(description="Parse the equation", expression=question),
-                MathStep(description="Solve for the variable", expression=str(equation)),
+                MathStep(
+                    description="Solve for the variable", expression=str(equation)
+                ),
             ]
 
             solution_text = str(solutions[0]) if solutions else "No solution"
         else:
-            # Handle expressions
-            expr = sympify(question)
-            simplified = simplify(expr)
+            # Handle expressions with safe parsing
+            try:
+                expr = parse_expr(
+                    question, transformations=SAFE_TRANSFORMATIONS, evaluate=True
+                )
+                simplified = simplify(expr)
+            except (SyntaxError, TypeError, ValueError) as e:
+                raise ValueError(f"Invalid mathematical expression: {e}")
 
             steps = [
                 MathStep(description="Parse the expression", expression=question),
@@ -213,7 +300,9 @@ class MathSolverService:
 
             solution_text = str(simplified)
 
-        return MathSolutionResponse(problem=question, solution=solution_text, steps=steps)
+        return MathSolutionResponse(
+            problem=question, solution=solution_text, steps=steps
+        )
 
     async def _groq_create(self, **kwargs):
         """Call Groq client create, supporting sync or async SDK."""
@@ -287,7 +376,9 @@ class MathSolverService:
         try:
             llm_response = orjson.loads(content)
             # Map possible fields to our schema
-            final = llm_response.get("final_answer") or llm_response.get("solution") or ""
+            final = (
+                llm_response.get("final_answer") or llm_response.get("solution") or ""
+            )
             raw_steps = llm_response.get("steps", [])
             steps: List[MathStep] = []
             for s in raw_steps:
@@ -300,6 +391,8 @@ class MathSolverService:
             return MathSolutionResponse(
                 problem=question,
                 solution="",
-                steps=[MathStep(description="Error parsing LLM response.", expression=None)],
+                steps=[
+                    MathStep(description="Error parsing LLM response.", expression=None)
+                ],
                 error="Invalid LLM JSON",
             )

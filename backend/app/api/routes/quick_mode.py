@@ -20,6 +20,7 @@ from app.repositories.memory_lesson_repository import MemoryLessonRepository
 from app.repositories.supabase_repository import SupabaseRepository
 from app.config import SUPABASE_URL, SUPABASE_KEY, GROQ_API_KEY
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from app.api.dependencies.auth import get_current_user, CurrentUser
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,10 @@ class QuickModeResponse(BaseModel):
 
 
 @router.post("/generate", response_model=QuickModeResponse)
-async def generate_quick_lesson(req: QuickModeRequest):
+async def generate_quick_lesson(
+    req: QuickModeRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """
     Create a quick, concise lesson for rapid understanding.
     Generates a brief introduction, key points, and simplified quiz.
@@ -191,7 +195,10 @@ async def generate_quick_lesson(req: QuickModeRequest):
 
 
 @router.post("/stream", tags=["Quick Mode"])
-async def stream_quick_mode_lesson(req: QuickModeRequest):
+async def stream_quick_mode_lesson(
+    req: QuickModeRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Stream a quick mode lesson as a single SSE 'done' event."""
     from fastapi.responses import StreamingResponse
     

@@ -9,6 +9,7 @@ import re
 import logging
 import hashlib
 import asyncio
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +20,7 @@ from app.schemas import MathProblemRequest, MathSolutionResponse
 from app.services.math_solver_service import MathSolverService
 from app.repositories.memory_cache_repository import MemoryCacheRepository
 from app.repositories.interfaces import ICacheRepository
+from app.api.dependencies.auth import get_current_user, CurrentUser
 
 # Initialize math solver service for math mode
 _CACHE = MemoryCacheRepository()
@@ -604,9 +606,16 @@ MODE_MAP = {
 }
 
 @router.post("/", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
+async def chat_endpoint(
+    request: ChatRequest,
+    current_user: CurrentUser = Depends(get_current_user),
+):
     """Unified chat endpoint that handles different modes based on user input."""
     try:
+        # Enforce user binding from authenticated token.
+        if request.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Forbidden")
+
         # Import Groq client here to avoid circular imports
         try:
             from main import _GROQ_CLIENT

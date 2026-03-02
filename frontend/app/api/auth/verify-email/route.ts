@@ -115,12 +115,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const exists = Boolean(user)
     const confirmed = Boolean(user?.email_confirmed_at)
-
     const payload = {
       ok: true,
-      exists,
-      confirmed,
-      userId: user?.id ?? null,
+      message: 'If an account exists for this email, verification is complete.',
       requestId,
       timings_ms: {
         admin_lookup: Math.round(t1 - t0),

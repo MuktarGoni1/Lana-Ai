@@ -1,24 +1,27 @@
 import time
-import threading
+import asyncio
 from typing import Dict, Any
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 
-_lock = threading.Lock()
+_lock = asyncio.Lock()
 _metrics: Dict[str, Dict[str, Any]] = {}
 
 
-def _record(path: str, duration_ms: float) -> None:
-    with _lock:
-        m = _metrics.setdefault(path, {"count": 0, "avg_ms": 0.0, "p95_ms": 0.0, "_samples": []})
+async def _record(path: str, duration_ms: float) -> None:
+    """Record request timing metrics asynchronously."""
+    async with _lock:
+        m = _metrics.setdefault(
+            path, {"count": 0, "avg_ms": 0.0, "p95_ms": 0.0, "_samples": []}
+        )
         m["count"] += 1
         # Maintain small reservoir of last 100 samples for p95
         samples = m["_samples"]
         samples.append(duration_ms)
         if len(samples) > 100:
-            del samples[0: len(samples) - 100]
+            del samples[0 : len(samples) - 100]
         # Update average incrementally
         m["avg_ms"] = ((m["avg_ms"] * (m["count"] - 1)) + duration_ms) / m["count"]
         # Update p95 from reservoir
@@ -39,14 +42,18 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
             response.headers["X-Response-Time-ms"] = f"{duration_ms:.1f}"
         except Exception:
             pass
-        _record(request.url.path, duration_ms)
+        await _record(request.url.path, duration_ms)
         return response
 
 
-def get_metrics_snapshot() -> Dict[str, Dict[str, Any]]:
+async def get_metrics_snapshot() -> Dict[str, Dict[str, Any]]:
     """Return a copy of the collected metrics without internal fields."""
-    with _lock:
+    async with _lock:
         out: Dict[str, Dict[str, Any]] = {}
         for path, m in _metrics.items():
-            out[path] = {"count": m["count"], "avg_ms": round(m["avg_ms"], 1), "p95_ms": round(m["p95_ms"], 1)}
+            out[path] = {
+                "count": m["count"],
+                "avg_ms": round(m["avg_ms"], 1),
+                "p95_ms": round(m["p95_ms"], 1),
+            }
         return out

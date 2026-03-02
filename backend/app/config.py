@@ -2,6 +2,7 @@
 Configuration module for the application.
 Loads environment variables and provides configuration settings.
 """
+
 import os
 from pathlib import Path
 
@@ -12,6 +13,7 @@ except ImportError:
     # Fallback if dotenv is not available
     def load_dotenv(*args, **kwargs):
         pass
+
 
 """
 Environment loading policy:
@@ -34,7 +36,7 @@ else:
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 API_DEBUG = os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t")
-API_SECRET_KEY = os.getenv("API_SECRET_KEY", "default_secret_key_change_in_production")
+API_SECRET_KEY = os.getenv("API_SECRET_KEY", "")
 
 # Primary API keys
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
@@ -47,7 +49,9 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 # Support projects where vars are named with NEXT_PUBLIC_* by mapping fallbacks.
 SUPABASE_URL = os.getenv("SUPABASE_URL") or os.getenv("NEXT_PUBLIC_SUPABASE_URL", "")
 SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
-SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY") or os.getenv(
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY", ""
+)
 # Prefer service role on server; never expose to frontend
 SUPABASE_KEY = SUPABASE_SERVICE_ROLE_KEY or SUPABASE_ANON_KEY
 
@@ -65,3 +69,10 @@ TTS_CACHE_TTL = int(os.getenv("TTS_CACHE_TTL", "7200"))
 # Application Settings
 CORS_ORIGINS = os.getenv("CORS_ORIGINS", "*").split(",")
 RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+
+# Validate critical configuration
+if not API_SECRET_KEY:
+    raise ValueError(
+        "API_SECRET_KEY environment variable is required. "
+        "Please set a secure secret key."
+    )

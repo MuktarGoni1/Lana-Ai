@@ -4,6 +4,7 @@ from cachetools import TTLCache
 
 from app.repositories.interfaces import ICacheRepository
 
+
 class MemoryCacheRepository(ICacheRepository):
     """Simple in-memory cache repository using TTLCache per namespace.
 
@@ -19,7 +20,9 @@ class MemoryCacheRepository(ICacheRepository):
 
     def _get_cache(self, namespace: str) -> TTLCache:
         if namespace not in self._caches:
-            self._caches[namespace] = TTLCache(maxsize=self._default_maxsize, ttl=self._default_ttl)
+            self._caches[namespace] = TTLCache(
+                maxsize=self._default_maxsize, ttl=self._default_ttl
+            )
         return self._caches[namespace]
 
     async def get(self, key: str, namespace: str = "default") -> Optional[Any]:
@@ -35,7 +38,13 @@ class MemoryCacheRepository(ICacheRepository):
             self._stats["errors"] += 1
             return None
 
-    async def set(self, key: str, value: Any, ttl: Optional[int] = None, namespace: str = "default") -> bool:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: Optional[int] = None,
+        namespace: str = "default",
+    ) -> bool:
         try:
             cache = self._get_cache(namespace)
             if ttl and ttl > 0:
@@ -64,6 +73,26 @@ class MemoryCacheRepository(ICacheRepository):
         try:
             cache = self._get_cache(namespace)
             return key in cache
+        except Exception:
+            self._stats["errors"] += 1
+            return False
+
+    async def clear_namespace(self, namespace: str) -> bool:
+        """Clear all cached items in a specific namespace."""
+        try:
+            if namespace in self._caches:
+                self._caches[namespace].clear()
+            return True
+        except Exception:
+            self._stats["errors"] += 1
+            return False
+
+    async def clear_all(self) -> bool:
+        """Clear all cached items across all namespaces."""
+        try:
+            self._caches.clear()
+            self._stats["last_reset"] = time.time()
+            return True
         except Exception:
             self._stats["errors"] += 1
             return False

@@ -3,6 +3,7 @@ import { fetchWithTimeoutAndRetry } from '@/lib/utils';
 import rateLimiter from '@/lib/rate-limiter';
 import serverRateLimiter from '@/lib/server-rate-limiter';
 import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
+import { createServerClient } from '@/lib/supabase/server';
 
 export async function POST(req: Request) {
   try {
@@ -47,7 +48,15 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { message, userId, age, mode } = body;
+    const { message, age, mode } = body;
+
+    const supabase = await createServerClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      return unauthorizedResponse();
+    }
 
     if (!message) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
@@ -62,7 +71,7 @@ export async function POST(req: Request) {
     // Define backend base URL for configurable API endpoints
     const backendBase = process.env.NEXT_PUBLIC_API_BASE || 'https://api.lanamind.com';
     
-    console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId, age, mode });
+    console.log('Chat request received:', { message: message.substring(0, 100) + '...', userId: user.id, age, mode });
 
     // For chat mode, we need to generate a conversational response
     // For quick mode, we route to configurable quick mode endpoint
@@ -74,7 +83,7 @@ export async function POST(req: Request) {
       
       // Prepare the payload for the production chat API (exact backend format)
       const payload = { 
-        user_id: userId,
+        user_id: user.id,
         message: message,
         age: age
       };
@@ -87,7 +96,8 @@ export async function POST(req: Request) {
             headers: { 
               'Content-Type': 'application/json',
               'Accept': 'application/json',
-              'User-Agent': 'Lana-Frontend/1.0'
+              'User-Agent': 'Lana-Frontend/1.0',
+              'Authorization': `Bearer ${session.access_token}`,
             },
             body: JSON.stringify(payload),
           },
@@ -185,11 +195,12 @@ export async function POST(req: Request) {
         apiUrl,
         {
           method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'User-Agent': 'Lana-Frontend/1.0'
-          },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'User-Agent': 'Lana-Frontend/1.0',
+              'Authorization': `Bearer ${session.access_token}`,
+            },
           body: JSON.stringify(payload),
         },
         { timeoutMs: 30_000, retries: 2, retryDelayMs: 500 }

@@ -2,6 +2,10 @@ import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { NextRequest } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return new Response(JSON.stringify({ error: 'Not found' }), { status: 404 });
+  }
+
   try {
     console.log('[Supabase Rate Limit Test] Starting test');
     

@@ -12,10 +12,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     api_debug: bool = False
-    api_secret_key: str = "change_me_in_prod"
+    api_secret_key: str = ""
 
     # CORS and rate limit
-    cors_origins: List[str] = ["*"]
+    cors_origins: List[str] = ["http://localhost:3000", "http://localhost:3001"]
     rate_limit_per_minute: int = 60
     rate_limit_per_hour: int = 1000
 
@@ -59,8 +59,8 @@ def load_settings() -> Settings:
         "api_host": os.getenv("API_HOST", "0.0.0.0"),
         "api_port": int(os.getenv("API_PORT", "8000")),
         "api_debug": os.getenv("API_DEBUG", "False").lower() in ("true", "1", "t"),
-        "api_secret_key": os.getenv("API_SECRET_KEY", "change_me_in_prod"),
-        "cors_origins": os.getenv("CORS_ORIGINS", "*") or "*",
+        "api_secret_key": os.getenv("API_SECRET_KEY", ""),
+        "cors_origins": os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001"),
         "rate_limit_per_minute": int(os.getenv("RATE_LIMIT_PER_MINUTE", "60")),
         "groq_api_key": os.getenv("GROQ_API_KEY", ""),
         "google_api_key": os.getenv("GOOGLE_API_KEY", ""),

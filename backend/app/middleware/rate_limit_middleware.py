@@ -42,13 +42,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             "/api/solve-math": {"per_minute": 30, "per_hour": 400},
         }
 
-    async def _get_redis_client(self):
+    def _get_redis_client(self):
         """Get or create a Redis client."""
         global REDIS_AVAILABLE
         if not REDIS_AVAILABLE:
             return None
         if self._redis_client is None:
             try:
+                if not settings.redis_url:
+                    return None
                 self._redis_client = redis.Redis.from_url(
                     settings.redis_url, encoding="utf-8", decode_responses=True
                 )
