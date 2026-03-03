@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
-export async function POST(req: NextRequest) {
-  const supabaseAdmin = getSupabaseAdmin();
+const STRUCTURED_LESSON_ENDPOINT = "https://api.lanamind.com/api/structured-lesson";
 
+export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin();
+
     const body = await req.json().catch(() => ({}));
     const { topic_id, user_id, subject, title, grade } = body as {
       topic_id: string;
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const { data: cached } = await supabaseAdmin
       .from("lesson_units")
-      .select("lesson_content, is_ready, video_url, audio_url")
+      .select("lesson_content, is_ready")
       .eq("topic_id", topic_id)
       .maybeSingle();
 
@@ -43,8 +45,6 @@ export async function POST(req: NextRequest) {
         status: "completed",
         lesson_content: cached.lesson_content,
         questions: cachedQuiz?.questions ?? [],
-        video_url: cached.video_url ?? null,
-        audio_url: cached.audio_url ?? null,
       });
     }
 
@@ -58,7 +58,6 @@ export async function POST(req: NextRequest) {
       { onConflict: "topic_id,user_id" }
     );
 
-    const apiBase = (process.env.NEXT_PUBLIC_API_BASE ?? "https://api.lanamind.com").replace(/\/$/, "");
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 55_000);
 
@@ -66,7 +65,7 @@ export async function POST(req: NextRequest) {
     let questions: unknown[] = [];
 
     try {
-      const backendRes = await fetch(`${apiBase}/api/structured-lesson`, {
+      const backendRes = await fetch(STRUCTURED_LESSON_ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -76,9 +75,7 @@ export async function POST(req: NextRequest) {
           title: title ?? "",
           grade: grade ?? "",
           generate_video: false,
-          generate_audio: false,
           skip_video: true,
-          skip_audio: true,
         }),
         signal: controller.signal,
       });
@@ -176,8 +173,6 @@ export async function POST(req: NextRequest) {
       status: "completed",
       lesson_content: lessonContent,
       questions,
-      video_url: null,
-      audio_url: null,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -234,6 +229,14 @@ async function drainSSE(res: Response): Promise<Record<string, unknown>> {
 function extractLesson(raw: Record<string, unknown> | null): Record<string, unknown> | null {
   if (!raw) return null;
 
+  const fromPayload = raw.payload;
+  if (fromPayload && typeof fromPayload === "object") {
+    const payload = fromPayload as Record<string, unknown>;
+    return (payload.lesson_content ?? payload.lesson ?? payload.content ?? null) as
+      | Record<string, unknown>
+      | null;
+  }
+
   return (raw.lesson_content ?? raw.lesson ?? raw.content ?? (raw.summary ? raw : null)) as
     | Record<string, unknown>
     | null;
@@ -241,6 +244,14 @@ function extractLesson(raw: Record<string, unknown> | null): Record<string, unkn
 
 function extractQuestions(raw: Record<string, unknown> | null): unknown[] {
   if (!raw) return [];
+
+  const fromPayload = raw.payload;
+  if (fromPayload && typeof fromPayload === "object") {
+    const payload = fromPayload as Record<string, unknown>;
+    const payloadQuestions = payload.questions ?? payload.quiz_questions ?? payload.quiz ?? [];
+    return Array.isArray(payloadQuestions) ? payloadQuestions : [];
+  }
+
   const questions = raw.questions ?? raw.quiz_questions ?? raw.quiz ?? [];
   return Array.isArray(questions) ? questions : [];
 }

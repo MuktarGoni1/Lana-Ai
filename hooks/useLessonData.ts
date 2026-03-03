@@ -58,14 +58,75 @@ export interface LessonDataState {
 const POLL_INTERVAL_MS = 2_000;
 const MAX_LESSON_POLLS = 90;
 const MAX_VIDEO_POLLS = 150;
+const MAX_QUIZ_POLLS = 45;
+
+function normalizeQuestions(input: unknown): QuizQuestion[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((item, index) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const q = item as Record<string, unknown>;
+      const question =
+        (typeof q.question === "string" && q.question.trim()) ||
+        (typeof q.q === "string" && q.q.trim()) ||
+        "";
+      const correctAnswer =
+        (typeof q.correct_answer === "string" && q.correct_answer.trim()) ||
+        (typeof q.answer === "string" && q.answer.trim()) ||
+        "";
+
+      const rawOptions = Array.isArray(q.options) ? q.options : [];
+      const options = rawOptions
+        .map((option, optIndex) => {
+          if (typeof option === "string") {
+            return { label: String.fromCharCode(65 + optIndex), value: option };
+          }
+          if (option && typeof option === "object") {
+            const parsed = option as Record<string, unknown>;
+            const value = typeof parsed.value === "string" ? parsed.value : "";
+            const label = typeof parsed.label === "string" ? parsed.label : String.fromCharCode(65 + optIndex);
+            if (value) {
+              return { label, value };
+            }
+          }
+          return null;
+        })
+        .filter((option): option is QuizOption => Boolean(option));
+
+      if (!question || !correctAnswer || options.length < 2) {
+        return null;
+      }
+
+      return {
+        id: (typeof q.id === "string" && q.id) || `${index + 1}`,
+        question,
+        correct_answer: correctAnswer,
+        options,
+        difficulty:
+          q.difficulty === "easy" || q.difficulty === "medium" || q.difficulty === "hard"
+            ? q.difficulty
+            : "medium",
+        explanation: typeof q.explanation === "string" ? q.explanation : "",
+      } as QuizQuestion;
+    })
+    .filter((question): question is QuizQuestion => Boolean(question));
+}
 
 export function useLessonData(topicId: string, userId: string): LessonDataState {
   const supabase = createClientComponentClient();
 
   const lessonPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const quizPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const lessonAttempts = useRef(0);
   const videoAttempts = useRef(0);
+  const quizAttempts = useRef(0);
   const generationFired = useRef(false);
 
   const [state, setState] = useState<Omit<LessonDataState, "retry">>({
@@ -91,6 +152,13 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
     }
   }, []);
 
+  const stopQuizPoll = useCallback(() => {
+    if (quizPollRef.current) {
+      clearInterval(quizPollRef.current);
+      quizPollRef.current = null;
+    }
+  }, []);
+
   const fetchQuiz = useCallback(async (): Promise<QuizQuestion[]> => {
     const { data } = await supabase
       .from("quiz_questions")
@@ -100,13 +168,37 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       .limit(1)
       .maybeSingle();
 
-    return (data?.questions as QuizQuestion[]) ?? [];
+    return normalizeQuestions(data?.questions);
   }, [supabase, topicId]);
 
-  const resolveLesson = useCallback(
-    async (lessonContent: LessonContent, videoUrl: string | null) => {
-      stopLessonPoll();
+  const startQuizPoll = useCallback(() => {
+    if (quizPollRef.current) {
+      return;
+    }
+
+    quizAttempts.current = 0;
+
+    quizPollRef.current = setInterval(async () => {
+      quizAttempts.current += 1;
+      if (quizAttempts.current > MAX_QUIZ_POLLS) {
+        stopQuizPoll();
+        return;
+      }
+
       const questions = await fetchQuiz();
+      if (questions.length > 0) {
+        stopQuizPoll();
+        setState((s) => ({ ...s, questions }));
+      }
+    }, POLL_INTERVAL_MS);
+  }, [fetchQuiz, stopQuizPoll]);
+
+  const resolveLesson = useCallback(
+    async (lessonContent: LessonContent, videoUrl: string | null, serverQuestions?: unknown) => {
+      stopLessonPoll();
+      const normalizedServerQuestions = normalizeQuestions(serverQuestions);
+      const questions = normalizedServerQuestions.length > 0 ? normalizedServerQuestions : await fetchQuiz();
+
       setState((s) => ({
         ...s,
         lesson: lessonContent,
@@ -116,8 +208,14 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         videoUrl: videoUrl ?? null,
         videoStage: videoUrl ? "ready" : s.videoStage,
       }));
+
+      if (questions.length === 0) {
+        startQuizPoll();
+      } else {
+        stopQuizPoll();
+      }
     },
-    [fetchQuiz, stopLessonPoll]
+    [fetchQuiz, startQuizPoll, stopLessonPoll, stopQuizPoll]
   );
 
   const startLessonPoll = useCallback(() => {
@@ -251,23 +349,18 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         title: topic?.title ?? "",
         grade: profile?.grade ?? "",
         generate_video: false,
-        generate_audio: false,
       }),
     })
       .then(async (res) => {
         if (!res.ok) return;
-
         const json = await res.json().catch(() => null);
         if (json?.lesson_content) {
-          stopLessonPoll();
-          const questions = (json.questions as QuizQuestion[]) ?? (await fetchQuiz());
-          setState((s) => ({
-            ...s,
-            lesson: json.lesson_content as LessonContent,
-            questions,
-            stage: "ready",
-            error: null,
-          }));
+          await resolveLesson(
+            json.lesson_content as LessonContent,
+            typeof json.video_url === "string" ? json.video_url : null,
+            json.questions
+          );
+
           if (!json.video_url) {
             startVideoPoll();
           }
@@ -278,21 +371,16 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       });
 
     startLessonPoll();
-  }, [
-    fetchQuiz,
-    resolveLesson,
-    startLessonPoll,
-    startVideoPoll,
-    stopLessonPoll,
-    supabase,
-    topicId,
-    userId,
-  ]);
+  }, [resolveLesson, startLessonPoll, startVideoPoll, supabase, topicId, userId]);
 
   const retry = useCallback(() => {
     generationFired.current = false;
     lessonAttempts.current = 0;
     videoAttempts.current = 0;
+    quizAttempts.current = 0;
+    stopLessonPoll();
+    stopVideoPoll();
+    stopQuizPoll();
     setState({
       lesson: null,
       questions: [],
@@ -302,15 +390,16 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       videoStage: "idle",
     });
     load();
-  }, [load]);
+  }, [load, stopLessonPoll, stopQuizPoll, stopVideoPoll]);
 
   useEffect(() => {
     load();
     return () => {
       stopLessonPoll();
       stopVideoPoll();
+      stopQuizPoll();
     };
-  }, [load, stopLessonPoll, stopVideoPoll]);
+  }, [load, stopLessonPoll, stopVideoPoll, stopQuizPoll]);
 
   return { ...state, retry };
 }
