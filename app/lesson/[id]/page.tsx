@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useLessonData } from "@/hooks/useLessonData";
@@ -216,12 +217,29 @@ function LessonRenderer({ lesson }: { lesson: LessonContent }) {
   );
 }
 
-function QuizRenderer({ questions }: { questions: QuizQuestion[] }) {
+function QuizRenderer({
+  questions,
+  isLoading,
+}: {
+  questions: QuizQuestion[];
+  isLoading: boolean;
+}) {
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [showResults, setShowResults] = useState(false);
 
-  if (!questions?.length) return null;
+  if (!questions?.length) {
+    return (
+      <div className="card">
+        <h2 className="text-lg font-bold text-[var(--color-text)]">Quiz</h2>
+        <p className="mt-2 text-sm text-[var(--color-text-muted)]">
+          {isLoading
+            ? "Generating your quiz questions… You can continue reading the lesson while this finishes."
+            : "No quiz questions are available for this lesson yet."}
+        </p>
+      </div>
+    );
+  }
 
   const score = submitted
     ? questions.filter((q) => selected[q.id] === q.correct_answer).length
@@ -327,7 +345,18 @@ function QuizRenderer({ questions }: { questions: QuizQuestion[] }) {
 }
 
 function VideoSection({ videoUrl, videoStage }: { videoUrl: string | null; videoStage: VideoStage }) {
-  if (videoStage === "unavailable") return null;
+  if (videoStage === "unavailable") {
+    return (
+      <div className="space-y-3">
+        <h2 className="text-lg font-bold text-[var(--color-text)]">Explainer Video</h2>
+        <div className="card">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            Explainer video is currently unavailable. Your lesson and quiz are ready to continue with.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -339,6 +368,7 @@ function VideoSection({ videoUrl, videoStage }: { videoUrl: string | null; video
 
 export default function LessonPage({ params }: PageProps) {
   const supabase = createClientComponentClient();
+  const router = useRouter();
   const { user } = useUnifiedAuth();
   const topicId = params.id;
   const userId = user?.id ?? "";
@@ -398,7 +428,7 @@ export default function LessonPage({ params }: PageProps) {
   return (
     <>
       <style>{`
-        :root {
+        .lesson-page {
           --color-bg: #fafaf8;
           --color-surface: #ffffff;
           --color-border: #e8e8e4;
@@ -411,7 +441,8 @@ export default function LessonPage({ params }: PageProps) {
           --color-green: #16a34a;
         }
 
-        .lesson-page { min-height: 100vh; background: var(--color-bg); padding: 24px 16px 80px; }
+        .lesson-page {
+          min-height: 100vh; background: var(--color-bg); padding: 24px 16px 80px; }
         .lesson-container { max-width: 720px; margin: 0 auto; }
 
         .card {
@@ -507,16 +538,24 @@ export default function LessonPage({ params }: PageProps) {
 
       <div className="lesson-page">
         <div className="lesson-container space-y-8">
-          <div>
+          <div className="space-y-3">
+            <button onClick={() => router.push("/lessons")} className="btn-outline text-xs">← Back to lessons</button>
             <div className="flex items-center gap-2 mb-1">
               <span className="tag">{subjectName}</span>
             </div>
             <h1 className="text-2xl font-bold text-[var(--color-text)] leading-snug">{topicTitle}</h1>
+            <p className="text-sm text-[var(--color-text-muted)]">Lesson and quiz appear first; video loads independently.</p>
           </div>
 
-          <LessonRenderer lesson={lesson} />
-          <QuizRenderer questions={questions} />
-          <VideoSection videoUrl={videoUrl} videoStage={videoStage} />
+          <section aria-label="Lesson content">
+            <LessonRenderer lesson={lesson} />
+          </section>
+          <section aria-label="Lesson quiz">
+            <QuizRenderer questions={questions} isLoading={questions.length === 0} />
+          </section>
+          <section aria-label="Explainer video">
+            <VideoSection videoUrl={videoUrl} videoStage={videoStage} />
+          </section>
         </div>
       </div>
     </>
