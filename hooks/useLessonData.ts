@@ -351,11 +351,26 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       }),
     })
       .then(async (res) => {
-        if (!res.ok) return;
+        if (!res.ok) {
+          stopLessonPoll();
+          const payload = await res.json().catch(() => ({}));
+          const message =
+            (typeof payload?.error === "string" && payload.error) ||
+            (typeof payload?.details === "string" && payload.details) ||
+            `Lesson generation failed (${res.status})`;
+
+          setState((s) => ({
+            ...s,
+            stage: "error",
+            error: message,
+          }));
+          return;
+        }
+
         const json = await res.json().catch(() => null);
         if (json?.lesson_content) {
           await resolveLesson(
-            json.lesson_content as LessonContent,
+            json.lesson_content as unknown as LessonContent,
             typeof json.video_url === "string" ? json.video_url : null,
             json.questions
           );
