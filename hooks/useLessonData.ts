@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/db";
 
 export interface LessonSection {
   heading: string;
@@ -119,8 +119,7 @@ function normalizeQuestions(input: unknown): QuizQuestion[] {
 }
 
 export function useLessonData(topicId: string, userId: string): LessonDataState {
-  const supabase = createClientComponentClient();
-
+  const db = supabase as any;
   const lessonPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const videoPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const quizPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -160,7 +159,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
   }, []);
 
   const fetchQuiz = useCallback(async (): Promise<QuizQuestion[]> => {
-    const { data } = await supabase
+    const { data } = await db
       .from("quiz_questions")
       .select("questions")
       .eq("topic_id", topicId)
@@ -169,7 +168,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       .maybeSingle();
 
     return normalizeQuestions(data?.questions);
-  }, [supabase, topicId]);
+  }, [topicId]);
 
   const startQuizPoll = useCallback(() => {
     if (quizPollRef.current) {
@@ -233,18 +232,18 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         return;
       }
 
-      const { data: unit } = await supabase
+      const { data: unit } = await db
         .from("lesson_units")
         .select("lesson_content, is_ready, video_url")
         .eq("topic_id", topicId)
         .maybeSingle();
 
       if (unit?.is_ready && unit?.lesson_content) {
-        await resolveLesson(unit.lesson_content as LessonContent, unit.video_url ?? null);
+        await resolveLesson(unit.lesson_content as unknown as LessonContent, unit.video_url ?? null);
         return;
       }
 
-      const { data: job } = await supabase
+      const { data: job } = await db
         .from("lesson_generation_jobs")
         .select("status, error")
         .eq("topic_id", topicId)
@@ -258,11 +257,11 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         setState((s) => ({
           ...s,
           stage: "error",
-          error: job.error ?? "Lesson generation failed",
+          error: typeof job.error === "string" ? job.error : "Lesson generation failed",
         }));
       }
     }, POLL_INTERVAL_MS);
-  }, [resolveLesson, stopLessonPoll, supabase, topicId, userId]);
+  }, [resolveLesson, stopLessonPoll, topicId, userId]);
 
   const startVideoPoll = useCallback(() => {
     if (videoPollRef.current) {
@@ -281,7 +280,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         return;
       }
 
-      const { data: unit } = await supabase
+      const { data: unit } = await db
         .from("lesson_units")
         .select("video_url")
         .eq("topic_id", topicId)
@@ -292,7 +291,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         setState((s) => ({ ...s, videoUrl: unit.video_url, videoStage: "ready" }));
       }
     }, POLL_INTERVAL_MS);
-  }, [stopVideoPoll, supabase, topicId]);
+  }, [stopVideoPoll, topicId]);
 
   const load = useCallback(async () => {
     if (!topicId || !userId) {
@@ -301,7 +300,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
 
     setState((s) => ({ ...s, stage: "checking-cache", error: null }));
 
-    const { data: unit, error: unitErr } = await supabase
+    const { data: unit, error: unitErr } = await db
       .from("lesson_units")
       .select("lesson_content, is_ready, video_url")
       .eq("topic_id", topicId)
@@ -313,7 +312,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
     }
 
     if (unit?.is_ready && unit?.lesson_content) {
-      await resolveLesson(unit.lesson_content as LessonContent, unit.video_url ?? null);
+      await resolveLesson(unit.lesson_content as unknown as LessonContent, unit.video_url ?? null);
       if (!unit.video_url) {
         startVideoPoll();
       }
@@ -325,13 +324,13 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
     }
     generationFired.current = true;
 
-    const { data: topic } = await supabase
+    const { data: topic } = await db
       .from("topics")
       .select("title, subject_name")
       .eq("id", topicId)
       .maybeSingle();
 
-    const { data: profile } = await supabase
+    const { data: profile } = await db
       .from("profiles")
       .select("grade")
       .eq("id", userId)
@@ -371,7 +370,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
       });
 
     startLessonPoll();
-  }, [resolveLesson, startLessonPoll, startVideoPoll, supabase, topicId, userId]);
+  }, [resolveLesson, startLessonPoll, startVideoPoll, topicId, userId]);
 
   const retry = useCallback(() => {
     generationFired.current = false;

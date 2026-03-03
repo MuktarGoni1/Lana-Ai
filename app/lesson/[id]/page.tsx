@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useLessonData } from "@/hooks/useLessonData";
 import type {
@@ -374,7 +374,6 @@ function VideoSection({ videoUrl, videoStage }: { videoUrl: string | null; video
 }
 
 export default function LessonPage({ params }: PageProps) {
-  const supabase = createClientComponentClient();
   const router = useRouter();
   const { user } = useUnifiedAuth();
   const topicId = params.id;
