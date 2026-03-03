@@ -17,6 +17,13 @@ interface PageProps {
   params: { id: string };
 }
 
+
+function statusTone(label: "ready" | "pending" | "unavailable") {
+  if (label === "ready") return "status-ready";
+  if (label === "unavailable") return "status-unavailable";
+  return "status-pending";
+}
+
 function LessonSkeleton() {
   return (
     <div className="animate-pulse space-y-5 w-full">
@@ -378,6 +385,11 @@ export default function LessonPage({ params }: PageProps) {
 
   const { lesson, questions, stage, error, videoUrl, videoStage, retry } = useLessonData(topicId, userId);
 
+  const lessonStatus = lesson ? "ready" : "pending";
+  const quizStatus = questions.length > 0 ? "ready" : "pending";
+  const resolvedVideoStatus =
+    videoStage === "ready" ? "ready" : videoStage === "unavailable" ? "unavailable" : "pending";
+
   useEffect(() => {
     let mounted = true;
 
@@ -468,6 +480,22 @@ export default function LessonPage({ params }: PageProps) {
           border-radius: 6px;
         }
 
+        .status-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: 999px;
+          padding: 2px 10px;
+          font-size: 11px;
+          font-weight: 600;
+          text-transform: capitalize;
+          border: 1px solid var(--color-border);
+          color: var(--color-text-muted);
+          background: #fff;
+        }
+        .status-ready { background: #ecfdf3; border-color: #86efac; color: #166534; }
+        .status-pending { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+        .status-unavailable { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+
         .btn-primary {
           display: inline-flex;
           align-items: center;
@@ -544,7 +572,11 @@ export default function LessonPage({ params }: PageProps) {
               <span className="tag">{subjectName}</span>
             </div>
             <h1 className="text-2xl font-bold text-[var(--color-text)] leading-snug">{topicTitle}</h1>
-            <p className="text-sm text-[var(--color-text-muted)]">Lesson and quiz appear first; video loads independently.</p>
+            <div className="flex flex-wrap gap-2">
+              <span className={`status-pill ${statusTone(lessonStatus)}`}>Lesson {lessonStatus}</span>
+              <span className={`status-pill ${statusTone(quizStatus)}`}>Quiz {quizStatus}</span>
+              <span className={`status-pill ${statusTone(resolvedVideoStatus)}`}>Video {resolvedVideoStatus}</span>
+            </div>
           </div>
 
           <section aria-label="Lesson content">
