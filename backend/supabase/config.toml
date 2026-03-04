@@ -1,0 +1,9 @@
+# Supabase Configuration File
+
+# Function configurations
+[functions.generate-guardian-reports]
+verify_jwt = false
+
+[functions.send-guardian-reports]
+verify_jwt = false
+

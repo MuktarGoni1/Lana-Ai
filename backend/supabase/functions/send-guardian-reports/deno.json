@@ -1,0 +1,7 @@
+{
+  "lib": ["deno.ns", "dom", "es2021"],
+  "compilerOptions": {
+    "strict": true,
+    "types": ["../global.d.ts"]
+  }
+}

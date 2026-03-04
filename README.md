@@ -1,71 +1,226 @@
-# WebX Ui
+# Lana AI - Educational AI Tutoring Platform
 
-*Automatically synced with your [v0.dev](https://v0.dev) deployments*
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js%2016-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Backend](https://img.shields.io/badge/Backend-FastAPI-blue?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Database](https://img.shields.io/badge/Database-Supabase-green?style=for-the-badge&logo=supabase)](https://supabase.com/)
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/muktargoni1-3886s-projects/v0-web-x-ui)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/qg2TXVbq8Wx)
+## Project Structure
 
-## Overview
+This is a monorepo containing both the frontend and backend of the Lana AI educational platform.
 
-This repository will stay in sync with your deployed chats on [v0.dev](https://v0.dev).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.dev](https://v0.dev).
+```
+lana-ai/
+├── frontend/          # Next.js 16 + React 18 + TypeScript
+│   ├── app/          # App Router pages
+│   ├── components/   # React components
+│   ├── hooks/        # Custom React hooks
+│   ├── lib/          # Utilities and API clients
+│   ├── types/        # TypeScript definitions
+│   └── public/       # Static assets
+│
+├── backend/           # Python FastAPI + Supabase
+│   ├── main.py       # FastAPI application
+│   ├── app/          # Backend modules
+│   ├── tests/        # Backend tests
+│   └── requirements.txt
+│
+├── supabase/          # Database migrations
+├── docs/             # Documentation
+└── docker-compose.yml # Docker orchestration
+```
 
-## Deployment
+## Quick Start
 
-Your project is live at:
+### Prerequisites
 
-**[https://vercel.com/muktargoni1-3886s-projects/v0-web-x-ui](https://vercel.com/muktargoni1-3886s-projects/v0-web-x-ui)**
+- Node.js 18+ and npm 9+
+- Python 3.11+
+- Docker and Docker Compose (optional)
 
-## Build your app
+### Option 1: Using Docker (Recommended)
 
-Continue building your app on:
+```bash
+# Start all services
+docker-compose up -d
 
-**[https://v0.dev/chat/projects/qg2TXVbq8Wx](https://v0.dev/chat/projects/qg2TXVbq8Wx)**
+# Frontend: http://localhost:3001
+# Backend: http://localhost:8000
+```
 
-## How It Works
+### Option 2: Manual Setup
 
-1. Create and modify your project using [v0.dev](https://v0.dev)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+```bash
+# Install all dependencies
+npm run install:all
 
-## Local Development
+# Start both frontend and backend
+npm run dev
 
-- Install dependencies: `npm install`
-- Run the dev server: `npm run dev` (defaults to `http://localhost:3001`)
-- Preview in browser: open `http://localhost:3001/`
+# Or start separately:
+npm run dev:frontend  # Port 3001
+npm run dev:backend   # Port 8000
+```
 
 ## Environment Variables
 
-Set these in `.env.local` before running locally:
-- `NEXT_PUBLIC_SUPABASE_URL` — your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — your Supabase anon key
-- `NEXT_PUBLIC_API_BASE` — backend API base (e.g., `http://localhost:8000`)
+Create `.env` files in respective directories:
 
-See `lib/env.ts` for validation and helpful warnings in development.
+### Frontend (`frontend/.env.local`)
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
+NEXT_PUBLIC_API_BASE=http://localhost:8000
+```
 
-## Auth & Routing
+### Backend (`backend/.env`)
+```
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_service_key
+GROQ_API_KEY=your_groq_key
+VIDEO_API_URL=your_video_api_url
+VIDEO_API_KEY=your_video_api_key
+```
 
-- Centralized auth gating with role-based redirects is handled in `middleware.ts`.
-- Public routes include: `/landing-page`, `/login`, `/register`, `/onboarding`, `/child-login`.
-- Unauthenticated users are redirected to `/landing-page` when visiting protected routes.
+## Architecture
+
+### Frontend (Next.js)
+
+- **Framework**: Next.js 16 with App Router
+- **Styling**: Tailwind CSS + Radix UI
+- **Auth**: Supabase Auth with middleware
+- **State**: React hooks + Context
+- **API**: Proxies to backend via Next.js API routes
+
+### Backend (FastAPI)
+
+- **Framework**: FastAPI (Python)
+- **AI/ML**: Groq API for lesson generation
+- **Video**: External video generation service
+- **Database**: Supabase (PostgreSQL)
+- **Auth**: JWT validation with Supabase
+
+### Progressive Lesson Delivery
+
+The system implements progressive rendering:
+
+1. **Lesson + Quiz** (P0): Render immediately when available
+2. **Video** (P1): Generate async, show progress indicator
+
+```
+User clicks lesson
+    │
+    ▼
+Check cache → Render lesson + quiz immediately
+    │
+    ▼
+Start video generation (async)
+    │
+    ▼
+Show progress bar → Auto-play when ready
+```
+
+## Available Scripts
+
+### Root Level
+
+```bash
+npm run dev              # Start both frontend and backend
+npm run build            # Build frontend for production
+npm run test             # Run frontend tests
+npm run test:backend     # Run backend tests
+npm run lint             # Run frontend linting
+npm run docker:up        # Start with Docker
+npm run docker:down      # Stop Docker containers
+```
+
+### Frontend Only
+
+```bash
+cd frontend
+npm run dev              # Dev server on port 3001
+npm run build            # Production build
+npm run test             # Jest tests
+npm run lint             # ESLint
+```
+
+### Backend Only
+
+```bash
+cd backend
+python -m uvicorn main:app --reload --port 8000
+pytest                   # Run tests
+```
 
 ## API Route Mappings
 
-- `POST /api/tts` → Proxies to backend `POST /api/tts/` (audio/wav streaming).
-- `POST /api/tts/synthesize` → Backend JSON response with base64 audio and duration.
-- `GET /api/tts/stream` → Backend progressive audio/wav streaming.
-- `POST /api/math-solver/solve` → Backend math solver with SymPy and Groq gate.
-- `POST /api/structured-lesson/stream` → Backend SSE stream with `type: "done"` payload.
-- `GET /api/history?sid=<userId:session>` → Backend history (requires Bearer Supabase JWT).
-- `GET /api/subscription/status` → Frontend route returns `is_pro` from Supabase user metadata.
-- `POST /api/avatar/streams/[id]/talk` → Frontend route proxies to D-ID talks API.
+### Frontend API Routes (Next.js)
 
-## Known Gaps & Notes
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/structured-lesson/stream` | POST | Stream lesson generation |
+| `/api/lesson/generate-job` | POST | Create async lesson job |
+| `/api/video/generate` | POST | Start video generation |
+| `/api/video/status/[jobId]` | GET | Poll video status |
 
-- Avatar stream routes (`POST /api/avatar/streams`, `DELETE /api/avatar/streams/:id`, `POST /api/avatar/streams/:id/ice`, `POST /api/avatar/streams/:id/sdp`, `GET /api/avatar/streams/health`) are referenced by the UI but only `talk` is currently implemented. Add missing routes if enabling full avatar streaming.
-- History requires `sid` to be namespaced with the Supabase user id (format: `<userId>:<localId>`). The homepage now auto-prefixes when authenticated.
-- Backend auth now accepts both HS256 tokens (internal) and Supabase RS256 JWTs via JWKs.
+### Backend API Routes (FastAPI)
 
-For broader guidance on conventions and hygiene, read:
-- `docs/development-habits.md` — routing hygiene, environment hygiene, DX & tooling.
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/structured-lesson` | POST | Generate lesson content |
+| `/api/tts` | POST | Text-to-speech |
+| `/health` | GET | Health check |
+
+## Database Schema
+
+Key tables:
+
+- `lesson_units` - Stores lesson content and video status
+- `lesson_generation_jobs` - Async job queue
+- `topics` - Learning topics
+- `profiles` - User profiles
+
+See `supabase/migrations/` for full schema.
+
+## Video Generation Flow
+
+1. Lesson renders immediately (no video wait)
+2. Video generation auto-starts in background
+3. Progress updates via polling (5s intervals)
+4. Video player appears when ready
+
+## Deployment
+
+### Frontend (Vercel)
+
+```bash
+cd frontend
+vercel --prod
+```
+
+### Backend (Render/Railway)
+
+```bash
+cd backend
+# Deploy with Dockerfile
+```
+
+### Full Stack (Docker)
+
+```bash
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+## Contributing
+
+1. Create feature branch
+2. Make changes in respective folder (`frontend/` or `backend/`)
+3. Test both services: `npm run dev`
+4. Submit PR
+
+## License
+
+Private - All rights reserved.
+
+## Support
+
+For issues or questions, please refer to the documentation in `docs/` or create an issue.
