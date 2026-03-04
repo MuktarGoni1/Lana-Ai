@@ -7,6 +7,10 @@ const __dirname = dirname(__filename);
 
 import { withSentryConfig } from "@sentry/nextjs";
 
+// Get API base URL from environment or use default
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.lanamind.com";
+
 /**
  * @type {import('next').NextConfig}
  */
@@ -28,7 +32,7 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'ieqqsgpaivxmcgcflanu.supabase.co',
+        hostname: '*.supabase.co',
         port: '',
       },
     ],
@@ -103,14 +107,14 @@ const nextConfig = {
       // Redirect incorrect structured lesson API calls to the correct endpoint
       {
         source: '/api/structured-lesson',
-        destination: 'https://api.lanamind.com/api/structured-lesson',
+        destination: `${API_BASE}/api/structured-lesson`,
         permanent: false,
         basePath: false,
       },
       // Redirect streaming endpoint as well
       {
         source: '/api/structured-lesson/stream',
-        destination: 'https://api.lanamind.com/api/structured-lesson/stream',
+        destination: `${API_BASE}/api/structured-lesson/stream`,
         permanent: false,
         basePath: false,
       },
@@ -118,9 +122,6 @@ const nextConfig = {
   },
 
   async rewrites() {
-    // Get the API base URL, defaulting to localhost for development
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
-    
     // Define frontend API routes that should NOT be proxied to backend
     const frontendRoutes = [
       'auth/verify-email',
@@ -143,22 +144,23 @@ const nextConfig = {
     // Log the exclusion pattern for debugging
     const exclusionPattern = `/api/:path((?!${frontendRoutes.join('|')}).*)`;
     console.log('API rewrite exclusion pattern:', exclusionPattern);
+    console.log('API base URL:', API_BASE);
     
     return [
       // Exclude frontend API routes that should be handled locally
       { 
         source: exclusionPattern, 
-        destination: `${apiBase}/api/:path*` 
+        destination: `${API_BASE}/api/:path*` 
       },
       // Ensure legacy calls to /history are correctly forwarded to /api/history
-      { source: '/history', destination: `${apiBase}/api/history` },
+      { source: '/history', destination: `${API_BASE}/api/history` },
       // If a reset route is added in backend, forward it to /api/reset; otherwise, this remains unused
-      { source: '/reset', destination: `${apiBase}/api/reset` },
-      { source: '/health', destination: `${apiBase}/health` },
+      { source: '/reset', destination: `${API_BASE}/api/reset` },
+      { source: '/health', destination: `${API_BASE}/health` },
     ];
   },
-  // Disable custom outputFileTracingRoot in dev to avoid Turbopack path issues on Windows
-  // outputFileTracingRoot: undefined,
+  // Output configuration for Docker
+  output: 'standalone',
 };
 
 // Sentry configuration
