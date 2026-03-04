@@ -38,6 +38,7 @@ export interface QuizQuestion {
 
 export type GenerationStage =
   | "idle"
+  | "resolving-route"
   | "waiting-auth"
   | "checking-cache"
   | "generating"
@@ -358,11 +359,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
 
   const load = useCallback(async () => {
     if (!topicId) {
-      setState((s) => ({
-        ...s,
-        stage: "error",
-        error: "Missing topic id. Please return to lessons and try again.",
-      }));
+      setState((s) => ({ ...s, stage: "resolving-route", error: null }));
       return;
     }
 

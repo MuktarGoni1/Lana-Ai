@@ -1,7 +1,7 @@
 "use client";
 
 import { type CSSProperties, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useLessonData } from "@/hooks/useLessonData";
@@ -13,10 +13,6 @@ import type {
   QuizQuestion,
 } from "@/hooks/useLessonData";
 import type { VideoStatus } from "@/hooks/useLessonVideo";
-
-interface PageProps {
-  params: { id: string };
-}
 
 const LESSON_THEME_VARS: CSSProperties = {
   ["--color-bg" as string]: "#fafaf8",
@@ -130,6 +126,7 @@ function VideoPlayer({ url }: { url: string }) {
 
 function GeneratingLesson({ stage }: { stage: string }) {
   const labels: Record<string, string> = {
+    "resolving-route": "Opening your lesson…",
     "waiting-auth": "Restoring your account session…",
     "checking-cache": "Loading your lesson…",
     generating: "Building your personalised lesson…",
@@ -418,10 +415,13 @@ function VideoSection({
   );
 }
 
-export default function LessonPage({ params }: PageProps) {
+export default function LessonPage() {
   const router = useRouter();
+  const routeParams = useParams<{ id?: string | string[] }>();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
-  const topicId = params.id;
+  const routeTopicId = Array.isArray(routeParams?.id) ? routeParams.id[0] : routeParams?.id;
+  const topicId = routeTopicId || searchParams.get("topicId") || "";
   const userId = user?.id ?? "";
 
   const [topicTitle, setTopicTitle] = useState("Loading topic…");
@@ -453,6 +453,18 @@ export default function LessonPage({ params }: PageProps) {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  useEffect(() => {
+    if (authLoading || topicId) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      router.replace("/lessons");
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [authLoading, topicId, router]);
+
   const lessonStatus = lesson ? "ready" : "pending";
   const quizStatus = questions.length > 0 ? "ready" : "pending";
   const resolvedVideoStatus =
@@ -482,7 +494,7 @@ export default function LessonPage({ params }: PageProps) {
     };
   }, [supabase, topicId]);
 
-  if (authLoading || stage === "waiting-auth" || stage === "checking-cache" || (stage === "idle" && !lesson)) {
+  if (authLoading || stage === "resolving-route" || stage === "waiting-auth" || stage === "checking-cache" || (stage === "idle" && !lesson)) {
     return (
       <div className="lesson-page" style={LESSON_THEME_VARS}>
         <div className="lesson-container space-y-6">
