@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
@@ -17,6 +17,19 @@ import type { VideoStatus } from "@/hooks/useLessonVideo";
 interface PageProps {
   params: { id: string };
 }
+
+const LESSON_THEME_VARS: CSSProperties = {
+  ["--color-bg" as string]: "#fafaf8",
+  ["--color-surface" as string]: "#ffffff",
+  ["--color-border" as string]: "#e8e8e4",
+  ["--color-text" as string]: "#1a1a18",
+  ["--color-text-muted" as string]: "#6b6b65",
+  ["--color-text-subtle" as string]: "#9d9d96",
+  ["--color-accent" as string]: "#2563eb",
+  ["--color-accent-muted" as string]: "#dbeafe",
+  ["--color-skel" as string]: "#f0f0eb",
+  ["--color-green" as string]: "#16a34a",
+};
 
 
 function statusTone(label: "ready" | "pending" | "unavailable") {
@@ -117,13 +130,14 @@ function VideoPlayer({ url }: { url: string }) {
 
 function GeneratingLesson({ stage }: { stage: string }) {
   const labels: Record<string, string> = {
+    "waiting-auth": "Restoring your account session…",
     "checking-cache": "Loading your lesson…",
     generating: "Building your personalised lesson…",
     idle: "Preparing…",
   };
 
   return (
-    <div className="lesson-page flex flex-col items-center justify-center min-h-[60vh] gap-5">
+    <div className="lesson-page flex flex-col items-center justify-center min-h-[60vh] gap-5" style={LESSON_THEME_VARS}>
       <div className="relative w-16 h-16">
         <div className="absolute inset-0 rounded-full border-4 border-[var(--color-accent-muted)]" />
         <div
@@ -468,9 +482,9 @@ export default function LessonPage({ params }: PageProps) {
     };
   }, [supabase, topicId]);
 
-  if (authLoading || stage === "checking-cache" || (stage === "idle" && !lesson)) {
+  if (authLoading || stage === "waiting-auth" || stage === "checking-cache" || (stage === "idle" && !lesson)) {
     return (
-      <div className="lesson-page">
+      <div className="lesson-page" style={LESSON_THEME_VARS}>
         <div className="lesson-container space-y-6">
           <div className="h-8 bg-[var(--color-skel)] rounded-lg w-1/3 animate-pulse" />
           <LessonSkeleton />
@@ -622,7 +636,7 @@ export default function LessonPage({ params }: PageProps) {
         }
       `}</style>
 
-      <div className="lesson-page">
+      <div className="lesson-page" style={LESSON_THEME_VARS}>
         <div className="lesson-container space-y-8">
           <div className="space-y-3">
             <button onClick={() => router.push("/lessons")} className="btn-outline text-xs">← Back to lessons</button>
