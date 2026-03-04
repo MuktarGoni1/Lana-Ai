@@ -688,7 +688,9 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                 return (
                   <button
                     key={plan.id}
-                    onClick={() => router.push(`/subject/${plan.id}`)}
+                    onClick={() =>
+                      router.push(nextTopic ? `/lesson/${nextTopic.id}` : "/lessons")
+                    }
                     className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-left"
                   >
                     <p className="text-sm font-semibold">{plan.subject}</p>

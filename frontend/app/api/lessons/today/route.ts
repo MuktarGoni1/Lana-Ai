@@ -3,6 +3,20 @@ import { createServerClient } from '@/lib/supabase/server';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+function isMissingTableError(error: unknown): boolean {
+  const message =
+    (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+      ? (error as any).message
+      : '') || '';
+
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof (error as any).code === 'string'
+      ? (error as any).code
+      : '';
+
+  return code === '42P01' || message.toLowerCase().includes('lesson_schedules');
+}
+
 export async function GET() {
   try {
     const supabase = await createServerClient();
@@ -24,8 +38,15 @@ export async function GET() {
       .eq('user_id', user.id)
       .contains('lesson_days', [todayName]);
 
-    if (scheduleError) {
+    if (scheduleError && !isMissingTableError(scheduleError)) {
       return NextResponse.json({ error: scheduleError.message }, { status: 500 });
+    }
+
+    if (scheduleError && isMissingTableError(scheduleError)) {
+      return NextResponse.json({
+        success: true,
+        data: { day: todayName, subjects: [], lessons: [] },
+      });
     }
 
     const subjects = Array.from(

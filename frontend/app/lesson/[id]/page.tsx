@@ -188,17 +188,9 @@ function LessonRenderer({ lesson }: { lesson: LessonContent }) {
       {lesson.sections?.map((section: LessonSection, i: number) => (
         <div key={i} className="card">
           <h3 className="section-heading">{section.heading}</h3>
-          <p
-            className="text-[var(--color-text)] leading-relaxed text-[15px]"
-            dangerouslySetInnerHTML={{
-              __html: section.body
-                .replace(/&#x27;/g, "'")
-                .replace(/&amp;/g, "&")
-                .replace(/&lt;/g, "<")
-                .replace(/&gt;/g, ">")
-                .replace(/&quot;/g, '"'),
-            }}
-          />
+          <p className="text-[var(--color-text)] leading-relaxed text-[15px] whitespace-pre-line">
+            {section.body}
+          </p>
           {section.examples?.length > 0 && (
             <ul className="mt-3 space-y-1">
               {section.examples.map((ex: string, j: number) => (
@@ -414,7 +406,7 @@ function VideoSection({
 
 export default function LessonPage({ params }: PageProps) {
   const router = useRouter();
-  const { user } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useUnifiedAuth();
   const topicId = params.id;
   const userId = user?.id ?? "";
 
@@ -440,6 +432,12 @@ export default function LessonPage({ params }: PageProps) {
       startVideoGeneration();
     }
   }, [lesson, videoStatus, startVideoGeneration]);
+
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [authLoading, isAuthenticated, router]);
 
   const lessonStatus = lesson ? "ready" : "pending";
   const quizStatus = questions.length > 0 ? "ready" : "pending";
@@ -470,7 +468,7 @@ export default function LessonPage({ params }: PageProps) {
     };
   }, [supabase, topicId]);
 
-  if (stage === "checking-cache" || (stage === "idle" && !lesson)) {
+  if (authLoading || stage === "checking-cache" || (stage === "idle" && !lesson)) {
     return (
       <div className="lesson-page">
         <div className="lesson-container space-y-6">
@@ -485,7 +483,11 @@ export default function LessonPage({ params }: PageProps) {
     return <GeneratingLesson stage={stage} />;
   }
 
-  if (stage === "error") {
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  if (stage === "error" && !lesson) {
     return <ErrorState message={error ?? "Unknown error"} onRetry={retryLesson} />;
   }
 

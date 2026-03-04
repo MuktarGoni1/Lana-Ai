@@ -22,7 +22,13 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: 'Unauthorized',
+          details: 'No server session found. Refresh login or call /api/auth/sync-session before lesson generation.',
+        },
+        { status: 401 }
+      );
     }
 
     const parsed = BodySchema.safeParse(await req.json());

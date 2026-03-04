@@ -85,11 +85,12 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .maybeSingle();
 
-      await supabaseAdmin
-        .from("lesson_generation_jobs")
-        .update({ status: "completed", updated_at: new Date().toISOString() })
-        .eq("topic_id", topic_id)
-        .eq("user_id", effectiveUserId);
+      await updateLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
+        status: "completed",
+        updated_at: new Date().toISOString(),
+        error_code: null,
+        error_message: null,
+      });
 
       return NextResponse.json({
         status: "completed",
@@ -104,6 +105,8 @@ export async function POST(req: NextRequest) {
         topic_id,
         status: "processing",
         updated_at: new Date().toISOString(),
+        error_code: null,
+        error_message: null,
       },
       { onConflict: "topic_id,user_id" }
     );
@@ -153,21 +156,23 @@ export async function POST(req: NextRequest) {
       clearTimeout(timer);
       const msg = err instanceof Error ? err.message : String(err);
 
-      await supabaseAdmin
-        .from("lesson_generation_jobs")
-        .update({ status: "failed", error: msg, updated_at: new Date().toISOString() })
-        .eq("topic_id", topic_id)
-        .eq("user_id", effectiveUserId);
+      await updateLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
+        status: "failed",
+        updated_at: new Date().toISOString(),
+        error_code: "BACKEND_REQUEST_FAILED",
+        error_message: msg,
+      });
 
       return NextResponse.json({ error: "Lesson generation failed", details: msg }, { status: 502 });
     }
 
     if (!lessonContent) {
-      await supabaseAdmin
-        .from("lesson_generation_jobs")
-        .update({ status: "failed", error: "Empty lesson returned", updated_at: new Date().toISOString() })
-        .eq("topic_id", topic_id)
-        .eq("user_id", effectiveUserId);
+      await updateLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
+        status: "failed",
+        updated_at: new Date().toISOString(),
+        error_code: "EMPTY_LESSON",
+        error_message: "Empty lesson returned",
+      });
 
       return NextResponse.json({ error: "Backend returned empty lesson" }, { status: 502 });
     }
@@ -214,11 +219,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await supabaseAdmin
-      .from("lesson_generation_jobs")
-      .update({ status: "completed", updated_at: now })
-      .eq("topic_id", topic_id)
-      .eq("user_id", effectiveUserId);
+    await updateLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
+      status: "completed",
+      updated_at: now,
+      error_code: null,
+      error_message: null,
+    });
 
     return NextResponse.json({
       status: "completed",
@@ -230,6 +236,45 @@ export async function POST(req: NextRequest) {
     console.error("[structured-lesson/stream] Fatal error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
+}
+
+async function updateLessonGenerationJob(
+  supabaseAdmin: any,
+  topicId: string,
+  userId: string,
+  payload: {
+    status: "processing" | "completed" | "failed";
+    updated_at: string;
+    error_code?: string | null;
+    error_message?: string | null;
+  }
+) {
+  const { error } = await supabaseAdmin
+    .from("lesson_generation_jobs")
+    .update(payload)
+    .eq("topic_id", topicId)
+    .eq("user_id", userId);
+
+  // Backward compatibility for legacy schema using a single `error` column.
+  if (!error) return;
+  if (!error.message?.toLowerCase().includes("column")) return;
+
+  const legacyPayload: Record<string, unknown> = {
+    status: payload.status,
+    updated_at: payload.updated_at,
+  };
+
+  if (payload.status === "failed") {
+    legacyPayload.error = payload.error_message ?? payload.error_code ?? "Lesson generation failed";
+  } else {
+    legacyPayload.error = null;
+  }
+
+  await supabaseAdmin
+    .from("lesson_generation_jobs")
+    .update(legacyPayload)
+    .eq("topic_id", topicId)
+    .eq("user_id", userId);
 }
 
 async function drainSSE(res: Response): Promise<Record<string, unknown>> {

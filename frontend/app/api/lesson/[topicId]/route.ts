@@ -20,7 +20,13 @@ export async function GET(_: Request, { params }: { params: Promise<{ topicId: s
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        {
+          error: 'Unauthorized',
+          details: 'No server session found. Refresh login or call /api/auth/sync-session before loading lesson state.',
+        },
+        { status: 401 }
+      );
     }
 
     const { data: topic, error: topicError } = await supabase

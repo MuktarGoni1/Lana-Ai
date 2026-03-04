@@ -127,11 +127,21 @@ function normalizeLessonContent(input: unknown): LessonContent | null {
 }
 
 function normalizeQuestions(input: unknown): QuizQuestion[] {
-  if (!Array.isArray(input)) {
+  const source = (() => {
+    if (Array.isArray(input)) return input;
+    if (input && typeof input === "object") {
+      const maybeObject = input as Record<string, unknown>;
+      if (Array.isArray(maybeObject.questions)) return maybeObject.questions;
+      if (Array.isArray(maybeObject.items)) return maybeObject.items;
+    }
+    return [];
+  })();
+
+  if (!Array.isArray(source)) {
     return [];
   }
 
-  return input
+  return source
     .map((item, index) => {
       if (!item || typeof item !== "object") {
         return null;
@@ -256,21 +266,30 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
 
       stopLessonPoll();
       const normalizedServerQuestions = normalizeQuestions(serverQuestions);
-      const questions = normalizedServerQuestions.length > 0 ? normalizedServerQuestions : await fetchQuiz();
+      const hasServerQuestions = normalizedServerQuestions.length > 0;
 
+      // Render lesson immediately. Quiz can hydrate independently.
       setState((s) => ({
         ...s,
         lesson: lessonContent,
-        questions,
+        questions: hasServerQuestions ? normalizedServerQuestions : s.questions,
         stage: "ready",
         error: null,
       }));
 
-      if (questions.length === 0) {
-        startQuizPoll();
-      } else {
+      if (hasServerQuestions) {
         stopQuizPoll();
+        return;
       }
+
+      const fetchedQuestions = await fetchQuiz();
+      if (fetchedQuestions.length > 0) {
+        stopQuizPoll();
+        setState((s) => ({ ...s, questions: fetchedQuestions }));
+        return;
+      }
+
+      startQuizPoll();
     },
     [fetchQuiz, startQuizPoll, stopLessonPoll, stopQuizPoll]
   );
@@ -312,7 +331,7 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
 
       const { data: job } = await db
         .from("lesson_generation_jobs")
-        .select("status, error")
+        .select("*")
         .eq("topic_id", topicId)
         .eq("user_id", userId)
         .order("created_at", { ascending: false })
@@ -321,10 +340,16 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
 
       if (job?.status === "failed") {
         stopLessonPoll();
+        const failureMessage =
+          (typeof job.error_message === "string" && job.error_message) ||
+          (typeof job.error === "string" && job.error) ||
+          (typeof job.error_code === "string" && job.error_code) ||
+          "Lesson generation failed";
+
         setState((s) => ({
           ...s,
           stage: "error",
-          error: typeof job.error === "string" ? job.error : "Lesson generation failed",
+          error: failureMessage,
         }));
       }
     }, POLL_INTERVAL_MS);

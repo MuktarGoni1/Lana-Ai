@@ -95,6 +95,10 @@ const nextConfig = {
     ]
   },
   async redirects() {
+    if (process.env.NEXT_PUBLIC_FORCE_REMOTE_STRUCTURED_LESSON !== 'true') {
+      return [];
+    }
+
     return [
       // Redirect incorrect structured lesson API calls to the correct endpoint
       {
@@ -127,6 +131,8 @@ const nextConfig = {
       'deployment-test',
       'supabase-test',
       'avatar/streams',
+      'lesson',
+      'lessons',
       'tts',
       'quiz',
       'subscription/status',
