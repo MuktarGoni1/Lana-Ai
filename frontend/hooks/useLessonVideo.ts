@@ -299,7 +299,7 @@ export function useLessonVideo(
         .eq("topic_id", topicId)
         .then(async ({ error: legacyError }) => {
           if (!legacyError) return;
-          await supabase
+          await (supabase as any)
             .from("lesson_units")
             .update({
               video_ready: false,
