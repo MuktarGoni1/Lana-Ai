@@ -10,6 +10,11 @@ type LearningStyle = "visual" | "auditory" | "reading_writing" | "kinesthetic";
 
 type Step = 1 | 2 | 3 | 4;
 
+type SubjectPlan = {
+  subject: string;
+  topics: string[];
+};
+
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function getTimezoneList(): string[] {
@@ -49,6 +54,7 @@ export default function OnboardingPage() {
   const [subjectName, setSubjectName] = useState("");
   const [topicInput, setTopicInput] = useState("");
   const [topics, setTopics] = useState<string[]>([]);
+  const [subjectPlans, setSubjectPlans] = useState<SubjectPlan[]>([]);
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -161,6 +167,34 @@ export default function OnboardingPage() {
     setTopics((prev) => prev.filter((t) => t !== topic));
   }
 
+  function addSubjectPlan() {
+    const subject = subjectName.trim();
+    if (!subject) {
+      setError("Enter a subject name before adding it.");
+      return;
+    }
+    if (topics.length === 0) {
+      setError("Add at least one topic before adding the subject.");
+      return;
+    }
+
+    const duplicate = subjectPlans.some((plan) => plan.subject.toLowerCase() === subject.toLowerCase());
+    if (duplicate) {
+      setError("That subject is already in your plan.");
+      return;
+    }
+
+    setSubjectPlans((prev) => [...prev, { subject, topics: [...topics] }]);
+    setSubjectName("");
+    setTopicInput("");
+    setTopics([]);
+    setError(null);
+  }
+
+  function removeSubjectPlan(subject: string) {
+    setSubjectPlans((prev) => prev.filter((plan) => plan.subject !== subject));
+  }
+
   async function saveProgress(nextStep: Step) {
     const ageNum = age ? Number(age) : null;
 
@@ -249,42 +283,45 @@ export default function OnboardingPage() {
     }
 
     if (step === 4) {
-      if (!subjectName.trim()) {
-        setError("Add your first subject to continue.");
-        return;
-      }
-      if (topics.length === 0) {
-        setError("Add at least one topic to continue.");
+      const draftValid = subjectName.trim().length > 0 && topics.length > 0;
+      const plansToSave = draftValid
+        ? [...subjectPlans, { subject: subjectName.trim(), topics: [...topics] }]
+        : [...subjectPlans];
+
+      if (plansToSave.length === 0) {
+        setError("Add at least one subject with topics to continue.");
         return;
       }
 
       setSaving(true);
       try {
-        const scheduleRes = await authFetch("/api/lesson-schedule", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subjectName: subjectName.trim(),
-            lessonDays,
-            reminderEnabled,
-            reminderTime,
-            reminderTimezone,
-          }),
-        });
+        for (const plan of plansToSave) {
+          const scheduleRes = await authFetch("/api/lesson-schedule", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subjectName: plan.subject,
+              lessonDays,
+              reminderEnabled,
+              reminderTime,
+              reminderTimezone,
+            }),
+          });
 
-        if (!scheduleRes.ok) {
-          const body = await scheduleRes.json().catch(() => ({}));
-          throw new Error(body?.error || "Could not save lesson-day settings.");
+          if (!scheduleRes.ok) {
+            const body = await scheduleRes.json().catch(() => ({}));
+            throw new Error(body?.error || "Could not save lesson-day settings.");
+          }
         }
 
         const completeRes = await authFetch("/api/onboarding/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            subjectPlan: {
-              subject: subjectName.trim(),
-              topics: topics.map((title) => ({ title })),
-            },
+            subjectPlans: plansToSave.map((plan) => ({
+              subject: plan.subject,
+              topics: plan.topics.map((title) => ({ title })),
+            })),
           }),
         });
 
@@ -320,7 +357,7 @@ export default function OnboardingPage() {
     );
   }
 
-  const stepLabels = ["About You", "Learning Style", "Lesson Days", "First Subject"];
+  const stepLabels = ["About You", "Learning Style", "Lesson Days", "Subjects"];
 
   return (
     <div className="min-h-screen bg-black px-4 py-8 text-white">
@@ -478,7 +515,7 @@ export default function OnboardingPage() {
         {step === 4 && (
           <div className="space-y-4">
             <label className="block space-y-1">
-              <span className="text-xs text-white/60">First subject</span>
+              <span className="text-xs text-white/60">Subject name</span>
               <input
                 value={subjectName}
                 onChange={(e) => setSubjectName(e.target.value)}
@@ -515,6 +552,35 @@ export default function OnboardingPage() {
                 ))}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={addSubjectPlan}
+              className="rounded-md border border-white/20 px-3 py-2 text-xs"
+            >
+              Add subject with topics
+            </button>
+
+            {subjectPlans.length > 0 && (
+              <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                <p className="text-xs text-white/60">Subjects in your plan</p>
+                {subjectPlans.map((plan) => (
+                  <div key={plan.subject} className="flex items-start justify-between gap-3 rounded-md border border-white/10 p-2">
+                    <div>
+                      <p className="text-sm font-semibold">{plan.subject}</p>
+                      <p className="text-xs text-white/60">{plan.topics.length} topic{plan.topics.length === 1 ? "" : "s"}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeSubjectPlan(plan.subject)}
+                      className="rounded-md border border-white/20 px-2 py-1 text-xs"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

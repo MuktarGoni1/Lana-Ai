@@ -12,7 +12,8 @@ const SubjectSchema = z.object({
 });
 
 const BodySchema = z.object({
-  subjectPlan: SubjectSchema,
+  subjectPlan: SubjectSchema.optional(),
+  subjectPlans: z.array(SubjectSchema).min(1).max(10).optional(),
 });
 
 export async function POST(req: Request) {
@@ -47,62 +48,69 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, data: { already_complete: true } });
     }
 
-    const subject = parsed.data.subjectPlan.subject;
-    const topics = parsed.data.subjectPlan.topics;
-
-    const { data: existingPlan } = await db
-      .from('term_plans')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('subject', subject)
-      .eq('raw_syllabus', topics.map((t: any) => t.title).join('\n'))
-      .limit(1)
-      .maybeSingle();
-
-    let planId = existingPlan?.id as string | undefined;
-
-    if (!planId) {
-      const { data: plan, error: planError } = await db
-        .from('term_plans')
-        .insert({
-          user_id: user.id,
-          subject,
-          grade: profile?.grade ?? null,
-          term: "general",
-          raw_syllabus: topics.map((t: any) => t.title).join('\n'),
-          updated_at: nowIso,
-        })
-        .select('id')
-        .single();
-
-      if (planError || !plan) {
-        return NextResponse.json({ error: planError?.message || 'Failed to create term plan' }, { status: 500 });
-      }
-
-      planId = plan.id;
+    const plans = parsed.data.subjectPlans ?? (parsed.data.subjectPlan ? [parsed.data.subjectPlan] : []);
+    if (plans.length === 0) {
+      return NextResponse.json({ error: 'At least one subject plan is required' }, { status: 400 });
     }
 
-    const { data: existingTopics } = await db
-      .from('topics')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('term_plan_id', planId);
+    for (const planInput of plans) {
+      const subject = planInput.subject;
+      const topics = planInput.topics;
 
-    if (!existingTopics || existingTopics.length === 0) {
-      const topicRows = topics.map((t, idx) => ({
-        user_id: user.id,
-        term_plan_id: planId,
-        subject_name: subject,
-        title: t.title,
-        week_number: idx + 1,
-        order_index: idx,
-        status: idx === 0 ? 'available' : 'locked',
-        updated_at: nowIso,
-      }));
+      const { data: existingPlan } = await db
+        .from('term_plans')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('subject', subject)
+        .eq('raw_syllabus', topics.map((t: any) => t.title).join('\n'))
+        .limit(1)
+        .maybeSingle();
 
-      const { error: topicError } = await db.from('topics').insert(topicRows);
-      if (topicError) {
-        return NextResponse.json({ error: topicError.message }, { status: 500 });
+      let planId = existingPlan?.id as string | undefined;
+
+      if (!planId) {
+        const { data: plan, error: planError } = await db
+          .from('term_plans')
+          .insert({
+            user_id: user.id,
+            subject,
+            grade: profile?.grade ?? null,
+            term: "general",
+            raw_syllabus: topics.map((t: any) => t.title).join('\n'),
+            updated_at: nowIso,
+          })
+          .select('id')
+          .single();
+
+        if (planError || !plan) {
+          return NextResponse.json({ error: planError?.message || 'Failed to create term plan' }, { status: 500 });
+        }
+
+        planId = plan.id;
+      }
+
+      const { data: existingTopics } = await db
+        .from('topics')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('term_plan_id', planId);
+
+      if (!existingTopics || existingTopics.length === 0) {
+        const topicRows = topics.map((t, idx) => ({
+          user_id: user.id,
+          term_plan_id: planId,
+          subject_name: subject,
+          title: t.title,
+          week_number: idx + 1,
+          order_index: idx,
+          status: idx === 0 ? 'available' : 'locked',
+          updated_at: nowIso,
+        }));
+
+        const { error: topicError } = await db.from('topics').insert(topicRows);
+        if (topicError) {
+          return NextResponse.json({ error: topicError.message }, { status: 500 });
+        }
       }
     }
 
