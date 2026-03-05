@@ -52,7 +52,7 @@ def get_current_user(
                 token,
                 signing_key.key,
                 algorithms=["RS256"],
-                options={"verify_aud": False},  # Supabase uses aud="authenticated"
+                audience="authenticated",
             )
         except Exception as e:
             logger.warning("auth_rs256_decode_failed", extra={"path": request.url.path, "error": str(e)})

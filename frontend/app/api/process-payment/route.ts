@@ -1,8 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 // This is a mock API route - in a real implementation, this would connect to Stripe
 export async function POST(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return NextResponse.json({ error: 'Endpoint disabled in production' }, { status: 404 });
+    }
+
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     const { planName, interval, billingInfo } = await request.json();
 
     // Sanitize and validate inputs

@@ -1,8 +1,18 @@
 import { NextRequest } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 export async function GET() {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return new Response('Not Found', { status: 404 });
+    }
+
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     // Test Supabase Admin Connection
     const adminClient = getSupabaseAdmin();
     

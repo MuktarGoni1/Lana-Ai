@@ -333,6 +333,14 @@ function extractLesson(raw: Record<string, unknown> | null): Record<string, unkn
       | null;
   }
 
+  // Accept direct backend StructuredLessonResponse shape:
+  // { introduction, sections, classifications?, diagram?, quiz? }
+  const hasIntro = typeof raw.introduction === "string" && raw.introduction.trim().length > 0;
+  const hasSections = Array.isArray(raw.sections) && raw.sections.length > 0;
+  if (hasIntro && hasSections) {
+    return raw;
+  }
+
   return (raw.lesson_content ?? raw.lesson ?? raw.content ?? (raw.summary ? raw : null)) as
     | Record<string, unknown>
     | null;

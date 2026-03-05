@@ -17,27 +17,27 @@ CREATE TABLE public.contact_submissions (
   email text NOT NULL,
   subject text DEFAULT 'General Inquiry'::text,
   message text NOT NULL,
-  source text DEFAULT 'website'::text
+  source text DEFAULT 'website'::text,
   status text DEFAULT 'new'::text CHECK (status = ANY (ARRAY['new'::text, 'read'::text, 'replied'::text, 'closed'::text])),
   created_at timestamp with time zone DEFAULT now(),
-  updated_at timestamp with time zone DEFAULT now()
+  updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT contact_submissions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.demo_requests (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL,
   email text NOT NULL,
   role text,
   company text,
   message text,
-source text DEFAULT 'website'::text,
+  source text DEFAULT 'website'::text,
   status text DEFAULT 'pending'::text CHECK (status = ANY (ARRAY['pending'::text, 'scheduled'::text, 'completed'::text, 'cancelled'::text])),
   scheduled_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT demo_requests_pkey PRIMARY KEY (id)
-)
-;CREATE TABLE public.guardian_reports (
+);
+CREATE TABLE public.guardian_reports (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   guardian_email text NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE public.guardian_settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   weekly_report boolean DEFAULT true,
-monthly_report boolean DEFAULT true,
+  monthly_report boolean DEFAULT true,
   created_at timestamp with time zone DEFAULT now(),
   user_id uuid,
   updated_at timestamp with time zone DEFAULT now(),
@@ -63,7 +63,7 @@ monthly_report boolean DEFAULT true,
   CONSTRAINT guardian_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.lesson_chat_messages (
-  id uuid NOT NULL DEFAULT gen_random_uuid()
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   topic_id uuid NOT NULL,
   user_id uuid NOT NULL,
   role text NOT NULL CHECK (role = ANY (ARRAY['user'::text, 'assistant'::text])),
@@ -81,6 +81,13 @@ CREATE TABLE public.lesson_generation_jobs (
   error text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  error_code text,
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  attempts integer NOT NULL DEFAULT 0,
+  worker_id text,
+  locked_at timestamp with time zone,
+  max_retries integer NOT NULL DEFAULT 3,
   CONSTRAINT lesson_generation_jobs_pkey PRIMARY KEY (id),
   CONSTRAINT lesson_generation_jobs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT lesson_generation_jobs_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
@@ -95,8 +102,8 @@ CREATE TABLE public.lesson_units (
   generated_at timestamp with time zone,
   refreshed_at timestamp with time zone DEFAULT now(),
   created_at timestamp with time zone DEFAULT now(),
-  video_ready boolean NOT NULL DEFAULT true,
-  audio_ready boolean NOT NULL DEFAULT true,
+  video_ready boolean NOT NULL DEFAULT false,
+  audio_ready boolean NOT NULL DEFAULT false,
   CONSTRAINT lesson_units_pkey PRIMARY KEY (id),
   CONSTRAINT lesson_units_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
@@ -104,7 +111,7 @@ CREATE TABLE public.newsletter_subscribers (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   email text NOT NULL UNIQUE,
   source text DEFAULT 'website'::text,
-tags ARRAY DEFAULT '{}'::text[],
+  tags ARRAY DEFAULT '{}'::text[],
   status text DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'unsubscribed'::text, 'bounced'::text])),
   subscribed_at timestamp with time zone DEFAULT now(),
   unsubscribed_at timestamp with time zone,
@@ -135,9 +142,10 @@ CREATE TABLE public.quiz_attempts (
   answers jsonb,
   attempted_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
+  difficulty_level text DEFAULT 'intermediate'::text CHECK (difficulty_level = ANY (ARRAY['beginner'::text, 'intermediate'::text, 'advanced'::text])),
   CONSTRAINT quiz_attempts_pkey PRIMARY KEY (id),
   CONSTRAINT quiz_attempts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id),
-CONSTRAINT quiz_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+  CONSTRAINT quiz_attempts_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.quiz_questions (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -147,13 +155,54 @@ CREATE TABLE public.quiz_questions (
   CONSTRAINT quiz_questions_pkey PRIMARY KEY (id),
   CONSTRAINT quiz_questions_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
 );
-CREATE TABLE public.searches 
+CREATE TABLE public.searches (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   title text NOT NULL,
   created_at timestamp with time zone DEFAULT now(),
   CONSTRAINT searches_pkey PRIMARY KEY (id),
   CONSTRAINT searches_uid_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.section_progress (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  topic_id uuid NOT NULL,
+  current_section_index integer NOT NULL DEFAULT 0,
+  completed_sections ARRAY NOT NULL DEFAULT '{}'::integer[],
+  section_quiz_answers jsonb DEFAULT '{}'::jsonb,
+  started_at timestamp with time zone DEFAULT now(),
+  completed_at timestamp with time zone,
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT section_progress_pkey PRIMARY KEY (id),
+  CONSTRAINT section_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT section_progress_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
+);
+CREATE TABLE public.spaced_repetition_reviews (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  topic_id uuid NOT NULL,
+  due_at timestamp with time zone NOT NULL DEFAULT now(),
+  interval_days integer NOT NULL DEFAULT 1,
+  repetition_count integer NOT NULL DEFAULT 0,
+  ease_factor numeric NOT NULL DEFAULT 2.50,
+  last_score_pct integer,
+  completed_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT spaced_repetition_reviews_pkey PRIMARY KEY (id),
+  CONSTRAINT spaced_repetition_reviews_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT spaced_repetition_reviews_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.topics(id)
+);
+CREATE TABLE public.streaks (
+  user_id uuid NOT NULL,
+  current_streak integer NOT NULL DEFAULT 0,
+  longest_streak integer NOT NULL DEFAULT 0,
+  last_activity_date date,
+  total_days_active integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT streaks_pkey PRIMARY KEY (user_id),
+  CONSTRAINT streaks_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.term_plans (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -168,14 +217,14 @@ CREATE TABLE public.term_plans (
   CONSTRAINT term_plans_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.topics (
-id uuid NOT NULL DEFAULT gen_random_uuid(),
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   term_plan_id uuid,
-subject_name text NOT NULL,
+  subject_name text NOT NULL,
   title text NOT NULL,
   week_number integer DEFAULT 1,
   order_index integer DEFAULT 0,
-status text DEFAULT 'locked'::text CHECK (status = ANY (ARRAY['locked'::text, 'available'::text, 'in_progress'::text, 'completed'::text])),
+  status text DEFAULT 'locked'::text CHECK (status = ANY (ARRAY['locked'::text, 'available'::text, 'in_progress'::text, 'completed'::text])),
   unlocked_at timestamp with time zone,
   completed_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
@@ -212,4 +261,5 @@ CREATE TABLE public.users (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT users_pkey PRIMARY KEY (id),
-  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENC
+  CONSTRAINT users_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
+);

@@ -13,11 +13,114 @@ logger = logging.getLogger(__name__)
 # In-memory cache for lessons (similar to what's in main.py and chat.py)
 _INFLIGHT_LESSONS: dict[str, asyncio.Future] = {}
 
+
+class LessonContractError(ValueError):
+    """Raised when lesson payload does not satisfy canonical contract."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code
+        self.message = message
+
+
 class LessonService:
     """Centralized service for lesson generation and management."""
 
     def __init__(self, cache_repository: Optional[ICacheRepository] = None):
         self.cache_repository = cache_repository or MemoryCacheRepository()
+
+    def normalize_lesson_payload(self, payload: Any) -> Dict[str, Any]:
+        """Normalize lesson payloads from canonical and legacy envelope shapes."""
+        if not isinstance(payload, dict):
+            raise LessonContractError("INVALID_PAYLOAD", "Lesson payload must be an object")
+
+        root = payload
+        nested_payload = root.get("payload")
+        if isinstance(nested_payload, dict):
+            root = nested_payload
+
+        candidate = None
+        for key in ("lesson", "lesson_content", "content"):
+            value = root.get(key)
+            if isinstance(value, dict):
+                candidate = value
+                break
+
+        if candidate is None and (
+            isinstance(root.get("introduction"), str)
+            or isinstance(root.get("summary"), str)
+            or isinstance(root.get("sections"), list)
+        ):
+            candidate = root
+
+        if not isinstance(candidate, dict):
+            raise LessonContractError("INVALID_PAYLOAD", "Lesson payload missing lesson content object")
+
+        introduction = ""
+        if isinstance(candidate.get("introduction"), str):
+            introduction = candidate["introduction"].strip()
+        elif isinstance(candidate.get("summary"), str):
+            introduction = candidate["summary"].strip()
+
+        sections_raw = candidate.get("sections")
+        sections: List[Dict[str, str]] = []
+        if isinstance(sections_raw, list):
+            for section in sections_raw:
+                if not isinstance(section, dict):
+                    continue
+                title = str(section.get("title") or section.get("heading") or "").strip()
+                content = str(section.get("content") or section.get("body") or "").strip()
+                if title and content:
+                    sections.append({"title": title, "content": content})
+
+        if not introduction or not sections:
+            raise LessonContractError(
+                "INVALID_LESSON_PAYLOAD",
+                "Lesson payload must include non-empty introduction and at least one section",
+            )
+
+        classifications_raw = candidate.get("classifications")
+        classifications: List[Dict[str, str]] = []
+        if isinstance(classifications_raw, list):
+            for item in classifications_raw:
+                if not isinstance(item, dict):
+                    continue
+                kind = str(item.get("type") or "").strip()
+                desc = str(item.get("description") or "").strip()
+                if kind and desc:
+                    classifications.append({"type": kind, "description": desc})
+
+        quiz_raw = candidate.get("quiz")
+        if not isinstance(quiz_raw, list):
+            quiz_raw = candidate.get("quiz_questions")
+        if not isinstance(quiz_raw, list):
+            quiz_raw = candidate.get("questions")
+        if not isinstance(quiz_raw, list):
+            quiz_raw = []
+
+        quiz: List[Dict[str, Any]] = []
+        for entry in quiz_raw:
+            if not isinstance(entry, dict):
+                continue
+            question = str(entry.get("q") or entry.get("question") or "").strip()
+            answer = str(entry.get("answer") or entry.get("correct_answer") or "").strip()
+            options_raw = entry.get("options")
+            if not isinstance(options_raw, list):
+                options_raw = []
+            options = [str(opt.get("option") if isinstance(opt, dict) else opt).strip() for opt in options_raw]
+            options = [opt for opt in options if opt]
+            if question and answer and len(options) >= 2:
+                quiz.append({"q": question, "options": options, "answer": answer})
+
+        normalized: Dict[str, Any] = {
+            "id": str(candidate.get("id") or root.get("id") or uuid.uuid4()),
+            "introduction": introduction,
+            "classifications": classifications,
+            "sections": sections,
+            "diagram": str(candidate.get("diagram") or "").strip(),
+            "quiz": quiz,
+        }
+        return normalized
         
     async def _stub_lesson(self, topic: str, age: Optional[int] = None, mode: str = "lesson") -> Dict[str, Any]:
         """Generate a stub lesson with clear error messaging instead of generic templates."""
@@ -322,10 +425,10 @@ class LessonService:
             cached = await self.cache_repository.get(cache_key, namespace="lessons")
             if cached:
                 logger.info(f"Lesson for '{topic}' retrieved from cache.")
-                return cached, "cache"
+                return self.normalize_lesson_payload(cached), "cache"
         except Exception:
             pass
             
         # Compute with single-flight to avoid duplicate LLM calls
         lesson, src = await self._get_or_compute_lesson(cache_key, topic, age, groq_client)
-        return lesson, src
+        return self.normalize_lesson_payload(lesson), src

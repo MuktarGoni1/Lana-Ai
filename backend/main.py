@@ -13,6 +13,7 @@ from app.middleware.security_headers_middleware import SecurityHeadersMiddleware
 from app.middleware.request_timing_middleware import RequestTimingMiddleware, get_metrics_snapshot
 from app.settings import load_settings
 from app.repositories.memory_cache_repository import MemoryCacheRepository
+from app.services.lesson_service import LessonService, LessonContractError
 
 from app.api.router import api_router
 from fastapi.responses import StreamingResponse  # type: ignore
@@ -64,6 +65,7 @@ logger.info(f"Google API key configured: {bool(settings.google_api_key)}")
 
 # Initialize shared cache and Groq client for structured lessons
 _STRUCTURED_LESSON_CACHE = MemoryCacheRepository(default_ttl=1800)
+_LESSON_SERVICE = LessonService(cache_repository=_STRUCTURED_LESSON_CACHE)
 _GROQ_CLIENT = None
 if Groq and settings.groq_api_key:
     try:
@@ -604,8 +606,7 @@ async def warm_up_structured_lessons():
         sample_topics = ["warm-up sample"]
         sample_age = 10
         for t in sample_topics:
-            cache_key = hashlib.md5(f"{t}|{sample_age}".encode()).hexdigest()[:16]
-            await _get_or_compute_lesson(cache_key, t, sample_age)
+            await _LESSON_SERVICE.generate_structured_lesson(t, sample_age, _GROQ_CLIENT, "lesson")
         logger.info(
             "Structured lessons warm-up complete: topics=%d, llm=%s",
             len(sample_topics),
@@ -618,22 +619,36 @@ async def warm_up_structured_lessons():
 @app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
 async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
     """Create a structured lesson from a topic and optional age constraints."""
+    request_id = str(uuid.uuid4())
     topic = req.topic
     age = req.age
-    # Build cache key and try cache first
-    cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
-    try:
-        cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
-        if cached:
-            response.headers["X-Content-Source"] = "cache"
-            return StructuredLessonResponse(**cached)
-    except Exception:
-        pass
 
-    # Compute with single-flight to avoid duplicate LLM calls
-    lesson, src = await _get_or_compute_lesson(cache_key, topic, age)
-    response.headers["X-Content-Source"] = src
-    return lesson
+    try:
+        lesson, src = await _LESSON_SERVICE.generate_structured_lesson(topic, age, _GROQ_CLIENT, "lesson")
+        response.headers["X-Content-Source"] = src
+        response.headers["X-Request-Id"] = request_id
+        return StructuredLessonResponse(**lesson)
+    except LessonContractError as exc:
+        logger.warning("Structured lesson contract error: %s", exc.message, extra={"request_id": request_id})
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": exc.code,
+                "message": exc.message,
+                "request_id": request_id,
+            },
+        )
+    except Exception as exc:
+        logger.exception("Structured lesson generation failed", extra={"request_id": request_id})
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "code": "BACKEND_REQUEST_FAILED",
+                "message": "Structured lesson generation failed",
+                "details": str(exc),
+                "request_id": request_id,
+            },
+        )
 
 
 class TTSRequest(BaseModel):
@@ -717,38 +732,38 @@ class InMemoryChatRepository(IChatRepository):
 @app.post("/api/structured-lesson/stream", tags=["Lessons"])
 async def stream_structured_lesson(req: StructuredLessonRequest):
     """Stream a structured lesson as a single SSE 'done' event for fast UI consumption."""
+    request_id = str(uuid.uuid4())
     try:
         topic = req.topic
         age = req.age
-        cache_key = hashlib.md5(f"{topic}|{age}".encode()).hexdigest()[:16]
-        source = "stub"
-        # Try cache first
-        try:
-            cached = await _STRUCTURED_LESSON_CACHE.get(cache_key, namespace="lessons")
-            if cached:
-                lesson = StructuredLessonResponse(**cached)
-                source = "cache"
-            else:
-                raise Exception("no-cache")
-        except Exception:
-            # Compute lesson using single-flight; fallback handled inside helper
-            lesson, source = await _get_or_compute_lesson(cache_key, topic, age)
+        lesson, source = await _LESSON_SERVICE.generate_structured_lesson(topic, age, _GROQ_CLIENT, "lesson")
+        lesson_model = StructuredLessonResponse(**lesson)
+
         async def event_generator():
-            # Use model_dump for Pydantic v2 compatibility
             try:
-                payload_lesson = lesson.model_dump()
+                payload_lesson = lesson_model.model_dump()
             except Exception:
-                payload_lesson = lesson.dict()
-            payload = {"type": "done", "source": source, "lesson": payload_lesson}
+                payload_lesson = lesson_model.dict()
+            payload = {"type": "done", "source": source, "lesson": payload_lesson, "request_id": request_id}
             yield f"data: {json.dumps(payload)}\n\n"
+
         stream_resp = StreamingResponse(event_generator(), media_type="text/event-stream")
-        try:
-            stream_resp.headers["X-Content-Source"] = source
-        except Exception:
-            pass
+        stream_resp.headers["X-Content-Source"] = source
+        stream_resp.headers["X-Request-Id"] = request_id
         return stream_resp
-    except Exception as e:
-        err = {"type": "error", "message": str(e)}
+    except LessonContractError as exc:
+        err = {"type": "error", "code": exc.code, "message": exc.message, "request_id": request_id}
         async def error_stream():
             yield f"data: {json.dumps(err)}\n\n"
-        return StreamingResponse(error_stream(), media_type="text/event-stream")
+        return StreamingResponse(error_stream(), media_type="text/event-stream", status_code=502)
+    except Exception as exc:
+        err = {
+            "type": "error",
+            "code": "BACKEND_REQUEST_FAILED",
+            "message": "Structured lesson generation failed",
+            "details": str(exc),
+            "request_id": request_id,
+        }
+        async def error_stream():
+            yield f"data: {json.dumps(err)}\n\n"
+        return StreamingResponse(error_stream(), media_type="text/event-stream", status_code=502)

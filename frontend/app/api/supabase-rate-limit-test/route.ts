@@ -1,8 +1,18 @@
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 import { NextRequest } from 'next/server';
+import { requireAuth, unauthorizedResponse } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production') {
+      return new Response('Not Found', { status: 404 });
+    }
+
+    const user = await requireAuth();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+
     console.log('[Supabase Rate Limit Test] Starting test');
     
     // Test 1: Environment variables
@@ -85,8 +95,7 @@ export async function GET(request: NextRequest) {
         JSON.stringify({
           success: false,
           error: 'Client initialization or operation failed',
-          message: clientError.message,
-          stack: clientError.stack
+          message: clientError.message
         }),
         {
           status: 500,
@@ -103,8 +112,7 @@ export async function GET(request: NextRequest) {
       JSON.stringify({
         success: false,
         error: 'Unexpected error',
-        message: error.message,
-        stack: error.stack
+        message: error.message
       }),
       {
         status: 500,
