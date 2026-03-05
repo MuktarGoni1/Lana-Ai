@@ -161,14 +161,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (!lessonContent) {
+      // Some upstream responses are eventually-consistent and may briefly return
+      // no lesson payload even though the job is still being finalized.
+      // Keep the job in processing so frontend polling can continue gracefully.
       await updateLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
-        status: "failed",
+        status: "processing",
         updated_at: new Date().toISOString(),
-        error_code: "EMPTY_LESSON",
-        error_message: "Empty lesson returned",
+        error_code: null,
+        error_message: null,
       });
 
-      return NextResponse.json({ error: "Backend returned empty lesson" }, { status: 502 });
+      return NextResponse.json(
+        {
+          status: "processing",
+          message: "Lesson is still generating. Please keep polling.",
+        },
+        { status: 202 }
+      );
     }
 
     const now = new Date().toISOString();

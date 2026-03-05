@@ -341,12 +341,24 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         .maybeSingle();
 
       if (job?.status === "failed") {
-        stopLessonPoll();
-        const failureMessage =
+        const rawFailure =
           (typeof job.error_message === "string" && job.error_message) ||
           (typeof job.error === "string" && job.error) ||
           (typeof job.error_code === "string" && job.error_code) ||
-          "Lesson generation failed";
+          "";
+
+        const retriableEmptyLesson =
+          (typeof job.error_code === "string" && job.error_code.toLowerCase().includes("empty_lesson")) ||
+          rawFailure.toLowerCase().includes("empty lesson") ||
+          rawFailure.toLowerCase().includes("still generating");
+
+        if (retriableEmptyLesson) {
+          setState((s) => ({ ...s, stage: "generating", error: null }));
+          return;
+        }
+
+        stopLessonPoll();
+        const failureMessage = rawFailure || "Lesson generation failed";
 
         setState((s) => ({
           ...s,
