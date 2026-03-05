@@ -93,18 +93,45 @@ export async function POST(req: Request) {
       if (backendResponse.status === 404) {
         console.error('Backend structured lesson endpoint not found:', lessonUrl);
         return NextResponse.json(
-          { error: 'Structured lesson service not found', details: 'The requested service endpoint is not available' },
+          {
+            error: 'Structured lesson service not found',
+            details: 'The requested service endpoint is not available',
+            code: 'STRUCTURED_LESSON_NOT_FOUND',
+          },
           { status: 404 }
         );
       }
 
       // Non-OK from backend: return a clear error to the client
-      const errorText = await backendResponse.text();
-      console.error('Backend structured lesson error:', backendResponse.status, errorText);
+      const errorPayload = await backendResponse.json().catch(() => null);
+      const detail = errorPayload?.detail && typeof errorPayload.detail === 'object'
+        ? errorPayload.detail as Record<string, unknown>
+        : null;
+      const backendMessage =
+        (typeof detail?.message === 'string' && detail.message) ||
+        (typeof errorPayload?.error === 'string' && errorPayload.error) ||
+        (typeof errorPayload?.message === 'string' && errorPayload.message) ||
+        'Structured lesson service is temporarily unavailable';
+      const backendCode =
+        (typeof detail?.code === 'string' && detail.code) ||
+        (typeof errorPayload?.code === 'string' && errorPayload.code) ||
+        undefined;
+      const backendRequestId =
+        (typeof detail?.request_id === 'string' && detail.request_id) ||
+        (typeof errorPayload?.request_id === 'string' && errorPayload.request_id) ||
+        undefined;
+      const backendDetails =
+        (typeof detail?.details === 'string' && detail.details) ||
+        (typeof errorPayload?.details === 'string' && errorPayload.details) ||
+        (backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error');
+
+      console.error('Backend structured lesson error:', backendResponse.status, errorPayload);
       return NextResponse.json(
         {
-          error: 'Structured lesson service is temporarily unavailable',
-          details: backendResponse.status === 503 ? 'Service configuration issue' : 'Internal server error',
+          error: backendMessage,
+          details: backendDetails,
+          code: backendCode,
+          request_id: backendRequestId,
         },
         { status: backendResponse.status }
       );

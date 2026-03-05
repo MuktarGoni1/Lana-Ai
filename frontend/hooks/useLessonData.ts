@@ -429,7 +429,12 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         if (!res.ok) {
           stopLessonPoll();
           const payload = await res.json().catch(() => ({}));
+          const detail =
+            payload?.detail && typeof payload.detail === "object"
+              ? (payload.detail as Record<string, unknown>)
+              : null;
           const message =
+            (typeof detail?.message === "string" && detail.message) ||
             (typeof payload?.error === "string" && payload.error) ||
             (typeof payload?.details === "string" && payload.details) ||
             `Lesson generation failed (${res.status})`;
@@ -443,9 +448,11 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
         }
 
         const json = await res.json().catch(() => null);
-        if (json?.lesson_content) {
+        const lessonPayload = json?.lesson_content ?? json?.lesson ?? null;
+        const questionPayload = json?.questions ?? json?.quiz ?? null;
+        if (lessonPayload) {
           try {
-            await resolveLesson(json.lesson_content, json.questions);
+            await resolveLesson(lessonPayload, questionPayload);
           } catch (error) {
             setState((s) => ({
               ...s,
