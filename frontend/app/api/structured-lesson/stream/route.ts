@@ -99,17 +99,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    await supabaseAdmin.from("lesson_generation_jobs").upsert(
-      {
-        user_id: effectiveUserId,
-        topic_id,
-        status: "processing",
-        updated_at: new Date().toISOString(),
-        error_code: null,
-        error_message: null,
-      },
-      { onConflict: "topic_id,user_id" }
-    );
+    await upsertLessonGenerationJob(supabaseAdmin, topic_id, effectiveUserId, {
+      status: "processing",
+      error_code: null,
+      error_message: null,
+    });
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 55_000);
@@ -275,6 +269,48 @@ async function updateLessonGenerationJob(
     .update(legacyPayload)
     .eq("topic_id", topicId)
     .eq("user_id", userId);
+}
+
+async function upsertLessonGenerationJob(
+  supabaseAdmin: any,
+  topicId: string,
+  userId: string,
+  payload: {
+    status: "queued" | "processing" | "completed" | "failed";
+    error_code?: string | null;
+    error_message?: string | null;
+  }
+) {
+  const minimalPayload = {
+    user_id: userId,
+    topic_id: topicId,
+    status: payload.status,
+    error: payload.status === "failed" ? payload.error_message ?? payload.error_code ?? "Lesson generation failed" : null,
+    error_code: payload.error_code ?? null,
+  };
+
+  const minimalUpsert = await supabaseAdmin
+    .from("lesson_generation_jobs")
+    .upsert(minimalPayload, { onConflict: "topic_id,user_id" });
+
+  if (!minimalUpsert.error) {
+    return;
+  }
+
+  // Fallback for schemas that do not have legacy `error` but do have `error_message` + timestamps.
+  const now = new Date().toISOString();
+  await supabaseAdmin.from("lesson_generation_jobs").upsert(
+    {
+      user_id: userId,
+      topic_id: topicId,
+      status: payload.status,
+      updated_at: now,
+      error_code: payload.error_code ?? null,
+      error_message: payload.error_message ?? null,
+      completed_at: payload.status === "completed" || payload.status === "failed" ? now : null,
+    },
+    { onConflict: "topic_id,user_id" }
+  );
 }
 
 async function drainSSE(res: Response): Promise<Record<string, unknown>> {

@@ -40,6 +40,16 @@ const STATUS_PROGRESS: Record<string, number> = {
   unavailable: 0,
 };
 
+type LessonMediaRow = {
+  video_url?: string | null;
+  video_ready?: boolean | null;
+  audio_url?: string | null;
+  audio_ready?: boolean | null;
+  video_status?: string | null;
+  video_job_id?: string | null;
+  video_progress?: number | null;
+};
+
 export function useLessonVideo(
   topicId: string,
   userId: string
@@ -60,26 +70,44 @@ export function useLessonVideo(
     }
   }, []);
 
+  const fetchLessonMedia = useCallback(async (): Promise<LessonMediaRow | null> => {
+    const modern = await supabase
+      .from("lesson_units")
+      .select("video_url, video_ready, audio_url, audio_ready")
+      .eq("topic_id", topicId)
+      .maybeSingle();
+
+    if (!modern.error) {
+      return modern.data as LessonMediaRow | null;
+    }
+
+    const legacy = await supabase
+      .from("lesson_units")
+      .select("video_url, video_status, video_job_id, video_progress")
+      .eq("topic_id", topicId)
+      .maybeSingle();
+
+    if (legacy.error) {
+      console.error("[useLessonVideo] Error fetching unit:", legacy.error);
+      return null;
+    }
+
+    return legacy.data as LessonMediaRow | null;
+  }, [topicId]);
+
   const checkVideoStatus = useCallback(async () => {
     if (!topicId) return;
 
     try {
-      const { data: unit, error: unitError } = await supabase
-        .from("lesson_units")
-        .select("video_url, video_status, video_job_id, video_progress")
-        .eq("topic_id", topicId)
-        .maybeSingle();
-
-      if (unitError) {
-        console.error("[useLessonVideo] Error fetching unit:", unitError);
+      const unit = await fetchLessonMedia();
+      if (!unit) {
         return;
       }
 
+      const isModernRow = unit.video_ready !== undefined || unit.audio_ready !== undefined;
+
       // Video already ready
-      if (
-        unit?.video_url &&
-        (unit.video_status === "completed" || !unit.video_status)
-      ) {
+      if (unit?.video_url && (isModernRow ? Boolean(unit.video_ready) : unit.video_status === "completed" || !unit.video_status)) {
         setVideoUrl(unit.video_url);
         setStatus("completed");
         setProgress(unit.video_progress || 100);
@@ -87,8 +115,13 @@ export function useLessonVideo(
         return;
       }
 
+      if (isModernRow) {
+        setStatus("pending");
+        setProgress(STATUS_PROGRESS.pending);
+      }
+
       // Update status and progress from database
-      if (unit?.video_status) {
+      if (!isModernRow && unit?.video_status) {
         setStatus(unit.video_status as VideoStatus);
         setProgress(
           unit.video_progress || STATUS_PROGRESS[unit.video_status] || 0
@@ -187,7 +220,7 @@ export function useLessonVideo(
     } catch (err) {
       console.error("[useLessonVideo] Unexpected error:", err);
     }
-  }, [topicId, stopPolling]);
+  }, [fetchLessonMedia, topicId, stopPolling]);
 
   const startGeneration = useCallback(async () => {
     if (!topicId || !userId || hasStartedRef.current) return;
@@ -199,13 +232,9 @@ export function useLessonVideo(
 
     try {
       // First, check if video already exists
-      const { data: existing } = await supabase
-        .from("lesson_units")
-        .select("video_url, video_status")
-        .eq("topic_id", topicId)
-        .maybeSingle();
+      const existing = await fetchLessonMedia();
 
-      if (existing?.video_url) {
+      if (existing?.video_url && (existing.video_ready ?? true)) {
         setVideoUrl(existing.video_url);
         setStatus("completed");
         setProgress(100);
@@ -267,7 +296,17 @@ export function useLessonVideo(
           video_status: "queued",
           video_progress: 10,
         })
-        .eq("topic_id", topicId);
+        .eq("topic_id", topicId)
+        .then(async ({ error: legacyError }) => {
+          if (!legacyError) return;
+          await supabase
+            .from("lesson_units")
+            .update({
+              video_ready: false,
+              audio_ready: false,
+            })
+            .eq("topic_id", topicId);
+        });
 
       setStatus("queued");
       setProgress(10);
@@ -281,7 +320,7 @@ export function useLessonVideo(
       setStatus("failed");
       setError(err.message || "Failed to generate video");
     }
-  }, [topicId, userId, checkVideoStatus, stopPolling]);
+  }, [fetchLessonMedia, topicId, userId, checkVideoStatus, stopPolling]);
 
   const retry = useCallback(() => {
     hasStartedRef.current = false;

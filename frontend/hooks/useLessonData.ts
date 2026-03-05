@@ -53,7 +53,7 @@ export interface LessonDataState {
   retry: () => void;
 }
 
-const POLL_INTERVAL_MS = 2_000;
+const POLL_INTERVAL_MS = 4_000;
 const MAX_LESSON_POLLS = 90;
 const MAX_QUIZ_POLLS = 45;
 
@@ -427,12 +427,24 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
     })
       .then(async (res) => {
         if (!res.ok) {
-          stopLessonPoll();
           const payload = await res.json().catch(() => ({}));
           const message =
             (typeof payload?.error === "string" && payload.error) ||
             (typeof payload?.details === "string" && payload.details) ||
             `Lesson generation failed (${res.status})`;
+
+          const isRetriable =
+            res.status === 502 &&
+            typeof message === "string" &&
+            (message.toLowerCase().includes("empty lesson") ||
+              message.toLowerCase().includes("still generating"));
+
+          if (isRetriable) {
+            setState((s) => ({ ...s, stage: "generating", error: null }));
+            return;
+          }
+
+          stopLessonPoll();
 
           setState((s) => ({
             ...s,
