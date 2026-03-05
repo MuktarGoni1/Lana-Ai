@@ -240,9 +240,11 @@ function LessonRenderer({ lesson }: { lesson: LessonContent }) {
 function QuizRenderer({
   questions,
   isLoading,
+  onSubmitQuiz,
 }: {
   questions: QuizQuestion[];
   isLoading: boolean;
+  onSubmitQuiz?: (payload: { score: number; total: number; answers: Record<string, string> }) => void;
 }) {
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
@@ -266,6 +268,8 @@ function QuizRenderer({
     : 0;
 
   const handleSubmit = () => {
+    const score = questions.filter((q) => selected[q.id] === q.correct_answer).length;
+    onSubmitQuiz?.({ score, total: questions.length, answers: selected });
     setSubmitted(true);
     setShowResults(true);
   };
@@ -426,6 +430,9 @@ export default function LessonPage() {
 
   const [topicTitle, setTopicTitle] = useState("Loading topic…");
   const [subjectName, setSubjectName] = useState("Lesson");
+  const [hasViewedLesson, setHasViewedLesson] = useState(false);
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [topicMarkedComplete, setTopicMarkedComplete] = useState(false);
 
   // DECOUPLED: Lesson and quiz data (P0 - render immediately when ready)
   const { lesson, questions, stage, error, retry: retryLesson } = useLessonData(topicId, userId);
@@ -469,6 +476,62 @@ export default function LessonPage() {
   const quizStatus = questions.length > 0 ? "ready" : "pending";
   const resolvedVideoStatus =
     videoStatus === "completed" ? "ready" : videoStatus === "failed" || videoStatus === "unavailable" ? "unavailable" : "pending";
+
+  useEffect(() => {
+    setHasViewedLesson(false);
+    setQuizSubmitted(false);
+    setTopicMarkedComplete(false);
+  }, [topicId]);
+
+  useEffect(() => {
+    if (lesson) {
+      setHasViewedLesson(true);
+    }
+  }, [lesson]);
+
+  const handleQuizSubmitted = async ({
+    score,
+    total,
+    answers,
+  }: {
+    score: number;
+    total: number;
+    answers: Record<string, string>;
+  }) => {
+    setQuizSubmitted(true);
+
+    await fetch("/api/quiz/attempt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topicId: topicId, score, total, answers }),
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !topicId || topicMarkedComplete || !hasViewedLesson || !quizSubmitted) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const markComplete = async () => {
+      const res = await fetch("/api/topic/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ topicId }),
+      }).catch(() => null);
+
+      if (!cancelled && res?.ok) {
+        setTopicMarkedComplete(true);
+      }
+    };
+
+    void markComplete();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasViewedLesson, isAuthenticated, quizSubmitted, topicId, topicMarkedComplete]);
 
   useEffect(() => {
     let mounted = true;
@@ -667,7 +730,11 @@ export default function LessonPage() {
             <LessonRenderer lesson={lesson} />
           </section>
           <section aria-label="Lesson quiz">
-            <QuizRenderer questions={questions} isLoading={questions.length === 0} />
+            <QuizRenderer
+              questions={questions}
+              isLoading={questions.length === 0}
+              onSubmitQuiz={handleQuizSubmitted}
+            />
           </section>
           <section aria-label="Explainer video">
             <VideoSection
