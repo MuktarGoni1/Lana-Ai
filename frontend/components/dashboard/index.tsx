@@ -429,7 +429,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
               </p>
               {continueTopic && (
                 <button
-                  onClick={() => router.push(`/lesson/${continueTopic.id}`)}
+                  onClick={() => router.push(`/lesson/${continueTopic.id}/learn`)}
                   className="mt-3 min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
                 >
                   Start today&apos;s lesson
@@ -443,7 +443,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                 {continueTopic ? `${continueTopic.subject_name || "Subject"} - Week ${continueTopic.week_number}` : "Create your first subject plan."}
               </p>
               <button
-                onClick={() => router.push(continueTopic ? `/lesson/${continueTopic.id}` : "/term-plan")}
+                onClick={() => router.push(continueTopic ? `/lesson/${continueTopic.id}/learn` : "/term-plan")}
                 className="mt-3 min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs"
               >
                 {continueTopic ? "Open lesson" : "Add subject"}
@@ -590,7 +590,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <button
-                onClick={() => router.push(`/lesson/${continueTopic.id}`)}
+                onClick={() => router.push(`/lesson/${continueTopic.id}/learn`)}
                 className="min-h-10 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
               >
                 Open lesson
@@ -638,7 +638,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                   return (
                     <button
                       key={topic.id}
-                      onClick={() => (!locked ? router.push(`/lesson/${topic.id}`) : null)}
+                      onClick={() => (!locked ? router.push(`/lesson/${topic.id}/learn`) : null)}
                       className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left transition ${
                         locked
                           ? "border-white/5 bg-white/2 opacity-50"
@@ -689,7 +689,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                   <button
                     key={plan.id}
                     onClick={() =>
-                      router.push(nextTopic ? `/lesson/${nextTopic.id}` : "/lessons")
+                      router.push(nextTopic ? `/lesson/${nextTopic.id}/learn` : "/lessons")
                     }
                     className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 text-left"
                   >

@@ -11,10 +11,12 @@ class ForbiddenError(Exception):
 
 
 def sanitize_text(text: str) -> str:
-    import re, html
+    import re
     if not text:
         return ""
-    text = html.escape(text)
+    text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<[^>]+>', '', text)
+    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 

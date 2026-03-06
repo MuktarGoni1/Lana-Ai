@@ -147,20 +147,20 @@ from typing import List, Optional
 
 
 def sanitize_text(text: str) -> str:
-    import re, html
+    import re
     if not text:
         return ""
-    # Escape HTML entities
-    text = html.escape(text)
-    # Remove any script tags and other potentially dangerous content
+    # Remove dangerous HTML/script fragments but keep plain punctuation as-is.
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'<iframe[^>]*>.*?</iframe>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'<object[^>]*>.*?</object>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'<embed[^>]*>.*?</embed>', '', text, flags=re.IGNORECASE | re.DOTALL)
+    text = re.sub(r'<[^>]+>', '', text)
     text = re.sub(r'javascript:', '', text, flags=re.IGNORECASE)
     text = re.sub(r'vbscript:', '', text, flags=re.IGNORECASE)
     text = re.sub(r'onload=', '', text, flags=re.IGNORECASE)
     text = re.sub(r'onerror=', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
     # Normalize whitespace
     text = re.sub(r"\s+", " ", text).strip()
     # Limit length to prevent abuse

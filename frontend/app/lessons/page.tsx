@@ -113,7 +113,7 @@ export default function LessonsPage() {
                 {todayLessons.map((topic) => (
                   <button
                     key={topic.id}
-                    onClick={() => router.push(`/lesson/${topic.id}`)}
+                    onClick={() => router.push(`/lesson/${topic.id}/learn`)}
                     className="flex min-h-14 w-full items-center justify-between rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-left hover:bg-white/10"
                   >
                     <div>
@@ -166,7 +166,7 @@ export default function LessonsPage() {
                 <button
                   key={topic.id}
                   disabled={locked}
-                  onClick={() => router.push(`/lesson/${topic.id}`)}
+                  onClick={() => router.push(`/lesson/${topic.id}/learn`)}
                   className={`flex min-h-14 w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
                     locked ? "border-white/5 bg-white/5 opacity-50" : "border-white/10 bg-white/5 hover:bg-white/10"
                   }`}
