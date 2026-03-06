@@ -852,6 +852,8 @@ interface CommandSuggestion {
   label: string;
   description: string;
   prefix: string;
+  kind: "mode" | "action";
+  mode?: "lesson" | "maths" | "chat" | "quick";
   placeholder?: string;
   action?: () => void;
 }
@@ -1053,11 +1055,43 @@ interface AnimatedAIChatProps {
   });
 
   /* --- command palette data ---------------------------------------- */
-  const commandSuggestions: CommandSuggestion[] = [
-    { icon: <PersonStandingIcon className="w-4 h-4" />, label: "Structured Lesson", description: "Detailed and structured breakdown of your topic.", prefix: "/lesson", placeholder: "Please input a topic for structured learning", action: () => handleModeClick("lesson") },
-    { icon: <BookOpen className="w-4 h-4" />, label: "Maths Tutor", description: "Add maths equations for simple solutions with explainer", prefix: "/maths", placeholder: "Please input a maths question", action: () => handleModeClick("maths") },
-    { icon: <Play className="w-4 h-4" />, label: "Chat", description: "Chat and ask your friendly AI", prefix: "/chat", placeholder: "Please input your question", action: () => handleModeClick("chat") },
-    { icon: <Sparkles className="w-4 h-4" />, label: "Quick Answer", description: "Concise explanation", prefix: "/quick", placeholder: "Please input your question for a quick answer", action: () => handleModeClick("quick") },
+  const modeCommandSuggestions: CommandSuggestion[] = [
+    {
+      icon: <PersonStandingIcon className="w-4 h-4" />,
+      label: "Structured Lesson",
+      description: "Detailed and structured breakdown of your topic.",
+      prefix: "/lesson",
+      kind: "mode",
+      mode: "lesson",
+      placeholder: "Please input a topic for structured learning",
+    },
+    {
+      icon: <BookOpen className="w-4 h-4" />,
+      label: "Maths Tutor",
+      description: "Add maths equations for simple solutions with explainer",
+      prefix: "/maths",
+      kind: "mode",
+      mode: "maths",
+      placeholder: "Please input a maths question",
+    },
+    {
+      icon: <Play className="w-4 h-4" />,
+      label: "Chat",
+      description: "Chat and ask your friendly AI",
+      prefix: "/chat",
+      kind: "mode",
+      mode: "chat",
+      placeholder: "Please input your question",
+    },
+    {
+      icon: <Sparkles className="w-4 h-4" />,
+      label: "Quick Answer",
+      description: "Concise explanation",
+      prefix: "/quick",
+      kind: "mode",
+      mode: "quick",
+      placeholder: "Please input your question for a quick answer",
+    },
   ];
 
   // Function to handle mode button clicks and save the selected mode
@@ -1092,11 +1126,30 @@ interface AnimatedAIChatProps {
     }, 0);
   };
 
-  const modeSuggestions = [
+  const executeCommandSuggestion = (suggestion: CommandSuggestion) => {
+    if (suggestion.kind === "mode" && suggestion.mode) {
+      handleModeClick(suggestion.mode);
+      setShowCommandPalette(false);
+      return;
+    }
+
+    if (suggestion.action) {
+      suggestion.action();
+      setShowCommandPalette(false);
+      return;
+    }
+
+    setValue(suggestion.prefix);
+    setShowCommandPalette(false);
+  };
+
+  const actionCommandSuggestions: CommandSuggestion[] = [
     {
       icon: <Video className="w-4 h-4" />,
-      label: "AI Video Lesson",
+      label: "Explainer Video",
       description: "Generate custom explainer video",
+      prefix: "/explainer-video",
+      kind: "action",
       action: () => {
         const topic = value.trim();
         if (topic) {
@@ -1108,19 +1161,28 @@ interface AnimatedAIChatProps {
     },
     {
       icon: <Video className="w-4 h-4" />,
-      label: "Avatar Tutor",
+      label: "Explainer Avatar Tutor",
       description: "Interactive AI tutor session",
+      prefix: "/explainer-avatar",
+      kind: "action",
       action: () =>
         onNavigateToVideoLearning?.(
           value.trim() || "What would you like to learn?"
         ),
     },
     {
-      icon: <Plus className="w-4 h-4" />, 
+      icon: <Plus className="w-4 h-4" />,
       label: "Add Term Plan",
       description: "Build a long-term study schedule",
+      prefix: "/term-plan",
+      kind: "action",
       action: () => router.push("/term-plan"),
     },
+  ];
+
+  const commandSuggestions: CommandSuggestion[] = [
+    ...modeCommandSuggestions,
+    ...actionCommandSuggestions,
   ];
 
   /* --- effects ----------------------------------------------------- */
@@ -1720,18 +1782,13 @@ interface AnimatedAIChatProps {
         e.preventDefault();
         if (activeSuggestion >= 0) {
           const cmd = commandSuggestions[activeSuggestion];
-          if (cmd.action) {
-            cmd.action();
-          } else {
-            setValue(cmd.prefix);
-            setShowCommandPalette(false);
-            // Focus the textarea after selection
-            setTimeout(() => {
-              if (textareaRef.current) {
-                textareaRef.current.focus();
-              }
-            }, 0);
-          }
+          executeCommandSuggestion(cmd);
+          // Focus the textarea after selection
+          setTimeout(() => {
+            if (textareaRef.current) {
+              textareaRef.current.focus();
+            }
+          }, 0);
         }
       }
     } else if (e.key === "Enter" && !e.shiftKey) {
@@ -2018,20 +2075,7 @@ interface AnimatedAIChatProps {
                           : "text-white/70 hover:bg-white/5"
                       )}
                       onClick={() => {
-                        if (s.action) {
-                          s.action();
-                        } else {
-                          // Save the selected mode based on the prefix without pre-filling the input
-                          const modeFromPrefix = s.prefix.replace('/', '').toLowerCase();
-                          saveSelectedMode(modeFromPrefix);
-                          setSelectedMode(modeFromPrefix); // Update UI state
-                          setModeFeedback(modeFromPrefix); // Show visual feedback
-                          setTimeout(() => {
-                            setModeFeedback(null);
-                          }, 1000); // Clear feedback after 1 second
-                          setValue(""); // Clear the input field
-                          setShowCommandPalette(false);
-                        }
+                        executeCommandSuggestion(s);
                         // Focus the textarea after selection
                         setTimeout(() => {
                           if (textareaRef.current) {
@@ -2042,7 +2086,9 @@ interface AnimatedAIChatProps {
                     >
                       <div className="w-5 h-5 flex-center text-white/60 rounded-lg">{s.icon}</div>
                       <div className="font-medium">{s.label}</div>
-                      <div className="text-white/40 ml-1">{s.prefix}</div>
+                      <div className="text-white/40 ml-1">
+                        {s.kind === "mode" ? s.prefix : "action"}
+                      </div>
                     </motion.div>
                   ))}
                 </motion.div>
@@ -2071,7 +2117,7 @@ interface AnimatedAIChatProps {
 
             {/* mode selection buttons */}
             <div className="px-4 flex flex-wrap gap-1 justify-center">
-              {commandSuggestions.map((suggestion, idx) => {
+              {modeCommandSuggestions.map((suggestion, idx) => {
                 const mode = suggestion.prefix.replace('/', '').toLowerCase();
                 const isSelected = selectedMode === mode;
                 const isFeedback = modeFeedback === mode;
@@ -2227,6 +2273,14 @@ interface AnimatedAIChatProps {
                 >
                   <Command className="w-4 h-4" />
                 </motion.button>
+                <button
+                  type="button"
+                  onClick={() => setShowCommandPalette((p) => !p)}
+                  className="text-[11px] text-white/45 hover:text-white/70 transition-colors"
+                  aria-label="Open more actions"
+                >
+                  More actions
+                </button>
               </div>
 
               <motion.button
@@ -2270,33 +2324,6 @@ interface AnimatedAIChatProps {
             )}
           </motion.div>
 
-          {/* mode buttons - only show when no lesson content and input not focused */}
-          {!lessonJson && !inputFocused && (
-            <div className="w-full mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md mx-auto">
-              {modeSuggestions.map((mode, idx) => (
-                <motion.button
-                  key={mode.label}
-                  onClick={mode.action}
-                  className="group flex items-center gap-3 px-6 py-3 bg-white/5 hover:bg-white/10 rounded-2xl text-sm text-white/80 hover:text-white transition-all border border-white/10 hover:border-white/20 min-w-[180px]"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: idx * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  <div className="text-white/70 group-hover:text-white transition-colors">
-                    {mode.icon}
-                  </div>
-                  <div className="flex flex-col items-start">
-                    <span className="font-medium">{mode.label}</span>
-                    <span className="text-xs text-white/50 group-hover:text-white/80 transition-colors">
-                      {mode.description}
-                    </span>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-          )}
         </motion.div>
       </div>
 
