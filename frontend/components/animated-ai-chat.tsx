@@ -2065,7 +2065,10 @@ interface AnimatedAIChatProps {
                   exit={{ opacity: 0, y: 5 }}
                   transition={{ duration: 0.15 }}
                 >
-                  {commandSuggestions.map((s, idx) => (
+                  <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">
+                    Modes
+                  </div>
+                  {modeCommandSuggestions.map((s, idx) => (
                     <motion.div
                       key={s.prefix}
                       className={cn(
@@ -2086,11 +2089,40 @@ interface AnimatedAIChatProps {
                     >
                       <div className="w-5 h-5 flex-center text-white/60 rounded-lg">{s.icon}</div>
                       <div className="font-medium">{s.label}</div>
-                      <div className="text-white/40 ml-1">
-                        {s.kind === "mode" ? s.prefix : "action"}
-                      </div>
+                      <div className="text-white/40 ml-1">{s.prefix}</div>
                     </motion.div>
                   ))}
+
+                  <div className="mt-1 border-t border-white/10 px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-white/40">
+                    Actions
+                  </div>
+                  {actionCommandSuggestions.map((s, idx) => {
+                    const absoluteIdx = modeCommandSuggestions.length + idx;
+                    return (
+                      <motion.div
+                        key={s.prefix}
+                        className={cn(
+                          "flex items-center gap-2 px-3 py-2 text-xs transition-colors cursor-pointer",
+                          activeSuggestion === absoluteIdx
+                            ? "bg-white/10 text-white"
+                            : "text-white/70 hover:bg-white/5"
+                        )}
+                        onClick={() => {
+                          executeCommandSuggestion(s);
+                          // Focus the textarea after selection
+                          setTimeout(() => {
+                            if (textareaRef.current) {
+                              textareaRef.current.focus();
+                            }
+                          }, 0);
+                        }}
+                      >
+                        <div className="w-5 h-5 flex-center text-white/60 rounded-lg">{s.icon}</div>
+                        <div className="font-medium">{s.label}</div>
+                        <div className="text-white/40 ml-1">action</div>
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
               )}
             </AnimatePresence>
