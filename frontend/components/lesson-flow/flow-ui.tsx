@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useState } from "react";
+import React, { type CSSProperties, useState } from "react";
 import type { KeyTerm, LessonContent, LessonSection, QuizQuestion } from "@/hooks/useLessonData";
 import type { VideoStatus } from "@/hooks/useLessonVideo";
 import { decodeHTMLEntities } from "@/lib/html-entity-decoder";
@@ -18,6 +18,12 @@ export const LESSON_THEME_VARS: CSSProperties = {
 };
 
 export type LessonFlowStep = "learn" | "quiz" | "video";
+
+export const LESSON_FLOW_BUTTON_BASE =
+  "lesson-flow-btn relative z-10 inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]";
+
+export const LESSON_FLOW_BUTTON_PRIMARY = `${LESSON_FLOW_BUTTON_BASE} bg-[var(--color-accent)] text-white hover:bg-blue-700`;
+export const LESSON_FLOW_BUTTON_SECONDARY = `${LESSON_FLOW_BUTTON_BASE} border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-[var(--color-skel)]`;
 
 export function statusTone(label: "ready" | "pending" | "unavailable") {
   if (label === "ready") return "bg-emerald-50 border-emerald-300 text-emerald-900";
@@ -50,6 +56,16 @@ export function LessonShell({
 
   return (
     <div className="min-h-screen px-4 py-6" style={LESSON_THEME_VARS as CSSProperties}>
+      <style>{`
+        @media (forced-colors: active) {
+          .lesson-flow-btn {
+            forced-color-adjust: none;
+            background: ButtonFace !important;
+            color: ButtonText !important;
+            border: 1px solid ButtonText !important;
+          }
+        }
+      `}</style>
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="space-y-3">
           <span className="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold text-[var(--color-accent)]">
@@ -103,7 +119,7 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
         <p className="font-semibold text-red-900">Something went wrong</p>
         <p className="text-sm text-red-800">{message}</p>
         {onRetry && (
-          <button onClick={onRetry} className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white">
+          <button type="button" onClick={onRetry} className={LESSON_FLOW_BUTTON_PRIMARY}>
             Try Again
           </button>
         )}
@@ -205,6 +221,7 @@ export function QuizRenderer({
               const isWrongSelection = submitted && isSelected && !isCorrect;
               return (
                 <button
+                  type="button"
                   key={`${question.id}-${opt.label}`}
                   disabled={submitted}
                   onClick={() => setSelected((prev) => ({ ...prev, [question.id]: opt.value }))}
@@ -239,9 +256,10 @@ export function QuizRenderer({
           </p>
         ) : (
           <button
+            type="button"
             onClick={handleSubmit}
             disabled={Object.keys(selected).length < questions.length || submitting}
-            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
+            className={`${LESSON_FLOW_BUTTON_PRIMARY} disabled:cursor-not-allowed disabled:opacity-40`}
           >
             {submitting ? "Submitting..." : "Submit Quiz"}
           </button>
@@ -279,7 +297,7 @@ export function VideoSection({
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         <p className="text-sm text-[var(--color-text-muted)]">{error || "Video generation is currently unavailable."}</p>
         {status === "failed" && (
-          <button onClick={onRetry} className="mt-3 rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text)]">
+          <button type="button" onClick={onRetry} className={`mt-3 ${LESSON_FLOW_BUTTON_SECONDARY}`}>
             Retry Video
           </button>
         )}

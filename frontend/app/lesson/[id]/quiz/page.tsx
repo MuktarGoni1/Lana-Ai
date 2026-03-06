@@ -7,6 +7,7 @@ import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
 import { useLessonData } from "@/hooks/useLessonData";
 import {
   ErrorState,
+  LESSON_FLOW_BUTTON_SECONDARY,
   LESSON_THEME_VARS,
   LessonShell,
   LessonSkeleton,
@@ -115,8 +116,9 @@ export default function LessonQuizPage() {
     >
       <div className="space-y-5">
         <button
+          type="button"
           onClick={() => router.push(`/lesson/${topicId}/learn`)}
-          className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text)]"
+          className={LESSON_FLOW_BUTTON_SECONDARY}
         >
           Back to lesson
         </button>

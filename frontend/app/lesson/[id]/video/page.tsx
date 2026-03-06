@@ -8,6 +8,7 @@ import { useLessonData } from "@/hooks/useLessonData";
 import { useLessonVideo } from "@/hooks/useLessonVideo";
 import {
   ErrorState,
+  LESSON_FLOW_BUTTON_SECONDARY,
   LESSON_THEME_VARS,
   LessonShell,
   LessonSkeleton,
@@ -115,14 +116,16 @@ export default function LessonVideoPage() {
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
           <button
+            type="button"
             onClick={() => router.push(`/lesson/${topicId}/quiz`)}
-            className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text)]"
+            className={LESSON_FLOW_BUTTON_SECONDARY}
           >
             Back to quiz
           </button>
           <button
+            type="button"
             onClick={() => router.push("/lessons")}
-            className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text)]"
+            className={LESSON_FLOW_BUTTON_SECONDARY}
           >
             Finish and return to lessons
           </button>

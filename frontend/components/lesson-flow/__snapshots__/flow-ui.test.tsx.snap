@@ -1,0 +1,91 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Lesson flow button visibility and navigation visual baseline: lesson shell button block rendering 1`] = `
+<DocumentFragment>
+  <div
+    class="min-h-screen px-4 py-6"
+    style="--color-bg: #fafaf8; --color-surface: #ffffff; --color-border: #e8e8e4; --color-text: #1a1a18; --color-text-muted: #6b6b65; --color-accent: #2563eb; --color-accent-muted: #dbeafe; --color-skel: #f0f0eb; --color-green: #16a34a;"
+  >
+    <style>
+      
+        @media (forced-colors: active) {
+          .lesson-flow-btn {
+            forced-color-adjust: none;
+            background: ButtonFace !important;
+            color: ButtonText !important;
+            border: 1px solid ButtonText !important;
+          }
+        }
+      
+    </style>
+    <div
+      class="mx-auto max-w-3xl space-y-6"
+    >
+      <div
+        class="space-y-3"
+      >
+        <span
+          class="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold text-[var(--color-accent)]"
+        >
+          Science
+        </span>
+        <h1
+          class="text-2xl font-bold text-[var(--color-text)]"
+        >
+          Photosynthesis
+        </h1>
+        <div
+          class="flex flex-wrap gap-2"
+        >
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+          >
+            Learn
+          </span>
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+          >
+            Quiz
+          </span>
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+          >
+            Video
+          </span>
+        </div>
+        <div
+          class="flex flex-wrap gap-2"
+        >
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs bg-emerald-50 border-emerald-300 text-emerald-900"
+          >
+            Lesson ready
+          </span>
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs bg-emerald-50 border-emerald-300 text-emerald-900"
+          >
+            Quiz ready
+          </span>
+          <span
+            class="inline-flex rounded-full border px-3 py-1 text-xs bg-blue-50 border-blue-300 text-blue-900"
+          >
+            Video pending
+          </span>
+        </div>
+      </div>
+      <div>
+        <button
+          type="button"
+        >
+          Back to quiz
+        </button>
+        <button
+          type="button"
+        >
+          Finish and return to lessons
+        </button>
+      </div>
+    </div>
+  </div>
+</DocumentFragment>
+`;

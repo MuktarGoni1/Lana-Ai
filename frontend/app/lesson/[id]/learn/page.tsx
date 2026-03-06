@@ -8,6 +8,8 @@ import { useLessonData } from "@/hooks/useLessonData";
 import {
   ErrorState,
   LESSON_THEME_VARS,
+  LESSON_FLOW_BUTTON_PRIMARY,
+  LESSON_FLOW_BUTTON_SECONDARY,
   LessonRenderer,
   LessonShell,
   LessonSkeleton,
@@ -94,16 +96,18 @@ export default function LessonLearnPage() {
     >
       <div className="space-y-5">
         <button
+          type="button"
           onClick={() => router.push("/lessons")}
-          className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-text)]"
+          className={LESSON_FLOW_BUTTON_SECONDARY}
         >
           Back to lessons
         </button>
         <LessonRenderer lesson={lesson} />
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <button
+            type="button"
             onClick={() => router.push(`/lesson/${topicId}/quiz`)}
-            className="rounded-md bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-white"
+            className={LESSON_FLOW_BUTTON_PRIMARY}
           >
             Continue to quiz
           </button>
