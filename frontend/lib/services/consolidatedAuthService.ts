@@ -681,11 +681,7 @@ export class ConsolidatedAuthService {
         return { success: false, error: error.message };
       }
 
-      // Set cookie for middleware bypass
-      if (typeof window !== 'undefined') {
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-      }
+      // Do not set cookie to avoid stale data issues - rely solely on user metadata
 
       // Refresh user data
       await this.refreshSession();

@@ -4,11 +4,12 @@ import { getBlogPostBySlug } from "@/lib/blog-data";
 import { SEO_CONFIG } from "@/lib/seo-config";
 
 type Props = {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const post = getBlogPostBySlug(params.slug);
+  const { slug } = await params;
+  const post = getBlogPostBySlug(slug);
 
   if (!post) {
     return {
@@ -79,8 +80,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default function Page({ params }: Props) {
-  return <ClientBlogPostPage slug={params.slug} />;
+export default async function Page({ params }: Props) {
+  const { slug } = await params;
+  return <ClientBlogPostPage slug={slug} />;
 }
 
 export function generateStaticParams() {
