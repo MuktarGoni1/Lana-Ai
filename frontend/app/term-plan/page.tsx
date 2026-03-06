@@ -338,20 +338,14 @@ function TermPlanPageContent() {
         });
       }
 
-      // Cookie fallback to handle network failures and ensure middleware bypass
+      // Remove stale cookie and localStorage values to prevent conflicts with user metadata
       try {
-        console.log('[term-plan] Setting completion cookie');
-        const oneYear = 60 * 60 * 24 * 365;
-        document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-        console.log('[term-plan] successfully set completion cookie');
-      } catch (cookieErr: any) {
-        console.warn('[term-plan] failed to set completion cookie:', cookieErr.message);
-        console.warn('[term-plan] cookie error details:', cookieErr);
-        toast({
-          title: "Notice",
-          description: "Unable to save onboarding status locally, but continuing anyway.",
-          variant: "default",
-        });
+        console.log('[term-plan] Removing stale onboarding cookies and localStorage');
+        document.cookie = 'lana_onboarding_complete=; Max-Age=0; Path=/; SameSite=Lax';
+        localStorage.removeItem('lana_onboarding_complete');
+        console.log('[term-plan] Successfully removed stale onboarding data');
+      } catch (cleanupErr: any) {
+        console.warn('[term-plan] Failed to clean up stale onboarding data:', cleanupErr.message);
       }
 
       // Success toast for UX feedback

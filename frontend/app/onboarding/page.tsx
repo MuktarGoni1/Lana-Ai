@@ -374,9 +374,7 @@ export default function OnboardingPage() {
           throw new Error(body?.error || "Failed to complete onboarding");
         }
 
-        try {
-          localStorage.setItem("lana_onboarding_complete", "1");
-        } catch {}
+        // Do not set localStorage to avoid stale data issues - rely solely on user metadata
 
         router.replace("/");
       } catch (err: any) {

@@ -1,174 +1,74 @@
-// Service Worker for offline capabilities
-const CACHE_NAME = 'lana-ai-v1';
-const urlsToCache = [
-  '/',
-  '/landing-page',
-  '/login',
-  '/register',
-  '/homepage',
-  '/term-plan',
+// Service Worker for lightweight offline support without stale dynamic data.
+const CACHE_NAME = "lana-ai-v2";
+const STATIC_ASSETS = ["/landing-page", "/favicon.ico", "/manifest.json"];
 
-  '/_next/static/css/',
-  '/_next/static/chunks/',
-  '/favicon.ico'
-];
+function isSameOrigin(url) {
+  return url.origin === self.location.origin;
+}
 
-// Install event - cache core assets
-self.addEventListener('install', event => {
-  console.log('[Service Worker] Installing...');
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log('[Service Worker] Caching core assets');
-        return cache.addAll(urlsToCache);
-      })
-      .catch(err => {
-        console.error('[Service Worker] Failed to cache assets:', err);
-      })
+function isApiRequest(url) {
+  return url.pathname.startsWith("/api/");
+}
+
+function isStaticAssetRequest(url) {
+  return (
+    url.pathname.startsWith("/_next/static/") ||
+    url.pathname.startsWith("/icons/") ||
+    url.pathname.startsWith("/images/") ||
+    url.pathname === "/favicon.ico" ||
+    url.pathname === "/manifest.json"
   );
+}
+
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => undefined)
+  );
+  self.skipWaiting();
 });
 
-// Fetch event - serve cached content when offline
-self.addEventListener('fetch', event => {
-  // Only handle GET requests
-  if (event.request.method !== 'GET') {
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  const url = new URL(event.request.url);
+  if (!isSameOrigin(url)) return;
+
+  // Never cache API responses.
+  if (isApiRequest(url)) return;
+
+  // For document navigations, always prefer network to avoid stale UI.
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match("/landing-page"))
+    );
     return;
   }
 
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return cached version if available
-        if (response) {
-          console.log('[Service Worker] Serving cached:', event.request.url);
-          return response;
-        }
-
-        // Clone the request because it's a stream and can only be consumed once
-        const fetchRequest = event.request.clone();
-
-        // Try to fetch from network
-        return fetch(fetchRequest)
-          .then(response => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
+  // For static assets, cache-first with background refresh.
+  if (isStaticAssetRequest(url)) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const networkFetch = fetch(event.request)
+          .then((response) => {
+            if (response && response.ok) {
+              const cloned = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
             }
-
-            // Clone the response because it's a stream and can only be consumed once
-            const responseToCache = response.clone();
-
-            // Cache the response for future use
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(event.request, responseToCache);
-              });
-
             return response;
           })
-          .catch(err => {
-            console.log('[Service Worker] Fetch failed, serving cached content:', err);
-            // Return a fallback page for HTML requests
-            if (event.request.headers.get('accept').includes('text/html')) {
-              return caches.match('/landing-page');
-            }
-            return response;
-          });
+          .catch(() => undefined);
+
+        return cached || networkFetch;
       })
-  );
-});
-
-// Activate event - clean up old caches
-self.addEventListener('activate', event => {
-  console.log('[Service Worker] Activating...');
-  const cacheWhitelist = [CACHE_NAME];
-
-  event.waitUntil(
-    caches.keys().then(cacheNames => {
-      return Promise.all(
-        cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            console.log('[Service Worker] Deleting old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
-  );
-});
-
-// Handle sync events for pending data sync
-self.addEventListener('sync', event => {
-  if (event.tag === 'sync-pending-data') {
-    console.log('[Service Worker] Background sync for pending data');
-    event.waitUntil(syncPendingData());
-  }
-});
-
-// Function to sync pending data when online
-async function syncPendingData() {
-  try {
-    // Check if we're online
-    if (!navigator.onLine) {
-      console.log('[Service Worker] Still offline, deferring sync');
-      return;
-    }
-
-    // Get pending data from localStorage
-    const pendingData = localStorage.getItem('lana_study_plan_pending');
-    if (!pendingData) {
-      console.log('[Service Worker] No pending data to sync');
-      return;
-    }
-
-    const { subjects, email } = JSON.parse(pendingData);
-    
-    // Try to sync with backend
-    const response = await fetch('/api/study-plan', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        subjects
-      }),
-    });
-
-    const result = await response.json();
-    
-    if (result.success) {
-      console.log('[Service Worker] Pending data synced successfully');
-      // Remove pending data from localStorage
-      localStorage.removeItem('lana_study_plan_pending');
-      
-      // Send a message to clients to update UI
-      self.clients.matchAll().then(clients => {
-        clients.forEach(client => {
-          client.postMessage({
-            type: 'DATA_SYNC_SUCCESS',
-            message: 'Your study plan has been successfully synced.'
-          });
-        });
-      });
-    } else {
-      console.error('[Service Worker] Failed to sync pending data:', result.message);
-    }
-  } catch (error) {
-    console.error('[Service Worker] Error during sync:', error);
-  }
-}
-
-// Listen for messages from clients
-self.addEventListener('message', event => {
-  if (event.data && event.data.type === 'CHECK_PENDING_SYNC') {
-    const pendingData = localStorage.getItem('lana_study_plan_pending');
-    event.source.postMessage({
-      type: 'PENDING_SYNC_STATUS',
-      hasPendingData: !!pendingData
-    });
-  } else if (event.data && event.data.type === 'MANUAL_SYNC') {
-    console.log('[Service Worker] Manual sync requested');
-    syncPendingData();
+    );
   }
 });

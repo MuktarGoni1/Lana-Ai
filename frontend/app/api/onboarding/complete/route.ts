@@ -163,13 +163,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: authUpdateError.message }, { status: 500 });
     }
 
-    try {
-      const oneYear = 60 * 60 * 24 * 365;
-      const cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
-      return NextResponse.json({ success: true }, { headers: { 'Set-Cookie': cookie } });
-    } catch {
-      return NextResponse.json({ success: true });
-    }
+    // Do not set cookie to avoid stale data issues - rely solely on user metadata
+    return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('[onboarding/complete POST] error:', error);
     return NextResponse.json({ error: error?.message || 'Internal server error' }, { status: 500 });

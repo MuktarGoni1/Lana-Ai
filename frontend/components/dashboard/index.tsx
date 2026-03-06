@@ -61,7 +61,8 @@ interface Props {
   onWatchVideo: (topic: string) => void;
 }
 
-const DASHBOARD_CACHE_KEY = "lana_dashboard_cache";
+const DASHBOARD_CACHE_KEY_PREFIX = "lana_dashboard_cache";
+const DASHBOARD_CACHE_TTL_MS = 2 * 60 * 1000;
 
 function missingFieldLabels(profile: Profile | null) {
   if (!profile?.role) return ["role"];
@@ -73,24 +74,31 @@ function missingFieldLabels(profile: Profile | null) {
   return missing;
 }
 
-function readDashboardCache() {
+function readDashboardCache(userId: string) {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(DASHBOARD_CACHE_KEY);
+    const raw = window.localStorage.getItem(`${DASHBOARD_CACHE_KEY_PREFIX}_${userId}`);
     if (!raw) return null;
-    return JSON.parse(raw) as {
+    const parsed = JSON.parse(raw) as {
       profile: Profile | null;
       termPlans: TermPlan[];
       recentSearches: SearchRow[];
       recentAttempts: QuizAttempt[];
       cachedAt: string;
     };
+    const cachedAtMs = parsed.cachedAt ? new Date(parsed.cachedAt).getTime() : 0;
+    if (!cachedAtMs || Date.now() - cachedAtMs > DASHBOARD_CACHE_TTL_MS) {
+      window.localStorage.removeItem(`${DASHBOARD_CACHE_KEY_PREFIX}_${userId}`);
+      return null;
+    }
+    return parsed;
   } catch {
     return null;
   }
 }
 
 function writeDashboardCache(payload: {
+  userId: string;
   profile: Profile | null;
   termPlans: TermPlan[];
   recentSearches: SearchRow[];
@@ -99,8 +107,14 @@ function writeDashboardCache(payload: {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.setItem(
-      DASHBOARD_CACHE_KEY,
-      JSON.stringify({ ...payload, cachedAt: new Date().toISOString() })
+      `${DASHBOARD_CACHE_KEY_PREFIX}_${payload.userId}`,
+      JSON.stringify({
+        profile: payload.profile,
+        termPlans: payload.termPlans,
+        recentSearches: payload.recentSearches,
+        recentAttempts: payload.recentAttempts,
+        cachedAt: new Date().toISOString(),
+      })
     );
   } catch {
     // Ignore cache write errors.
@@ -124,7 +138,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     setLoading(true);
     setLoadError(null);
 
-    const cached = readDashboardCache();
+    const cached = readDashboardCache(userId);
 
     try {
       const db = supabase as any;
@@ -205,6 +219,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       setRecentAttempts(safeAttempts);
 
       writeDashboardCache({
+        userId,
         profile: safeProfile,
         termPlans: groupedPlans,
         recentSearches: safeSearches,

@@ -655,10 +655,14 @@ export class ConsolidatedAuthService {
   isOnboardingComplete(): boolean {
     if (!this.authState.user) return false;
     
-    return Boolean(
-      this.authState.user.user_metadata?.onboarding_complete ||
-      (typeof window !== 'undefined' && document.cookie.includes('lana_onboarding_complete=1'))
-    );
+    // Only rely on user metadata for onboarding status to ensure consistency
+    const userOnboardingStatus = this.authState.user.user_metadata?.onboarding_complete;
+    
+    if (typeof userOnboardingStatus === 'boolean') {
+      return userOnboardingStatus;
+    }
+    
+    return false;
   }
 
   // Complete onboarding
