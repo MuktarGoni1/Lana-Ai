@@ -36,7 +36,7 @@ export function navigateToHomepage(user: User | null, router: any) {
 
     // Navigate all authenticated users to homepage
     console.log('[Navigation] Redirecting authenticated user to homepage');
-    const targetPath = '/homepage';
+    const targetPath = '/';
 
     // Navigate to target path
     if (router && typeof router.replace === 'function') {

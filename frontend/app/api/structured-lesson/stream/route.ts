@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { createServerClient } from "@/lib/supabase/server";
 
-const STRUCTURED_LESSON_ENDPOINT = "https://api.lanamind.com/api/structured-lesson";
+function resolveStructuredLessonEndpoint(): string {
+  const backendBase = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000").replace(/\/$/, "");
+  return `${backendBase}/api/structured-lesson`;
+}
 
 function deriveTopic(payload: { title?: string; subject?: string; topic_id?: string }): string {
   const candidate = (payload.title || payload.subject || payload.topic_id || "").trim();
@@ -118,7 +121,8 @@ export async function POST(req: NextRequest) {
     let questions: unknown[] = [];
 
     try {
-      const backendRes = await fetch(STRUCTURED_LESSON_ENDPOINT, {
+      const structuredLessonEndpoint = resolveStructuredLessonEndpoint();
+      const backendRes = await fetch(structuredLessonEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -171,7 +175,7 @@ export async function POST(req: NextRequest) {
         status: "failed",
         updated_at: new Date().toISOString(),
         error_code: "EMPTY_LESSON",
-        error_message: "Empty lesson returned",
+        error_message: "Empty lesson returned from structured-lesson endpoint",
       });
 
       return NextResponse.json({ error: "Backend returned empty lesson" }, { status: 502 });
@@ -303,7 +307,7 @@ async function drainSSE(res: Response): Promise<Record<string, unknown>> {
         try {
           const parsed = JSON.parse(raw) as Record<string, unknown>;
           Object.assign(result, parsed);
-          if (parsed.type === "done" || parsed.lesson_content || parsed.lesson) {
+          if (hasLessonPayload(parsed) || parsed.type === "error") {
             break;
           }
         } catch {
@@ -311,7 +315,7 @@ async function drainSSE(res: Response): Promise<Record<string, unknown>> {
         }
       }
 
-      if (result.type === "done" || result.lesson_content || result.lesson) {
+      if (hasLessonPayload(result) || result.type === "error") {
         break;
       }
     }
@@ -320,6 +324,18 @@ async function drainSSE(res: Response): Promise<Record<string, unknown>> {
   }
 
   return result;
+}
+
+function hasLessonPayload(raw: Record<string, unknown> | null): boolean {
+  if (!raw) return false;
+  if (raw.lesson_content || raw.lesson || raw.content) return true;
+  if (raw.payload && typeof raw.payload === "object") {
+    const payload = raw.payload as Record<string, unknown>;
+    if (payload.lesson_content || payload.lesson || payload.content) return true;
+  }
+  const hasIntro = typeof raw.introduction === "string" && raw.introduction.trim().length > 0;
+  const hasSections = Array.isArray(raw.sections) && raw.sections.length > 0;
+  return hasIntro && hasSections;
 }
 
 function extractLesson(raw: Record<string, unknown> | null): Record<string, unknown> | null {

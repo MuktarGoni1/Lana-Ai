@@ -89,6 +89,16 @@ function ChatWithSidebarContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
+
+  const buildUserScopedSessionId = useCallback((userId: string) => `${userId}:${uuid()}`, []);
+
+  const readStoredSessionId = useCallback((userId: string) => {
+    if (typeof window === "undefined") return null;
+    const key = `lana_chat_sid_${userId}`;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    return raw.startsWith(`${userId}:`) ? raw : null;
+  }, []);
   
   // Create a debounced version of fetchHistory
   const debouncedFetchHistory = useCallback(
@@ -104,9 +114,9 @@ function ChatWithSidebarContent() {
       // Check authentication state first to avoid race conditions
       let id;
       
-      // If user is authenticated, use their user ID as the session ID
+      // If user is authenticated, use a user-scoped chat thread ID.
       if (user && user.id) {
-        id = user.id;
+        id = readStoredSessionId(user.id) ?? buildUserScopedSessionId(user.id);
       } else {
         // For guest users, generate a standard session ID
         id = `guest_${uuid()}`;
@@ -120,12 +130,18 @@ function ChatWithSidebarContent() {
         setQuestion(topicParam);
         setView("chat");
         // Clean up URL without causing a page reload
-        window.history.replaceState({}, '', '/');
+        window.history.replaceState({}, "", "/chatbot");
       }
     };
     
     initSessionId();
-  }, [user])
+  }, [buildUserScopedSessionId, readStoredSessionId, searchParams, user])
+
+  useEffect(() => {
+    if (!user?.id || !sid || typeof window === "undefined") return;
+    if (!sid.startsWith(`${user.id}:`)) return;
+    window.localStorage.setItem(`lana_chat_sid_${user.id}`, sid);
+  }, [sid, user?.id]);
 
   /* 2️⃣ Fetch history whenever sid changes */
   const api = useApi();
@@ -198,10 +214,10 @@ function ChatWithSidebarContent() {
       }
       getAccessToken()
       
-      // Update session ID to use authenticated user ID
+      // Ensure session ID follows user-scoped chat thread format.
       try {
-        if (user?.id) {
-          setSid(user.id);
+        if (user?.id && (!sid || !sid.startsWith(`${user.id}:`))) {
+          setSid(readStoredSessionId(user.id) ?? buildUserScopedSessionId(user.id));
         }
       } catch (error) {
         console.error('Error updating session ID:', error);
@@ -221,7 +237,7 @@ function ChatWithSidebarContent() {
       }, 300000); // 5 minutes instead of 30 seconds
       return () => clearInterval(refreshInterval);
     }
-  }, [user, sid, accessToken, debouncedFetchHistory]);
+  }, [accessToken, buildUserScopedSessionId, debouncedFetchHistory, readStoredSessionId, sid, user]);
 
   /* 3️⃣ Action handlers */
   const handleNewChat = async () => {
@@ -230,9 +246,9 @@ function ChatWithSidebarContent() {
       // Generate a fresh session id locally instead of calling a non-existent /reset
       let newSid = uuid();
       
-      // For authenticated users, use their user ID
+      // For authenticated users, create a new thread namespaced under user ID.
       if (user?.id) {
-        newSid = user.id;
+        newSid = buildUserScopedSessionId(user.id);
       }
       
       setSid(newSid)
@@ -265,7 +281,7 @@ function ChatWithSidebarContent() {
   }, [debouncedFetchHistory]);
 
   const handleNavigateToHomepage = useCallback(() => {
-    router.push('/homepage');
+    router.push('/');
   }, [router]);
 
   const handleNavigateToLogin = useCallback(() => {
@@ -489,7 +505,7 @@ function ChatWithSidebarContent() {
                   <SidebarMenuButton
                     onClick={async () => {
                       await supabase.auth.signOut();
-                      router.push("/homepage");
+                      router.push("/");
                     }}
                     className="text-white/60 hover:text-white w-full justify-start gap-2"
                   >

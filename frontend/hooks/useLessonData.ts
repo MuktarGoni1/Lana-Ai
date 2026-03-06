@@ -460,7 +460,20 @@ export function useLessonData(topicId: string, userId: string): LessonDataState 
               error: error instanceof Error ? error.message : "Failed to process lesson content",
             }));
           }
+          return;
         }
+
+        const emptyMessage =
+          (typeof json?.error === "string" && json.error) ||
+          (typeof json?.details === "string" && json.details) ||
+          "Backend returned empty lesson";
+
+        stopLessonPoll();
+        setState((s) => ({
+          ...s,
+          stage: "error",
+          error: emptyMessage,
+        }));
       })
       .catch(() => {
         // Polling handles surfaced failures.
