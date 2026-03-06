@@ -147,11 +147,9 @@ from typing import List, Optional
 
 
 def sanitize_text(text: str) -> str:
-    import re, html
+    import re
     if not text:
         return ""
-    # Escape HTML entities
-    text = html.escape(text)
     # Remove any script tags and other potentially dangerous content
     text = re.sub(r'<script[^>]*>.*?</script>', '', text, flags=re.IGNORECASE | re.DOTALL)
     text = re.sub(r'<iframe[^>]*>.*?</iframe>', '', text, flags=re.IGNORECASE | re.DOTALL)

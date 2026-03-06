@@ -11,10 +11,9 @@ class ForbiddenError(Exception):
 
 
 def sanitize_text(text: str) -> str:
-    import re, html
+    import re
     if not text:
         return ""
-    text = html.escape(text)
     text = re.sub(r"\s+", " ", text).strip()
     return text
 
