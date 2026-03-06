@@ -9,8 +9,28 @@ import { supabase } from "@/lib/db";
 type LearningStyle = "visual" | "auditory" | "reading_writing" | "kinesthetic";
 
 type Step = 1 | 2 | 3 | 4;
+type SubjectDraft = {
+  id: string;
+  subject: string;
+  topicInput: string;
+  topics: string[];
+};
 
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const MAX_SUBJECTS = 5;
+
+function createSubjectDraft(): SubjectDraft {
+  const id =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2, 10);
+  return {
+    id,
+    subject: "",
+    topicInput: "",
+    topics: [],
+  };
+}
 
 function getTimezoneList(): string[] {
   try {
@@ -46,9 +66,7 @@ export default function OnboardingPage() {
   const [reminderTime, setReminderTime] = useState("16:00");
   const [reminderTimezone, setReminderTimezone] = useState("UTC");
 
-  const [subjectName, setSubjectName] = useState("");
-  const [topicInput, setTopicInput] = useState("");
-  const [topics, setTopics] = useState<string[]>([]);
+  const [subjects, setSubjects] = useState<SubjectDraft[]>([createSubjectDraft()]);
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -149,16 +167,52 @@ export default function OnboardingPage() {
     setLessonDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
   }
 
-  function addTopic() {
-    const trimmed = topicInput.trim();
-    if (!trimmed) return;
-    if (topics.includes(trimmed)) return;
-    setTopics((prev) => [...prev, trimmed]);
-    setTopicInput("");
+  function addSubject() {
+    setSubjects((prev) => {
+      if (prev.length >= MAX_SUBJECTS) return prev;
+      return [...prev, createSubjectDraft()];
+    });
   }
 
-  function removeTopic(topic: string) {
-    setTopics((prev) => prev.filter((t) => t !== topic));
+  function removeSubject(subjectId: string) {
+    setSubjects((prev) => (prev.length > 1 ? prev.filter((item) => item.id !== subjectId) : prev));
+  }
+
+  function updateSubjectName(subjectId: string, value: string) {
+    setSubjects((prev) =>
+      prev.map((item) => (item.id === subjectId ? { ...item, subject: value } : item))
+    );
+  }
+
+  function updateSubjectTopicInput(subjectId: string, value: string) {
+    setSubjects((prev) =>
+      prev.map((item) => (item.id === subjectId ? { ...item, topicInput: value } : item))
+    );
+  }
+
+  function addTopic(subjectId: string) {
+    setSubjects((prev) =>
+      prev.map((item) => {
+        if (item.id !== subjectId) return item;
+        const trimmed = item.topicInput.trim();
+        if (!trimmed) return item;
+        const exists = item.topics.some((topic) => topic.toLowerCase() === trimmed.toLowerCase());
+        if (exists) return { ...item, topicInput: "" };
+        return {
+          ...item,
+          topics: [...item.topics, trimmed],
+          topicInput: "",
+        };
+      })
+    );
+  }
+
+  function removeTopic(subjectId: string, topic: string) {
+    setSubjects((prev) =>
+      prev.map((item) =>
+        item.id === subjectId ? { ...item, topics: item.topics.filter((t) => t !== topic) } : item
+      )
+    );
   }
 
   async function saveProgress(nextStep: Step) {
@@ -249,42 +303,69 @@ export default function OnboardingPage() {
     }
 
     if (step === 4) {
-      if (!subjectName.trim()) {
-        setError("Add your first subject to continue.");
+      const normalizedSubjects = subjects.map((subject) => ({
+        ...subject,
+        subject: subject.subject.trim(),
+        topics: subject.topics.map((topic) => topic.trim()).filter(Boolean),
+      }));
+
+      if (normalizedSubjects.length === 0) {
+        setError("Add at least one subject to continue.");
         return;
       }
-      if (topics.length === 0) {
-        setError("Add at least one topic to continue.");
+
+      if (normalizedSubjects.length > MAX_SUBJECTS) {
+        setError(`You can add up to ${MAX_SUBJECTS} subjects during onboarding.`);
         return;
+      }
+
+      const seen = new Set<string>();
+      for (const subject of normalizedSubjects) {
+        if (!subject.subject) {
+          setError("Each subject card needs a subject name.");
+          return;
+        }
+        if (subject.topics.length === 0) {
+          setError(`Add at least one topic for ${subject.subject}.`);
+          return;
+        }
+        const key = subject.subject.toLowerCase();
+        if (seen.has(key)) {
+          setError("Duplicate subject names are not allowed.");
+          return;
+        }
+        seen.add(key);
       }
 
       setSaving(true);
       try {
-        const scheduleRes = await authFetch("/api/lesson-schedule", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subjectName: subjectName.trim(),
-            lessonDays,
-            reminderEnabled,
-            reminderTime,
-            reminderTimezone,
-          }),
-        });
+        for (const subject of normalizedSubjects) {
+          const scheduleRes = await authFetch("/api/lesson-schedule", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              subjectName: subject.subject,
+              lessonDays,
+              reminderEnabled,
+              reminderTime,
+              reminderTimezone,
+            }),
+          });
 
-        if (!scheduleRes.ok) {
-          const body = await scheduleRes.json().catch(() => ({}));
-          throw new Error(body?.error || "Could not save lesson-day settings.");
+          if (!scheduleRes.ok) {
+            const body = await scheduleRes.json().catch(() => ({}));
+            throw new Error(body?.error || "Could not save lesson-day settings.");
+          }
         }
 
         const completeRes = await authFetch("/api/onboarding/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            subjectPlan: {
-              subject: subjectName.trim(),
-              topics: topics.map((title) => ({ title })),
-            },
+            subjectPlans: normalizedSubjects.map((subject) => ({
+              subject: subject.subject,
+              topics: subject.topics.map((title) => ({ title })),
+            })),
           }),
         });
 
@@ -320,7 +401,7 @@ export default function OnboardingPage() {
     );
   }
 
-  const stepLabels = ["About You", "Learning Style", "Lesson Days", "First Subject"];
+  const stepLabels = ["About You", "Learning Style", "Lesson Days", "Subjects & Topics"];
 
   return (
     <div className="min-h-screen bg-black px-4 py-8 text-white">
@@ -477,43 +558,75 @@ export default function OnboardingPage() {
 
         {step === 4 && (
           <div className="space-y-4">
-            <label className="block space-y-1">
-              <span className="text-xs text-white/60">First subject</span>
-              <input
-                value={subjectName}
-                onChange={(e) => setSubjectName(e.target.value)}
-                className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
-                placeholder="e.g. Mathematics"
-              />
-            </label>
+            <p className="text-xs text-white/60">
+              Add up to {MAX_SUBJECTS} subjects. Each subject needs at least one topic.
+            </p>
 
-            <div className="space-y-2">
-              <span className="text-xs text-white/60">Topics (add at least one)</span>
-              <div className="flex gap-2">
-                <input
-                  value={topicInput}
-                  onChange={(e) => setTopicInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic())}
-                  className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
-                  placeholder="e.g. Fractions"
-                />
-                <button onClick={addTopic} className="rounded-md border border-white/20 px-3 py-2 text-xs">
-                  Add
-                </button>
-              </div>
+            <div className="space-y-3">
+              {subjects.map((subject, index) => (
+                <div key={subject.id} className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-white/60">Subject {index + 1}</span>
+                    {subjects.length > 1 && (
+                      <button
+                        onClick={() => removeSubject(subject.id)}
+                        className="rounded-md border border-white/15 px-2 py-1 text-[11px] text-white/70"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
 
-              <div className="flex flex-wrap gap-2">
-                {topics.map((topic) => (
-                  <button
-                    key={topic}
-                    onClick={() => removeTopic(topic)}
-                    className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/90"
-                    title="Remove topic"
-                  >
-                    {topic} x
-                  </button>
-                ))}
-              </div>
+                  <input
+                    value={subject.subject}
+                    onChange={(e) => updateSubjectName(subject.id, e.target.value)}
+                    className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                    placeholder="e.g. Mathematics"
+                  />
+
+                  <div className="flex gap-2">
+                    <input
+                      value={subject.topicInput}
+                      onChange={(e) => updateSubjectTopicInput(subject.id, e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addTopic(subject.id))}
+                      className="w-full rounded-md border border-white/15 bg-black px-3 py-2 text-sm"
+                      placeholder="e.g. Fractions"
+                    />
+                    <button
+                      onClick={() => addTopic(subject.id)}
+                      className="rounded-md border border-white/20 px-3 py-2 text-xs"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {subject.topics.map((topic) => (
+                      <button
+                        key={`${subject.id}-${topic}`}
+                        onClick={() => removeTopic(subject.id, topic)}
+                        className="rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs text-white/90"
+                        title="Remove topic"
+                      >
+                        {topic} x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] text-white/50">
+                {subjects.length} / {MAX_SUBJECTS} subjects added
+              </p>
+              <button
+                onClick={addSubject}
+                disabled={subjects.length >= MAX_SUBJECTS}
+                className="rounded-md border border-white/20 px-3 py-2 text-xs disabled:opacity-40"
+              >
+                Add another subject
+              </button>
             </div>
           </div>
         )}
