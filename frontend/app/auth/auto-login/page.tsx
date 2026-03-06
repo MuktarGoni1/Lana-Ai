@@ -26,7 +26,8 @@ export default function AutoLoginPage() {
           .eq("id", user.id)
           .maybeSingle();
 
-        const needsSetup = !profile?.role || profile?.age == null || !profile?.grade;
+        const role = profile?.role;
+        const needsSetup = !role || (role === "child" && (profile?.age == null || !profile?.grade));
 
         let lastVisited: string | null = null;
         if (typeof window !== "undefined") {

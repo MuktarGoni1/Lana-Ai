@@ -405,8 +405,9 @@ function LoginContent() {
           .eq("id", user.id)
           .maybeSingle();
 
+        const role = profile?.role;
         const missingRequired =
-          !profile?.role || profile?.age == null || !profile?.grade;
+          !role || (role === "child" && (profile?.age == null || !profile?.grade));
 
         if (missingRequired) {
           setShowContinue(true);

@@ -256,7 +256,11 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   }, [authLoading, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
 
   const missingFields = useMemo(() => missingFieldLabels(profile), [profile]);
-  const showSetupBanner = isAuthenticated && missingFields.length > 0 && !bannerDismissed;
+  const showSetupBanner =
+    isAuthenticated &&
+    profile?.role === "child" &&
+    missingFields.length > 0 &&
+    !bannerDismissed;
 
   const hasPlans = termPlans.length > 0;
   const allTopics = useMemo(() => termPlans.flatMap((p) => p.topics), [termPlans]);
