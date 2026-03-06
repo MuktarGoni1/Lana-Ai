@@ -216,10 +216,9 @@ export type Database = {
           topic_id: string
           lesson_content: Json | null
           video_url: string | null
-          video_status: string | null
-          video_job_id: string | null
-          video_progress: number | null
+          video_ready: boolean | null
           audio_url: string | null
+          audio_ready: boolean | null
           is_ready: boolean | null
           generated_at: string | null
           refreshed_at: string | null
@@ -230,10 +229,9 @@ export type Database = {
           topic_id: string
           lesson_content?: Json | null
           video_url?: string | null
-          video_status?: string | null
-          video_job_id?: string | null
-          video_progress?: number | null
+          video_ready?: boolean | null
           audio_url?: string | null
+          audio_ready?: boolean | null
           is_ready?: boolean | null
           generated_at?: string | null
           refreshed_at?: string | null
@@ -244,10 +242,9 @@ export type Database = {
           topic_id?: string
           lesson_content?: Json | null
           video_url?: string | null
-          video_status?: string | null
-          video_job_id?: string | null
-          video_progress?: number | null
+          video_ready?: boolean | null
           audio_url?: string | null
+          audio_ready?: boolean | null
           is_ready?: boolean | null
           generated_at?: string | null
           refreshed_at?: string | null

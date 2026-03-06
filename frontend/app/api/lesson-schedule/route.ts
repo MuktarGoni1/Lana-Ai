@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createServerClient } from '@/lib/supabase/server';
 
 const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
+let lessonSchedulesAvailable: boolean | null = null;
 
 function isMissingLessonSchedulesTable(error: any): boolean {
   const code = typeof error?.code === 'string' ? error.code : '';
@@ -42,6 +43,10 @@ const PutBodySchema = z.object({
 
 export async function GET() {
   try {
+    if (lessonSchedulesAvailable === false) {
+      return buildSchedulesUnavailableResponse();
+    }
+
     const supabase = await createServerClient();
     const {
       data: { user },
@@ -61,11 +66,13 @@ export async function GET() {
 
     if (error) {
       if (isMissingLessonSchedulesTable(error)) {
+        lessonSchedulesAvailable = false;
         return buildSchedulesUnavailableResponse();
       }
 
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    lessonSchedulesAvailable = true;
 
     return NextResponse.json({ success: true, data: data ?? [] });
   } catch (error: any) {
@@ -76,6 +83,14 @@ export async function GET() {
 
 export async function PUT(req: Request) {
   try {
+    if (lessonSchedulesAvailable === false) {
+      return NextResponse.json({
+        success: true,
+        data: null,
+        warning: 'Lesson schedules table is unavailable in this environment.',
+      });
+    }
+
     const supabase = await createServerClient();
     const {
       data: { user },
@@ -115,6 +130,7 @@ export async function PUT(req: Request) {
 
     if (error) {
       if (isMissingLessonSchedulesTable(error)) {
+        lessonSchedulesAvailable = false;
         return NextResponse.json({
           success: true,
           data: null,
@@ -124,6 +140,7 @@ export async function PUT(req: Request) {
 
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
+    lessonSchedulesAvailable = true;
 
     return NextResponse.json({ success: true, data });
   } catch (error: any) {

@@ -61,20 +61,16 @@ interface Props {
   onWatchVideo: (topic: string) => void;
 }
 
-const REQUIRED_PROFILE_FIELDS: Array<keyof Pick<Profile, "role" | "age" | "grade">> = [
-  "role",
-  "age",
-  "grade",
-];
-
 const DASHBOARD_CACHE_KEY = "lana_dashboard_cache";
 
 function missingFieldLabels(profile: Profile | null) {
-  return REQUIRED_PROFILE_FIELDS.filter((k) => !profile?.[k]).map((k) => {
-    if (k === "age") return "age";
-    if (k === "grade") return "grade";
-    return "role";
-  });
+  if (!profile?.role) return ["role"];
+  if (profile.role !== "child") return [];
+
+  const missing: string[] = [];
+  if (!profile.age) missing.push("age");
+  if (!profile.grade) missing.push("grade");
+  return missing;
 }
 
 function readDashboardCache() {

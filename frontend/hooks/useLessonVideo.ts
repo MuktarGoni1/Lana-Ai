@@ -27,19 +27,6 @@ interface UseLessonVideoReturn {
 const POLL_INTERVAL_MS = 5_000; // 5 seconds
 const MAX_POLL_ATTEMPTS = 180; // 15 minutes max
 
-// Progress mapping for each status
-const STATUS_PROGRESS: Record<string, number> = {
-  idle: 0,
-  pending: 5,
-  queued: 10,
-  scripting: 25,
-  generating_assets: 50,
-  rendering: 75,
-  completed: 100,
-  failed: 0,
-  unavailable: 0,
-};
-
 export function useLessonVideo(
   topicId: string,
   userId: string
@@ -52,6 +39,7 @@ export function useLessonVideo(
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const attemptsRef = useRef<number>(0);
   const hasStartedRef = useRef<boolean>(false);
+  const videoJobIdRef = useRef<string | null>(null);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current) {
@@ -66,7 +54,7 @@ export function useLessonVideo(
     try {
       const { data: unit, error: unitError } = await supabase
         .from("lesson_units")
-        .select("video_url, video_status, video_job_id, video_progress")
+        .select("video_url, video_ready")
         .eq("topic_id", topicId)
         .maybeSingle();
 
@@ -76,105 +64,59 @@ export function useLessonVideo(
       }
 
       // Video already ready
-      if (
-        unit?.video_url &&
-        (unit.video_status === "completed" || !unit.video_status)
-      ) {
+      if (unit?.video_url || unit?.video_ready) {
         setVideoUrl(unit.video_url);
         setStatus("completed");
-        setProgress(unit.video_progress || 100);
+        setProgress(100);
         stopPolling();
         return;
       }
 
-      // Update status and progress from database
-      if (unit?.video_status) {
-        setStatus(unit.video_status as VideoStatus);
-        setProgress(
-          unit.video_progress || STATUS_PROGRESS[unit.video_status] || 0
-        );
+      if (videoJobIdRef.current) {
+        try {
+          const response = await fetch(`/api/video/status/${videoJobIdRef.current}`);
+          if (response.ok) {
+            const jobData = await response.json();
+            if (jobData.progress !== undefined) {
+              setProgress(jobData.progress);
+            }
+            if (jobData.status) {
+              setStatus(jobData.status as VideoStatus);
+            }
 
-        // Continue polling if still processing
-        const processingStatuses = [
-          "queued",
-          "scripting",
-          "generating_assets",
-          "rendering",
-        ];
-        if (processingStatuses.includes(unit.video_status)) {
-          // Poll external video API for more accurate progress
-          if (unit.video_job_id) {
-            try {
-              const response = await fetch(
-                `/api/video/status/${unit.video_job_id}`
-              );
-              if (response.ok) {
-                const jobData = await response.json();
-                if (jobData.progress !== undefined) {
-                  setProgress(jobData.progress);
-                }
-                if (jobData.status) {
-                  setStatus(jobData.status as VideoStatus);
-                }
+            if (jobData.status === "completed" && jobData.videoUrl) {
+              await supabase
+                .from("lesson_units")
+                .update({
+                  video_url: jobData.videoUrl,
+                  video_ready: true,
+                })
+                .eq("topic_id", topicId);
 
-                // Video completed externally
-                if (jobData.status === "completed" && jobData.videoUrl) {
-                  // Update local database
-                  await supabase
-                    .from("lesson_units")
-                    .update({
-                      video_url: jobData.videoUrl,
-                      video_status: "completed",
-                      video_progress: 100,
-                    })
-                    .eq("topic_id", topicId);
+              setVideoUrl(jobData.videoUrl);
+              setStatus("completed");
+              setProgress(100);
+              stopPolling();
+              return;
+            }
 
-                  setVideoUrl(jobData.videoUrl);
-                  setStatus("completed");
-                  setProgress(100);
-                  stopPolling();
-                  return;
-                }
+            if (jobData.status === "failed") {
+              setStatus("failed");
+              setError("Video generation failed. Please try again.");
+              stopPolling();
+              return;
+            }
 
-                // Video failed externally
-                if (jobData.status === "failed") {
-                  await supabase
-                    .from("lesson_units")
-                    .update({
-                      video_status: "failed",
-                    })
-                    .eq("topic_id", topicId);
-
-                  setStatus("failed");
-                  setError("Video generation failed. Please try again.");
-                  stopPolling();
-                  return;
-                }
-              }
-            } catch (pollError) {
-              // Silent fail - will retry on next interval
-              console.log(
-                "[useLessonVideo] Video API poll error:",
-                pollError
-              );
+            if (jobData.status === "unavailable") {
+              setStatus("unavailable");
+              setError("Video generation temporarily unavailable.");
+              stopPolling();
+              return;
             }
           }
+        } catch (pollError) {
+          console.log("[useLessonVideo] Video API poll error:", pollError);
         }
-      }
-
-      // Handle terminal states
-      if (unit?.video_status === "failed") {
-        setStatus("failed");
-        setError("Video generation failed. Please try again.");
-        stopPolling();
-        return;
-      }
-
-      if (unit?.video_status === "unavailable") {
-        setStatus("unavailable");
-        setError("Video generation temporarily unavailable.");
-        stopPolling();
-        return;
       }
 
       // Max attempts reached
@@ -201,11 +143,11 @@ export function useLessonVideo(
       // First, check if video already exists
       const { data: existing } = await supabase
         .from("lesson_units")
-        .select("video_url, video_status")
+        .select("video_url, video_ready")
         .eq("topic_id", topicId)
         .maybeSingle();
 
-      if (existing?.video_url) {
+      if (existing?.video_url || existing?.video_ready) {
         setVideoUrl(existing.video_url);
         setStatus("completed");
         setProgress(100);
@@ -246,11 +188,6 @@ export function useLessonVideo(
         ) {
           setStatus("unavailable");
           setError("Video generation temporarily unavailable");
-          // Update DB to prevent repeated attempts
-          await supabase
-            .from("lesson_units")
-            .update({ video_status: "unavailable" })
-            .eq("topic_id", topicId);
           return;
         }
 
@@ -258,16 +195,10 @@ export function useLessonVideo(
       }
 
       const data = await response.json();
-
-      // Update lesson_units with video job info
-      await supabase
-        .from("lesson_units")
-        .update({
-          video_job_id: data.jobId,
-          video_status: "queued",
-          video_progress: 10,
-        })
-        .eq("topic_id", topicId);
+      if (!data?.jobId) {
+        throw new Error("Video generation started without a job id");
+      }
+      videoJobIdRef.current = data.jobId;
 
       setStatus("queued");
       setProgress(10);
@@ -286,6 +217,7 @@ export function useLessonVideo(
   const retry = useCallback(() => {
     hasStartedRef.current = false;
     attemptsRef.current = 0;
+    videoJobIdRef.current = null;
     setStatus("idle");
     setProgress(0);
     setError(null);

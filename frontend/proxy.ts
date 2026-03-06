@@ -9,7 +9,7 @@ const PUBLIC_API_PREFIXES = [
   "/api/auth/clear-session",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (

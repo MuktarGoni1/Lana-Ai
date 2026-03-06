@@ -1,9 +1,10 @@
 // next.config.mjs
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, resolve } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+const repoRoot = resolve(__dirname, '..');
 
 import { withSentryConfig } from "@sentry/nextjs";
 
@@ -13,6 +14,9 @@ import { withSentryConfig } from "@sentry/nextjs";
 const nextConfig = {
   /* config options here */
   reactStrictMode: true,
+  turbopack: {
+    root: repoRoot,
+  },
   experimental: {
     // Enable experimental client trace metadata for better debugging
     clientTraceMetadata: [
@@ -23,13 +27,19 @@ const nextConfig = {
     ],
   },
   images: {
-    domains: ['www.lanamind.com', 'lanamind.com'],
     formats: ['image/webp', 'image/avif'],
     remotePatterns: [
       {
         protocol: 'https',
+        hostname: 'www.lanamind.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lanamind.com',
+      },
+      {
+        protocol: 'https',
         hostname: 'ieqqsgpaivxmcgcflanu.supabase.co',
-        port: '',
       },
     ],
   },

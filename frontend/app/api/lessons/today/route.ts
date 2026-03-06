@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+let lessonSchedulesAvailable: boolean | null = null;
 
 function isMissingTableError(error: unknown): boolean {
   const message =
@@ -30,6 +31,13 @@ export async function GET() {
     }
 
     const todayName = dayNames[new Date().getDay()];
+    if (lessonSchedulesAvailable === false) {
+      return NextResponse.json({
+        success: true,
+        data: { day: todayName, subjects: [], lessons: [] },
+      });
+    }
+
     const db = supabase as any;
 
     const { data: schedules, error: scheduleError } = await db
@@ -43,11 +51,13 @@ export async function GET() {
     }
 
     if (scheduleError && isMissingTableError(scheduleError)) {
+      lessonSchedulesAvailable = false;
       return NextResponse.json({
         success: true,
         data: { day: todayName, subjects: [], lessons: [] },
       });
     }
+    lessonSchedulesAvailable = true;
 
     const subjects = Array.from(
       new Set(

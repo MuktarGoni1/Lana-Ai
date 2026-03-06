@@ -2,6 +2,21 @@ import { NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase-admin';
 
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+let lessonSchedulesAvailable: boolean | null = null;
+
+function isMissingLessonSchedulesTable(error: unknown): boolean {
+  const message =
+    (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
+      ? (error as any).message
+      : '') || '';
+
+  const code =
+    error && typeof error === 'object' && 'code' in error && typeof (error as any).code === 'string'
+      ? (error as any).code
+      : '';
+
+  return code === '42P01' || message.toLowerCase().includes('lesson_schedules');
+}
 
 function toLocalDayName(timezone: string): string {
   try {
@@ -44,6 +59,9 @@ export async function POST(req: Request) {
     }
 
     const db = getSupabaseAdmin() as any;
+    if (lessonSchedulesAvailable === false) {
+      return NextResponse.json({ success: true, data: { queued: 0, sent: 0, failed: 0 } });
+    }
 
     const { data: schedules, error: scheduleError } = await db
       .from('lesson_schedules')
@@ -51,8 +69,14 @@ export async function POST(req: Request) {
       .eq('reminder_enabled', true);
 
     if (scheduleError) {
+      if (isMissingLessonSchedulesTable(scheduleError)) {
+        lessonSchedulesAvailable = false;
+        return NextResponse.json({ success: true, data: { queued: 0, sent: 0, failed: 0 } });
+      }
+
       return NextResponse.json({ error: scheduleError.message }, { status: 500 });
     }
+    lessonSchedulesAvailable = true;
 
     const eligible = (schedules ?? []).filter((row: any) => {
       const timezone = row.reminder_timezone || 'UTC';
