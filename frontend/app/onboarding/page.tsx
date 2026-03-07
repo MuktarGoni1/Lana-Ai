@@ -45,7 +45,7 @@ function getTimezoneList(): string[] {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading, checkAuthStatus } = useUnifiedAuth();
 
   const timezoneOptions = useMemo(() => getTimezoneList(), []);
 
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
           setGrade(data.grade || "");
 
           if (data.onboarding_complete) {
-            router.replace("/");
+            router.replace("/dashboard");
             return;
           }
         }
@@ -161,7 +161,7 @@ export default function OnboardingPage() {
     };
 
     void load();
-  }, [isAuthenticated, isLoading, router, user?.id]);
+  }, [checkAuthStatus, isAuthenticated, isLoading, router, user?.id]);
 
   function toggleDay(day: string) {
     setLessonDays((prev) => (prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]));
@@ -374,9 +374,9 @@ export default function OnboardingPage() {
           throw new Error(body?.error || "Failed to complete onboarding");
         }
 
-        // Do not set localStorage to avoid stale data issues - rely solely on user metadata
-
-        router.replace("/");
+        // Force refresh auth state so downstream onboarding guards see updated metadata.
+        await checkAuthStatus(true);
+        router.replace("/dashboard");
       } catch (err: any) {
         setError(err?.message || "Could not complete onboarding.");
       } finally {
