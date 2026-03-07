@@ -142,7 +142,7 @@ function writeDashboardCache(payload: {
 
 export function LanaMindDashboard({ onWatchVideo }: Props) {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading, isOnboardingComplete } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading: authLoading, isOnboardingComplete, checkAuthStatus } = useUnifiedAuth();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -291,28 +291,52 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!authLoading && isAuthenticated && !isOnboardingComplete()) {
-      router.replace("/onboarding");
-      return;
-    }
+    const handleDashboardAccess = async () => {
+      if (authLoading) {
+        setLoading(true);
+        return;
+      }
 
-    if (authLoading) {
-      setLoading(true);
-      return;
-    }
+      if (!isAuthenticated || !user?.id) {
+        setLoading(false);
+        setProfile(null);
+        setTermPlans([]);
+        setRecentSearches([]);
+        setRecentAttempts([]);
+        setExamAttempts([]);
+        return;
+      }
 
-    if (!isAuthenticated || !user?.id) {
-      setLoading(false);
-      setProfile(null);
-      setTermPlans([]);
-      setRecentSearches([]);
-      setRecentAttempts([]);
-      setExamAttempts([]);
-      return;
-    }
+      if (!isOnboardingComplete()) {
+        try {
+          const progressRes = await fetch("/api/onboarding-progress", {
+            credentials: "include",
+            cache: "no-store",
+          });
 
-    void load(user.id);
-  }, [authLoading, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
+          if (progressRes.ok) {
+            const progress = await progressRes.json();
+            const isComplete = Boolean(progress?.data?.onboarding_complete);
+
+            if (isComplete) {
+              await checkAuthStatus(true);
+              await load(user.id);
+              return;
+            }
+          }
+        } catch (error) {
+          console.warn("[dashboard] onboarding verification failed", error);
+        }
+
+        router.replace("/onboarding");
+        return;
+      }
+
+      await load(user.id);
+    };
+
+    void handleDashboardAccess();
+  }, [authLoading, checkAuthStatus, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
 
   const missingFields = useMemo(() => missingFieldLabels(profile), [profile]);
   const showSetupBanner =
