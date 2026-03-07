@@ -11,6 +11,7 @@ import {
   BookOpen,
   ChevronRight,
   Clock,
+  GraduationCap,
   Lock,
   MessageSquare,
   RefreshCw,
@@ -18,6 +19,14 @@ import {
   Star,
   Video,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type TopicStatus = "locked" | "available" | "in_progress" | "completed";
 
@@ -57,6 +66,13 @@ interface QuizAttempt {
   total: number;
 }
 
+interface ExamAttempt {
+  id: string;
+  topic_key: string;
+  score_percent: number;
+  completed_at: string | null;
+}
+
 interface Props {
   onWatchVideo: (topic: string) => void;
 }
@@ -84,6 +100,7 @@ function readDashboardCache(userId: string) {
       termPlans: TermPlan[];
       recentSearches: SearchRow[];
       recentAttempts: QuizAttempt[];
+      examAttempts: ExamAttempt[];
       cachedAt: string;
     };
     const cachedAtMs = parsed.cachedAt ? new Date(parsed.cachedAt).getTime() : 0;
@@ -103,6 +120,7 @@ function writeDashboardCache(payload: {
   termPlans: TermPlan[];
   recentSearches: SearchRow[];
   recentAttempts: QuizAttempt[];
+  examAttempts: ExamAttempt[];
 }) {
   if (typeof window === "undefined") return;
   try {
@@ -113,6 +131,7 @@ function writeDashboardCache(payload: {
         termPlans: payload.termPlans,
         recentSearches: payload.recentSearches,
         recentAttempts: payload.recentAttempts,
+        examAttempts: payload.examAttempts,
         cachedAt: new Date().toISOString(),
       })
     );
@@ -131,8 +150,16 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   const [termPlans, setTermPlans] = useState<TermPlan[]>([]);
   const [recentSearches, setRecentSearches] = useState<SearchRow[]>([]);
   const [recentAttempts, setRecentAttempts] = useState<QuizAttempt[]>([]);
+  const [examAttempts, setExamAttempts] = useState<ExamAttempt[]>([]);
   const [currentWeek, setCurrentWeek] = useState(1);
   const [showMoreTools, setShowMoreTools] = useState(false);
+  const [examModalOpen, setExamModalOpen] = useState(false);
+  const [examStep, setExamStep] = useState<"intro" | "topic">("intro");
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [selectedSourceTopicId, setSelectedSourceTopicId] = useState<string | null>(null);
+  const [customTopic, setCustomTopic] = useState("");
+  const [startingExam, setStartingExam] = useState(false);
+  const [examError, setExamError] = useState<string | null>(null);
 
   const load = useCallback(async (userId: string) => {
     setLoading(true);
@@ -143,10 +170,16 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     try {
       const db = supabase as any;
 
-      const [profileRes, plansRes, searchesRes] = await Promise.allSettled([
+      const [profileRes, plansRes, searchesRes, examAttemptsRes] = await Promise.allSettled([
         db.from("profiles").select("id, full_name, role, age, grade").eq("id", userId).maybeSingle(),
         db.from("term_plans").select("id, subject").eq("user_id", userId).order("created_at", { ascending: false }),
         db.from("searches").select("id, title, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
+        db
+          .from("exam_attempts")
+          .select("id, topic_key, score_percent, completed_at")
+          .eq("user_id", userId)
+          .order("started_at", { ascending: false })
+          .limit(10),
       ]);
 
       let safeProfile: Profile | null = null;
@@ -168,6 +201,13 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         safeSearches = searchesRes.value.data;
       } else if (cached?.recentSearches) {
         safeSearches = cached.recentSearches;
+      }
+
+      let safeExamAttempts: ExamAttempt[] = [];
+      if (examAttemptsRes.status === "fulfilled" && !examAttemptsRes.value.error && examAttemptsRes.value.data) {
+        safeExamAttempts = examAttemptsRes.value.data;
+      } else if (cached?.examAttempts) {
+        safeExamAttempts = cached.examAttempts;
       }
 
       let allTopics: Topic[] = [];
@@ -217,6 +257,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       setTermPlans(groupedPlans);
       setRecentSearches(safeSearches);
       setRecentAttempts(safeAttempts);
+      setExamAttempts(safeExamAttempts);
 
       writeDashboardCache({
         userId,
@@ -224,6 +265,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         termPlans: groupedPlans,
         recentSearches: safeSearches,
         recentAttempts: safeAttempts,
+        examAttempts: safeExamAttempts,
       });
 
       const liveWeeks = groupedPlans
@@ -239,6 +281,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         setTermPlans(cached.termPlans ?? []);
         setRecentSearches(cached.recentSearches ?? []);
         setRecentAttempts(cached.recentAttempts ?? []);
+        setExamAttempts(cached.examAttempts ?? []);
       } else {
         setLoadError("Could not load your dashboard. Please try again.");
       }
@@ -264,6 +307,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       setTermPlans([]);
       setRecentSearches([]);
       setRecentAttempts([]);
+      setExamAttempts([]);
       return;
     }
 
@@ -291,6 +335,39 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     () => allTopics.filter((t) => t.status === "available").length,
     [allTopics]
   );
+  const completedExamAttempts = useMemo(
+    () => examAttempts.filter((attempt) => Boolean(attempt.completed_at)),
+    [examAttempts]
+  );
+  const bestExamScore = useMemo(
+    () =>
+      completedExamAttempts.length > 0
+        ? Math.max(...completedExamAttempts.map((attempt) => Number(attempt.score_percent || 0)))
+        : 0,
+    [completedExamAttempts]
+  );
+  const averageExamScore = useMemo(
+    () =>
+      completedExamAttempts.length > 0
+        ? Math.round(
+            completedExamAttempts.reduce((sum, attempt) => sum + Number(attempt.score_percent || 0), 0) /
+              completedExamAttempts.length
+          )
+        : 0,
+    [completedExamAttempts]
+  );
+  const examTopicChoices = useMemo(() => {
+    const seen = new Set<string>();
+    return allTopics
+      .map((topic) => ({ id: topic.id, label: topic.title }))
+      .filter((topic) => {
+        const key = topic.label.toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 12);
+  }, [allTopics]);
 
   const continueTopic = useMemo(() => {
     const topics = termPlans.flatMap((p) => p.topics);
@@ -307,6 +384,59 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     if (hour < 17) return "Good afternoon";
     return "Good evening";
   }, []);
+
+  const openExamPrep = useCallback(() => {
+    if (!isAuthenticated) {
+      router.push("/login");
+      return;
+    }
+    setExamError(null);
+    setExamStep("intro");
+    setExamModalOpen(true);
+  }, [isAuthenticated, router]);
+
+  const startExamPrep = useCallback(async () => {
+    const resolvedTopic = selectedTopic || customTopic.trim();
+    if (!resolvedTopic) {
+      setExamError("Select a topic or enter a custom one to continue.");
+      return;
+    }
+
+    setStartingExam(true);
+    setExamError(null);
+    try {
+      const response = await fetch("/api/exam-prep/start", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: resolvedTopic,
+          sourceTopicId: selectedSourceTopicId ?? undefined,
+          questionCount: 10,
+        }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || "Failed to start exam preparation");
+      }
+
+      const attemptId = payload?.data?.attemptId;
+      if (!attemptId || typeof attemptId !== "string") {
+        throw new Error("Invalid exam session response");
+      }
+
+      setExamModalOpen(false);
+      setExamStep("intro");
+      setSelectedTopic("");
+      setSelectedSourceTopicId(null);
+      setCustomTopic("");
+      router.push(`/exam-prep/${attemptId}`);
+    } catch (error) {
+      setExamError(error instanceof Error ? error.message : "Unable to start exam preparation.");
+    } finally {
+      setStartingExam(false);
+    }
+  }, [customTopic, router, selectedSourceTopicId, selectedTopic]);
 
   const bestScore = useCallback(
     (topicId: string) => {
@@ -415,7 +545,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         )}
 
         {isAuthenticated && (
-          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-4">
+          <section className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-5">
             <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
               <p className="text-xs text-white/50">Subjects</p>
               <p className="mt-1 text-lg font-semibold">{termPlans.length}</p>
@@ -431,6 +561,10 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
             <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
               <p className="text-xs text-white/50">Available</p>
               <p className="mt-1 text-lg font-semibold">{availableTopics}</p>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.03] px-3 py-3">
+              <p className="text-xs text-white/50">Exam Best</p>
+              <p className="mt-1 text-lg font-semibold">{completedExamAttempts.length > 0 ? `${bestExamScore}%` : "—"}</p>
             </div>
           </section>
         )}
@@ -504,19 +638,38 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         )}
 
         <section>
-          <button
-            onClick={() => setShowMoreTools((v) => !v)}
-            className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs text-white/80 hover:bg-white/10"
-          >
-            {showMoreTools ? "Hide extra tools" : "Show more tools"}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={openExamPrep}
+              className="inline-flex min-h-10 items-center gap-2 rounded-md bg-white px-3 py-2 text-xs font-semibold text-black"
+            >
+              <GraduationCap className="h-3.5 w-3.5" />
+              Exam Preparation
+            </button>
+            <button
+              onClick={() => setShowMoreTools((v) => !v)}
+              className="min-h-10 rounded-md border border-white/20 px-3 py-2 text-xs text-white/80 hover:bg-white/10"
+            >
+              {showMoreTools ? "Hide extra tools" : "Show more tools"}
+            </button>
+          </div>
         </section>
 
         {showMoreTools && (
           <>
         <section className="space-y-3">
           <p className="text-xs uppercase tracking-widest text-white/40">Learning tools</p>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <button
+              onClick={openExamPrep}
+              className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
+            >
+              <span className="inline-flex items-center gap-2 text-sm font-medium">
+                <GraduationCap className="h-4 w-4 text-white/70" />
+                Exam Preparation
+              </span>
+              <p className="mt-1 text-xs text-white/50">Practice exams with detailed explanations</p>
+            </button>
             <button
               onClick={() => router.push("/lessons")}
               className="min-h-24 rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-left transition hover:bg-white/10"
@@ -756,6 +909,123 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           </>
         )}
       </main>
+
+      <Dialog open={examModalOpen} onOpenChange={setExamModalOpen}>
+        <DialogContent className="border-white/20 bg-[#080808] text-white sm:max-w-xl">
+          {examStep === "intro" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Exam Preparation</DialogTitle>
+                <DialogDescription className="text-white/70">
+                  Build confidence with focused practice exams and rich explanations for every answer choice.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 text-sm text-white/80">
+                <p>How it works:</p>
+                <ul className="list-disc space-y-1 pl-5 text-white/70">
+                  <li>Select a topic from your learning plan or enter a custom topic.</li>
+                  <li>Take a 10-question multiple-choice exam (A, B, C).</li>
+                  <li>Get immediate feedback and detailed explanations for correct and incorrect options.</li>
+                  <li>Review your final performance and track your best score over time.</li>
+                </ul>
+              </div>
+              <DialogFooter>
+                <button
+                  type="button"
+                  className="min-h-10 rounded-md border border-white/20 px-4 py-2 text-xs text-white/80"
+                  onClick={() => setExamModalOpen(false)}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className="min-h-10 rounded-md bg-white px-4 py-2 text-xs font-semibold text-black"
+                  onClick={() => setExamStep("topic")}
+                >
+                  Continue
+                </button>
+              </DialogFooter>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-xl">Choose Exam Topic</DialogTitle>
+                <DialogDescription className="text-white/70">
+                  Pick from your existing topics or enter a custom topic to begin.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {examTopicChoices.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs uppercase tracking-wider text-white/50">From your plan</p>
+                    <div className="flex flex-wrap gap-2">
+                      {examTopicChoices.map((topic) => (
+                        <button
+                          key={topic.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTopic(topic.label);
+                            setSelectedSourceTopicId(topic.id);
+                            setCustomTopic("");
+                            setExamError(null);
+                          }}
+                          className={`rounded-full border px-3 py-1.5 text-xs transition ${
+                            selectedSourceTopicId === topic.id
+                              ? "border-white bg-white text-black"
+                              : "border-white/20 text-white/80 hover:bg-white/10"
+                          }`}
+                        >
+                          {topic.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-wider text-white/50">Custom topic</p>
+                  <input
+                    value={customTopic}
+                    onChange={(event) => {
+                      setCustomTopic(event.target.value);
+                      setSelectedTopic("");
+                      setSelectedSourceTopicId(null);
+                      setExamError(null);
+                    }}
+                    placeholder="e.g. algebra, grammar, biology"
+                    className="h-11 w-full rounded-md border border-white/20 bg-white/5 px-3 text-sm text-white placeholder:text-white/40 focus:border-white/40 focus:outline-none"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/60">
+                  Sessions completed: {completedExamAttempts.length} • Average score: {completedExamAttempts.length > 0 ? `${averageExamScore}%` : "—"}
+                </div>
+
+                {examError && <p className="text-xs text-rose-300">{examError}</p>}
+              </div>
+              <DialogFooter>
+                <button
+                  type="button"
+                  className="min-h-10 rounded-md border border-white/20 px-4 py-2 text-xs text-white/80"
+                  onClick={() => setExamStep("intro")}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  disabled={startingExam}
+                  className="min-h-10 rounded-md bg-white px-4 py-2 text-xs font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => {
+                    void startExamPrep();
+                  }}
+                >
+                  {startingExam ? "Starting..." : "Start Practice Exam"}
+                </button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
