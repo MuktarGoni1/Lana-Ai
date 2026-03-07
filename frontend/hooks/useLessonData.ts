@@ -129,6 +129,46 @@ function normalizeLessonContent(input: unknown): LessonContent | null {
 }
 
 function normalizeQuestions(input: unknown): QuizQuestion[] {
+  function resolveCorrectAnswerToOption(answerRaw: string, optionValues: string[]): string | null {
+    const answer = answerRaw.trim();
+    if (!answer || optionValues.length === 0) return null;
+
+    if (optionValues.includes(answer)) return answer;
+
+    const ciMatch = optionValues.find((opt) => opt.toLowerCase() === answer.toLowerCase());
+    if (ciMatch) return ciMatch;
+
+    if (/^[A-Za-z]$/.test(answer)) {
+      const index = answer.toUpperCase().charCodeAt(0) - 65;
+      if (index >= 0 && index < optionValues.length) return optionValues[index];
+      return null;
+    }
+    const leadingLetter = answer.match(/^([A-Za-z])[\)\].:\-\s]+/);
+    if (leadingLetter) {
+      const index = leadingLetter[1].toUpperCase().charCodeAt(0) - 65;
+      if (index >= 0 && index < optionValues.length) return optionValues[index];
+      return null;
+    }
+
+    if (/^\d+$/.test(answer)) {
+      const n = Number.parseInt(answer, 10);
+      if (Number.isNaN(n)) return null;
+      if (n >= 1 && n <= optionValues.length) return optionValues[n - 1];
+      if (n >= 0 && n < optionValues.length) return optionValues[n];
+      return null;
+    }
+    const leadingNumber = answer.match(/^(\d+)[\)\].:\-\s]+/);
+    if (leadingNumber) {
+      const n = Number.parseInt(leadingNumber[1], 10);
+      if (Number.isNaN(n)) return null;
+      if (n >= 1 && n <= optionValues.length) return optionValues[n - 1];
+      if (n >= 0 && n < optionValues.length) return optionValues[n];
+      return null;
+    }
+
+    return null;
+  }
+
   const source = (() => {
     if (Array.isArray(input)) return input;
     if (input && typeof input === "object") {
@@ -154,7 +194,7 @@ function normalizeQuestions(input: unknown): QuizQuestion[] {
         (typeof q.question === "string" && q.question.trim()) ||
         (typeof q.q === "string" && q.q.trim()) ||
         "";
-      const correctAnswer =
+      const rawCorrectAnswer =
         (typeof q.correct_answer === "string" && q.correct_answer.trim()) ||
         (typeof q.answer === "string" && q.answer.trim()) ||
         "";
@@ -163,11 +203,13 @@ function normalizeQuestions(input: unknown): QuizQuestion[] {
       const options = rawOptions
         .map((option, optIndex) => {
           if (typeof option === "string") {
-            return { label: String.fromCharCode(65 + optIndex), value: option };
+            const trimmed = option.trim();
+            if (!trimmed) return null;
+            return { label: String.fromCharCode(65 + optIndex), value: trimmed };
           }
           if (option && typeof option === "object") {
             const parsed = option as Record<string, unknown>;
-            const value = typeof parsed.value === "string" ? parsed.value : "";
+            const value = typeof parsed.value === "string" ? parsed.value.trim() : "";
             const label = typeof parsed.label === "string" ? parsed.label : String.fromCharCode(65 + optIndex);
             if (value) {
               return { label, value };
@@ -177,14 +219,19 @@ function normalizeQuestions(input: unknown): QuizQuestion[] {
         })
         .filter((option): option is QuizOption => Boolean(option));
 
-      if (!question || !correctAnswer || options.length < 2) {
+      const resolvedCorrectAnswer = resolveCorrectAnswerToOption(
+        rawCorrectAnswer,
+        options.map((opt) => opt.value)
+      );
+
+      if (!question || !resolvedCorrectAnswer || options.length < 2) {
         return null;
       }
 
       return {
         id: (typeof q.id === "string" && q.id) || `${index + 1}`,
         question,
-        correct_answer: correctAnswer,
+        correct_answer: resolvedCorrectAnswer,
         options,
         difficulty:
           q.difficulty === "easy" || q.difficulty === "medium" || q.difficulty === "hard"
