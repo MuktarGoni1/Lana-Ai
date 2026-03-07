@@ -16,6 +16,41 @@ type Question = {
   explanation?: string;
 };
 
+function normalizeOptionText(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function resolveAnswerToOption(answerRaw: string, options: string[]): string | null {
+  const answer = answerRaw.trim();
+  if (!answer || options.length === 0) return null;
+
+  if (options.includes(answer)) return answer;
+
+  const ciMatch = options.find((opt) => normalizeOptionText(opt) === normalizeOptionText(answer));
+  if (ciMatch) return ciMatch;
+
+  const strippedAnswer = answer.replace(/^[A-Za-z]\s*[\.)\-:]\s*/, "").trim();
+  const strippedMatch = options.find((opt) => normalizeOptionText(opt) === normalizeOptionText(strippedAnswer));
+  if (strippedMatch) return strippedMatch;
+
+  if (/^[A-Za-z]$/.test(answer)) {
+    const idx = answer.toUpperCase().charCodeAt(0) - 65;
+    if (idx >= 0 && idx < options.length) return options[idx];
+  }
+
+  if (/^\d+$/.test(answer)) {
+    const n = Number.parseInt(answer, 10);
+    if (n >= 1 && n <= options.length) return options[n - 1];
+    if (n >= 0 && n < options.length) return options[n];
+  }
+
+  return null;
+}
+
+function isSelectedAnswerCorrect(selected: string | undefined, expected: string): boolean {
+  return normalizeOptionText(selected ?? "") === normalizeOptionText(expected);
+}
+
 /* ---------------- helpers ---------------- */
 const percentage = (num: number, total: number) =>
   total === 0 ? 0 : Math.round((num / total) * 100);
@@ -51,20 +86,16 @@ function parseQuizParam(raw: string | null): Question[] {
             .map((o: string) => o.trim().slice(0, MAX_OPT_LEN))
         : null;
       // Handle both 'answer' properties for consistency
-      const answer = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : 
+      const answerRaw = typeof item.answer === "string" ? item.answer.trim().slice(0, MAX_OPT_LEN) : 
                      typeof item.correct === "string" ? item.correct.trim().slice(0, MAX_OPT_LEN) : null;
       const explanation = typeof item.explanation === "string" ? item.explanation.trim().slice(0, MAX_Q_LEN) : 
                           typeof item.reason === "string" ? item.reason.trim().slice(0, MAX_Q_LEN) : undefined;
 
       // Be more lenient with validation
-      if (!q || !options || options.length < MIN_OPTIONS || options.length > MAX_OPTIONS || !answer) continue;
-      if (!options.includes(answer)) {
-        // If answer is not in options, try to find a close match
-        const matchingOption = options.find((opt: string) => 
-          opt.toLowerCase().trim() === answer.toLowerCase().trim());
-        if (!matchingOption) continue;
-        // Use the matching option instead
-      }
+      if (!q || !options || options.length < MIN_OPTIONS || options.length > MAX_OPTIONS || !answerRaw) continue;
+
+      const answer = resolveAnswerToOption(answerRaw, options);
+      if (!answer) continue;
 
       cleaned.push({ q, options, answer, explanation });
     }
@@ -108,11 +139,29 @@ function QuizContent() {
             const data = await res.json();
             console.log("Quiz data received from API:", data); // Debug log
             // Transform data to match frontend expectations with better error handling
-            const transformedQuiz = Array.isArray(data) ? data.map((item: any) => ({
-              q: item.q || item.question || "",  // Handle both 'q' and 'question' properties
-              options: Array.isArray(item.options) ? item.options : [],
-              answer: item.answer || ""
-            })).filter(item => item.q && item.options.length > 0) : [];
+            const transformedQuiz = Array.isArray(data)
+              ? data
+                  .map((item: any) => {
+                    const q = item.q || item.question || "";
+                    const options = Array.isArray(item.options) ? item.options : [];
+                    const resolvedAnswer =
+                      typeof item.answer === "string"
+                        ? resolveAnswerToOption(item.answer, options)
+                        : typeof item.correct === "string"
+                        ? resolveAnswerToOption(item.correct, options)
+                        : null;
+
+                    return { q, options, answer: resolvedAnswer };
+                  })
+                  .filter(
+                    (item): item is Question =>
+                      typeof item.q === "string" &&
+                      item.q.trim().length > 0 &&
+                      Array.isArray(item.options) &&
+                      item.options.length > 0 &&
+                      typeof item.answer === "string"
+                  )
+              : [];
             console.log("Transformed quiz data:", transformedQuiz); // Debug log
             setQuiz(transformedQuiz);
           } else {
@@ -167,7 +216,7 @@ function QuizContent() {
   }, [submitted]);
 
   const score = useMemo(
-    () => quiz.reduce((acc, q, i) => (answers[i] === q.answer ? acc + 1 : acc), 0),
+    () => quiz.reduce((acc, q, i) => (isSelectedAnswerCorrect(answers[i], q.answer) ? acc + 1 : acc), 0),
     [answers, quiz]
   );
 
@@ -353,7 +402,7 @@ if (!quiz.length)
             {quiz.map((q, i) => {
               const user = answers[i];
               const correct = q.answer;
-              const wrong = user !== correct;
+              const wrong = !isSelectedAnswerCorrect(user, correct);
               return (
                 <motion.div
                   key={i}
@@ -395,21 +444,21 @@ if (!quiz.length)
                         transition={{ delay: 0.1 * optIdx }}
                         className={cn(
                           "px-4 py-3 rounded-xl border text-sm flex items-center justify-between transition-all text-gray-200",
-                          opt === correct
+                          isSelectedAnswerCorrect(opt, correct)
                             ? "border-green-500/40 bg-green-900/20 shadow-inner"
-                            : opt === user
+                            : isSelectedAnswerCorrect(opt, user || "")
                             ? "border-red-500/40 bg-red-900/20 shadow-inner"
                             : "border-gray-700 bg-gray-800/20 hover:border-gray-500"
                         )}
                       >
                         <span>{opt}</span>
                         <div className="flex items-center gap-2">
-                          {opt === correct && (
+                          {isSelectedAnswerCorrect(opt, correct) && (
                             <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
                               <Check className="w-4 h-4 text-green-400" />
                             </div>
                           )}
-                          {opt === user && opt !== correct && (
+                          {isSelectedAnswerCorrect(opt, user || "") && !isSelectedAnswerCorrect(opt, correct) && (
                             <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center">
                               <X className="w-4 h-4 text-red-400" />
                             </div>
