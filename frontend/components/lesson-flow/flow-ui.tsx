@@ -6,29 +6,30 @@ import type { VideoStatus } from "@/hooks/useLessonVideo";
 import { decodeHTMLEntities } from "@/lib/html-entity-decoder";
 
 export const LESSON_THEME_VARS: CSSProperties = {
-  ["--color-bg" as string]: "#fafaf8",
+  ["--color-bg" as string]: "#f5f3ee",
   ["--color-surface" as string]: "#ffffff",
-  ["--color-border" as string]: "#e8e8e4",
-  ["--color-text" as string]: "#1a1a18",
-  ["--color-text-muted" as string]: "#6b6b65",
-  ["--color-accent" as string]: "#2563eb",
-  ["--color-accent-muted" as string]: "#dbeafe",
-  ["--color-skel" as string]: "#f0f0eb",
-  ["--color-green" as string]: "#16a34a",
+  ["--color-border" as string]: "#ddd8ce",
+  ["--color-text" as string]: "#1f1d18",
+  ["--color-text-muted" as string]: "#6d6658",
+  ["--color-accent" as string]: "#1f4ea3",
+  ["--color-accent-muted" as string]: "#e6eefc",
+  ["--color-skel" as string]: "#ebe7df",
+  ["--color-green" as string]: "#166534",
+  ["--color-gold" as string]: "#6a4a00",
 };
 
 export type LessonFlowStep = "learn" | "quiz" | "video";
 
 export const LESSON_FLOW_BUTTON_BASE =
-  "lesson-flow-btn relative z-10 inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]";
+  "lesson-flow-btn relative z-10 inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-surface)]";
 
-export const LESSON_FLOW_BUTTON_PRIMARY = `${LESSON_FLOW_BUTTON_BASE} bg-[var(--color-accent)] text-white hover:bg-blue-700`;
-export const LESSON_FLOW_BUTTON_SECONDARY = `${LESSON_FLOW_BUTTON_BASE} border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-[var(--color-skel)]`;
+export const LESSON_FLOW_BUTTON_PRIMARY = `${LESSON_FLOW_BUTTON_BASE} bg-[var(--color-accent)] text-white hover:bg-[#1a428a]`;
+export const LESSON_FLOW_BUTTON_SECONDARY = `${LESSON_FLOW_BUTTON_BASE} border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text)] hover:bg-[#f6f3ec]`;
 
 export function statusTone(label: "ready" | "pending" | "unavailable") {
   if (label === "ready") return "bg-emerald-50 border-emerald-300 text-emerald-900";
-  if (label === "unavailable") return "bg-red-50 border-red-300 text-red-900";
-  return "bg-blue-50 border-blue-300 text-blue-900";
+  if (label === "unavailable") return "bg-rose-50 border-rose-300 text-rose-900";
+  return "bg-amber-50 border-amber-300 text-amber-900";
 }
 
 export function LessonShell({
@@ -38,6 +39,9 @@ export function LessonShell({
   lessonStatus,
   quizStatus,
   videoStatus,
+  estimatedMinutes,
+  sectionCount,
+  questionCount,
   children,
 }: {
   subjectName: string;
@@ -46,6 +50,9 @@ export function LessonShell({
   lessonStatus: "ready" | "pending";
   quizStatus: "ready" | "pending";
   videoStatus: "ready" | "pending" | "unavailable";
+  estimatedMinutes?: number;
+  sectionCount?: number;
+  questionCount?: number;
   children: React.ReactNode;
 }) {
   const steps: Array<{ id: LessonFlowStep; label: string }> = [
@@ -66,32 +73,45 @@ export function LessonShell({
           }
         }
       `}</style>
-      <div className="mx-auto max-w-3xl space-y-6">
-        <div className="space-y-3">
-          <span className="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold text-[var(--color-accent)]">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <header className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+          <div className="space-y-3">
+            <span className="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold tracking-wide text-[var(--color-accent)]">
             {decodeHTMLEntities(subjectName)}
-          </span>
-          <h1 className="text-2xl font-bold text-[var(--color-text)]">{decodeHTMLEntities(topicTitle)}</h1>
-          <div className="flex flex-wrap gap-2">
-            {steps.map((item) => (
-              <span
-                key={item.id}
-                className={`inline-flex rounded-full border px-3 py-1 text-xs ${
-                  item.id === step
-                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
-                    : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
-                }`}
-              >
-                {item.label}
-              </span>
-            ))}
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-[var(--color-text)]">{decodeHTMLEntities(topicTitle)}</h1>
+            <div className="flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]">
+              {typeof estimatedMinutes === "number" && <span>{estimatedMinutes} min read</span>}
+              {typeof sectionCount === "number" && <span>{sectionCount} sections</span>}
+              {typeof questionCount === "number" && <span>{questionCount} quiz questions</span>}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="mt-4 flex items-center gap-2 overflow-x-auto py-1">
+            {steps.map((item, index) => {
+              const active = item.id === step;
+              return (
+                <React.Fragment key={item.id}>
+                  <span
+                    className={`inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${
+                      active
+                        ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+                        : "border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+                    }`}
+                  >
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px]">{index + 1}</span>
+                    {item.label}
+                  </span>
+                  {index < steps.length - 1 && <span className="h-px w-7 bg-[var(--color-border)]" aria-hidden="true" />}
+                </React.Fragment>
+              );
+            })}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs ${statusTone(lessonStatus)}`}>Lesson {lessonStatus}</span>
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs ${statusTone(quizStatus)}`}>Quiz {quizStatus}</span>
             <span className={`inline-flex rounded-full border px-3 py-1 text-xs ${statusTone(videoStatus)}`}>Video {videoStatus}</span>
           </div>
-        </div>
+        </header>
         {children}
       </div>
     </div>
@@ -132,15 +152,17 @@ export function LessonRenderer({ lesson }: { lesson: LessonContent }) {
   return (
     <div className="space-y-5">
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-        <p className="text-sm leading-relaxed text-[var(--color-text)]">{decodeHTMLEntities(lesson.summary)}</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Overview</p>
+        <p className="text-sm leading-7 text-[var(--color-text)]">{decodeHTMLEntities(lesson.summary)}</p>
       </section>
 
       {lesson.sections?.map((section: LessonSection, i: number) => (
         <section key={i} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h2 className="mb-2 text-base font-semibold text-[var(--color-text)]">{decodeHTMLEntities(section.heading)}</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-[var(--color-text)]">{decodeHTMLEntities(section.body)}</p>
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Section {i + 1}</p>
+          <h2 className="mb-2 text-lg font-semibold text-[var(--color-text)]">{decodeHTMLEntities(section.heading)}</h2>
+          <p className="whitespace-pre-line text-sm leading-7 text-[var(--color-text)]">{decodeHTMLEntities(section.body)}</p>
           {section.examples?.length > 0 && (
-            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[var(--color-text-muted)]">
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm leading-6 text-[var(--color-text-muted)]">
               {section.examples.map((example: string, index: number) => (
                 <li key={index}>{decodeHTMLEntities(example)}</li>
               ))}
@@ -152,9 +174,9 @@ export function LessonRenderer({ lesson }: { lesson: LessonContent }) {
       {lesson.key_terms?.length > 0 && (
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <h2 className="mb-2 text-base font-semibold text-[var(--color-text)]">Key Terms</h2>
-          <dl className="space-y-3">
+          <dl className="grid gap-3 sm:grid-cols-2">
             {lesson.key_terms.map((term: KeyTerm, i: number) => (
-              <div key={i}>
+              <div key={i} className="rounded-xl border border-[var(--color-border)] bg-[#faf8f2] p-3">
                 <dt className="text-sm font-semibold text-[var(--color-text)]">{decodeHTMLEntities(term.term)}</dt>
                 <dd className="text-sm text-[var(--color-text-muted)]">{decodeHTMLEntities(term.definition)}</dd>
               </div>
@@ -196,6 +218,8 @@ export function QuizRenderer({
   }
 
   const score = questions.filter((q) => selected[q.id] === q.correct_answer).length;
+  const answered = Object.keys(selected).length;
+  const progressPercent = Math.min(100, Math.round((answered / questions.length) * 100));
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -209,6 +233,20 @@ export function QuizRenderer({
 
   return (
     <div className="space-y-4">
+      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-[var(--color-text)]">
+            Quiz Progress: {answered}/{questions.length}
+          </p>
+          <p className="text-xs text-[var(--color-text-muted)]">{submitted ? "Submitted" : "Answer all questions before submitting."}</p>
+        </div>
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--color-accent-muted)]">
+          <div
+            className="h-full bg-[var(--color-accent)] transition-all duration-500"
+            style={{ width: `${submitted ? 100 : progressPercent}%` }}
+          />
+        </div>
+      </section>
       {questions.map((question, index) => (
         <section key={question.id} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
           <p className="mb-3 text-sm font-semibold text-[var(--color-text)]">
@@ -225,7 +263,7 @@ export function QuizRenderer({
                   key={`${question.id}-${opt.label}`}
                   disabled={submitted}
                   onClick={() => setSelected((prev) => ({ ...prev, [question.id]: opt.value }))}
-                  className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm ${
+                  className={`flex min-h-11 w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors ${
                     isCorrect
                       ? "border-emerald-300 bg-emerald-50"
                       : isWrongSelection
@@ -285,6 +323,9 @@ export function VideoSection({
   if (status === "completed" && videoUrl) {
     return (
       <section className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+        <div className="border-b border-[var(--color-border)] bg-[#f8f6f0] px-4 py-2">
+          <p className="text-sm font-semibold text-[var(--color-text)]">Lesson video is ready</p>
+        </div>
         <div className="relative w-full" style={{ paddingTop: "56.25%" }}>
           <video src={videoUrl} controls autoPlay playsInline className="absolute inset-0 h-full w-full bg-black object-cover" />
         </div>
@@ -295,6 +336,7 @@ export function VideoSection({
   if (status === "failed" || status === "unavailable") {
     return (
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <p className="mb-1 text-sm font-semibold text-[var(--color-text)]">Video unavailable</p>
         <p className="text-sm text-[var(--color-text-muted)]">{error || "Video generation is currently unavailable."}</p>
         {status === "failed" && (
           <button type="button" onClick={onRetry} className={`mt-3 ${LESSON_FLOW_BUTTON_SECONDARY}`}>
@@ -307,10 +349,30 @@ export function VideoSection({
 
   return (
     <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-      <p className="text-sm text-[var(--color-text-muted)]">Generating video... {progress}%</p>
+      <p className="text-sm font-semibold text-[var(--color-text)]">Generating video narration</p>
+      <p className="mt-1 text-sm text-[var(--color-text-muted)]">Progress: {progress}%</p>
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[var(--color-accent-muted)]">
         <div className="h-full bg-[var(--color-accent)] transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
+    </section>
+  );
+}
+
+export function ProUpgradeVideoSection({ onUpgrade }: { onUpgrade: () => void }) {
+  return (
+    <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+      <p className="text-sm font-semibold text-[var(--color-text)]">Explainer video is a Pro feature</p>
+      <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+        Subscribe to Pro to unlock AI explainer videos after each lesson and quiz.
+      </p>
+      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[var(--color-text-muted)]">
+        <li>Step-by-step narrated explanation</li>
+        <li>Visual reinforcement of key concepts</li>
+        <li>Better retention and revision support</li>
+      </ul>
+      <button type="button" onClick={onUpgrade} className={`mt-4 ${LESSON_FLOW_BUTTON_PRIMARY}`}>
+        Subscribe to Pro
+      </button>
     </section>
   );
 }

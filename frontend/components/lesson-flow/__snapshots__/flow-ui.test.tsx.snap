@@ -4,7 +4,7 @@ exports[`Lesson flow button visibility and navigation visual baseline: lesson sh
 <DocumentFragment>
   <div
     class="min-h-screen px-4 py-6"
-    style="--color-bg: #fafaf8; --color-surface: #ffffff; --color-border: #e8e8e4; --color-text: #1a1a18; --color-text-muted: #6b6b65; --color-accent: #2563eb; --color-accent-muted: #dbeafe; --color-skel: #f0f0eb; --color-green: #16a34a;"
+    style="--color-bg: #f5f3ee; --color-surface: #ffffff; --color-border: #ddd8ce; --color-text: #1f1d18; --color-text-muted: #6d6658; --color-accent: #1f4ea3; --color-accent-muted: #e6eefc; --color-skel: #ebe7df; --color-green: #166534; --color-gold: #6a4a00;"
   >
     <style>
       
@@ -19,42 +19,72 @@ exports[`Lesson flow button visibility and navigation visual baseline: lesson sh
       
     </style>
     <div
-      class="mx-auto max-w-3xl space-y-6"
+      class="mx-auto max-w-4xl space-y-6"
     >
-      <div
-        class="space-y-3"
+      <header
+        class="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm"
       >
-        <span
-          class="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold text-[var(--color-accent)]"
-        >
-          Science
-        </span>
-        <h1
-          class="text-2xl font-bold text-[var(--color-text)]"
-        >
-          Photosynthesis
-        </h1>
         <div
-          class="flex flex-wrap gap-2"
+          class="space-y-3"
         >
           <span
-            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+            class="inline-flex rounded-md bg-[var(--color-accent-muted)] px-2 py-1 text-xs font-semibold tracking-wide text-[var(--color-accent)]"
           >
+            Science
+          </span>
+          <h1
+            class="text-2xl font-bold tracking-tight text-[var(--color-text)]"
+          >
+            Photosynthesis
+          </h1>
+          <div
+            class="flex flex-wrap gap-2 text-xs text-[var(--color-text-muted)]"
+          />
+        </div>
+        <div
+          class="mt-4 flex items-center gap-2 overflow-x-auto py-1"
+        >
+          <span
+            class="inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+          >
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px]"
+            >
+              1
+            </span>
             Learn
           </span>
           <span
-            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
+            aria-hidden="true"
+            class="h-px w-7 bg-[var(--color-border)]"
+          />
+          <span
+            class="inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold border-[var(--color-border)] bg-white text-[var(--color-text-muted)]"
           >
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px]"
+            >
+              2
+            </span>
             Quiz
           </span>
           <span
-            class="inline-flex rounded-full border px-3 py-1 text-xs border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
+            aria-hidden="true"
+            class="h-px w-7 bg-[var(--color-border)]"
+          />
+          <span
+            class="inline-flex min-w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold border-[var(--color-accent)] bg-[var(--color-accent)] text-white"
           >
+            <span
+              class="inline-flex h-5 w-5 items-center justify-center rounded-full bg-black/10 text-[10px]"
+            >
+              3
+            </span>
             Video
           </span>
         </div>
         <div
-          class="flex flex-wrap gap-2"
+          class="mt-4 flex flex-wrap gap-2"
         >
           <span
             class="inline-flex rounded-full border px-3 py-1 text-xs bg-emerald-50 border-emerald-300 text-emerald-900"
@@ -67,12 +97,12 @@ exports[`Lesson flow button visibility and navigation visual baseline: lesson sh
             Quiz ready
           </span>
           <span
-            class="inline-flex rounded-full border px-3 py-1 text-xs bg-blue-50 border-blue-300 text-blue-900"
+            class="inline-flex rounded-full border px-3 py-1 text-xs bg-amber-50 border-amber-300 text-amber-900"
           >
             Video pending
           </span>
         </div>
-      </div>
+      </header>
       <div>
         <button
           type="button"

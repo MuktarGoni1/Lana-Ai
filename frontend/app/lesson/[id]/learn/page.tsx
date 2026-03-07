@@ -93,6 +93,9 @@ export default function LessonLearnPage() {
       lessonStatus="ready"
       quizStatus={questions.length > 0 ? "ready" : "pending"}
       videoStatus="pending"
+      estimatedMinutes={lesson.estimated_minutes}
+      sectionCount={lesson.sections.length}
+      questionCount={questions.length > 0 ? questions.length : undefined}
     >
       <div className="space-y-5">
         <button

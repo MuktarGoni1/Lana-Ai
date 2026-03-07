@@ -12,6 +12,7 @@ import {
   LESSON_THEME_VARS,
   LessonShell,
   LessonSkeleton,
+  ProUpgradeVideoSection,
   VideoSection,
 } from "@/components/lesson-flow/flow-ui";
 
@@ -26,6 +27,8 @@ export default function LessonVideoPage() {
 
   const [topicTitle, setTopicTitle] = useState("Loading topic...");
   const [subjectName, setSubjectName] = useState("Lesson");
+  const [isPro, setIsPro] = useState(false);
+  const [accessLoading, setAccessLoading] = useState(true);
 
   const { lesson, questions, stage, error, retry } = useLessonData(topicId, userId);
   const {
@@ -42,6 +45,37 @@ export default function LessonVideoPage() {
       router.replace("/login");
     }
   }, [authLoading, isAuthenticated, router]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadSubscriptionStatus() {
+      if (!isAuthenticated) {
+        if (!mounted) return;
+        setIsPro(false);
+        setAccessLoading(false);
+        return;
+      }
+
+      try {
+        setAccessLoading(true);
+        const response = await fetch("/api/subscription/status", { cache: "no-store" });
+        const payload = await response.json().catch(() => ({ is_pro: false }));
+        if (!mounted) return;
+        setIsPro(Boolean(payload?.is_pro));
+      } catch {
+        if (!mounted) return;
+        setIsPro(false);
+      } finally {
+        if (mounted) setAccessLoading(false);
+      }
+    }
+
+    void loadSubscriptionStatus();
+    return () => {
+      mounted = false;
+    };
+  }, [isAuthenticated, userId]);
 
   useEffect(() => {
     if (authLoading || topicId) return;
@@ -70,13 +104,14 @@ export default function LessonVideoPage() {
   }, [topicId]);
 
   useEffect(() => {
-    if (lesson && videoStatusRaw === "idle") {
+    if (!accessLoading && isPro && lesson && videoStatusRaw === "idle") {
       void startGeneration();
     }
-  }, [lesson, startGeneration, videoStatusRaw]);
+  }, [accessLoading, isPro, lesson, startGeneration, videoStatusRaw]);
 
   if (
     authLoading ||
+    accessLoading ||
     stage === "resolving-route" ||
     stage === "waiting-auth" ||
     stage === "checking-cache" ||
@@ -98,7 +133,9 @@ export default function LessonVideoPage() {
   }
 
   const videoStatus =
-    videoStatusRaw === "completed"
+    !isPro
+      ? "unavailable"
+      : videoStatusRaw === "completed"
       ? "ready"
       : videoStatusRaw === "failed" || videoStatusRaw === "unavailable"
       ? "unavailable"
@@ -112,6 +149,9 @@ export default function LessonVideoPage() {
       lessonStatus={lesson ? "ready" : "pending"}
       quizStatus={questions.length > 0 ? "ready" : "pending"}
       videoStatus={videoStatus}
+      estimatedMinutes={lesson?.estimated_minutes}
+      sectionCount={lesson?.sections.length}
+      questionCount={questions.length > 0 ? questions.length : undefined}
     >
       <div className="space-y-5">
         <div className="flex flex-wrap gap-2">
@@ -131,13 +171,17 @@ export default function LessonVideoPage() {
           </button>
         </div>
 
-        <VideoSection
-          videoUrl={videoUrl}
-          status={videoStatusRaw}
-          progress={videoProgress}
-          error={videoError}
-          onRetry={retryVideo}
-        />
+        {isPro ? (
+          <VideoSection
+            videoUrl={videoUrl}
+            status={videoStatusRaw}
+            progress={videoProgress}
+            error={videoError}
+            onRetry={retryVideo}
+          />
+        ) : (
+          <ProUpgradeVideoSection onUpgrade={() => router.push("/upgrade")} />
+        )}
       </div>
     </LessonShell>
   );

@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import {
   ErrorState,
   LessonShell,
+  ProUpgradeVideoSection,
   QuizRenderer,
   VideoSection,
 } from "./flow-ui";
@@ -50,6 +51,12 @@ describe("Lesson flow button visibility and navigation", () => {
   test("video retry button is visible in failed state", () => {
     render(<VideoSection videoUrl={null} status="failed" progress={0} error="Failed" onRetry={() => {}} />);
     expect(screen.getByRole("button", { name: /retry video/i })).toBeVisible();
+  });
+
+  test("pro upgrade message is visible in locked state", () => {
+    render(<ProUpgradeVideoSection onUpgrade={() => {}} />);
+    expect(screen.getByText(/explainer video is a pro feature/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /subscribe to pro/i })).toBeVisible();
   });
 
   test("step shell remains visible with status chips", () => {
