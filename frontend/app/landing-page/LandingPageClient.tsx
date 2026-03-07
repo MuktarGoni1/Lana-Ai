@@ -6,6 +6,8 @@ import Link from "next/link"
 import { useTheme } from "next-themes"
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext"
 import { useRouter } from "next/navigation"
+import { Header } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { PRICING_CONFIG, getPlanPrice, getPlanFeatures, getPlanDescription } from "@/lib/pricing-config"
 import { validatePlanSelection, getPlanRedirectUrl, isAllowedPlan } from "@/lib/pricing-validation"
 import {
@@ -533,6 +535,7 @@ export default function LandingPageClient() {
   if (!mounted) {
     return (
       <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans">
+        <Header />
         <main className="flex-grow">
           <section className="py-12 md:py-24 bg-white">
             <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -572,12 +575,14 @@ export default function LandingPageClient() {
             </div>
           </section>
         </main>
+        <Footer />
       </div>
     )
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-white text-slate-900 font-sans selection:bg-yellow-200">
+      <Header />
       <main id="main-content" className="flex-grow">
         <HeroSection />
         <FeaturesSection />
@@ -588,6 +593,7 @@ export default function LandingPageClient() {
         <PricingSection />
         <CtaSection />
       </main>
+      <Footer />
     </div>
   )
 }
