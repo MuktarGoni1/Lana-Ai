@@ -7,6 +7,8 @@ import json
 import re
 from app.repositories.interfaces import ICacheRepository
 from app.repositories.memory_cache_repository import MemoryCacheRepository
+from app.repositories.interfaces import ILessonRepository
+from app.repositories.memory_lesson_repository import MemoryLessonRepository
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +28,21 @@ class LessonContractError(ValueError):
 class LessonService:
     """Centralized service for lesson generation and management."""
 
-    def __init__(self, cache_repository: Optional[ICacheRepository] = None):
+    def __init__(
+        self,
+        cache_repository: Optional[ICacheRepository] = None,
+        lesson_repository: Optional[ILessonRepository] = None,
+    ):
         self.cache_repository = cache_repository or MemoryCacheRepository()
+        self.lesson_repository = lesson_repository or MemoryLessonRepository()
+
+    async def get_popular_topics(self, limit: int = 10) -> List[str]:
+        """Return most popular topics from the configured lesson repository."""
+        return await self.lesson_repository.get_popular_topics(limit)
+
+    async def get_lesson_detail(self, lesson_id: str) -> Optional[Dict[str, Any]]:
+        """Return lesson detail payload by ID from repository."""
+        return await self.lesson_repository.get_lesson_by_id(lesson_id)
 
     def normalize_lesson_payload(self, payload: Any) -> Dict[str, Any]:
         """Normalize lesson payloads from canonical and legacy envelope shapes."""

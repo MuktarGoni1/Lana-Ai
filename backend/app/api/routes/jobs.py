@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from typing import Optional
 import logging
 from bullmq import Job
-from app.jobs.queue_config import get_redis_connection
+from app.jobs.queue_config import get_lesson_queue, get_tts_queue
 from app.api.dependencies.auth import get_current_user, CurrentUser
 
 logger = logging.getLogger(__name__)
@@ -24,15 +24,28 @@ async def get_job_status(
 ):
     """Get the status of a job."""
     try:
-        redis_connection = get_redis_connection()
-        
-        # Try to get the job from lesson queue first
-        job = await Job.fromId(redis_connection, job_id)
+        # Look up in lesson queue first, then TTS queue.
+        lesson_queue = get_lesson_queue()
+        tts_queue = get_tts_queue()
+
+        job = await Job.fromId(lesson_queue, job_id)
+        if not job:
+            job = await Job.fromId(tts_queue, job_id)
         
         if not job:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Job not found"
+            )
+
+        # Enforce user ownership when job payload includes user_id.
+        job_user_id = None
+        if hasattr(job, "data") and isinstance(job.data, dict):
+            job_user_id = job.data.get("user_id")
+        if job_user_id and str(job_user_id) != str(current_user.id):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
             )
             
         # Get job state

@@ -43,6 +43,13 @@ export const metadata: Metadata = {
     description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
     images: ['/icons/icon-512.png'],
   },
+  alternates: {
+    canonical: 'https://lanamind.com',
+    languages: {
+      'en': 'https://lanamind.com',
+      'en-US': 'https://lanamind.com',
+    },
+  },
   icons: {
     icon: '/icons/icon-192.png',
     shortcut: '/icons/icon-16.png',

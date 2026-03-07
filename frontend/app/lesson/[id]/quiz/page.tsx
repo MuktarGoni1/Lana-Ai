@@ -65,19 +65,23 @@ export default function LessonQuizPage() {
     if (submitting) return;
     setSubmitting(true);
     try {
-      await fetch("/api/quiz/attempt", {
+      const attemptResponse = await fetch("/api/quiz/attempt", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topicId, ...payload }),
       });
+      if (!attemptResponse.ok) {
+        throw new Error("Failed to save quiz attempt");
+      }
 
-      await fetch("/api/topic/complete", {
+      const completeResponse = await fetch("/api/topic/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topicId }),
       });
-
-      router.push(`/lesson/${topicId}/video`);
+      if (!completeResponse.ok) {
+        throw new Error("Failed to complete topic");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -129,6 +133,7 @@ export default function LessonQuizPage() {
           questions={questions}
           isLoading={stage === "generating" || (stage === "ready" && questions.length === 0)}
           onSubmitQuiz={handleSubmitQuiz}
+          onContinueToNext={() => router.push(`/lesson/${topicId}/video`)}
         />
         {submitting && (
           <p className="text-sm text-[var(--color-text-muted)]">Saving quiz results…</p>

@@ -30,7 +30,7 @@ export default function NotFound() {
   }, []);
 
   // Default to root route for both states (dashboard for auth, landing for guests)
-  const redirectUrl = '/';
+  const redirectUrl = isClient && isAuthenticated ? '/dashboard' : '/';
   const buttonText = isClient && isAuthenticated ? 'Go to dashboard' : 'Go to landing page';
 
   return (

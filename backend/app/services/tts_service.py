@@ -155,6 +155,8 @@ class TTSService:
                             ),
                         )
                     )
+                    if asyncio.iscoroutine(response):
+                        response = await response
                     parts = response.candidates[0].content.parts
                     pcm = parts[0].inline_data.data
                     if isinstance(pcm, str):

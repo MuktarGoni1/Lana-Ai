@@ -18,16 +18,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   // High priority pages
   const staticPages: MetadataRoute.Sitemap = [
     {
-      url: baseUrl, // Root - now serves content directly
+      url: baseUrl, // Root - serves landing page for guests, redirects to /dashboard for authenticated users
       lastModified: currentDate,
       changeFrequency: 'daily',
       priority: 1.0,
-    },
-    {
-      url: `${baseUrl}/landing-page`, // Keep for backwards compatibility
-      lastModified: currentDate,
-      changeFrequency: 'daily',
-      priority: 0.9,
     },
     {
       url: `${baseUrl}/pricing`,

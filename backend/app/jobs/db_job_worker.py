@@ -418,7 +418,12 @@ class DBLessonWorker:
             raise GroqError("Empty lesson response")
 
         # Extract content from lesson format
-        lesson_content = lesson.get("content", {})
+        lesson_content = {
+            "introduction": lesson.get("introduction", ""),
+            "classifications": lesson.get("classifications", []),
+            "sections": lesson.get("sections", []),
+            "diagram": lesson.get("diagram", ""),
+        }
         questions = lesson.get("quiz", [])
 
         return {

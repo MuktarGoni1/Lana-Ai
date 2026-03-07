@@ -151,9 +151,15 @@ export function ErrorState({ message, onRetry }: { message: string; onRetry?: ()
 export function LessonRenderer({ lesson }: { lesson: LessonContent }) {
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">Overview</p>
-        <p className="text-sm leading-7 text-[var(--color-text)]">{decodeHTMLEntities(lesson.summary)}</p>
+      <section className="relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(31,78,163,0.16),transparent_52%),linear-gradient(120deg,rgba(230,238,252,0.72),rgba(255,255,255,0.96)_48%,rgba(245,243,238,0.92))]"
+        />
+        <div className="relative">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--color-accent)]">Overview</p>
+          <p className="text-sm leading-7 text-[var(--color-text)]">{decodeHTMLEntities(lesson.summary)}</p>
+        </div>
       </section>
 
       {lesson.sections?.map((section: LessonSection, i: number) => (
@@ -192,14 +198,19 @@ export function QuizRenderer({
   questions,
   isLoading,
   onSubmitQuiz,
+  onContinueToNext,
+  continueLabel = "Continue to video",
 }: {
   questions: QuizQuestion[];
   isLoading: boolean;
   onSubmitQuiz?: (payload: { score: number; total: number; answers: Record<string, string> }) => Promise<void> | void;
+  onContinueToNext?: () => void;
+  continueLabel?: string;
 }) {
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -218,17 +229,28 @@ export function QuizRenderer({
   }
 
   const score = questions.filter((q) => selected[q.id] === q.correct_answer).length;
+  const wrongCount = questions.length - score;
   const answered = Object.keys(selected).length;
   const progressPercent = Math.min(100, Math.round((answered / questions.length) * 100));
 
   async function handleSubmit() {
     setSubmitting(true);
+    setSubmitError(null);
     try {
       await onSubmitQuiz?.({ score, total: questions.length, answers: selected });
       setSubmitted(true);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Failed to save quiz results");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleTryAgain() {
+    setSelected({});
+    setSubmitted(false);
+    setSubmitting(false);
+    setSubmitError(null);
   }
 
   return (
@@ -284,23 +306,61 @@ export function QuizRenderer({
           {submitted && question.explanation && (
             <p className="mt-3 text-xs italic text-[var(--color-text-muted)]">{decodeHTMLEntities(question.explanation)}</p>
           )}
+          {submitted && (
+            <div className="mt-3 space-y-1 text-xs">
+              <p className="text-[var(--color-text-muted)]">
+                Your answer:{" "}
+                <span
+                  className={
+                    selected[question.id] === question.correct_answer ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"
+                  }
+                >
+                  {decodeHTMLEntities(selected[question.id] || "No answer")}
+                </span>
+              </p>
+              <p className="text-[var(--color-text-muted)]">
+                Correct answer: <span className="font-semibold text-emerald-700">{decodeHTMLEntities(question.correct_answer)}</span>
+              </p>
+            </div>
+          )}
         </section>
       ))}
 
       <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
         {submitted ? (
-          <p className="text-sm font-semibold text-[var(--color-text)]">
-            Score: {score}/{questions.length}
-          </p>
+          <div className="space-y-3">
+            <p className="text-sm font-semibold text-[var(--color-text)]">
+              Score: {score}/{questions.length}
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1 font-semibold text-emerald-900">
+                Right: {score}
+              </span>
+              <span className="inline-flex rounded-full border border-rose-300 bg-rose-50 px-3 py-1 font-semibold text-rose-900">
+                Wrong: {wrongCount}
+              </span>
+            </div>
+            <button type="button" onClick={handleTryAgain} className={LESSON_FLOW_BUTTON_SECONDARY}>
+              Try Again
+            </button>
+            {onContinueToNext && (
+              <button type="button" onClick={onContinueToNext} className={LESSON_FLOW_BUTTON_PRIMARY}>
+                {continueLabel}
+              </button>
+            )}
+          </div>
         ) : (
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={Object.keys(selected).length < questions.length || submitting}
-            className={`${LESSON_FLOW_BUTTON_PRIMARY} disabled:cursor-not-allowed disabled:opacity-40`}
-          >
-            {submitting ? "Submitting..." : "Submit Quiz"}
-          </button>
+          <div className="space-y-2">
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={Object.keys(selected).length < questions.length || submitting}
+              className={`${LESSON_FLOW_BUTTON_PRIMARY} disabled:cursor-not-allowed disabled:opacity-40`}
+            >
+              {submitting ? "Submitting..." : "Submit Quiz"}
+            </button>
+            {submitError && <p className="text-xs text-rose-700">{submitError}</p>}
+          </div>
         )}
       </section>
     </div>

@@ -4,18 +4,21 @@ Simplified FastAPI application for Lana AI Backend.
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 # FastAPI imports
-from fastapi import FastAPI, Response 
+from fastapi import FastAPI, Response, Depends
 import uuid
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 from app.middleware.security_headers_middleware import SecurityHeadersMiddleware
 from app.middleware.request_timing_middleware import RequestTimingMiddleware, get_metrics_snapshot
+from app.middleware.rate_limit_middleware import RateLimitMiddleware
 from app.settings import load_settings
 from app.repositories.memory_cache_repository import MemoryCacheRepository
 from app.services.lesson_service import LessonService, LessonContractError
 
 from app.api.router import api_router
+from app.api.dependencies.auth import get_current_user, CurrentUser
 from fastapi.responses import StreamingResponse  # type: ignore
 import time
 import json
@@ -43,11 +46,60 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+async def startup_event():
+    """Initialize job workers on startup."""
+    try:
+        await start_job_workers()
+        logger.info("Job workers started successfully")
+    except Exception as e:
+        logger.error(f"Failed to start job workers: {e}")
+
+
+async def shutdown_event():
+    """Stop job workers on shutdown."""
+    try:
+        await stop_job_workers()
+        logger.info("Job workers stopped successfully")
+    except Exception as e:
+        logger.error(f"Error stopping job workers: {e}")
+
+
+async def warm_up_structured_lessons():
+    """Warm the structured lesson pipeline to reduce first-request latency.
+
+    If a Groq client is configured, this primes the model and cache by generating
+    one small sample lesson. Otherwise, it seeds the in-memory cache with a stub.
+    """
+    try:
+        sample_topics = ["warm-up sample"]
+        sample_age = 10
+        for t in sample_topics:
+            await _LESSON_SERVICE.generate_structured_lesson(t, sample_age, _GROQ_CLIENT, "lesson")
+        logger.info(
+            "Structured lessons warm-up complete: topics=%d, llm=%s",
+            len(sample_topics),
+            "enabled" if _GROQ_CLIENT is not None else "disabled",
+        )
+    except Exception as e:
+        logger.warning(f"Structured lessons warm-up error: {e}")
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await startup_event()
+    await warm_up_structured_lessons()
+    try:
+        yield
+    finally:
+        await shutdown_event()
+
+
 # Create FastAPI application
 app = FastAPI(
     title="Lana AI API",
     description="Backend API for Lana AI educational platform",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # Load settings for global config
@@ -108,6 +160,8 @@ app.add_middleware(
 
 # Add security headers middleware
 app.add_middleware(SecurityHeadersMiddleware)
+# Add global rate limiting middleware
+app.add_middleware(RateLimitMiddleware)
 # Add request timing middleware
 app.add_middleware(RequestTimingMiddleware)
 
@@ -116,29 +170,6 @@ app.add_middleware(RequestTimingMiddleware)
 async def root():
     """Simple root endpoint to confirm API is accessible."""
     return {"message": "Welcome to Lana AI API", "status": "online"}
-
-# Startup event to initialize job workers
-@app.on_event("startup")
-async def startup_event():
-    """Initialize job workers on startup."""
-    try:
-        await start_job_workers()
-        logger.info("Job workers started successfully")
-    except Exception as e:
-        logger.error(f"Failed to start job workers: {e}")
-        # Don't raise the exception to avoid crashing the application
-        pass
-
-# Shutdown event to stop job workers
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Stop job workers on shutdown."""
-    try:
-        await stop_job_workers()
-        logger.info("Job workers stopped successfully")
-    except Exception as e:
-        logger.error(f"Error stopping job workers: {e}")
-        pass
 
 app.include_router(api_router, prefix="/api")
 
@@ -595,27 +626,6 @@ async def _get_or_compute_lesson(cache_key: str, topic: str, age: Optional[int])
     return await fut
 
 
-@app.on_event("startup")
-async def warm_up_structured_lessons():
-    """Warm the structured lesson pipeline to reduce first-request latency.
-
-    If a Groq client is configured, this primes the model and cache by generating
-    one small sample lesson. Otherwise, it seeds the in-memory cache with a stub.
-    """
-    try:
-        sample_topics = ["warm-up sample"]
-        sample_age = 10
-        for t in sample_topics:
-            await _LESSON_SERVICE.generate_structured_lesson(t, sample_age, _GROQ_CLIENT, "lesson")
-        logger.info(
-            "Structured lessons warm-up complete: topics=%d, llm=%s",
-            len(sample_topics),
-            "enabled" if _GROQ_CLIENT is not None else "disabled",
-        )
-    except Exception as e:
-        logger.warning(f"Structured lessons warm-up error: {e}")
-
-
 @app.post("/api/structured-lesson", response_model=StructuredLessonResponse, tags=["Lessons"]) 
 async def create_structured_lesson(req: StructuredLessonRequest, response: Response):
     """Create a structured lesson from a topic and optional age constraints."""
@@ -662,12 +672,15 @@ async def health():
 
 # Simple metrics endpoint for monitoring
 @app.get("/api/metrics")
-async def metrics():
+async def metrics(_current_user: CurrentUser = Depends(get_current_user)):
     """Return basic per-path timing metrics collected in-process."""
     return {"paths": get_metrics_snapshot()}
 
 @app.post("/api/cache/reset")
-async def reset_cache(namespaces: Optional[list[str]] = None):
+async def reset_cache(
+    namespaces: Optional[list[str]] = None,
+    _current_user: CurrentUser = Depends(get_current_user),
+):
     """Reset in-memory caches to eliminate stale or hardcoded responses.
 
     - If `namespaces` provided, clears only those; otherwise clears all.

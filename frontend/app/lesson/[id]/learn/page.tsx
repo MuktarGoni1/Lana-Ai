@@ -98,15 +98,15 @@ export default function LessonLearnPage() {
       questionCount={questions.length > 0 ? questions.length : undefined}
     >
       <div className="space-y-5">
-        <button
-          type="button"
-          onClick={() => router.push("/lessons")}
-          className={LESSON_FLOW_BUTTON_SECONDARY}
-        >
-          Back to lessons
-        </button>
         <LessonRenderer lesson={lesson} />
-        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+        <div className="flex flex-wrap gap-2 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <button
+            type="button"
+            onClick={() => router.push("/lessons")}
+            className={LESSON_FLOW_BUTTON_SECONDARY}
+          >
+            Back to Dashboard
+          </button>
           <button
             type="button"
             onClick={() => router.push(`/lesson/${topicId}/quiz`)}

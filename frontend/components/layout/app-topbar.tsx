@@ -39,7 +39,7 @@ export default function AppTopbar({
               <span>{backLabel}</span>
             </button>
           )}
-          <button onClick={() => router.push("/")} className="shrink-0" aria-label="Go to dashboard">
+          <button onClick={() => router.push("/dashboard")} className="shrink-0" aria-label="Go to dashboard">
             <Logo width={112} height={32} className="h-auto w-[78px] sm:w-[96px] md:w-[112px]" />
           </button>
           {(title || subtitle) && (

@@ -48,6 +48,66 @@ describe("Lesson flow button visibility and navigation", () => {
     expect(submit).toBeEnabled();
   });
 
+  test("quiz shows score breakdown and try again after submit", async () => {
+    const user = userEvent.setup();
+    const questions: QuizQuestion[] = [
+      {
+        id: "q1",
+        question: "Pick one",
+        correct_answer: "A",
+        options: [
+          { label: "A", value: "A" },
+          { label: "B", value: "B" },
+        ],
+        difficulty: "easy",
+        explanation: "A is correct",
+      },
+    ];
+
+    render(<QuizRenderer questions={questions} isLoading={false} onSubmitQuiz={() => {}} />);
+
+    await user.click(screen.getByRole("button", { name: /a/i }));
+    await user.click(screen.getByRole("button", { name: /submit quiz/i }));
+
+    expect(screen.getByText(/score:/i)).toBeVisible();
+    expect(screen.getByText(/right:/i)).toBeVisible();
+    expect(screen.getByText(/wrong:/i)).toBeVisible();
+    expect(screen.getByRole("button", { name: /try again/i })).toBeVisible();
+  });
+
+  test("quiz shows continue button after submit when callback is provided", async () => {
+    const user = userEvent.setup();
+    const onContinue = jest.fn();
+    const questions: QuizQuestion[] = [
+      {
+        id: "q1",
+        question: "Pick one",
+        correct_answer: "A",
+        options: [
+          { label: "A", value: "A" },
+          { label: "B", value: "B" },
+        ],
+        difficulty: "easy",
+        explanation: "A is correct",
+      },
+    ];
+
+    render(
+      <QuizRenderer
+        questions={questions}
+        isLoading={false}
+        onSubmitQuiz={() => {}}
+        onContinueToNext={onContinue}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /a/i }));
+    await user.click(screen.getByRole("button", { name: /submit quiz/i }));
+    await user.click(screen.getByRole("button", { name: /continue to video/i }));
+
+    expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+
   test("video retry button is visible in failed state", () => {
     render(<VideoSection videoUrl={null} status="failed" progress={0} error="Failed" onRetry={() => {}} />);
     expect(screen.getByRole("button", { name: /retry video/i })).toBeVisible();

@@ -1,30 +1,18 @@
-"use client";
+import { createServerClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import LandingPageContent from './landing-page/LandingPageContent';
 
-/**
- * app/page.tsx — Home
- *
- * Renders the dashboard by default.
- * Lifts video state here so VideoLearningPage can be launched
- * from within the dashboard without a route change.
- */
+export const dynamic = 'force-dynamic';
 
-import { useState } from "react";
-import { LanaMindDashboard } from "@/components/dashboard";
-import VideoLearningPage from "@/components/personalised-Ai-tutor";
-
-export default function HomePage() {
-  const [videoTopic, setVideoTopic] = useState<string | null>(null);
-
-  if (videoTopic) {
-    return (
-      <VideoLearningPage
-        question={videoTopic}
-        onBack={() => setVideoTopic(null)}
-      />
-    );
+export default async function RootPage() {
+  const supabase = await createServerClient();
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (user) {
+    redirect('/lessons');
   }
-
-  return <LanaMindDashboard onWatchVideo={setVideoTopic} />;
+  
+  return <LandingPageContent />;
 }
-
-
