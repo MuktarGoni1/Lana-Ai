@@ -12,42 +12,61 @@ import { GoogleAnalytics } from '@/components/google-analytics'
 import { SEO_CONFIG } from '@/lib/seo-config'
 import { generateOrganizationSchema, serializeJsonLd } from '@/lib/structured-data'
 
-
 export const metadata: Metadata = {
   metadataBase: new URL(SEO_CONFIG.site.url),
-  title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-  description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
-  keywords: ['AI tutoring', 'personalized learning', 'education technology', 'student progress tracking', 'parent dashboard'],
-  authors: [{ name: 'LanaMind Team' }],
-  creator: 'LanaMind Team',
-  publisher: 'LanaMind Team',
+  title: {
+    default: 'Lanamind - AI Learning Assistant for Students',
+    template: '%s | Lanamind',
+  },
+  description:
+    'Lanamind is an AI-powered learning assistant that creates personalized lessons, quizzes, and study plans for students aged 5 to 18.',
+  keywords: [
+    'lanamind',
+    'lana mind',
+    'LanaMind',
+    'AI tutor',
+    'AI learning assistant',
+    'personalized lessons',
+    'study app for kids',
+  ],
+  authors: [{ name: 'Lanamind' }],
+  creator: 'Lanamind',
+  publisher: 'Lanamind',
   openGraph: {
     type: 'website',
-    locale: 'en_US',
+    locale: 'en_GB',
     url: 'https://lanamind.com',
-    siteName: 'LanaMind',
-    title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-    description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
+    siteName: 'Lanamind',
+    title: 'Lanamind - AI Learning Assistant for Students',
+    description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
     images: [
       {
-        url: '/icons/icon-512.png',
-        width: 512,
-        height: 512,
-        alt: 'LanaMind Logo',
+        url: '/images/lana-logo-og.png',
+        width: 1200,
+        height: 630,
+        alt: 'Lanamind',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LanaMind – AI Tutor for Clear, Structured Learning',
-    description: 'LanaMind is a personalized AI tutor that explains topics step by step, generates quizzes, and helps students master subjects while keeping parents informed.',
-    images: ['/icons/icon-512.png'],
+    title: 'Lanamind - AI Learning Assistant for Students',
+    description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
+    images: ['/images/lana-logo-og.png'],
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+    },
   },
   alternates: {
     canonical: 'https://lanamind.com',
     languages: {
-      'en': 'https://lanamind.com',
-      'en-US': 'https://lanamind.com',
+      en: 'https://lanamind.com',
+      'en-GB': 'https://lanamind.com',
     },
   },
   icons: {
@@ -67,7 +86,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta httpEquiv="Expires" content="0" />
         <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
         <link rel="manifest" href="/manifest.json" />
-        {/* Organization Structured Data */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
