@@ -20,6 +20,42 @@ type SubmitResult = {
   scorePercent: number;
 };
 
+function normalizeCachedAttempt(raw: unknown, attemptId: string): AttemptPayload | null {
+  if (!raw || typeof raw !== "object") return null;
+  const value = raw as Record<string, unknown>;
+
+  const snapshot = Array.isArray(value.question_snapshot)
+    ? (value.question_snapshot as ExamQuestion[])
+    : Array.isArray(value.questions)
+    ? (value.questions as ExamQuestion[])
+    : [];
+
+  if (snapshot.length === 0) return null;
+
+  return {
+    id: typeof value.id === "string" ? value.id : typeof value.attemptId === "string" ? value.attemptId : attemptId,
+    topic_key:
+      typeof value.topic_key === "string"
+        ? value.topic_key
+        : typeof value.topicKey === "string"
+        ? value.topicKey
+        : "exam-preparation",
+    question_count:
+      typeof value.question_count === "number"
+        ? value.question_count
+        : typeof value.questionCount === "number"
+        ? value.questionCount
+        : snapshot.length,
+    question_snapshot: snapshot,
+    completed_at:
+      typeof value.completed_at === "string"
+        ? value.completed_at
+        : typeof value.completedAt === "string"
+        ? value.completedAt
+        : null,
+  };
+}
+
 function toTitle(value: string) {
   return value
     .split("-")
@@ -64,10 +100,10 @@ export default function ExamPrepAttemptPage() {
       setError(null);
       try {
         let lastStatus = 0;
-        let payload: any = {};
+        let payload: { error?: string; data?: AttemptPayload } = {};
         let data: AttemptPayload | null = null;
 
-        for (let attemptNo = 0; attemptNo < 3; attemptNo += 1) {
+        for (let attemptNo = 0; attemptNo < 6; attemptNo += 1) {
           const response = await fetch(`/api/exam-prep/attempt/${attemptId}`, { cache: "no-store" });
           lastStatus = response.status;
           payload = await response.json().catch(() => ({}));
@@ -82,8 +118,8 @@ export default function ExamPrepAttemptPage() {
             break;
           }
 
-          if (attemptNo < 2 && (response.status === 404 || response.status >= 500)) {
-            await new Promise((resolve) => setTimeout(resolve, 350 * (attemptNo + 1)));
+          if (attemptNo < 5 && (response.status === 404 || response.status >= 500)) {
+            await new Promise((resolve) => setTimeout(resolve, 450 * (attemptNo + 1)));
             continue;
           }
           break;
@@ -93,8 +129,8 @@ export default function ExamPrepAttemptPage() {
           if (lastStatus === 404 && typeof window !== "undefined") {
             const cachedAttemptRaw = sessionStorage.getItem(`lana_exam_attempt_${attemptId}`);
             if (cachedAttemptRaw) {
-              const cachedAttempt = JSON.parse(cachedAttemptRaw) as AttemptPayload;
-              if (Array.isArray(cachedAttempt?.question_snapshot) && cachedAttempt.question_snapshot.length > 0) {
+              const cachedAttempt = normalizeCachedAttempt(JSON.parse(cachedAttemptRaw), attemptId);
+              if (cachedAttempt) {
                 setAttempt(cachedAttempt);
                 setLoading(false);
                 return;
@@ -102,27 +138,10 @@ export default function ExamPrepAttemptPage() {
             }
 
             if (!recoveredOnce) {
-              const startPayloadRaw = sessionStorage.getItem("lana_exam_start_payload");
-              const startPayload = startPayloadRaw ? JSON.parse(startPayloadRaw) : null;
-              if (startPayload?.topic && typeof startPayload.topic === "string") {
-                const recreate = await fetch("/api/exam-prep/start", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    topic: startPayload.topic,
-                    sourceTopicId: startPayload.sourceTopicId ?? undefined,
-                    questionCount: startPayload.questionCount ?? 10,
-                  }),
-                });
-                const recreatePayload = await recreate.json().catch(() => ({}));
-                if (recreate.ok && recreatePayload?.data?.attemptId) {
-                  const newAttemptId = recreatePayload.data.attemptId as string;
-                  sessionStorage.setItem(`lana_exam_attempt_${newAttemptId}`, JSON.stringify(recreatePayload.data));
-                  setRecoveredOnce(true);
-                  router.replace(`/exam-prep/${newAttemptId}`);
-                  return;
-                }
-              }
+              setRecoveredOnce(true);
+              await new Promise((resolve) => setTimeout(resolve, 1200));
+              router.replace(`/exam-prep/${attemptId}`);
+              return;
             }
           }
 

@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/db";
 import { useUnifiedAuth } from "@/contexts/UnifiedAuthContext";
@@ -159,7 +159,9 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   const [selectedSourceTopicId, setSelectedSourceTopicId] = useState<string | null>(null);
   const [customTopic, setCustomTopic] = useState("");
   const [startingExam, setStartingExam] = useState(false);
+  const [backgroundExamStarting, setBackgroundExamStarting] = useState(false);
   const [examError, setExamError] = useState<string | null>(null);
+  const examStartAbortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async (userId: string) => {
     setLoading(true);
@@ -168,13 +170,16 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     const cached = readDashboardCache(userId);
 
     try {
-      const db = supabase as any;
-
       const [profileRes, plansRes, searchesRes, examAttemptsRes] = await Promise.allSettled([
-        db.from("profiles").select("id, full_name, role, age, grade").eq("id", userId).maybeSingle(),
-        db.from("term_plans").select("id, subject").eq("user_id", userId).order("created_at", { ascending: false }),
-        db.from("searches").select("id, title, created_at").eq("user_id", userId).order("created_at", { ascending: false }).limit(5),
-        db
+        supabase.from("profiles").select("id, full_name, role, age, grade").eq("id", userId).maybeSingle(),
+        supabase.from("term_plans").select("id, subject").eq("user_id", userId).order("created_at", { ascending: false }),
+        supabase
+          .from("searches")
+          .select("id, title, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(5),
+        supabase
           .from("exam_attempts")
           .select("id, topic_key, score_percent, completed_at")
           .eq("user_id", userId)
@@ -213,7 +218,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       let allTopics: Topic[] = [];
       if (rawPlans.length > 0) {
         const planIds = rawPlans.map((p) => p.id);
-        const { data: topicsData, error: topicsError } = await db
+        const { data: topicsData, error: topicsError } = await supabase
           .from("topics")
           .select("id, term_plan_id, subject_name, title, week_number, order_index, status")
           .in("term_plan_id", planIds)
@@ -237,7 +242,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       if (groupedPlans.length > 0) {
         const topicIds = groupedPlans.flatMap((plan) => plan.topics.map((t) => t.id));
         if (topicIds.length > 0) {
-          const { data: attemptsData, error: attemptsError } = await db
+          const { data: attemptsData, error: attemptsError } = await supabase
             .from("quiz_attempts")
             .select("topic_id, score, total")
             .eq("user_id", userId)
@@ -395,14 +400,23 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     setExamModalOpen(true);
   }, [isAuthenticated, router]);
 
-  const startExamPrep = useCallback(async () => {
+  const startExamPrep = useCallback(async (options?: { background?: boolean }) => {
+    if (examStartAbortRef.current) {
+      return;
+    }
+
     const resolvedTopic = selectedTopic || customTopic.trim();
     if (!resolvedTopic) {
       setExamError("Select a topic or enter a custom one to continue.");
       return;
     }
 
+    const runInBackground = Boolean(options?.background);
+    const controller = new AbortController();
+    examStartAbortRef.current = controller;
+
     setStartingExam(true);
+    setBackgroundExamStarting(runInBackground);
     setExamError(null);
     try {
       if (typeof window !== "undefined") {
@@ -417,9 +431,14 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
         );
       }
 
+      if (runInBackground) {
+        setExamModalOpen(false);
+      }
+
       const response = await fetch("/api/exam-prep/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           topic: resolvedTopic,
           sourceTopicId: selectedSourceTopicId ?? undefined,
@@ -446,13 +465,30 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       setSelectedTopic("");
       setSelectedSourceTopicId(null);
       setCustomTopic("");
+      setBackgroundExamStarting(false);
       router.push(`/exam-prep/${attemptId}`);
     } catch (error) {
-      setExamError(error instanceof Error ? error.message : "Unable to start exam preparation.");
+      if (controller.signal.aborted) {
+        setExamError("Exam generation canceled.");
+      } else {
+        setExamError(error instanceof Error ? error.message : "Unable to start exam preparation.");
+      }
     } finally {
+      examStartAbortRef.current = null;
       setStartingExam(false);
+      setBackgroundExamStarting(false);
     }
   }, [customTopic, router, selectedSourceTopicId, selectedTopic]);
+
+  const cancelExamStart = useCallback(() => {
+    examStartAbortRef.current?.abort();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      examStartAbortRef.current?.abort();
+    };
+  }, []);
 
   const bestScore = useCallback(
     (topicId: string) => {
@@ -1022,10 +1058,36 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                 <button
                   type="button"
                   className="min-h-10 rounded-md border border-white/20 px-4 py-2 text-xs text-white/80"
-                  onClick={() => setExamStep("intro")}
+                  onClick={() => {
+                    if (startingExam) {
+                      setExamModalOpen(false);
+                    } else {
+                      setExamStep("intro");
+                    }
+                  }}
                 >
-                  Back
+                  {startingExam ? "Close (keep running)" : "Back"}
                 </button>
+                {startingExam && (
+                  <button
+                    type="button"
+                    className="min-h-10 rounded-md border border-rose-300/50 px-4 py-2 text-xs text-rose-200"
+                    onClick={cancelExamStart}
+                  >
+                    Cancel
+                  </button>
+                )}
+                {!startingExam && (
+                  <button
+                    type="button"
+                    className="min-h-10 rounded-md border border-white/20 px-4 py-2 text-xs text-white/90"
+                    onClick={() => {
+                      void startExamPrep({ background: true });
+                    }}
+                  >
+                    Start in background
+                  </button>
+                )}
                 <button
                   type="button"
                   disabled={startingExam}
@@ -1034,7 +1096,11 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                     void startExamPrep();
                   }}
                 >
-                  {startingExam ? "Starting..." : "Start Practice Exam"}
+                  {startingExam
+                    ? backgroundExamStarting
+                      ? "Starting in background..."
+                      : "Starting..."
+                    : "Start Practice Exam"}
                 </button>
               </DialogFooter>
             </>
