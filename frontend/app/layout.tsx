@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
     images: [
       {
-        url: '/images/lana-logo-og.png',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
         alt: 'Lanamind',
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Lanamind - AI Learning Assistant for Students',
     description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
-    images: ['/images/lana-logo-og.png'],
+    images: ['/twitter-image'],
   },
   robots: {
     index: true,
@@ -81,9 +81,6 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={GeistSans.variable} suppressHydrationWarning>
       <head>
-        <meta httpEquiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-        <meta httpEquiv="Pragma" content="no-cache" />
-        <meta httpEquiv="Expires" content="0" />
         <style>{`html{font-family:${GeistSans.style.fontFamily};--font-sans:${GeistSans.variable};--font-mono:${GeistMono.variable};}`}</style>
         <link rel="manifest" href="/manifest.json" />
         <script

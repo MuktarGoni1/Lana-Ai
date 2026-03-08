@@ -4,45 +4,42 @@ import { SEO_CONFIG } from '@/lib/seo-config'
 export const metadata: Metadata = {
   title: {
     template: `%s | ${SEO_CONFIG.site.name}`,
-    default: 'LanaMind – AI Tutor for Clear, Structured Learning'
+    default: 'Lanamind - AI Learning Assistant for Students',
   },
-  description: 'Transform your child\'s education with LanaMind\'s AI-powered tutoring platform. Personalized learning, real-time progress tracking, and adaptive teaching methods for students of all ages.',
+  description:
+    'Lanamind helps students learn faster with personalized AI lessons, quizzes, and study plans designed for ages 5 to 18.',
   keywords: [
+    'lanamind',
+    'lana mind',
     'ai tutoring software',
-    'personalized learning platform', 
-    'ai homework helper',
-    'educational ai tools',
-    'smart tutoring system',
+    'personalized learning platform',
     'ai learning assistant',
-    'virtual tutoring service',
-    'online ai tutor for kids',
-    'adaptive learning technology',
-    'student progress analytics'
+    'study app for kids',
   ],
-  authors: [{ name: 'LanaMind Team' }],
-  creator: 'LanaMind Team',
-  publisher: 'LanaMind Team',
+  authors: [{ name: 'Lanamind' }],
+  creator: 'Lanamind',
+  publisher: 'Lanamind',
   openGraph: {
     type: 'website',
     locale: SEO_CONFIG.site.locale,
-    url: '/landing-page',
+    url: 'https://lanamind.com',
     siteName: SEO_CONFIG.site.name,
-    title: 'LanaMind – Revolutionary AI Tutoring Platform',
-    description: 'Experience the future of education with LanaMind\'s intelligent AI tutor that adapts to each student\'s unique learning style and pace.',
+    title: 'Lanamind - AI Learning Assistant for Students',
+    description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
     images: [
       {
-        url: '/opengraph-image.png',
+        url: '/opengraph-image',
         width: 1200,
         height: 630,
-        alt: 'LanaMind AI Tutoring Platform - Personalized Learning for Every Student',
+        alt: 'Lanamind',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'LanaMind – AI-Powered Personalized Learning Platform',
-    description: 'Revolutionary AI tutoring that understands and adapts to your child\'s unique learning journey. Try it free today!',
-    images: ['/twitter-image.png'],
+    title: 'Lanamind - AI Learning Assistant for Students',
+    description: 'Personalized AI lessons, quizzes, and study plans for students aged 5 to 18.',
+    images: ['/twitter-image'],
     creator: SEO_CONFIG.social.twitter,
   },
   alternates: {
