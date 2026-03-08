@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
 
     const { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")
-      .select("id, completed_at, question_snapshot")
+      .select("id, question_count, correct_count, score_percent, completed_at, question_snapshot, answers")
       .eq("id", attemptId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -41,7 +41,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
     }
 
     if (attempt.completed_at) {
-      return NextResponse.json({ error: "Attempt already submitted" }, { status: 409 });
+      const total = Number(attempt.question_count || 0);
+      const correct = Number(attempt.correct_count || 0);
+      const scorePercent = Number(attempt.score_percent || 0);
+      const maybeReview =
+        attempt.answers && typeof attempt.answers === "object" && Array.isArray((attempt.answers as Record<string, unknown>).review)
+          ? ((attempt.answers as Record<string, unknown>).review as unknown[])
+          : [];
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            attemptId: attempt.id,
+            completedAt: attempt.completed_at,
+            total,
+            correct,
+            wrong: Math.max(0, total - correct),
+            scorePercent,
+            review: maybeReview,
+            alreadySubmitted: true,
+          },
+        },
+        { status: 200 }
+      );
     }
 
     const rawQuestions = Array.isArray(attempt.question_snapshot) ? attempt.question_snapshot : [];
@@ -89,8 +112,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
       },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[exam-prep/attempt/:attemptId/submit] error:", error);
-    return NextResponse.json({ error: error?.message || "Internal server error" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

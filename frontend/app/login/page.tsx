@@ -422,17 +422,18 @@ function LoginContent() {
 
         const redirectPath =
           lastVisited &&
+          lastVisited !== "/" &&
           !lastVisited.startsWith("/login") &&
           !lastVisited.startsWith("/register") &&
           !lastVisited.startsWith("/auth") &&
           lastVisited !== "/landing-page"
             ? lastVisited
-            : "/";
+            : "/dashboard";
 
         router.push(redirectPath);
       } catch {
         // On fetch errors, never trap user on login
-        router.push("/");
+        router.push("/dashboard");
       } finally {
         setResolvedRedirect(true);
         setCheckingProfile(false);

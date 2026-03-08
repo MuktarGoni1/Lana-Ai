@@ -26,13 +26,47 @@ export default function AppTopbar({
 }: AppTopbarProps) {
   const router = useRouter();
 
+  function handleBack() {
+    if (onBack) {
+      onBack();
+      return;
+    }
+
+    if (typeof window === "undefined") {
+      router.push("/dashboard");
+      return;
+    }
+
+    const fallbackRoutes = new Set(["/", "/landing-page", "/login", "/register"]);
+    const sameOriginReferrer = document.referrer.startsWith(window.location.origin);
+
+    if (sameOriginReferrer) {
+      try {
+        const refPath = new URL(document.referrer).pathname;
+        if (fallbackRoutes.has(refPath) || refPath.startsWith("/auth")) {
+          router.push("/dashboard");
+          return;
+        }
+      } catch {
+        // Ignore parse failures and continue with history fallback.
+      }
+    }
+
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+
+    router.push("/dashboard");
+  }
+
   return (
     <header className={`sticky top-0 z-30 border-b border-white/10 bg-black/85 backdrop-blur-xl ${className}`}>
       <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-5 sm:py-3.5">
         <div className="flex min-w-0 items-center gap-3 sm:gap-4">
           {showBack && (
             <button
-              onClick={() => (onBack ? onBack() : router.back())}
+              onClick={handleBack}
               className="inline-flex h-9 items-center gap-1.5 rounded-md border border-white/20 px-2.5 text-xs text-white/80 hover:bg-white/10 sm:px-3"
             >
               <ChevronLeft className="h-3.5 w-3.5" />

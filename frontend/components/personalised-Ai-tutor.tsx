@@ -50,7 +50,7 @@ export default function PersonalisedAiTutor({ question, fromMode, onBack }: Pers
     if (onBack) {
       onBack();
     } else {
-      router.push('/');
+      router.push('/dashboard');
     }
   }, [onBack, router, trackNavigation]);
 

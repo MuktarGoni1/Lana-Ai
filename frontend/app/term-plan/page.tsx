@@ -780,7 +780,7 @@ function TermPlanPageContent() {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => router.push("/")}
+            onClick={() => router.push("/dashboard")}
             className="px-3 py-2 rounded-lg border border-white/10 text-xs text-white/70 hover:bg-white/10 transition-colors"
           >
             Back to dashboard
@@ -1035,7 +1035,7 @@ function TermPlanPageContent() {
       <div className="fixed bottom-0 left-0 right-0 bg-black/90 border-t border-white/10 p-3 sm:p-4">
         <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center gap-3 w-full">
           <button
-            onClick={isOnboarding ? handleSkipToHomepage : () => router.push("/")}
+            onClick={isOnboarding ? handleSkipToHomepage : () => router.push("/dashboard")}
             disabled={saving}
             className="px-4 py-2 rounded-lg border border-white/10 hover:bg-white/5 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center w-full sm:w-auto justify-center shadow-sm hover:shadow-md active:scale-95"
           >
