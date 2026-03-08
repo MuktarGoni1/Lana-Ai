@@ -48,6 +48,16 @@ interface Topic {
   status: TopicStatus;
 }
 
+type TopicRow = {
+  id: string;
+  term_plan_id: string | null;
+  subject_name: string | null;
+  title: string;
+  week_number: number | null;
+  order_index: number | null;
+  status: string | null;
+};
+
 interface TermPlan {
   id: string;
   subject: string;
@@ -73,6 +83,17 @@ interface ExamAttempt {
   completed_at: string | null;
 }
 
+type ExamHistoryResponse = {
+  data?: {
+    attempts?: Array<{
+      id: string;
+      topic_key: string;
+      score_percent: number;
+      completed_at: string | null;
+    }>;
+  };
+};
+
 interface Props {
   onWatchVideo: (topic: string) => void;
 }
@@ -88,6 +109,41 @@ function missingFieldLabels(profile: Profile | null) {
   if (!profile.age) missing.push("age");
   if (!profile.grade) missing.push("grade");
   return missing;
+}
+
+function normalizeProfile(row: {
+  id: string;
+  full_name: string | null;
+  role: string | null;
+  age: number | null;
+  grade: string | null;
+} | null): Profile | null {
+  if (!row) return null;
+  const role = row.role === "child" || row.role === "parent" ? row.role : null;
+  return {
+    id: row.id,
+    full_name: row.full_name,
+    role,
+    age: row.age,
+    grade: row.grade,
+  };
+}
+
+function normalizeTopic(row: TopicRow): Topic {
+  const status: TopicStatus =
+    row.status === "locked" || row.status === "available" || row.status === "in_progress" || row.status === "completed"
+      ? row.status
+      : "available";
+
+  return {
+    id: row.id,
+    term_plan_id: row.term_plan_id,
+    subject_name: row.subject_name,
+    title: row.title,
+    week_number: row.week_number ?? 1,
+    order_index: row.order_index ?? 0,
+    status,
+  };
 }
 
 function readDashboardCache(userId: string) {
@@ -179,17 +235,12 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
           .limit(5),
-        supabase
-          .from("exam_attempts")
-          .select("id, topic_key, score_percent, completed_at")
-          .eq("user_id", userId)
-          .order("started_at", { ascending: false })
-          .limit(10),
+        fetch("/api/exam-prep/history", { cache: "no-store" }),
       ]);
 
       let safeProfile: Profile | null = null;
       if (profileRes.status === "fulfilled" && !profileRes.value.error) {
-        safeProfile = profileRes.value.data ?? null;
+        safeProfile = normalizeProfile(profileRes.value.data ?? null);
       } else if (cached?.profile) {
         safeProfile = cached.profile;
       }
@@ -209,8 +260,14 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       }
 
       let safeExamAttempts: ExamAttempt[] = [];
-      if (examAttemptsRes.status === "fulfilled" && !examAttemptsRes.value.error && examAttemptsRes.value.data) {
-        safeExamAttempts = examAttemptsRes.value.data;
+      if (examAttemptsRes.status === "fulfilled") {
+        const response = examAttemptsRes.value;
+        if (response.ok) {
+          const payload = (await response.json().catch(() => ({}))) as ExamHistoryResponse;
+          safeExamAttempts = payload?.data?.attempts ?? [];
+        } else if (cached?.examAttempts) {
+          safeExamAttempts = cached.examAttempts;
+        }
       } else if (cached?.examAttempts) {
         safeExamAttempts = cached.examAttempts;
       }
@@ -226,7 +283,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
           .order("order_index", { ascending: true });
 
         if (!topicsError && topicsData) {
-          allTopics = topicsData;
+          allTopics = topicsData.map(normalizeTopic);
         } else if (cached?.termPlans?.length) {
           allTopics = cached.termPlans.flatMap((plan) => plan.topics);
         }
