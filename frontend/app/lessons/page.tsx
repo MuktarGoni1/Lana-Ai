@@ -91,7 +91,7 @@ export default function LessonsPage() {
         subtitle="Your lessons, clearly organized"
         showBack
         backLabel="Dashboard"
-        onBack={() => router.push("/")}
+        onBack={() => router.push("/dashboard")}
       />
 
       <main className="mx-auto max-w-5xl space-y-6 px-4 py-5 sm:px-5 sm:py-6">

@@ -7,7 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { handleErrorWithReload } from './error-handler';
 
 /**
- * Navigate to the appropriate homepage based on user role
+ * Navigate to the appropriate fallback page based on authentication state
  * @param user - The authenticated user object
  * @param router - Next.js router instance
  */
@@ -34,9 +34,9 @@ export function navigateToHomepage(user: User | null, router: any) {
       return;
     }
 
-    // Navigate all authenticated users to homepage
-    console.log('[Navigation] Redirecting authenticated user to homepage');
-    const targetPath = '/';
+    // Navigate all authenticated users to dashboard
+    console.log('[Navigation] Redirecting authenticated user to dashboard');
+    const targetPath = '/dashboard';
 
     // Navigate to target path
     if (router && typeof router.replace === 'function') {

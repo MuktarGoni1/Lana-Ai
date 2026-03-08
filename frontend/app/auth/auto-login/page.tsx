@@ -47,12 +47,13 @@ export default function AutoLoginPage() {
           needsSetup
             ? "/onboarding"
             : lastVisited &&
+                lastVisited !== "/" &&
                 !lastVisited.startsWith("/login") &&
                 !lastVisited.startsWith("/register") &&
                 !lastVisited.startsWith("/auth") &&
                 lastVisited !== "/landing-page"
               ? lastVisited
-              : "/";
+              : "/dashboard";
 
         setStatus("confirmed");
         toast({ title: "Authentication confirmed", description: "Redirecting..." });
