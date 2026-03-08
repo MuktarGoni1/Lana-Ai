@@ -62,12 +62,36 @@ export default function ExamPrepAttemptPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/exam-prep/attempt/${attemptId}`, { cache: "no-store" });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(payload?.error || "Failed to load exam attempt");
+        let lastStatus = 0;
+        let payload: any = {};
+        let data: AttemptPayload | null = null;
+
+        for (let attemptNo = 0; attemptNo < 3; attemptNo += 1) {
+          const response = await fetch(`/api/exam-prep/attempt/${attemptId}`, { cache: "no-store" });
+          lastStatus = response.status;
+          payload = await response.json().catch(() => ({}));
+
+          if (response.status === 401) {
+            router.replace(`/login?next=${encodeURIComponent(`/exam-prep/${attemptId}`)}`);
+            return;
+          }
+
+          if (response.ok) {
+            data = payload?.data as AttemptPayload;
+            break;
+          }
+
+          if (attemptNo < 2 && (response.status === 404 || response.status >= 500)) {
+            await new Promise((resolve) => setTimeout(resolve, 350 * (attemptNo + 1)));
+            continue;
+          }
+          break;
         }
-        const data = payload?.data as AttemptPayload;
+
+        if (!data) {
+          throw new Error(payload?.error || `Failed to load exam attempt (${lastStatus || "unknown"})`);
+        }
+
         if (!data || !Array.isArray(data.question_snapshot) || data.question_snapshot.length === 0) {
           throw new Error("This exam attempt has no questions.");
         }
@@ -80,7 +104,7 @@ export default function ExamPrepAttemptPage() {
     }
 
     void loadAttempt();
-  }, [attemptId]);
+  }, [attemptId, router]);
 
   const questions = attempt?.question_snapshot ?? [];
   const currentQuestion = questions[currentIndex] ?? null;

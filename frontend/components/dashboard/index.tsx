@@ -989,7 +989,6 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
                     onChange={(event) => {
                       setCustomTopic(event.target.value);
                       setSelectedTopic("");
-                      setSelectedSourceTopicId(null);
                       setExamError(null);
                     }}
                     placeholder="e.g. algebra, grammar, biology"
