@@ -42,6 +42,7 @@ export default function ExamPrepAttemptPage() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [startTime] = useState(Date.now());
   const [seconds, setSeconds] = useState(0);
+  const [recoveredOnce, setRecoveredOnce] = useState(false);
 
   useEffect(() => {
     if (result) return;
@@ -89,6 +90,42 @@ export default function ExamPrepAttemptPage() {
         }
 
         if (!data) {
+          if (lastStatus === 404 && typeof window !== "undefined") {
+            const cachedAttemptRaw = sessionStorage.getItem(`lana_exam_attempt_${attemptId}`);
+            if (cachedAttemptRaw) {
+              const cachedAttempt = JSON.parse(cachedAttemptRaw) as AttemptPayload;
+              if (Array.isArray(cachedAttempt?.question_snapshot) && cachedAttempt.question_snapshot.length > 0) {
+                setAttempt(cachedAttempt);
+                setLoading(false);
+                return;
+              }
+            }
+
+            if (!recoveredOnce) {
+              const startPayloadRaw = sessionStorage.getItem("lana_exam_start_payload");
+              const startPayload = startPayloadRaw ? JSON.parse(startPayloadRaw) : null;
+              if (startPayload?.topic && typeof startPayload.topic === "string") {
+                const recreate = await fetch("/api/exam-prep/start", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    topic: startPayload.topic,
+                    sourceTopicId: startPayload.sourceTopicId ?? undefined,
+                    questionCount: startPayload.questionCount ?? 10,
+                  }),
+                });
+                const recreatePayload = await recreate.json().catch(() => ({}));
+                if (recreate.ok && recreatePayload?.data?.attemptId) {
+                  const newAttemptId = recreatePayload.data.attemptId as string;
+                  sessionStorage.setItem(`lana_exam_attempt_${newAttemptId}`, JSON.stringify(recreatePayload.data));
+                  setRecoveredOnce(true);
+                  router.replace(`/exam-prep/${newAttemptId}`);
+                  return;
+                }
+              }
+            }
+          }
+
           throw new Error(payload?.error || `Failed to load exam attempt (${lastStatus || "unknown"})`);
         }
 
@@ -104,7 +141,7 @@ export default function ExamPrepAttemptPage() {
     }
 
     void loadAttempt();
-  }, [attemptId, router]);
+  }, [attemptId, recoveredOnce, router]);
 
   const questions = attempt?.question_snapshot ?? [];
   const currentQuestion = questions[currentIndex] ?? null;

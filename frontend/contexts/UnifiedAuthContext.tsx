@@ -227,22 +227,21 @@ export function UnifiedAuthProvider({ children }: { children: React.ReactNode })
     if (!user) return false;
     
     // Only rely on user metadata for onboarding status to ensure consistency
-    // Cookie and localStorage are fallback for offline scenarios only when user metadata is unavailable
+    // Cookie/localStorage positive marker can temporarily override stale metadata right after onboarding completion.
     const userOnboardingStatus = user.user_metadata?.onboarding_complete;
-    
-    if (typeof userOnboardingStatus === 'boolean') {
-      return userOnboardingStatus;
-    }
-    
-    // Fallback to cookie/localStorage only if user metadata doesn't have the field
-    if (typeof window !== 'undefined') {
-      return Boolean(
+    const hasLocalMarker =
+      typeof window !== 'undefined' &&
+      Boolean(
         document.cookie.includes('lana_onboarding_complete=1') ||
         localStorage.getItem('lana_onboarding_complete') === '1'
       );
+    
+    if (typeof userOnboardingStatus === 'boolean') {
+      if (userOnboardingStatus) return true;
+      return hasLocalMarker;
     }
     
-    return false;
+    return hasLocalMarker;
   }, [user]);
 
   // Computed properties for backward compatibility

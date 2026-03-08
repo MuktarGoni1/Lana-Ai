@@ -405,6 +405,18 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     setStartingExam(true);
     setExamError(null);
     try {
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(
+          "lana_exam_start_payload",
+          JSON.stringify({
+            topic: resolvedTopic,
+            sourceTopicId: selectedSourceTopicId ?? null,
+            questionCount: 10,
+            createdAt: Date.now(),
+          })
+        );
+      }
+
       const response = await fetch("/api/exam-prep/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -423,6 +435,10 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
       const attemptId = payload?.data?.attemptId;
       if (!attemptId || typeof attemptId !== "string") {
         throw new Error("Invalid exam session response");
+      }
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem(`lana_exam_attempt_${attemptId}`, JSON.stringify(payload?.data ?? {}));
       }
 
       setExamModalOpen(false);

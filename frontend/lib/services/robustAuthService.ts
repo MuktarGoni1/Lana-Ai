@@ -482,6 +482,7 @@ export class RobustAuthService {
         localStorage.removeItem("lana_onboarding_complete");
         localStorage.removeItem("lana_local_children");
         localStorage.removeItem("lana_last_visited");
+        document.cookie = "lana_onboarding_complete=; Max-Age=0; Path=/; SameSite=Lax";
       }
 
       this.clearError();

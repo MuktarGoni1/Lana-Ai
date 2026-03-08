@@ -45,7 +45,7 @@ function getTimezoneList(): string[] {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useUnifiedAuth();
+  const { user, isAuthenticated, isLoading, refreshSession, checkAuthStatus } = useUnifiedAuth();
 
   const timezoneOptions = useMemo(() => getTimezoneList(), []);
 
@@ -132,7 +132,7 @@ export default function OnboardingPage() {
           setGrade(data.grade || "");
 
           if (data.onboarding_complete) {
-            router.replace("/");
+            router.replace("/dashboard");
             return;
           }
         }
@@ -374,9 +374,18 @@ export default function OnboardingPage() {
           throw new Error(body?.error || "Failed to complete onboarding");
         }
 
-        // Do not set localStorage to avoid stale data issues - rely solely on user metadata
+        // Keep a local completion marker and force refresh auth state to avoid redirect loops.
+        try {
+          const oneYear = 60 * 60 * 24 * 365;
+          document.cookie = `lana_onboarding_complete=1; Max-Age=${oneYear}; Path=/; SameSite=Lax`;
+          localStorage.setItem("lana_onboarding_complete", "1");
+        } catch {
+          // Non-fatal
+        }
 
-        router.replace("/");
+        await refreshSession();
+        await checkAuthStatus(true);
+        router.replace("/dashboard");
       } catch (err: any) {
         setError(err?.message || "Could not complete onboarding.");
       } finally {
