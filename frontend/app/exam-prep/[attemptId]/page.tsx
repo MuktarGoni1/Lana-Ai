@@ -11,6 +11,7 @@ type AttemptPayload = {
   topic_key: string;
   question_count: number;
   question_snapshot: ExamQuestion[];
+  answers: Record<string, "A" | "B" | "C"> | null;
   completed_at: string | null;
 };
 
@@ -100,6 +101,7 @@ export default function ExamPrepAttemptPage() {
           throw new Error("This exam attempt has no questions.");
         }
         setAttempt(data);
+        setAnswers((data.answers ?? {}) as Record<string, "A" | "B" | "C">);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load exam attempt.");
       } finally {
