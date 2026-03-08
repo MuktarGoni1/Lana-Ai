@@ -188,16 +188,30 @@ export default function ExamPrepAttemptPage() {
     setSubmitLoading(true);
     setSubmitError(null);
     try {
-      const response = await fetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.error || "Failed to submit attempt");
+      let payload: Record<string, unknown> = {};
+      let lastStatus = 0;
+
+      for (let submitTry = 0; submitTry < 3; submitTry += 1) {
+        const response = await fetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ answers }),
+        });
+        lastStatus = response.status;
+        payload = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+
+        if (response.ok) {
+          setResult(payload?.data as SubmitResult);
+          return;
+        }
+
+        if (submitTry < 2 && (response.status === 404 || response.status >= 500)) {
+          await new Promise((resolve) => setTimeout(resolve, 450 * (submitTry + 1)));
+          continue;
+        }
+
+        throw new Error((payload?.error as string) || `Failed to submit attempt (${lastStatus || "unknown"})`);
       }
-      setResult(payload?.data as SubmitResult);
     } catch (submitErr) {
       setSubmitError(submitErr instanceof Error ? submitErr.message : "Submission failed.");
     } finally {
