@@ -1,6 +1,8 @@
 import { MetadataRoute } from 'next'
 import { SEO_CONFIG } from '@/lib/seo-config'
 
+export const dynamic = 'force-static'
+
 // Static blog posts data
 const BLOG_POSTS = [
   { slug: 'future-of-personalized-learning', lastModified: new Date('2024-01-15') },
