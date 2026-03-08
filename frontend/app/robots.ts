@@ -7,16 +7,19 @@ export default function robots(): MetadataRoute.Robots {
         userAgent: "*",
         allow: "/",
         disallow: [
-          "/api/",
-          "/auth/",
-          "/dashboard/",
           "/homepage",
           "/learn",
           "/term-plan",
+          "/onboarding",
+          "/profile",
           "/settings",
+          "/dashboard",
+          "/auth/",
+          "/api/",
         ],
       },
     ],
+    host: "https://lanamind.com",
     sitemap: "https://lanamind.com/sitemap.xml",
   };
 }

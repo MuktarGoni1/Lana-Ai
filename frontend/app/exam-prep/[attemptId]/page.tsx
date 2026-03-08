@@ -4,12 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import type { ExamQuestion } from "@/lib/exam-prep";
+import { supabase } from "@/lib/db";
 
 type AttemptPayload = {
   id: string;
   topic_key: string;
   question_count: number;
   question_snapshot: ExamQuestion[];
+  answers: Record<string, "A" | "B" | "C"> | null;
   completed_at: string | null;
 };
 
@@ -27,6 +29,14 @@ function toTitle(value: string) {
     .join(" ");
 }
 
+function getCorrectLabel(question: ExamQuestion): "A" | "B" | "C" | null {
+  return (
+    question.correct_answer ??
+    question.options.find((option) => option.is_correct)?.label ??
+    null
+  );
+}
+
 export default function ExamPrepAttemptPage() {
   const router = useRouter();
   const params = useParams<{ attemptId?: string | string[] }>();
@@ -42,6 +52,33 @@ export default function ExamPrepAttemptPage() {
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [startTime] = useState(Date.now());
   const [seconds, setSeconds] = useState(0);
+
+  async function ensureServerSessionSynced() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token || !session?.refresh_token) return;
+
+    await fetch("/api/auth/sync-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+      cache: "no-store",
+    });
+  }
+
+  async function authFetch(input: RequestInfo | URL, init?: RequestInit) {
+    await ensureServerSessionSynced();
+    return fetch(input, {
+      ...(init || {}),
+      credentials: "include",
+      cache: init?.cache ?? "no-store",
+    });
+  }
 
   useEffect(() => {
     if (result) return;
@@ -62,7 +99,7 @@ export default function ExamPrepAttemptPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/exam-prep/attempt/${attemptId}`, { cache: "no-store" });
+        const response = await authFetch(`/api/exam-prep/attempt/${attemptId}`);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload?.error || "Failed to load exam attempt");
@@ -72,6 +109,7 @@ export default function ExamPrepAttemptPage() {
           throw new Error("This exam attempt has no questions.");
         }
         setAttempt(data);
+        setAnswers((data.answers ?? {}) as Record<string, "A" | "B" | "C">);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load exam attempt.");
       } finally {
@@ -95,8 +133,8 @@ export default function ExamPrepAttemptPage() {
     let correct = 0;
     for (const question of questions) {
       const selected = answers[question.id];
-      const correctOption = question.options.find((option) => option.is_correct);
-      if (selected && correctOption && selected === correctOption.label) {
+      const correctLabel = getCorrectLabel(question);
+      if (selected && correctLabel && selected === correctLabel) {
         correct += 1;
       }
     }
@@ -108,7 +146,7 @@ export default function ExamPrepAttemptPage() {
     setSubmitLoading(true);
     setSubmitError(null);
     try {
-      const response = await fetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
+      const response = await authFetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),
@@ -175,7 +213,7 @@ export default function ExamPrepAttemptPage() {
           <section className="space-y-3">
             {questions.map((question, index) => {
               const selected = answers[question.id] || null;
-              const correct = question.options.find((option) => option.is_correct)?.label;
+              const correct = getCorrectLabel(question);
               const isCorrect = selected && correct ? selected === correct : false;
               return (
                 <article key={question.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
@@ -240,7 +278,8 @@ export default function ExamPrepAttemptPage() {
   if (!currentQuestion) return null;
 
   const selectedCurrent = answers[currentQuestion.id] ?? null;
-  const correctCurrent = currentQuestion.options.find((option) => option.is_correct) ?? null;
+  const correctCurrentLabel = getCorrectLabel(currentQuestion);
+  const correctCurrent = currentQuestion.options.find((option) => option.label === correctCurrentLabel) ?? null;
 
   return (
     <div className="min-h-screen bg-black px-4 py-6 text-white">

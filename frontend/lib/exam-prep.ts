@@ -12,6 +12,7 @@ export type ExamQuestion = {
   subject_name: string | null;
   difficulty: "easy" | "medium" | "hard";
   options: ExamOption[];
+  correct_answer: "A" | "B" | "C";
 };
 
 export type ExamAnswerReview = {
@@ -75,9 +76,20 @@ export function normalizeExamQuestion(raw: unknown): ExamQuestion | null {
   const options = optionsRaw.map(normalizeOption).filter((opt): opt is ExamOption => Boolean(opt));
 
   const correctCount = options.filter((opt) => opt.is_correct).length;
+  const explicitCorrect =
+    typeof row.correct_answer === "string" && OPTION_LABELS.includes(row.correct_answer.trim().toUpperCase() as "A" | "B" | "C")
+      ? (row.correct_answer.trim().toUpperCase() as "A" | "B" | "C")
+      : null;
+
   if (!id || !question || !topicKey || options.length !== 3 || correctCount !== 1) {
     return null;
   }
+
+  const sortedOptions = options.sort((a, b) => OPTION_LABELS.indexOf(a.label) - OPTION_LABELS.indexOf(b.label));
+  const inferredCorrect = sortedOptions.find((opt) => opt.is_correct)?.label ?? null;
+  const correctAnswer = explicitCorrect ?? inferredCorrect;
+
+  if (!correctAnswer) return null;
 
   return {
     id,
@@ -85,7 +97,8 @@ export function normalizeExamQuestion(raw: unknown): ExamQuestion | null {
     topic_key: topicKey,
     subject_name: subjectName,
     difficulty,
-    options: options.sort((a, b) => OPTION_LABELS.indexOf(a.label) - OPTION_LABELS.indexOf(b.label)),
+    options: sortedOptions,
+    correct_answer: correctAnswer,
   };
 }
 
@@ -98,10 +111,10 @@ export function gradeExamAttempt(questions: ExamQuestion[], answers: Record<stri
     const selectedLabel = OPTION_LABELS.includes(selectedRaw as "A" | "B" | "C")
       ? (selectedRaw as "A" | "B" | "C")
       : null;
-    const correctOption = question.options.find((option) => option.is_correct);
+    const correctOption = question.options.find((option) => option.label === question.correct_answer) ?? question.options.find((option) => option.is_correct);
     if (!correctOption) continue;
 
-    const isCorrect = selectedLabel === correctOption.label;
+    const isCorrect = selectedLabel === question.correct_answer;
     if (isCorrect) correct += 1;
     review.push({
       question_id: question.id,

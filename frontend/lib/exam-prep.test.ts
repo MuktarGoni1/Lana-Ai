@@ -21,6 +21,28 @@ describe("exam-prep utilities", () => {
 
     expect(question).not.toBeNull();
     expect(question?.options).toHaveLength(3);
+    expect(question?.correct_answer).toBe("A");
+  });
+
+
+
+  test("normalizeExamQuestion respects explicit correct_answer label", () => {
+    const question = normalizeExamQuestion({
+      id: "q2",
+      question: "Choose the letter B",
+      topic_key: "letters",
+      subject_name: "English",
+      difficulty: "easy",
+      correct_answer: "B",
+      options: [
+        { label: "A", text: "A", explanation: "No", is_correct: false },
+        { label: "B", text: "B", explanation: "Yes", is_correct: true },
+        { label: "C", text: "C", explanation: "No", is_correct: false },
+      ],
+    });
+
+    expect(question).not.toBeNull();
+    expect(question?.correct_answer).toBe("B");
   });
 
   test("gradeExamAttempt returns correct scoring", () => {

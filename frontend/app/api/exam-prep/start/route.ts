@@ -87,6 +87,59 @@ function buildQuestionFromQuiz(raw: Record<string, unknown>, topicKey: string): 
   return normalized;
 }
 
+function extractQuizQuestionPayloads(rawQuestions: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(rawQuestions)) return [];
+  return rawQuestions
+    .filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object")
+    .map((row) => {
+      const question =
+        typeof row.question === "string"
+          ? row.question
+          : typeof row.q === "string"
+          ? row.q
+          : typeof row.prompt === "string"
+          ? row.prompt
+          : "";
+
+      const optionsRaw = Array.isArray(row.options)
+        ? row.options
+        : Array.isArray(row.choices)
+        ? row.choices
+        : [];
+
+      const options = optionsRaw
+        .map((opt) => {
+          if (typeof opt === "string") return opt;
+          if (opt && typeof opt === "object" && typeof (opt as Record<string, unknown>).option === "string") {
+            return (opt as Record<string, unknown>).option as string;
+          }
+          return "";
+        })
+        .map((opt) => opt.trim())
+        .filter(Boolean);
+
+      const answer =
+        typeof row.answer === "string"
+          ? row.answer
+          : typeof row.correct === "string"
+          ? row.correct
+          : typeof row.correct_answer === "string"
+          ? row.correct_answer
+          : "";
+
+      const explanation = typeof row.explanation === "string" ? row.explanation : "";
+
+      return {
+        question,
+        q: question,
+        options,
+        answer,
+        explanation,
+      };
+    })
+    .filter((row) => Boolean(row.question) && Array.isArray(row.options) && row.options.length >= 3 && Boolean(row.answer));
+}
+
 export async function POST(req: Request) {
   try {
     const supabase = await createServerClient();
@@ -120,6 +173,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Source topic not found" }, { status: 404 });
       }
       sourceTopicId = topicRow.id;
+    } else {
+      // Try to map free-text exam topics to an existing user topic so we can reuse quiz question fallbacks.
+      const { data: userTopics } = await supabase
+        .from("topics")
+        .select("id, title")
+        .eq("user_id", user.id)
+        .limit(300);
+
+      const matchedTopic = (userTopics ?? []).find((row) => normalizeTopicKey(row.title ?? "") === topicKey);
+      if (matchedTopic?.id) {
+        sourceTopicId = matchedTopic.id;
+      }
     }
 
     const { data: bankRows, error: bankError } = await supabase
@@ -139,22 +204,44 @@ export async function POST(req: Request) {
 
     let fallbackQuestions: ExamQuestion[] = [];
     if (normalizedBank.length < requestedCount && sourceTopicId) {
-      const { data: quizRow } = await supabase
+      const { data: quizRows } = await supabase
         .from("quiz_questions")
         .select("questions")
         .eq("topic_id", sourceTopicId)
         .order("generated_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(20);
 
-      if (quizRow?.questions && Array.isArray(quizRow.questions)) {
-        fallbackQuestions = quizRow.questions
-          .map((row) => (row && typeof row === "object" ? buildQuestionFromQuiz(row as Record<string, unknown>, topicKey) : null))
-          .filter((item): item is ExamQuestion => Boolean(item));
+      const questionPayloads = (quizRows ?? []).flatMap((row) => extractQuizQuestionPayloads((row as { questions?: unknown }).questions));
+      fallbackQuestions = questionPayloads
+        .map((row) => buildQuestionFromQuiz(row, topicKey))
+        .filter((item): item is ExamQuestion => Boolean(item));
+    }
+
+    const dedupByQuestion = new Map<string, ExamQuestion>();
+    for (const question of [...normalizedBank, ...fallbackQuestions]) {
+      const key = question.question.trim().toLowerCase();
+      if (!dedupByQuestion.has(key)) {
+        dedupByQuestion.set(key, question);
       }
     }
 
-    const pool = shuffleArray([...normalizedBank, ...fallbackQuestions]);
+    // Persist generated fallback questions to the bank so future attempts on the same topic can reuse them.
+    if (fallbackQuestions.length > 0) {
+      const bankRowsToInsert = fallbackQuestions.map((question) => ({
+        topic_key: question.topic_key,
+        subject_name: question.subject_name,
+        question: question.question,
+        difficulty: question.difficulty,
+        options: question.options,
+        active: true,
+      }));
+      const { error: bankInsertError } = await supabase.from("exam_question_bank").insert(bankRowsToInsert);
+      if (bankInsertError) {
+        console.warn("[exam-prep/start] fallback bank insert warning:", bankInsertError.message);
+      }
+    }
+
+    const pool = shuffleArray(Array.from(dedupByQuestion.values()));
     const selectedQuestions = pool.slice(0, requestedCount);
 
     if (selectedQuestions.length < 3) {
