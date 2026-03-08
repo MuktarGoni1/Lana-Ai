@@ -120,6 +120,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Source topic not found" }, { status: 404 });
       }
       sourceTopicId = topicRow.id;
+    } else {
+      // Try to map free-text exam topics to an existing user topic so we can reuse quiz question fallbacks.
+      const { data: userTopics } = await supabase
+        .from("topics")
+        .select("id, title")
+        .eq("user_id", user.id)
+        .limit(300);
+
+      const matchedTopic = (userTopics ?? []).find((row) => normalizeTopicKey(row.title ?? "") === topicKey);
+      if (matchedTopic?.id) {
+        sourceTopicId = matchedTopic.id;
+      }
     }
 
     const { data: bankRows, error: bankError } = await supabase

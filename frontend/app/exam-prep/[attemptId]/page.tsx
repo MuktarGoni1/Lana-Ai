@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AlertTriangle, ArrowLeft, CheckCircle2, XCircle } from "lucide-react";
 import type { ExamQuestion } from "@/lib/exam-prep";
+import { supabase } from "@/lib/db";
 
 type AttemptPayload = {
   id: string;
@@ -43,6 +44,33 @@ export default function ExamPrepAttemptPage() {
   const [startTime] = useState(Date.now());
   const [seconds, setSeconds] = useState(0);
 
+  async function ensureServerSessionSynced() {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token || !session?.refresh_token) return;
+
+    await fetch("/api/auth/sync-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+      cache: "no-store",
+    });
+  }
+
+  async function authFetch(input: RequestInfo | URL, init?: RequestInit) {
+    await ensureServerSessionSynced();
+    return fetch(input, {
+      ...(init || {}),
+      credentials: "include",
+      cache: init?.cache ?? "no-store",
+    });
+  }
+
   useEffect(() => {
     if (result) return;
     const timer = setInterval(() => {
@@ -62,7 +90,7 @@ export default function ExamPrepAttemptPage() {
       setLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/exam-prep/attempt/${attemptId}`, { cache: "no-store" });
+        const response = await authFetch(`/api/exam-prep/attempt/${attemptId}`);
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(payload?.error || "Failed to load exam attempt");
@@ -108,7 +136,7 @@ export default function ExamPrepAttemptPage() {
     setSubmitLoading(true);
     setSubmitError(null);
     try {
-      const response = await fetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
+      const response = await authFetch(`/api/exam-prep/attempt/${attempt.id}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),

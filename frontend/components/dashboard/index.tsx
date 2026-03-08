@@ -161,6 +161,36 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
   const [startingExam, setStartingExam] = useState(false);
   const [examError, setExamError] = useState<string | null>(null);
 
+  const ensureServerSessionSynced = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.access_token || !session?.refresh_token) return;
+
+    await fetch("/api/auth/sync-session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token,
+      }),
+      cache: "no-store",
+    });
+  }, []);
+
+  const authFetch = useCallback(
+    async (input: RequestInfo | URL, init?: RequestInit) => {
+      await ensureServerSessionSynced();
+      return fetch(input, {
+        ...(init || {}),
+        credentials: "include",
+        cache: init?.cache ?? "no-store",
+      });
+    },
+    [ensureServerSessionSynced]
+  );
+
   const load = useCallback(async (userId: string) => {
     setLoading(true);
     setLoadError(null);
@@ -309,10 +339,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
 
       if (!isOnboardingComplete()) {
         try {
-          const progressRes = await fetch("/api/onboarding-progress", {
-            credentials: "include",
-            cache: "no-store",
-          });
+          const progressRes = await authFetch("/api/onboarding-progress");
 
           if (progressRes.ok) {
             const progress = await progressRes.json();
@@ -336,7 +363,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     };
 
     void handleDashboardAccess();
-  }, [authLoading, checkAuthStatus, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
+  }, [authFetch, authLoading, checkAuthStatus, isAuthenticated, isOnboardingComplete, load, router, user?.id]);
 
   const missingFields = useMemo(() => missingFieldLabels(profile), [profile]);
   const showSetupBanner =
@@ -429,7 +456,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     setStartingExam(true);
     setExamError(null);
     try {
-      const response = await fetch("/api/exam-prep/start", {
+      const response = await authFetch("/api/exam-prep/start", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -460,7 +487,7 @@ export function LanaMindDashboard({ onWatchVideo }: Props) {
     } finally {
       setStartingExam(false);
     }
-  }, [customTopic, router, selectedSourceTopicId, selectedTopic]);
+  }, [authFetch, customTopic, router, selectedSourceTopicId, selectedTopic]);
 
   const bestScore = useCallback(
     (topicId: string) => {
