@@ -147,7 +147,8 @@ const nextConfig = {
       'quiz',
       'subscription/status',
       'structured-lesson',
-      'chat'
+      'chat',
+      'exam-prep'
     ];
     
     // Log the exclusion pattern for debugging

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@/lib/supabase/server";
 import { gradeExamAttempt, normalizeExamQuestion, type ExamQuestion } from "@/lib/exam-prep";
 
@@ -25,7 +26,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
       return NextResponse.json({ error: "Invalid payload", details: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { data: attempt, error: attemptError } = await supabase
+    let { data: attempt, error: attemptError } = await supabase
       .from("exam_attempts")
       .select("id, question_count, correct_count, score_percent, completed_at, question_snapshot, answers")
       .eq("id", attemptId)
@@ -37,7 +38,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
     }
 
     if (!attempt) {
-      return NextResponse.json({ error: "Attempt not found" }, { status: 404 });
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      if (serviceRoleKey && supabaseUrl) {
+        const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+        const { data: rawAttempt, error: rawAttemptError } = await admin
+          .from("exam_attempts")
+          .select("id, user_id, question_count, correct_count, score_percent, completed_at, question_snapshot, answers")
+          .eq("id", attemptId)
+          .maybeSingle();
+
+        if (!rawAttemptError && rawAttempt && rawAttempt.user_id === user.id) {
+          const { user_id: _ignored, ...safeAttempt } = rawAttempt;
+          attempt = safeAttempt;
+        }
+      }
+    }
+
+    if (!attempt) {
+      return NextResponse.json({ error: "Attempt not found", code: "ATTEMPT_NOT_FOUND" }, { status: 404 });
     }
 
     if (attempt.completed_at) {
@@ -79,7 +99,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
     const grade = gradeExamAttempt(questions, parsed.data.answers);
     const finishedAt = new Date().toISOString();
 
-    const { error: updateError } = await supabase
+    let { error: updateError } = await supabase
       .from("exam_attempts")
       .update({
         answers: {
@@ -92,6 +112,30 @@ export async function POST(req: Request, { params }: { params: Promise<{ attempt
       })
       .eq("id", attempt.id)
       .eq("user_id", user.id);
+
+    if (updateError) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+      if (serviceRoleKey && supabaseUrl) {
+        const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+        const { error: adminUpdateError } = await admin
+          .from("exam_attempts")
+          .update({
+            answers: {
+              review: grade.review,
+              submitted_answers: parsed.data.answers,
+            },
+            correct_count: grade.correct,
+            score_percent: grade.score_percent,
+            completed_at: finishedAt,
+          })
+          .eq("id", attempt.id)
+          .eq("user_id", user.id);
+
+        updateError = adminUpdateError;
+      }
+    }
 
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
