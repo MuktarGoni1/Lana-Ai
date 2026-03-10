@@ -240,16 +240,16 @@ export default function OnboardingPage() {
 
     if (step === 1) {
       if (!fullName.trim()) {
-        setError("Please enter a name to continue.");
+        setError(role === "parent" ? "Please enter your child's name to continue." : "Please enter a name to continue.");
         return;
       }
       if (!grade.trim()) {
-        setError("Please enter a grade to continue.");
+        setError(role === "parent" ? "Please enter your child's grade to continue." : "Please enter a grade to continue.");
         return;
       }
       const ageNum = Number(age);
       if (age && (!Number.isFinite(ageNum) || ageNum < 1 || ageNum > 120)) {
-        setError("Please enter a valid age.");
+        setError(role === "parent" ? "Please enter a valid age for your child." : "Please enter a valid age.");
         return;
       }
 
@@ -408,7 +408,12 @@ export default function OnboardingPage() {
     );
   }
 
-  const stepLabels = ["About You", "Learning Style", "Lesson Days", "Subjects & Topics"];
+  const stepLabels = [
+    role === "parent" ? "About Your Child" : "About You",
+    role === "parent" ? "Child's Learning Style" : "Learning Style",
+    "Lesson Days",
+    "Subjects & Topics",
+  ];
 
   return (
     <div className="min-h-screen bg-black px-4 py-8 text-white">
@@ -445,7 +450,7 @@ export default function OnboardingPage() {
             </div>
 
             <label className="block space-y-1">
-              <span className="text-xs text-white/60">Name</span>
+              <span className="text-xs text-white/60">{role === "parent" ? "Child's name" : "Name"}</span>
               <input
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
@@ -456,7 +461,7 @@ export default function OnboardingPage() {
 
             <div className="grid grid-cols-2 gap-3">
               <label className="block space-y-1">
-                <span className="text-xs text-white/60">Age</span>
+                <span className="text-xs text-white/60">{role === "parent" ? "Child's age" : "Age"}</span>
                 <input
                   type="number"
                   value={age}
@@ -467,7 +472,7 @@ export default function OnboardingPage() {
               </label>
 
               <label className="block space-y-1">
-                <span className="text-xs text-white/60">Grade</span>
+                <span className="text-xs text-white/60">{role === "parent" ? "Child's grade" : "Grade"}</span>
                 <input
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
@@ -481,6 +486,11 @@ export default function OnboardingPage() {
 
         {step === 2 && (
           <div className="space-y-3">
+            <p className="text-xs text-white/60">
+              {role === "parent"
+                ? "Choose the learning style that best matches your child."
+                : "Choose the learning style that best matches how you learn."}
+            </p>
             {[
               { id: "visual", label: "Visual", desc: "Diagrams, charts, and examples" },
               { id: "auditory", label: "Auditory", desc: "Explainers and spoken walkthroughs" },
